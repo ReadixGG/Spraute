@@ -1,0 +1,376 @@
+# ================================================================
+#  Spraute Quests — Журнал квестов
+#  Запуск: /spraute run spraute_quests
+#  Открытие/закрытие: клавиша H
+# ================================================================
+
+# ──── Список квестов мира (сохраняется между сессиями в данных мира) ────
+if (!has_var("quest_list")) {
+    var world quest_list = list_create()
+
+    val q1 = dict_create()
+    dict_set(q1, "id", "iron_forge")
+    dict_set(q1, "name", "Железный заказ")
+    dict_set(q1, "author", "Кузнец Борис")
+    dict_set(q1, "status", "§eВ процессе")
+    dict_set(q1, "goals", "• Принести 30 слитков железа\n• Отдать кузнецу Борису")
+    dict_set(q1, "desc", "Кузнец Борис из деревни у реки попросил тебя раздобыть 30 железных слитков.\nБез них он не сможет выковать новый меч для капитана стражи.\nЗагляни в шахты к югу от деревни — там всегда было полно руды.")
+    list_add(quest_list, q1)
+
+    val q2 = dict_create()
+    dict_set(q2, "id", "lost_crystal")
+    dict_set(q2, "name", "Потерянный артефакт")
+    dict_set(q2, "author", "Маг Элара")
+    dict_set(q2, "status", "§aДоступен")
+    dict_set(q2, "goals", "• Найти Кристалл Бури в подземелье\n• Вернуть кристалл магу Эларе")
+    dict_set(q2, "desc", "Маг Элара из башни на холме потеряла древний Кристалл Бури, который унесли скелеты в подземелье под руинами.\nБез этого кристалла она не может защитить деревню от надвигающегося шторма.")
+    list_add(quest_list, q2)
+
+    val q3 = dict_create()
+    dict_set(q3, "id", "oak_spirit")
+    dict_set(q3, "name", "Страж леса")
+    dict_set(q3, "author", "Дух Дуба")
+    dict_set(q3, "status", "§7Завершён")
+    dict_set(q3, "goals", "• Посадить 10 саженцев дуба\n• Поговорить с Духом Дуба")
+    dict_set(q3, "desc", "Древний Дух Дуба попросил восстановить вырубленный участок леса.\nТы посадил саженцы и лес начал возрождаться.\nДух благословил тебя силой природы.")
+    list_add(quest_list, q3)
+}
+
+# ──── API: создание квеста ────
+fun add_quest(id, name, author, desc, goals) {
+    val q = dict_create()
+    dict_set(q, "id", id)
+    dict_set(q, "name", name)
+    dict_set(q, "author", author)
+    dict_set(q, "status", "§aДоступен")
+    dict_set(q, "goals", goals)
+    dict_set(q, "desc", desc)
+    list_add(quest_list, q)
+}
+
+# ──── API: изменение поля квеста ────
+fun set_quest_field(id, field, value) {
+    val count = list_size(quest_list)
+    var i = 0
+    while (i < count) {
+        val q = list_get(quest_list, i)
+        if (dict_get(q, "id") == id) {
+            dict_set(q, field, value)
+        }
+        i = i + 1
+    }
+}
+
+# ──── API: изменение статуса ────
+fun set_quest_status(id, status) {
+    set_quest_field(id, "status", status)
+}
+
+# ──── API: удаление квеста ────
+fun remove_quest(id) {
+    val count = list_size(quest_list)
+    var i = 0
+    var to_remove = -1
+    while (i < count) {
+        val q = list_get(quest_list, i)
+        if (dict_get(q, "id") == id) {
+            to_remove = i
+        }
+        i = i + 1
+    }
+    if (to_remove >= 0) {
+        list_remove(quest_list, to_remove)
+    }
+}
+
+# ──── API: добавить цель к квесту ────
+fun add_quest_goal(id, goal) {
+    val count = list_size(quest_list)
+    var i = 0
+    while (i < count) {
+        val q = list_get(quest_list, i)
+        if (dict_get(q, "id") == id) {
+            val old_goals = dict_get(q, "goals")
+            dict_set(q, "goals", old_goals + "\n• " + goal)
+        }
+        i = i + 1
+    }
+}
+
+# ──── API: добавить текст к описанию ────
+fun add_quest_desc(id, text) {
+    val count = list_size(quest_list)
+    var i = 0
+    while (i < count) {
+        val q = list_get(quest_list, i)
+        if (dict_get(q, "id") == id) {
+            val old_desc = dict_get(q, "desc")
+            dict_set(q, "desc", old_desc + "\n" + text)
+        }
+        i = i + 1
+    }
+}
+
+# ================================================================
+#  UI: Полноэкранный журнал квестов
+# ================================================================
+
+val player = get_nearest_player()
+var selected_idx = 0
+
+# Высота плашки от числа строк заголовка: явные \n + оценка переноса по узкой колонке (~25 симв./строка при масштабе 0.68)
+fun quest_row_h(quest_name) {
+    # Считаем количество явных переносов \n
+    var nl = str_newline_count(quest_name) + 1
+    
+    # Увеличим порог оценки переноса до ~35 символов (для масштаба 0.68 это точнее)
+    val wrap_lines = (str_len(quest_name) + 34) / 35
+    if (wrap_lines > nl) {
+        nl = wrap_lines
+    }
+    
+    # Формула: 4 (отступ сверху) + (кол-во строк * высота строки 5) + 6 (подзаголовок) + 2 (запас снизу)
+    # Для одной строки выйдет 4 + 5 + 6 + 2 = 17 (вместо прежних 18+, но с учетом автора)
+    # Если нужно еще плотнее, уменьшите последние числа.
+    return 4 + nl * 5 + 6
+}
+
+fun open_quest_ui(p, sel) {
+    val count = list_size(quest_list)
+    var safe_sel = sel
+    if (count > 0) {
+        if (safe_sel < 0) {
+            safe_sel = 0
+        }
+        if (safe_sel >= count) {
+            safe_sel = count - 1
+        }
+    }
+    selected_idx = safe_sel
+
+    # content_h скролла списка нужен до выполнения тела — считаем вторым проходом
+    var sidebar_h = 12
+    var j = 0
+    while (j < count) {
+        val qj = list_get(quest_list, j)
+        sidebar_h = sidebar_h + quest_row_h(dict_get(qj, "name")) + 2
+        j = j + 1
+    }
+
+    create ui quest_menu {
+        size = ["100%", "100%"]
+        # ~30% прозрачность фона (альфа ≈ 70% непрозрачности): #B2 + цвет
+        background = "#B2000000"
+
+        # ═══ Левая колонка: было 36% / 35% — уменьшено в 1.4 раза (~25.7% / 25%) ═══
+        rect("sidebar_bg") {
+            pos = [0, 0]
+            size = ["25.71%", "100%"]
+            color = "#B21E1E28"
+            layer = 0
+        }
+
+        divider("sidebar_div") {
+            pos = ["25.71%", 0]
+            size = [1, "100%"]
+            color = "#B2FFFFFF"
+            layer = 0
+        }
+
+        scroll("quest_scroll") {
+            pos = [4, 8]
+            size = ["25%", "96%"]
+            content_h = sidebar_h
+            scrollbar = true
+            color = "#30000000"
+            layer = 2
+
+            var y_acc = 6
+            var i = 0
+            while (i < count) {
+                val q = list_get(quest_list, i)
+                val q_name = dict_get(q, "name")
+                val q_author = dict_get(q, "author")
+                val row_h = quest_row_h(q_name)
+
+                var btn_color = "#40335577"
+                if (i == safe_sel) {
+                    btn_color = "#80556699"
+                }
+
+                button("sel_" + i, q_name) {
+                    pos = [0, y_acc]
+                    size = ["98%", row_h]
+                    color = btn_color
+                    hover = "#8066AACC"
+                    label_wrap = 300
+                    label_scale = 0.68
+                    sub_label = "§7" + q_author
+                    sub_scale = 0.52
+                }
+
+                y_acc = y_acc + row_h + 2
+                i = i + 1
+            }
+        }
+
+        # ═══ Правая панель (детали квеста) ═══
+        if (count > 0) {
+            rect("right_bg") {
+                pos = ["27%", 0]
+                size = ["73%", "100%"]
+                color = "#B2121218"
+                layer = 1
+            }
+
+            val sel_q = list_get(quest_list, safe_sel)
+            val s_name = dict_get(sel_q, "name")
+            val s_author = dict_get(sel_q, "author")
+            val s_status = dict_get(sel_q, "status")
+            val s_goals = dict_get(sel_q, "goals")
+            val s_desc = dict_get(sel_q, "desc")
+
+            val gl = str_len(s_goals)
+            val dl = str_len(s_desc)
+            var goals_lines = str_newline_count(s_goals) + 1
+            val goals_wrap = (gl + 71) / 72
+            if (goals_wrap > goals_lines) {
+                goals_lines = goals_wrap
+            }
+            if (goals_lines < 1) {
+                goals_lines = 1
+            }
+            val goals_h = goals_lines * 9
+            val y_div_desc = 68 + goals_h + 2
+            val y_desc_t = y_div_desc + 4
+            val y_desc_b = y_desc_t + 9
+            var desc_lines = str_newline_count(s_desc) + 1
+            val desc_wrap = (dl + 71) / 72
+            if (desc_wrap > desc_lines) {
+                desc_lines = desc_wrap
+            }
+            if (desc_lines < 1) {
+                desc_lines = 1
+            }
+            val detail_content_h = y_desc_b + desc_lines * 9 + 12
+
+            scroll("detail_scroll") {
+                pos = ["28%", 6]
+                size = ["72%", "94%"]
+                content_h = detail_content_h
+                auto_scrollbar = true
+                scrollbar = false
+                color = "#30000000"
+                layer = 2
+
+                text("d_name", "§l" + s_name) {
+                    pos = [6, 4]
+                    color = "#FFFFFF"
+                    scale = 1.3
+                }
+
+                text("d_author", "§7Квестодатель: §f" + s_author) {
+                    pos = [6, 22]
+                    color = "#AAAAAA"
+                    scale = 0.85
+                }
+
+                text("d_status", "§7Статус: " + s_status) {
+                    pos = [6, 34]
+                    color = "#AAAAAA"
+                    scale = 0.85
+                }
+
+                divider("div_goals") {
+                    pos = [6, 48]
+                    size = ["96%", 1]
+                    color = "#33FFFFFF"
+                }
+
+                text("d_goals_t", "§e§lЦели:") {
+                    pos = [6, 54]
+                    color = "#FFAA00"
+                    scale = 0.95
+                }
+
+                text("d_goals", s_goals) {
+                    pos = [6, 68]
+                    color = "#DDDDDD"
+                    scale = 0.85
+                    wrap = "96%"
+                    align = "left"
+                }
+
+                divider("div_desc") {
+                    pos = [6, y_div_desc]
+                    size = ["96%", 1]
+                    color = "#33FFFFFF"
+                }
+
+                text("d_desc_t", "§b§lОписание:") {
+                    pos = [6, y_desc_t]
+                    color = "#55BBFF"
+                    scale = 0.95
+                }
+
+                text("d_desc", s_desc) {
+                    pos = [6, y_desc_b]
+                    color = "#CCCCCC"
+                    scale = 0.8
+                    wrap = "96%"
+                    align = "left"
+                }
+            }
+        } else {
+            text("empty_msg", "Нет активных квестов") {
+                pos = ["28%", "42%"]
+                color = "#FFCCCCCC"
+                scale = 1.0
+                layer = 2
+            }
+        }
+    }
+
+    ui_open(p, quest_menu)
+}
+
+# ══════════════════════════════════════════════
+#  Keybind H — открытие / закрытие журнала
+# ══════════════════════════════════════════════
+
+var global quest_journal_open = false
+
+on keybind("h") -> toggle_quests {
+    val p = _event_player
+
+    if (quest_journal_open) {
+        ui_close(p)
+        quest_journal_open = false
+        stop_task("journal_loop")
+    } else {
+        quest_journal_open = true
+        selected_idx = 0
+        open_quest_ui(p, selected_idx)
+
+        async "journal_loop" {
+            while (quest_journal_open) {
+                val click = await ui_click(p)
+
+                if (click == "__close__" || click == "") {
+                    quest_journal_open = false
+                    ui_close(p)
+                } else {
+                    var idx = 0
+                    val cnt = list_size(quest_list)
+                    while (idx < cnt) {
+                        if (click == "sel_" + idx) {
+                            selected_idx = idx
+                            open_quest_ui(p, selected_idx)
+                        }
+                        idx = idx + 1
+                    }
+                }
+            }
+        }
+    }
+}

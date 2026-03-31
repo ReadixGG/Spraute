@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spraute Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body class="bg-background text-on-surface font-body h-screen overflow-hidden selection:bg-primary/30 relative flex flex-col">
+
+  <!-- Анимированный фон (светящиеся сферы) -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none z-0 bg-background">
+    <!-- Убавил яркость эффектов, чтобы они были едва заметны, не как ИИ-градиент -->
+    <div class="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-primary/[0.03] rounded-full blur-[120px] mix-blend-screen animate-blob"></div>
+    <div class="absolute top-[20%] right-[-10%] w-[40vw] h-[40vw] bg-secondary/[0.03] rounded-full blur-[100px] mix-blend-screen animate-blob animation-delay-2000"></div>
+    <div class="absolute bottom-[-20%] left-[20%] w-[60vw] h-[60vw] bg-tertiary/[0.03] rounded-full blur-[150px] mix-blend-screen animate-blob animation-delay-4000"></div>
+  </div>
+
+  <!-- Контент, который переключается -->
+  <div id="app-mount" class="relative z-10 w-full h-full flex flex-col items-center justify-center">
+    <!-- Шапка для первого экрана -->
+    <div class="fixed top-0 left-0 w-full h-8 shrink-0 flex items-center px-4 bg-transparent z-50" style="-webkit-app-region: drag;">
+       <span class="text-xs text-on-variant/50 font-mono tracking-wider hidden" id="initial-title">Spraute Studio</span>
+    </div>
+    
+    <!-- Шаг 1: Выбор языка -->
+    <div id="view-language" class="bg-surface-container border border-white/5 shadow-2xl rounded-2xl max-w-md w-full p-10 flex flex-col items-center gap-8 opacity-0 transition-all duration-500 transform translate-y-4">
+      <div class="flex items-center gap-3 text-primary">
+        <span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1">language</span>
+      </div>
+      <div class="text-center space-y-2">
+        <h1 class="font-headline text-3xl font-bold tracking-tight">Select Language</h1>
+        <p class="text-on-variant text-sm">Choose your preferred interface language</p>
+      </div>
+      <div class="flex w-full gap-4">
+        <button data-lang="ru" class="flex-1 flex flex-col items-center p-6 rounded-2xl border border-white/5 bg-white/5 hover:bg-primary/10 hover:border-primary/30 transition-all group">
+          <span class="text-3xl mb-2">🇷🇺</span>
+          <span class="font-headline font-semibold text-on-surface group-hover:text-primary transition-colors">Русский</span>
+        </button>
+        <button data-lang="en" class="flex-1 flex flex-col items-center p-6 rounded-2xl border border-white/5 bg-white/5 hover:bg-primary/10 hover:border-primary/30 transition-all group">
+          <span class="text-3xl mb-2">🇬🇧</span>
+          <span class="font-headline font-semibold text-on-surface group-hover:text-primary transition-colors">English</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Шаг 2: Выбор папки Minecraft -->
+    <div id="view-folder" class="hidden bg-surface-container border border-white/5 shadow-2xl rounded-2xl max-w-lg w-full p-10 flex flex-col items-center gap-8 opacity-0 transition-all duration-500 transform translate-y-4">
+      <div class="flex items-center gap-3 text-secondary">
+        <span class="material-symbols-outlined text-5xl" style="font-variation-settings: 'FILL' 1">folder_open</span>
+      </div>
+      <div class="text-center space-y-3 w-full">
+        <h1 id="i18n-folder-title" class="font-headline text-3xl font-bold tracking-tight text-white">Папка Minecraft</h1>
+        <p id="i18n-folder-desc" class="text-on-variant text-sm leading-relaxed max-w-[90%] mx-auto">
+          Укажите путь к папке игры (например, <code class="bg-black/30 px-1.5 py-0.5 rounded font-mono text-tertiary">.minecraft</code>). 
+          Мы автоматически найдём все ваши скрипты Spraute.
+        </p>
+      </div>
+
+      <div class="w-full bg-black/20 border border-white/5 rounded-xl p-4 flex items-center justify-between gap-4 group hover:border-secondary/30 transition-colors">
+        <div class="flex flex-col overflow-hidden">
+          <span id="i18n-folder-label" class="text-[10px] uppercase tracking-wider text-on-variant font-bold mb-1">Выбранный путь</span>
+          <span id="selected-path" class="font-mono text-sm text-on-surface truncate">Не выбрано</span>
+        </div>
+        <button id="btn-browse" class="shrink-0 px-4 py-2 rounded-lg bg-white/10 hover:bg-secondary text-white font-medium text-sm transition-all hover:shadow-[0_0_15px_rgba(172,138,255,0.4)]">
+          <span id="i18n-browse">Обзор...</span>
+        </button>
+      </div>
+
+      <button id="btn-start" disabled class="w-full py-3.5 rounded-xl bg-gradient-to-r from-primary/80 to-primary text-background font-headline font-bold text-lg disabled:opacity-30 disabled:pointer-events-none hover:shadow-[0_0_20px_rgba(209,255,159,0.4)] transition-all transform active:scale-[0.98]">
+        <span id="i18n-start">Начать работу</span>
+      </button>
+    </div>
+
+    <!-- Шаг 2.5: Загрузка обновлений -->
+    <div id="view-updater" class="hidden bg-surface-container border border-white/5 shadow-2xl rounded-2xl max-w-md w-full p-8 flex flex-col items-center gap-6 opacity-0 transition-all duration-500 transform translate-y-4">
+      <div class="animate-spin text-tertiary">
+        <span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1">sync</span>
+      </div>
+      <div class="text-center space-y-2 w-full">
+        <h2 class="font-headline text-xl font-bold text-white">Синхронизация Spraute</h2>
+        <div id="updater-logs" class="text-xs font-mono text-on-variant bg-background border border-white/5 p-3 rounded-lg w-full text-left h-32 overflow-y-auto space-y-1">
+        </div>
+      </div>
+    </div>
+
+    <!-- Рабочая область (Studio) -->
+    <div id="view-studio" class="hidden w-full h-full flex flex-col opacity-0 transition-opacity duration-1000">
+      <!-- Кастомная область для перетаскивания окна поверх всего (чтобы перекрывала кнопки, но не перекрывала WCO) -->
+      <div class="h-8 shrink-0 w-full flex items-center px-4 bg-background" style="-webkit-app-region: drag;">
+         <!-- Название приложения слева от кнопок закрытия -->
+         <span class="text-xs text-on-variant font-mono tracking-wider">Spraute Studio</span>
+      </div>
+      
+      <!-- Верхняя панель (смещена ниже кастомной шапки) -->
+      <header class="h-12 shrink-0 flex items-center px-4 bg-surface-low border-b border-white/5 relative z-20 shadow-sm" style="-webkit-app-region: no-drag;">
+        <div class="flex items-center gap-3">
+          <div class="w-6 h-6 bg-primary" style="-webkit-mask: url('/images/logo.svg') no-repeat center/contain; mask: url('/images/logo.svg') no-repeat center/contain;"></div>
+          <span class="font-headline font-bold tracking-tight text-white">Spraute Studio</span>
+          <div class="h-4 w-px bg-white/10 mx-2"></div>
+          <span id="studio-path-display" class="font-mono text-xs text-on-variant"></span>
+        </div>
+      </header>
+
+      <div class="flex flex-1 overflow-hidden relative z-10">
+        <!-- Боковая панель -->
+        <aside class="w-16 shrink-0 bg-surface flex flex-col items-center py-4 border-r border-white/5 gap-4">
+          <button class="w-10 h-10 rounded-xl flex items-center justify-center text-primary bg-primary/10 relative group" title="Проводник">
+            <div class="absolute left-[-16px] top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"></div>
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1">description</span>
+          </button>
+          <button class="w-10 h-10 rounded-xl flex items-center justify-center text-on-variant hover:text-white hover:bg-white/5 transition-colors" title="Поиск">
+            <span class="material-symbols-outlined">search</span>
+          </button>
+          <div class="flex-1"></div>
+          <button id="btn-open-settings" class="w-10 h-10 rounded-xl flex items-center justify-center text-on-variant hover:text-white hover:bg-white/5 transition-colors" title="Настройки">
+            <span class="material-symbols-outlined">settings</span>
+          </button>
+        </aside>
+
+        <!-- Дерево файлов -->
+        <section class="w-64 shrink-0 bg-surface border-r border-white/5 flex flex-col">
+          <div class="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+            <h2 id="i18n-explorer" class="text-xs font-bold uppercase tracking-widest text-on-variant">Проводник</h2>
+            <div class="flex items-center gap-1 text-on-variant">
+              <button id="btn-root-new-file" class="w-6 h-6 rounded flex items-center justify-center hover:bg-white/10 hover:text-white transition-colors" title="Новый файл">
+                <span class="material-symbols-outlined text-[16px]">note_add</span>
+              </button>
+              <button id="btn-root-new-folder" class="w-6 h-6 rounded flex items-center justify-center hover:bg-white/10 hover:text-white transition-colors" title="Новая папка">
+                <span class="material-symbols-outlined text-[16px]">create_new_folder</span>
+              </button>
+            </div>
+          </div>
+          <div id="file-tree" class="flex-1 overflow-y-auto p-2 space-y-0.5 text-sm font-body">
+            <!-- Элементы дерева файлов -->
+          </div>
+        </section>
+
+        <!-- Редактор / Пустая область -->
+        <section class="flex-1 bg-background flex flex-col relative overflow-hidden">
+          <!-- Вкладки (Tabs) -->
+          <div id="tabs-container" class="h-10 bg-surface-container border-b border-white/5 flex items-center overflow-x-auto overflow-y-hidden shrink-0 hidden relative z-30">
+            <!-- Вкладки будут здесь -->
+          </div>
+          <!-- Фуллскрин лого когда нет открытых файлов -->
+          <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-50 z-10 transition-opacity">
+            <div class="w-32 h-32 bg-on-variant/20" style="-webkit-mask: url('/images/logo.svg') no-repeat center/contain; mask: url('/images/logo.svg') no-repeat center/contain;"></div>
+            <p id="i18n-empty" class="mt-4 font-headline text-lg text-on-variant/50">Выберите файл для редактирования</p>
+          </div>
+          <div id="editor-mount" class="flex-1 relative z-20 w-full h-full"></div>
+        </section>
+      </div>
+      
+      <!-- Статус бар -->
+      <footer class="h-6 shrink-0 bg-primary text-background px-4 flex items-center justify-between text-[11px] font-mono font-medium z-20">
+        <div class="flex items-center gap-4">
+          <span id="status-message" class="flex items-center gap-1 transition-opacity duration-300 opacity-0"><span class="material-symbols-outlined text-[14px]">check_circle</span> Готово</span>
+        </div>
+        <div>Spraute Engine</div>
+      </footer>
+    </div>
+
+  </div>
+
+  <!-- Контекстное меню файлов -->
+  <div id="context-menu" class="hidden absolute z-50 w-48 bg-surface-bright/90 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl py-1 text-sm font-body overflow-hidden">
+    <button id="ctx-new-file" class="w-full text-left px-4 py-2 hover:bg-primary/20 hover:text-primary transition-colors flex items-center gap-2">
+      <span class="material-symbols-outlined text-[16px]">note_add</span> Новый файл
+    </button>
+    <button id="ctx-new-folder" class="w-full text-left px-4 py-2 hover:bg-secondary/20 hover:text-secondary transition-colors flex items-center gap-2">
+      <span class="material-symbols-outlined text-[16px]">create_new_folder</span> Новая папка
+    </button>
+    <div class="h-px bg-white/5 my-1"></div>
+    <button id="ctx-rename" class="w-full text-left px-4 py-2 hover:bg-white/10 transition-colors flex items-center gap-2">
+      <span class="material-symbols-outlined text-[16px]">edit</span> Переименовать
+    </button>
+    <button id="ctx-delete" class="w-full text-left px-4 py-2 hover:bg-red-500/20 hover:text-red-400 transition-colors flex items-center gap-2 text-red-300">
+      <span class="material-symbols-outlined text-[16px]">delete</span> Удалить
+    </button>
+    <div class="h-px bg-white/5 my-1"></div>
+    <button id="ctx-show-explorer" class="w-full text-left px-4 py-2 hover:bg-white/10 transition-colors flex items-center gap-2">
+      <span class="material-symbols-outlined text-[16px]">folder_open</span> Показать в проводнике
+    </button>
+  </div>
+
+  <!-- Модальное окно (Prompt / Confirm) -->
+  <div id="app-modal" class="hidden fixed inset-0 z-[100] bg-background/80 backdrop-blur-sm flex items-center justify-center">
+    <div class="bg-surface-container border border-white/10 rounded-2xl p-6 shadow-2xl max-w-sm w-full space-y-4 transform scale-95 opacity-0 transition-all duration-200" id="app-modal-box">
+      <h3 id="modal-title" class="font-headline font-bold text-white text-lg">Вопрос</h3>
+      <div id="modal-input-container" class="space-y-2">
+        <input type="text" id="modal-input" class="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary transition-colors" />
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button id="modal-btn-cancel" class="px-4 py-2 rounded-lg text-on-variant hover:bg-white/5 hover:text-white transition-colors text-sm font-medium">Отмена</button>
+        <button id="modal-btn-ok" class="px-4 py-2 rounded-lg bg-primary text-background hover:bg-primary/90 transition-colors text-sm font-medium font-bold">ОК</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модальное окно Настроек -->
+  <div id="settings-modal" class="hidden fixed inset-0 z-[100] bg-background/80 backdrop-blur-md flex items-center justify-center">
+    <div class="bg-surface-container border border-white/10 rounded-2xl shadow-2xl max-w-2xl w-full h-[80vh] flex flex-col transform scale-95 opacity-0 transition-all duration-200" id="settings-modal-box">
+      <!-- Заголовок -->
+      <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between shrink-0">
+        <h2 class="font-headline font-bold text-xl text-white">Настройки</h2>
+        <button id="btn-close-settings" class="text-on-variant hover:text-white transition-colors">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <!-- Содержимое -->
+      <div class="flex-1 overflow-y-auto p-6 space-y-8 font-body text-sm">
+        <!-- Блок: Общие -->
+        <section class="space-y-4">
+          <h3 class="font-headline font-semibold text-primary uppercase tracking-widest text-[11px]">Обновления и Пути</h3>
+          
+          <label class="flex items-center gap-3 cursor-pointer group">
+            <div class="relative flex items-center">
+              <input type="checkbox" id="setting-auto-update" class="sr-only peer" checked>
+              <div class="w-10 h-6 bg-black/40 rounded-full peer-checked:bg-primary/20 border border-white/10 peer-checked:border-primary/50 transition-colors"></div>
+              <div class="absolute left-1 top-1 w-4 h-4 bg-on-variant peer-checked:bg-primary rounded-full transition-transform peer-checked:translate-x-4"></div>
+            </div>
+            <span class="text-white group-hover:text-primary transition-colors">Автоматически скачивать обновления мода и документации</span>
+          </label>
+
+          <div class="flex flex-col gap-2">
+            <span class="text-on-variant text-xs">Папка Minecraft / Сервера:</span>
+            <div class="flex items-center gap-2">
+              <input type="text" id="setting-mc-path" readonly class="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-on-variant font-mono text-xs focus:outline-none" />
+              <button id="btn-change-mc-path" class="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors">Изменить</button>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <span class="text-on-variant text-xs">Версия мода Spraute Engine:</span>
+            <select id="setting-mod-version" class="bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary">
+              <option value="1.19.2">1.19.2 (Последняя доступная)</option>
+            </select>
+          </div>
+        </section>
+
+        <div class="h-px w-full bg-white/5"></div>
+
+        <!-- Блок: Внешний вид -->
+        <section class="space-y-4">
+          <h3 class="font-headline font-semibold text-secondary uppercase tracking-widest text-[11px]">Внешний вид и Тема</h3>
+          
+          <div class="flex flex-col gap-2">
+            <span class="text-on-variant text-xs">Тема оформления:</span>
+            <select id="setting-theme" class="bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-secondary transition-colors">
+              <option value="kinetic-dark">Kinetic Dark (По умолчанию)</option>
+              <option value="laboratory-light">Laboratory Light</option>
+              <option value="spraute-classic">Spraute Classic</option>
+              <option value="custom">Кастомная</option>
+            </select>
+          </div>
+
+          <!-- Кастомная тема: Цвета -->
+          <div id="custom-theme-colors" class="hidden grid grid-cols-2 gap-4 p-4 bg-black/20 rounded-xl border border-white/5">
+            <label class="flex flex-col gap-1">
+              <span class="text-[10px] text-on-variant uppercase tracking-wider">Фон (Background)</span>
+              <div class="flex items-center gap-2">
+                <input type="color" id="color-bg" class="w-8 h-8 rounded cursor-pointer bg-transparent border-none p-0" />
+                <span class="text-xs font-mono text-white" id="color-bg-val">#040e1f</span>
+              </div>
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="text-[10px] text-on-variant uppercase tracking-wider">Панели (Surface)</span>
+              <div class="flex items-center gap-2">
+                <input type="color" id="color-surface" class="w-8 h-8 rounded cursor-pointer bg-transparent border-none p-0" />
+                <span class="text-xs font-mono text-white" id="color-surface-val">#0b1a2f</span>
+              </div>
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="text-[10px] text-primary uppercase tracking-wider">Primary Color</span>
+              <div class="flex items-center gap-2">
+                <input type="color" id="color-primary" class="w-8 h-8 rounded cursor-pointer bg-transparent border-none p-0" />
+                <span class="text-xs font-mono text-white" id="color-primary-val">#d1ff9f</span>
+              </div>
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="text-[10px] text-secondary uppercase tracking-wider">Secondary Color</span>
+              <div class="flex items-center gap-2">
+                <input type="color" id="color-secondary" class="w-8 h-8 rounded cursor-pointer bg-transparent border-none p-0" />
+                <span class="text-xs font-mono text-white" id="color-secondary-val">#ac8aff</span>
+              </div>
+            </label>
+          </div>
+
+          <div class="flex flex-col gap-2 pt-2">
+            <span class="text-on-variant text-xs">Фоновое изображение редактора:</span>
+            <div class="flex items-center gap-2">
+              <input type="text" id="setting-bg-image" placeholder="URL или путь к картинке" class="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-secondary transition-colors" />
+              <button id="btn-select-bg-image" class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors flex items-center justify-center" title="Выбрать файл">
+                <span class="material-symbols-outlined text-[18px]">folder_open</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <div class="flex justify-between">
+              <span class="text-on-variant text-xs">Прозрачность фона:</span>
+              <span id="setting-bg-opacity-val" class="text-xs text-secondary font-mono">0.2</span>
+            </div>
+            <input type="range" id="setting-bg-opacity" min="0" max="1" step="0.01" value="0.2" class="w-full accent-secondary" />
+          </div>
+        </section>
+
+        <div class="h-px w-full bg-white/5"></div>
+
+        <!-- Блок: Редактор кода -->
+        <section class="space-y-4">
+          <h3 class="font-headline font-semibold text-tertiary uppercase tracking-widest text-[11px]">Редактор кода</h3>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col gap-2">
+              <span class="text-on-variant text-xs">Размер шрифта (px):</span>
+              <input type="number" id="setting-font-size" value="14" min="8" max="32" class="bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tertiary transition-colors" />
+            </div>
+            <div class="flex flex-col gap-2">
+              <span class="text-on-variant text-xs">Шрифт (Mono):</span>
+              <select id="setting-font-family" class="bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-tertiary transition-colors">
+                <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+                <option value="'Fira Code', monospace">Fira Code</option>
+                <option value="'Consolas', monospace">Consolas</option>
+                <option value="'Courier New', monospace">Consolas</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-2">
+              <span class="text-on-variant text-xs">Цвета синтаксиса:</span>
+              <select id="setting-syntax-theme" class="bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-tertiary transition-colors">
+                <option value="app-theme">Авто (из темы приложения)</option>
+                <option value="vscode-dark">VS Code Dark+</option>
+                <option value="monokai">Monokai</option>
+                <option value="github-dark">GitHub Dark</option>
+              </select>
+            </div>
+          </div>
+
+          <label class="flex items-center gap-3 cursor-pointer group pt-2">
+            <div class="relative flex items-center">
+              <input type="checkbox" id="setting-word-wrap" class="sr-only peer" checked>
+              <div class="w-10 h-6 bg-black/40 rounded-full peer-checked:bg-tertiary/20 border border-white/10 peer-checked:border-tertiary/50 transition-colors"></div>
+              <div class="absolute left-1 top-1 w-4 h-4 bg-on-variant peer-checked:bg-tertiary rounded-full transition-transform peer-checked:translate-x-4"></div>
+            </div>
+            <span class="text-white group-hover:text-tertiary transition-colors">Перенос строк (Word Wrap)</span>
+          </label>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Studio Update Modal -->
+  <div id="studio-update-modal" class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center hidden">
+    <div id="studio-update-box" class="bg-surface-container border border-white/10 p-8 rounded-2xl w-[500px] max-w-[90vw] shadow-2xl flex flex-col gap-6 transform transition-all duration-300 scale-95 opacity-0">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+          <span class="material-symbols-outlined text-[24px]">system_update</span>
+        </div>
+        <div>
+          <h2 class="text-xl font-headline font-semibold text-white">Доступно обновление Studio</h2>
+          <p class="text-sm text-on-variant" id="studio-update-version">Версия: ...</p>
+        </div>
+      </div>
+      
+      <div class="bg-black/30 border border-white/5 rounded-xl p-4 max-h-[200px] overflow-y-auto">
+        <h3 class="text-xs font-semibold text-secondary uppercase tracking-wider mb-2">Что нового:</h3>
+        <div id="studio-update-notes" class="text-sm text-white/80 whitespace-pre-wrap font-body">
+          Загрузка информации...
+        </div>
+      </div>
+
+      <div id="studio-update-progress-container" class="hidden flex-col gap-2">
+        <div class="flex justify-between text-xs text-on-variant">
+          <span>Загрузка...</span>
+          <span id="studio-update-percent">0%</span>
+        </div>
+        <div class="h-1.5 w-full bg-black/50 rounded-full overflow-hidden">
+          <div id="studio-update-bar" class="h-full bg-primary transition-all duration-300" style="width: 0%"></div>
+        </div>
+      </div>
+      
+      <div class="flex justify-end gap-3 pt-2" id="studio-update-actions">
+        <button id="btn-studio-update-skip" class="px-5 py-2.5 rounded-xl bg-transparent border border-white/10 hover:bg-white/5 text-white font-medium transition-colors">
+          Позже
+        </button>
+        <button id="btn-studio-update-download" class="px-5 py-2.5 rounded-xl bg-primary hover:brightness-110 text-bg font-semibold transition-all shadow-lg shadow-primary/20">
+          Скачать и обновить
+        </button>
+      </div>
+      <div class="flex justify-end gap-3 pt-2 hidden" id="studio-update-install-actions">
+        <button id="btn-studio-update-install" class="px-5 py-2.5 rounded-xl bg-secondary hover:brightness-110 text-bg font-semibold transition-all shadow-lg shadow-secondary/20">
+          Перезапустить и Установить
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

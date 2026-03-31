@@ -1,0 +1,152 @@
+# Библиотека кастомного чата
+# Импортируйте через: include "spraute_chat"
+
+world val chat_history = list()
+
+fun calc_msg_height(text) {
+    var len = str_len(text)
+    var lines = len // 40 + 1
+    var h = lines * 10 + 20
+    if (h < 40) {
+        h = 40
+    }
+    return h
+}
+
+fun npc_chat(player, npc_id, text, color) {
+    var headTexture = npc_id.head
+    if (headTexture == null) {
+        headTexture = "minecraft:textures/heads/head.png"
+    }
+    var npcName = npc_id.name
+    if (npcName == null) {
+        npcName = "Неизвестный"
+    }
+    
+    # Добавляем в историю (макс 50 сообщений)
+    chat_history.add(dict("name", npcName, "text", text, "color", color, "head", headTexture))
+    if (chat_history.size() > 50) {
+        chat_history.remove(0)
+    }
+    
+    var msg_h = calc_msg_height(text)
+    var target_y = -msg_h - 40
+    
+    create ui chat_hud {
+        w = 240
+        h = msg_h
+        x = "50%"
+        y = "100%"
+        
+        clip("chat_container") {
+            x = -120
+            y = target_y
+            w = 240
+            h = msg_h
+            alpha = 0.0  # Начальная прозрачность
+            
+            rect("bg") {
+                x = 0
+                y = 0
+                w = 240
+                h = msg_h
+                color = "#AA000000"
+            }
+            
+            image("head_img") {
+                x = 5
+                y = (msg_h - 30) // 2
+                w = 30
+                h = 30
+                texture = headTexture
+            }
+            
+            text("name_txt", npcName) {
+                x = 40
+                y = 5
+                color = color
+            }
+            
+            text("msg_txt", text) {
+                x = 40
+                y = 18
+                color = "#FFFFFF"
+                wrap = 190
+                max_lines = 10
+            }
+        }
+    }
+    
+    overlay_open(player, chat_hud)
+    play_sound(player, "minecraft:entity.experience_orb.pickup", 0.5, 1.0)
+    
+    # Анимация плавного появления
+    ui_animate(player, "chat_container", "alpha", 1.0, 0.3)
+    
+    async {
+        await time(5.0)
+        ui_animate(player, "chat_container", "alpha", 0.0, 0.3)
+        await time(0.3)
+        overlay_close(player)
+    }
+}
+
+on keybind("key.keyboard.b") -> chat_history_kb {
+    val player = _event_player
+    var total_h = 0
+    
+    var i = 0
+    while (i < chat_history.size()) {
+        val msg = chat_history.get(i)
+        total_h = total_h + calc_msg_height(msg["text"]) + 5
+        i = i + 1
+    }
+    
+    create ui history_ui {
+        size = [300, 200]
+        bg = "#DD000000"
+        can_close = true
+        
+        text("title", "История сообщений") {
+            pos = [10, 10]
+            color = "#FFAA00"
+        }
+        
+        scroll("scroll_view") {
+            pos = [10, 25]
+            size = [280, 165]
+            content_h = total_h
+            
+            var current_y = 0
+            var j = 0
+            while (j < chat_history.size()) {
+                val msg = chat_history.get(j)
+                var m_h = calc_msg_height(msg["text"])
+                
+                rect("bg_" + j) {
+                    pos = [0, current_y]
+                    size = [270, m_h]
+                    color = "#55000000"
+                }
+                image("img_" + j) {
+                    pos = [5, current_y + (m_h - 30) // 2]
+                    size = [30, 30]
+                    texture = msg["head"]
+                }
+                text("name_" + j, msg["name"]) {
+                    pos = [40, current_y + 5]
+                    color = msg["color"]
+                }
+                text("txt_" + j, msg["text"]) {
+                    pos = [40, current_y + 18]
+                    color = "#FFFFFF"
+                    wrap = 220
+                }
+                current_y = current_y + m_h + 5
+                j = j + 1
+            }
+        }
+    }
+    
+    ui_open(player, history_ui)
+}

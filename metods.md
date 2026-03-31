@@ -1,0 +1,813 @@
+# Spraute Engine — язык скриптов (`.spr`)
+
+Справка собрана по исходникам: `ScriptParser`, `ScriptCompiler`, `ScriptExecutor`, `FunctionRegistry`, функции в `script/function/`.
+
+---
+
+## Синтаксис и ключевые слова
+
+| Ключевое слово | Назначение |
+|----------------|------------|
+| `val` | Локальная переменная |
+| `global val` | Глобальная переменная (в рамках выполнения скрипта) |
+| `world val` | Переменная мира (сохраняется в `ScriptWorldData`, переживает перезапуск сервера) |
+| `include "name"` | Вставляет код (функции, события, глобальные переменные) из другого скрипта `name.spr` |
+| `await` | Ожидание события / времени / задачи (см. ниже) |
+| `create npc` | Блок создания NPC |
+| `create ui` | Блок описания UI (шаблон + обработчики) |
+| `if` / `else` / `else if` | Условия |
+| `while` | Цикл |
+| `for (i in range(...))` | Цикл **только** по `range()` (см. ниже) |
+| `fun` / `return` | Пользовательские функции |
+| `on` | Обработчик события в фоне |
+| `every` | Периодический таймер |
+| `stop` | Остановка обработчика `on` / `every` |
+| `async` | Асинхронный блок |
+| `true` / `false` | Литералы |
+
+Операторы: `+`, `-`, `*`, `/`, `//`, `**`, `==`, `!=`, `<`, `>`, `<=`, `>=`, `&&`, `||`, `!`, строковая конкатенация через `+`.  
+Комментарии в коде **только** через `#` до конца строки.  
+`/` — обычное деление; `//` — **целочисленное деление вниз** (floor), как в Python: для двух `int` результат `int` (`Math.floorDiv`), иначе `Math.floor(a/b)` как `double`. Это **не** корень из числа (для степени используйте `**`, например `x ** 0.5`).
+
+---
+
+## Встроенные функции (`FunctionRegistry`)
+
+Имена **регистронезависимы**.
+
+### `chat(message)`
+Сообщение в чат **источнику** скрипта: игроку — `sendSystemMessage`, иначе `sendSuccess`.
+
+### `npc(name, hp, speed, x, y, z, yaw, pitch)`
+Создать NPC в мире, зарегистрировать по **отображаемому имени** в `NpcManager`, вывести сообщение об успехе.  
+Типы аргументов: строка, целое HP, скорость (double), целые координаты и углы.
+
+### `say(who, message)`
+Глобальное сообщение всем: имя форматируется по конфигу / `ScriptContext` (`setNamesColor`), текст `message` дописывается.  
+`who` — строка (id NPC), сущность, или другое (приводится к строке).
+
+### `setNamesColor(color)`
+Цвет имени в `say()` для **текущего** скрипта: hex `"#RRGGBB"`, именованный (`"gold"`, `"red"`, …) или `"reset"` (сброс к конфигу).
+
+### `getNearestPlayer(anchor)`
+Ближайший игрок в радиусе **50** блоков от сущности или NPC с данным id (строка). Возвращает сущность или `null`.
+
+### `getSlot(player, slot)`
+ID предмета в слоте инвентаря (`""` если пусто).  
+Слоты: **0–8** хотбар, **9–35** инвентарь, **36–39** броня (ноги…голова), **40** оффхенд.  
+`player` — объект `Player` или **ник** игрока (строка).
+
+### `hasItem(player, item_id)`
+Есть ли предмет с данным registry id **хотя бы в одном** слоте (включая броню и оффхенд).
+
+### `countItem(player, item_id)`
+Суммарное количество предмета по всем слотам.
+
+### `getPlayer(name)`
+Получает объект игрока по его нику.
+Пример: `val p = getPlayer("Notch");`
+
+### `setBlock(x, y, z, block_id)`
+Устанавливает блок по указанным координатам.
+Пример: `setBlock(10, 65, -5, "minecraft:stone")`
+
+### `player.heldItem([hand])` и `player.heldItemNbt([hand])`
+*   `player.heldItem("right")` или `player.heldItem("left")` (также `"main_hand"`, `"offhand"`) — возвращает ID предмета, который игрок держит в руке. Если не указать аргумент, проверяет правую (основную) руку.
+*   `player.heldItemNbt("right")` — возвращает NBT-теги предмета в виде строки.
+
+### `giveItem(player, item_id, [count], [name], [lore_array], [nbt_dict])`
+Выдаёт игроку предмет(ы).
+* `count` — количество (по умолчанию 1).
+* `name` — кастомное название предмета (можно использовать `&` для цветов).
+* `lore_array` — массив строк описания `["Строка 1", "Строка 2"]`.
+* `nbt_dict` — словарь кастомных NBT-тегов `{"tag_name": "value", "spraute_no_drop": true}`.
+*Заметка: Если указать NBT-тег `"spraute_no_drop": true`, то игрок не сможет выкинуть этот предмет из инвентаря (кнопкой Q или перетаскиванием).*
+
+### `getHeldItem(player)`
+Возвращает словарь (dict) с информацией о предмете в главной руке игрока. Если рука пуста, возвращает `null`.
+* Ключи словаря: `"id"` (строка), `"count"` (число), `"name"` (строка), `"nbt"` (словарь всех тегов, если они есть).
+* *Пример:* `val held = getHeldItem(player); if (held != null && held.id == "minecraft:stick") { ... }`
+
+### `execute(command)` / `execute(command, executor)`
+Выполнить команду сервера (без или с префикса `/`).  
+Второй аргумент — сущность-исполнитель: объект сущности, ник игрока, id NPC из `NpcManager`, или ключевые слова: `"player"`, `"npc"`, `"mob"`, `"any"` (ближайшие в радиусе, логика как в `execute`).
+
+### `taskDone(task_id)`
+`true`, если для данного id асинхронной задачи контекст сообщает «завершено» (`ScriptContext.isTaskDone`). Используется вместе с `async` / `await task(...)`.
+
+### `intStr(x)` / `wholeStr(x)`
+Форматирование числа для текста: целые без хвоста `.0`, дробные — короткая запись; нечисловые строки возвращаются как есть.
+
+### `random()` / `random(max)` / `random(min, max)`
+Генерация случайного числа.
+- Без аргументов: возвращает дробное число от 0.0 до 1.0.
+- С одним аргументом: от 0 до `max` (исключительно для дробных, включительно для целых, если передано целое число).
+- С двумя аргументами: в диапазоне от `min` до `max` (включительно для целых чисел, если оба аргумента целые).
+
+### `list()` / `listCreate()`
+Создаёт пустой изменяемый список (то же самое). Также можно писать литерал: `val a = []`.
+
+### `dict()` / `dictCreate()` / `dict(key1, val1, key2, val2, ...)`
+- `dict()` и `dictCreate()` — пустой словарь.
+- `dict("name", npcName, "hp", 10)` — словарь из пар «ключ, значение» (чётное число аргументов; ключи приводятся к строке).
+
+### `playSound(player, sound_id, [volume], [pitch])`
+Проигрывает звук для указанного игрока.
+- `sound_id` — стандартный звук Minecraft (например, `"minecraft:entity.zombie.ambient"`) или кастомный звук из папки. Чтобы воспроизвести свой звук, положите `.ogg` файл в `minecraft/spraute_engine/sounds/` (например, `mysound.ogg`) и вызовите `playSound(player, "spraute_engine:mysound")`.
+- `volume` — громкость (по умолчанию `1.0`).
+- `pitch` — высота звука (по умолчанию `1.0`).
+
+### `stopSound(player, [sound_id])`
+Останавливает воспроизведение звука у игрока.
+- Если `sound_id` указан, останавливает конкретный звук.
+- Если `sound_id` не указан (`stopSound(player)`), останавливает вообще все звуки у этого игрока.
+
+---
+
+## Встроенная библиотека: `spraute_chat.spr`
+Движок автоматически генерирует библиотеку для кастомного чата NPC (HUD-уведомления и история сообщений).
+
+Чтобы использовать, подключите её в начале вашего скрипта:
+```javascript
+include "spraute_chat"
+```
+
+Для того чтобы у NPC была правильная голова и имя в чате, задайте ему параметр `head` (если не задать, будет обычная голова):
+```javascript
+create npc my_guard {
+    name = "Охранник"
+    hp = 20
+    pos = [0, 64, 0]
+}
+my_guard.head = "minecraft:textures/heads/guard.png"
+```
+
+Затем вы можете вызывать функцию `npc_chat`:
+```javascript
+npc_chat(player, my_guard, "Проход закрыт, уходи отсюда!", "#FF5555")
+```
+Она покажет плавно появляющееся красивое сообщение (с анимацией прозрачности) над хотбаром игрока с иконкой головы NPC. Сообщение само плавно исчезнет через 5 секунд.
+Если игрок нажмёт кнопку `B` на клавиатуре, откроется история из последних 50 сообщений кастомного чата с прокруткой!
+
+---
+
+### `uiOpen(player, шаблон)`
+- **`uiOpen(player, переменная)`** — открыть экран из шаблона, созданного блоком **`create ui { ... }`** (см. раздел ниже).
+- **`uiOpen(player, json)`** — сырая JSON-строка (legacy).
+
+Сервер проверяет размер, подставляет UUID для виджетов `entity`.  
+`player` — объект игрока или ник.
+
+### `uiClose(player)`
+Закрыть скриптовый UI у игрока (без лишнего события «закрыто» на сервере при программном закрытии).
+
+### `overlayOpen(player, шаблон_или_json)`
+Открывает UI шаблон в качестве **HUD наложения** поверх экрана (без забора мышки и без паузы игры). Поддерживает те же виджеты, что и `uiOpen`.
+
+### `overlayClose(player)`
+Закрывает текущее HUD наложение у игрока.
+
+### `uiUpdate(player, widget_id, field, value)`
+Пока у игрока открыт скриптовый UI **или HUD наложение (overlay)**, отправляет на **клиент** обновление поля виджета с данным **`id`** в JSON (строки, числа и цвета передаются как текст). Таким образом можно обновлять любой элемент без переоткрытия экрана.
+
+### `uiAnimate(player, widget_id, field, target_value, duration_seconds, [easing])`
+Плавно анимирует свойство виджета с данным **`id`** до значения `target_value` за `duration_seconds` секунд. Работает для числовых свойств: `x`, `y`, `w`, `h`, `scale`, `alpha` и других.
+
+Дополнительный параметр `easing` задаёт тип интерполяции (по умолчанию `"linear"`):
+- `"linear"` — равномерное движение без ускорения.
+- `"ease_in"` — плавное ускорение в начале.
+- `"ease_out"` — плавное замедление в конце.
+- `"ease_in_out"` — плавное ускорение в начале и замедление в конце.
+- `"bounce_out"` — эффект отскока (мячика) в конце анимации.
+- `"elastic_out"` — эффект пружины в конце анимации.
+
+Например: `uiAnimate(player, "my_btn", "y", 150, 1.5, "bounce_out")` (кнопка переместится на Y=150 за 1.5 секунды с отскоком).
+
+| Виджет | `field` | `value` / `target_value` |
+|--------|---------|--------|
+| `text` | `x`, `y`, `text`, `color`, `scale` | число, число, текст, `#RRGGBB` / `#AARRGGBB`, число |
+| `input` | `x`, `y`, `w`, `h`, `text` | числа, текст |
+| `button` | `x`, `y`, `w`, `h`, `label`, `color`, `hover`, `texture` | числа, подпись, цвета, путь текстуры |
+| `rect` / `panel` | `x`, `y`, `w`, `h`, `color` | числа, цвет |
+| `clip` | `x`, `y`, `w`, `h` | числа |
+| `image` | `x`, `y`, `w`, `h`, `texture` | числа, путь текстуры |
+| `entity` | `x`, `y`, `w`, `h`, `scale`, `feet_crop`, `crop`, `anchor_x`, `anchor_y`, `viewport` | числа; `crop` / `viewport` — четыре числа (строка или `[...]`); отрицательный `anchor_y` в `uiUpdate` — снова `feet_crop` |
+
+Работает только если виджет в разметке был с **непустым** `id` в JSON.
+
+#### Формат JSON UI
+Корневой объект:
+
+- `w`, `h` — размер панели (пиксели GUI), по умолчанию 200×150.
+- `bg` — цвет фона панели: `#RRGGBB` или `#AARRGGBB`.
+- `widgets` — массив виджетов (рисуются по полям **`layer`** и **`order`**; при отсутствии — порядок в массиве).
+
+Типы виджетов (`type`):
+
+| `type` | Поля |
+|--------|------|
+| `rect` / `panel` | `x`, `y`, `w`, `h`, `color`; опционально `id`, `layer`, `order`, `tooltip` |
+| `clip` | `x`, `y`, `w`, `h`, `children` (массив виджетов внутри области обрезки); опционально `id`, `layer`, `order`, `tooltip`. Все виджеты в `children` будут обрезаться по границам `clip`. |
+| `image` | `x`, `y`, `w`, `h`, `texture` (`namespace:path` или путь в `minecraft`); опционально `id`, `layer`, `order`, `tooltip` |
+| `text` | `x`, `y`, `text`, `color`, опционально `scale`, `wrap` (макс ширина в пикселях), `max_lines` (макс кол-во строк при переносе), `max_chars` (обрезка символов с ...), `anchor` (строка: `center`, `right`, `bottom_left` и т.д. или массив `[x, y]`), `id`, `layer`, `order`, `tooltip` |
+| `input` | `id` (обязательно), `x`, `y`, `w`, `h`, опционально `text`, `placeholder`, `color` (текст), `bg_color` (фон), `outline_color` (рамка), `scale`, `max_chars`, `input_type` (`text` или `password`), `tooltip`, `layer`, `order` |
+| `button` | `id` (для клика), `x`, `y`, `w`, `h`, опционально `label`; либо цвета `color` / `hover`, либо `texture` (кнопка-картинка); опционально `layer`, `order`, `tooltip` |
+| `entity` | `x`, `y`, `w`, `h`, `entity` (строка: UUID, `npc:script_id`, `player`, …), `scale`, **`crop = [l,t,r,b]`** — доли **0–1**: сколько **срезать слева, сверху, справа, снизу** от ячейки (снизу половину: `[0,0,0,0.5]`); **`anchor = [x,y]`** или `anchor_x` / `anchor_y` — точка якоря в **полной** ячейке **0–1**; без якоря — **`feet_crop`**; `animation = false` для отключения анимации в UI; `id`, `layer`, `order`, `tooltip` |
+| `item` (или `block`) | `x`, `y`, `w` (размер в пикселях, по умолчанию 16), `item` (строка, например `"minecraft:apple"` или `"stone"`); опционально `id`, `layer`, `order`, `tooltip` |
+
+После клика по кнопке или ESC см. `await uiClick`. Переменная `_uiClosed`: `true`, если закрыли ESC (или пустой id при закрытии).
+
+---
+
+## Глобальная функция `range` (не в реестре)
+
+Используется **только** в `for`:
+
+- `range(n)` — `i` принимает значения `0, 1, …, n - 1` (цикл при `i < n`).
+- `range(start, end)` — `i` от `start` до `end - 1` включительно (условие `i < end`).
+
+---
+
+## Блок `create npc id { ... }`
+
+Создаёт или **обновляет** NPC с строковым **script id** (ключ в `NpcManager`).
+
+Свойства внутри `{ }` (через `=`; значения можно перечислять через `,`):
+
+| Свойство | Описание |
+|----------|----------|
+| `name` | Отображаемое имя |
+| `hp` | Здоровье и макс. HP |
+| `speed` | Скорость движения |
+| `pos` | `x, y, z` (числа) |
+| `rotate` | `yaw, pitch` |
+| `show_name` | Показывать имя (по умолчанию true, если не указано) |
+| `collision` | Наличие коллизии (по умолчанию true). При false другие существа могут проходить сквозь NPC |
+| `model`, `texture`, `idle_anim`, `walk_anim` | Ресурсы Spraute NPC |
+
+Переменная с **id** блока получает ссылку на сущность.
+
+---
+
+## Блок `create ui name { ... }`
+
+Объявляет **динамический шаблон UI** и кладёт его в переменную `name`. Внутри блока поддерживаются **циклы**, **условия**, **переменные** и **вызовы функций** — виджеты строятся на лету при выполнении `create ui`.
+
+**Корень** (свойства через `=`):
+
+| Свойство | Описание |
+|----------|----------|
+| `id` | Опционально — строковый id панели в JSON |
+| `size` | `[ширина, высота]` пикселей (литерал списка или выражение) |
+| `background` / `bg` | Цвет фона `#AARRGGBB` и т.д. |
+| `can_close` | `true` / `false` (по умолчанию `true`). Запрещает закрытие UI по кнопке ESC. |
+
+**Виджеты** — вызовы `text(...)`, `button(...)`, `entity(...)`, `image(...)`, `rect(...)`, `scroll(...)`, `divider(...)`, `block(...)` с блоком `{ ... }`:
+
+- Внутри виджета: `pos`, `size`, `scale`, **`crop = [l,t,r,b]`**, **`anchor = [x,y]`**, `feet_crop`, `color`, `wrap`, `align`, `tooltip`, …
+- В **`pos` / `size`** можно смешивать числа и строки с **`%`**: например `pos = ["20%", "10%"]` — проценты от **ширины/высоты панели**.
+- **`on_click { ... }`** — тело выполняется **на сервере** при клике по кнопке.
+- **`scroll("id") { ... }`** — контейнер с прокруткой. Свойства: `content_h`, `scrollbar`. Внутри — дочерние виджеты (а также `while`, `if`, `for`).
+
+**Динамический код внутри `create ui`:**
+
+```text
+create ui my_ui {
+    size = [400, 200]
+    background = "#FF000000"
+
+    var i = 0
+    while (i < listSize(items)) {
+        val item = list_get(items, i)
+        button("btn_" + i, dict_get(item, "name")) {
+            pos = [10, i * 24]
+            size = [180, 20]
+            color = "#55336688"
+            hover = "#66447799"
+        }
+        i = i + 1
+    }
+
+    if (show_details) {
+        text("details", detail_text) {
+            pos = [200, 10]
+            color = "#FFFFFF"
+            wrap = 180
+        }
+    }
+}
+```
+
+Открытие: `uiOpen(player, имя_переменной_шаблона)`.
+
+**Виджеты:** `text`, `input`, `button`, `entity`, `image`, `item` (или `block`), `rect` / `panel`, `grid_bg` (сетка), `scroll`, `clip` (обрезка). Серверные `on_click`, проценты в `pos`/`size`, **`uiUpdate`** для смены свойств на клиенте.
+
+### `grid_bg` - Красивая фоновая сетка
+Рисует линии сетки (горизонтальные, вертикальные или обе).
+Свойства:
+- `grid_type`: `"h"` (горизонтальная), `"v"` (вертикальная) или `"hv"` (обе). По умолчанию `"hv"`.
+- `cell_size`: размер ячейки в пикселях (по умолчанию `20`).
+- `thickness`: толщина линий (по умолчанию `1`).
+- `color`: цвет линий (например, `"#44FFFFFF"`).
+
+**Портрет NPC:** **`pos` + `size`** — прямоугольник ячейки; **`scale`** — масштаб модели в этой ячейке; **`crop = [l,t,r,b]`** — на сколько **урезать кадр с каждого края** (доли от ширины/высоты ячейки), без сжатия модели; **`anchor = [x,y]`** — где ставить якорь отрисовки в **той же** полной ячейке (если не задан — **`feet_crop`**). Старое **`viewport`** в скрипте по-прежнему можно писать — в JSON оно превращается в `crop`.
+
+---
+
+## Присваивание свойств: `id.property = value`
+
+Работает для сущностей из `NpcManager` (`id` — строка). Свойства:
+
+| Свойство | Кому | Заметки |
+|----------|------|---------|
+| `name` | любая | `Component` из строки |
+| `show_name` | любая | boolean / строка `"true"` |
+| `hp` | живая | выставляет и max HP, и текущее |
+| `speed` | живая | `MOVEMENT_SPEED` |
+| `x`, `y`, `z` | любая | `setPos` по одной оси |
+| `yaw`, `pitch` | любая | для LivingEntity голова/тело синхронизируются с yaw |
+| `model`, `texture`, `idle_anim`, `walk_anim` | **SprauteNpcEntity** | — |
+
+---
+
+## Чтение свойств: `object.property`
+
+Если `object` — переменная с игроком:
+
+- `name`, `hp`, `x`, `y`, `z`
+
+Если — NPC (строковый id или сущность):
+
+- `name`, `show_name`, `hp`, `max_hp`, `speed`, `x`, `y`, `z`, `yaw`, `pitch`, `model`, `texture`
+
+Неизвестное имя свойства — `null` / предупреждение в лог.
+
+---
+
+## Методы сущностей
+
+### Любая сущность: `a.distance_to(b)`
+Расстояние до другой сущности (`b` — объект или разрешённый id / `player` / `npc` / …).
+
+### Игрок: `player.method(...)`
+
+| Метод | Описание |
+|-------|----------|
+| `slot(n)` | Registry id предмета в слоте или `""` |
+| `slot_count(n)` | Количество в слоте |
+| `slot_nbt(n)` | NBT строкой или `""` |
+| `hasItem(item_id)` | Есть ли предмет |
+| `countItem(item_id)` | Суммарное количество |
+| `raycast(max_dist)` | Пускает луч взгляда (по умолчанию макс. дистанция 50). Возвращает словарь с полем `"type"` (`"entity"`, `"block"` или `"miss"`). Для сущности: `hit.entity`, `hit.x`, `hit.y`, `hit.z`. Для блока: `hit.block` (id), `hit.x`, `hit.y`, `hit.z`. |
+| `damage(amount)` | Наносит урон игроку (или любой другой LivingEntity). `amount` по умолчанию 1.0. |
+| `teleport(x, y, z)` | Телепортирует сущность (игрока, NPC, моба) на указанные координаты. Альтернативное название: `tp(x, y, z)`. |
+
+### Spraute NPC: `npcId.method(...)` (в т.ч. после `create npc`)
+
+Методы **без учёта регистра** в `executeCallMethod`.
+
+#### Анимации
+| Метод | Аргументы |
+|-------|-----------|
+| `playOnce(anim)` | Второй аргумент опционально: additive-режим |
+| `playLoop(anim)` | то же |
+| `playFreeze(anim)` | то же |
+| `stopOverlay()` | сброс оверлея |
+| `stop("animName")` | остановить оверлей, если имя совпадает |
+| `setAdditiveWeight(w)` | 0…1, процедурный вес |
+
+Второй аргумент анимации:  
+`true` / `"add"` / `"additive"` — **накопительное** смешивание (по умолчанию, если аргумента нет — **additive**).  
+`false` / `"replace"` / `"set"` / `"noadd"` — **lerp к ключам** оверлея (не суммировать с idle по костям).
+
+#### Движение / следование
+| Метод | Описание |
+|-------|----------|
+| `moveTo(x, y, z)` или `moveto` | Опционально 4-й аргумент — скорость (по умолчанию 1.0). С **`await`** блокирует, пока NPC не подойдёт к точке. |
+| `alwaysMoveTo(x, y, z)` или `alwaysMoveTo(entity)` | Постоянно обновлять путь к точке или сущности. Опционально последний аргумент — скорость. |
+| `stopMove()` | Остановка постоянного следования, заданного через alwaysMoveTo. |
+| `followUntil(target, dist?)` | С **`await`** — ждать, пока не окажется ближе `dist` (по умолчанию 2.0) от цели. `target` — сущность или строка/id. |
+
+#### Управление
+| Метод | Описание |
+|-------|----------|
+| `remove()` | Удаляет NPC из мира |
+
+#### Предметы в руках
+| Метод | Описание |
+|-------|----------|
+| `setItem(hand, item_id)` | `hand`: например `"right"`, `"left"` |
+| `setItem(hand, item_id, nbt_string)` | NBT как в `/give` |
+| `removeItem(hand)` | очистить руку |
+| `removeItem()` | обе руки |
+
+#### Подбор предметов NPC
+| Метод | Описание |
+|-------|----------|
+| `pickupOnlyFrom(entity)` | только предметы от этой сущности (бросок) |
+| `pickupAny()` | снять фильтр |
+
+#### Взгляд
+| Метод | Описание |
+|-------|----------|
+| `lookAt(x, y, z)` или `lookAt(entity)` | разовый поворот головы |
+| `alwaysLookAt(x, y, z)` или `alwaysLookAt(entity)` | постоянно смотреть |
+| `stopLook()` | снять режим взгляда |
+| `setHeadBone(name)` | имя кости головы в модели Bedrock (по умолчанию `"head"`) |
+
+#### Инвентарь NPC (как у игрока по смыслу)
+| Метод | Описание |
+|-------|----------|
+| `countItem(item_id)` | |
+| `countItem(item_id, nbt)` | `null` / пустая строка — без учёта NBT |
+
+В **выражениях** у NPC также доступен `countItem` как метод (см. `evaluateExpression`).
+
+---
+
+## `await ...`
+
+| Форма | Значение |
+|-------|----------|
+| `await time(seconds)` | Пауза на число секунд |
+| `await interact(entity)` | Пока игрок не взаимодействует с целью (id / сущность) |
+| `await next` | Продолжение по привязанной клавише диалога |
+| `await keybind("key")` | Ожидание нажатия клавиши. Названия кнопок: `"g"`, `"f"`, `"space"`, `"shift"` и т.д. |
+| `await death(target)` | Смерть сущности: `target` — id NPC, ник, `player`, `npc`, `mob`, `any` |
+| `await pickup(npc, amount, item_id)` | Пока у NPC не станет `amount` предметов (опционально 4-й аргумент — NBT строка) |
+| `await pickup(...)` | `amount`: при необходимости задаёт лимит подбора на NPC |
+|| `await task("task_id")` | Пока не завершится именованный `async`-блок |
+| `await uiClick(player)` | Пока игрок не нажмёт кнопку с `id` или не закроет экран (ESC). Результат — строка `id` кнопки или `"__close__"` при закрытии. Внутри `async { }` **не поддерживается** (ошибка выполнения). |
+| `await uiClose(player)` | Ожидать только закрытия интерфейса игроком (по нажатию ESC или через код). |
+| `await uiInput(player, [widget_id])` | Ожидать ввод текста в указанный виджет `input` (или в любой, если `widget_id` не указан). Возвращает введенный текст. |
+| `await position(player, x, y, z, [radius])` | Ожидать пока игрок не окажется в заданном радиусе (по умолчанию 1.5) от точки. Возвращает сущность игрока. |
+| `await inventory(player, item_id, [count])` | (или `hasItem`) Ожидать пока у игрока не появится нужное кол-во предмета. Возвращает сущность игрока. |
+| `await clickBlock(player, [target])` | Ожидать пока игрок не кликнет (ЛКМ/ПКМ) по блоку. Возвращает `"left"` или `"right"`. Варианты `target`: пусто, `block_id`, `x, y, z` или `x, y, z, block_id`. |
+| `await breakBlock(player, [target])` | Ожидать пока игрок не сломает блок. Возвращает `block_id`. Варианты `target` как у `clickBlock`. |
+| `await placeBlock(player, [target])` | Ожидать пока игрок не поставит блок. Возвращает `block_id`. Варианты `target` как у `clickBlock`. |
+| `await chat(player, message, [ignore_case=true], [ignore_punct=true])` | Ожидать конкретное сообщение от игрока. `message` может быть строкой или массивом строк. Возвращает сообщение, которое игрок написал. |
+
+---
+
+## События `on event(...) -> handlerId { }`
+
+Регистрируется обработчик; остановка: `stop(handlerId)`.
+
+Поддерживаемые имена событий (см. `ScriptExecutor`):
+
+### `on interact(target) -> ...`
+При взаимодействии с `target`. В теле: **`_event_player`** — игрок.
+
+### `on keybind("keyName") -> ...`
+В теле: **`_event_player`**.
+
+### `on death(targetFilter) -> ...`
+В теле: **`_event_entity`**, **`_event_killer`**.
+
+### `on pickup(npc, item_id)` или `on pickup(npc, item_id, nbt)`
+Срабатывает при переходе количества предмета у NPC. В теле: **`_event_npc`**, **`_event_item`** (стек), **`_event_dropper`** (кто выбросил, если известен).
+
+### `on uiClick([player]) -> ...`
+Срабатывает при клике по кнопке в скриптовом UI. `player` указывать не обязательно (тогда сработает для любого). В теле: **`_event_player`** и **`_event_widget`** (строковый ID кнопки).
+
+### `on uiClose([player]) -> ...`
+Срабатывает при закрытии скриптового UI игроком. `player` опционально. В теле: **`_event_player`**.
+
+### `on uiInput([player], [widget_id]) -> ...`
+Срабатывает при вводе текста в поле `input` (каждое изменение текста). В теле: **`_event_player`**, **`_event_widget`** (ID инпута), **`_event_input`** (новый текст).
+
+### `on position(player, x, y, z, [radius]) -> ...`
+Срабатывает, когда игрок заходит в заданный радиус (по умолчанию 1.5). В теле: **`_event_player`**.
+
+### `on inventory(player, item_id, [count])` или `on hasItem(...) -> ...`
+Срабатывает, когда у игрока появляется заданное количество предмета. В теле: **`_event_player`**.
+
+### `on clickBlock([target]) -> ...`
+Срабатывает при клике ЛКМ/ПКМ по блоку. Варианты `target`: пусто (любой блок), `block_id`, `x, y, z` или `x, y, z, block_id`.
+В теле: **`_event_player`**, **`_event_x`**, **`_event_y`**, **`_event_z`**, **`_event_block`** (строковый ID блока), **`_event_action`** (`"left"` или `"right"`).
+
+### `on breakBlock([target]) -> ...`
+Срабатывает при разрушении блока игроком. Варианты `target` как у `clickBlock`. В теле: **`_event_player`**, **`_event_x`**, **`_event_y`**, **`_event_z`**, **`_event_block`**.
+
+### `on placeBlock([target]) -> ...`
+Срабатывает при установке блока игроком. Варианты `target` как у `clickBlock`. В теле: **`_event_player`**, **`_event_x`**, **`_event_y`**, **`_event_z`**, **`_event_block`**.
+
+### `on chat([player], [message], [ignore_case=true], [ignore_punct=true]) -> ...`
+Срабатывает при написании сообщения в чат. Если `player` и `message` не указаны, ловит любые сообщения от любых игроков. `message` может быть строкой или массивом строк.
+В теле: **`_event_player`**, **`_event_message`** (какое именно сообщение из вариантов было написано).
+
+---
+
+## `every(seconds) -> handlerId { }`
+Периодический запуск тела с заданным интервалом (секунды — выражение).
+
+---
+
+## `async { }` / `async "task_id" { }`
+Запуск кода в фоне.  
+`await task("task_id")` ждёт завершения.  
+`stop_task("task_id")` — прервать.  
+`taskDone("task_id")` — проверка завершения (через `ScriptContext`).
+
+---
+
+## Пользовательские функции
+
+```text
+fun name(a, b) {
+    return a + b
+}
+```
+
+Вызов: `name(1, 2)` — как обычная функция.
+
+---
+
+## Частицы (Партиклы)
+
+Система частиц позволяет создавать как единичные эффекты, так и привязывать их к костям NPC (через отправку пакетов клиенту).
+Параметры `dx, dy, dz` задают разброс (spread), а параметр `speed` — скорость разлета (если speed > 0, то dx, dy, dz работают как направление).
+
+### Базовые фигуры (Единоразвый спавн)
+
+- **`particleSpawn(type, x, y, z, count, dx, dy, dz, speed)`**  
+  Спавн `count` частиц типа `type` (например, `"minecraft:flame"`) в точке.
+- **`particleLine(type, x1, y1, z1, x2, y2, z2, count, dx, dy, dz, speed)`**  
+  Спавн линии из частиц от `(x1, y1, z1)` до `(x2, y2, z2)`.
+- **`particleCircle(type, cx, cy, cz, radius, count, dx, dy, dz, speed)`**  
+  Спавн круга частиц вокруг `(cx, cy, cz)` радиусом `radius`.
+- **`particleSpiral(type, cx, cy, cz, radius, height, count, dx, dy, dz, speed)`**  
+  Спавн спирали частиц.
+
+*Совет:* Чтобы сделать эти фигуры постоянными (пока скрипт не остановит), используйте цикл:
+```text
+async "magic_circle" {
+    while (true) {
+        particleCircle("minecraft:soul", x, y, z, 2.0, 20, 0, 0, 0, 0)
+        await 1t
+    }
+}
+// Для остановки:
+stop_task("magic_circle")
+```
+
+### Привязка к костям NPC (Непрерывный спавн)
+
+- **`particleStartBone(task_id, npc, bone_name, type, count, dx, dy, dz, speed)`**  
+  Запускает **непрерывный** спавн частиц на клиенте из конкретной кости NPC (например, `"right_eye"`). Возвращает заданный вами `task_id` (строка). Эффект будет длиться бесконечно, пока вы не остановите его.
+- **`particleStopBone(task_id)`**  
+  Останавливает непрерывный эффект частиц на кости по его `task_id`.
+
+---
+
+## Разрешение сущностей по строке
+
+В методах и `await` часто можно передать:
+
+- UUID / ник игрока / id NPC из `NpcManager`
+- `"player"` — ближайший игрок к источнику скрипта
+- `"npc"` — ближайший Spraute NPC
+- `"mob"` — ближайший моб (не игрок, не Spraute NPC)
+- `"any"` — ближайшее живое существо
+
+---
+
+## Переменные и область видимости
+
+- **Локальные** — в рамках одного «потока» выполнения скрипта (создаются через `val` или `var`).
+- **`global`** — общие переменные для всего скрипта.
+- **`world`** — сериализуются в данные мира (сохраняются между перезапусками сервера).
+- **`player.data`** — уникальный словарь для каждого игрока, хранящийся **только до перезапуска сервера** (сессионные данные).
+- **`player.saved_data`** — уникальный словарь для каждого игрока, который **навсегда сохраняется в мире** (например, статистика, квесты).
+
+Пример работы с переменными игрока:
+```text
+val p = getPlayer("Steve")
+
+# Сохраняем счетчик смертей (навсегда)
+if (p.saved_data["deaths"] == null) {
+    p.saved_data["deaths"] = 0
+}
+p.saved_data["deaths"] = p.saved_data["deaths"] + 1
+
+# Сохраняем временный статус на сессию
+p.data["is_in_dialogue"] = true
+```
+
+Идентификатор NPC из `NpcManager` без `val` может резолвиться как **строка-id** при обращении к свойствам.
+
+---
+
+## Списки и словари (Индексация)
+
+Теперь в Spraute Engine можно обращаться к элементам списков и словарей через квадратные скобки `[]`:
+
+```text
+val my_list = [1, 2, 3]
+my_list[0] = 10         # Изменить первый элемент
+val x = my_list[0]      # Получить первый элемент
+
+val my_dict = getHeldItem(player)
+val name = my_dict["id"]
+```
+
+*Примечание:* можно использовать цепочки индексов, например `matrix[0][1]`.
+
+---
+
+## Прочее
+
+- Одиночные вызовы без присваивания: `foo()`, `npc.moveTo(...)`.
+- Присваивание: `x = 1`.
+- Комментарии: строка от **`#`** до конца строки (`ScriptLexer`).
+
+---
+
+*Файл сгенерирован по состоянию исходников проекта Spraute Engine.*
+
+
+пример кода для:
+
+
+create npc readix_avatar {
+    name = "ReadixGG"
+    model = "geo/defolt.geo.json"
+    texture = "textures/entity/defolt.png"
+   # animation = "animations/npc_classic.animation.json"
+    pos = 8, -60, 7
+    show_name = false
+    speed = 0.2
+}
+
+create npc knight {
+    name = "Верный Рыцарь"
+    model = "geo/defolt.geo.json"
+    texture = "textures/entity/knight.png"
+    #animation = "animations/npc_classic.animation.json"
+    pos = 8, -60, 9
+    show_name = false
+    speed = 0.2
+}
+
+async "readix_idle" {
+    readix_avatar.alwaysLookAt(knight)
+}
+
+async "knight_idle" {
+    knight.alwaysLookAt(readix_avatar)
+}
+
+# Тесты анимаций: hello, sad, hint, question, happy, laughter + stop(), setAdditiveWeight
+readix_avatar.setAdditiveWeight(1)  # процедурное дыхание и лёгкое дрожание рук поверх анимаций
+knight.setAdditiveWeight(1)
+
+val player = getNearestPlayer(readix_avatar)
+chat("§7[!] Подойди к ReadixGG и нажми ПКМ, чтобы начать разговор.")
+val interactor = await interact(readix_avatar)
+
+readix_avatar.alwaysLookAt(interactor)
+knight.alwaysLookAt(interactor)
+readix_avatar.playOnce("hello")
+say(readix_avatar, "Привет, " + interactor.name + "! Нажми §e[F]§f, чтобы слушать дальше.")
+await keybind("f")
+
+# Диалог с выбором: create ui { ... }
+create ui dialog_panel {
+    size = [300, 128]
+    background = "#F0181828"
+    text("q_text", "Нужна твоя помощь с железом. Что скажешь?") {
+        pos = [12, 14]
+        color = "#EAEAEA"
+        scale = 1.0
+        layer = 0
+    }
+    button("ans_help", "Помогу, сколько нужно") {
+        pos = [12, 48]
+        size = [158, 22]
+        color = "#55336688"
+        hover = "#66447799"
+        layer = 1
+    }
+    button("ans_later", "Позже") {
+        pos = [12, 78]
+        size = [158, 22]
+        color = "#55336688"
+        hover = "#66447799"
+        layer = 1
+    }
+    entity("npc:readix_avatar") {
+        id = "portrait"
+        # pos/size — ячейка; crop [l,t,r,b] — сколько срезать с краёв; без anchor — feet_crop
+        pos = [188, 30]
+        size = [96, 98]
+        scale = 1.05
+        crop = [0, 0.0, 0.0, 0.4]
+        anchor_y = 2.1
+        layer = 0
+    }
+}
+uiOpen(interactor, dialog_panel)
+val dialog_pick = await uiClick(interactor)
+uiClose(interactor)
+if (dialog_pick == "ans_help") {
+    readix_avatar.playOnce("happy")
+    say(readix_avatar, "Тогда по рукам — жду слитки!")
+} else {
+    readix_avatar.playOnce("sad")
+    say(readix_avatar, "Ладно, зайди, когда будет время.")
+}
+await keybind("f")
+
+
+knight.alwaysLookAt(readix_avatar)
+knight.playLoop("sad")  # грустная поза, когда говорит о проблеме
+say(knight, "Readix, у нас в кузнице закончилось железо. Без него мы не доделаем твой новый движок.")
+await keybind("f")
+
+
+readix_avatar.alwaysLookAt(interactor)
+knight.alwaysLookAt(interactor)
+knight.stop("sad")  # снять грусть
+readix_avatar.playLoop("hint")  # поза «подсказки» при просьбе о помощи
+
+say(readix_avatar, interactor.name + ", выручишь нас? Нужно 30 слитков железа. Кидай их мне (Q), я подберу.")
+await keybind("f")
+readix_avatar.stop("hint")
+
+say(knight, "Мы будем ждать тебя у тех скал. Поторопись!")
+await keybind("f")
+
+
+async "readix_run" {
+    readix_avatar.moveTo(5, -60, 15)
+}
+
+async "knight_run" {
+    knight.moveTo(7, -60, 17)
+}
+
+await task("readix_run")
+await task("knight_run")
+
+readix_avatar.stopLookAt()
+knight.stopLookAt()
+
+readix_avatar.alwaysLookAt(knight)
+knight.alwaysLookAt(readix_avatar)
+
+
+
+# --- 4. Ожидание сдачи ресурсов (подход, кидок, NPC подбирает) ---
+# need — цель; iron_quest_active — только пока идёт фаза «ждём 30 слитков» (сообщения и подбор железа включаются с await pickup)
+val need = 30
+val iron_quest_active = false
+
+on pickup(readix_avatar, "minecraft:iron_ingot") -> iron_progress {
+    val have = readix_avatar.countItem("minecraft:iron_ingot")
+    val left = need - have
+    if (iron_quest_active && left > 0) say(readix_avatar, "Осталось принести " + intStr(left) + ", ты принёс уже " + intStr(have) + "!")
+}
+
+val quest_done = false
+while (!quest_done) {
+    val checker = await interact(readix_avatar)
+
+    readix_avatar.alwaysLookAt(checker)
+    knight.alwaysLookAt(checker)
+
+    readix_avatar.pickupOnlyFrom(checker)
+    readix_avatar.stop("hint")
+    readix_avatar.playLoop("question")
+    say(readix_avatar, "Кидай железо сюда (Q)! Нужно 30.")
+
+    iron_quest_active = true
+    await pickup(readix_avatar, 30, "minecraft:iron_ingot")
+    iron_quest_active = false
+    readix_avatar.stop("question")
+    readix_avatar.playOnce("happy")
+
+    readix_avatar.pickupAny()
+    stop(iron_progress)
+    say(readix_avatar, "О, ты принёс всё вовремя! ")
+    await keybind("f")
+    quest_done = true
+}
+
+# --- 5. Финал (NPC смотрят друг на друга и разговаривают) ---
+
+
+say(readix_avatar, "Работа кипит! Ты лучший помощник.")
+await keybind("f")
+
+knight.playOnce("laughter")  # смех, когда кричит ПОГНАЛИ
+say(knight, "ЕЕЕЕ! ПОГНАЛИ!")
+await keybind("f")
+
+
+say(readix_avatar, "Удачи в приключениях! Еще увидимся.")
+await keybind("f")
+
+knight.playLoop("talking2")
+readix_avatar.playLoop("talking1")
+readix_avatar.alwaysLookAt(knight)
+knight.alwaysLookAt(readix_avatar)

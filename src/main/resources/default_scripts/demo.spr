@@ -1,0 +1,183 @@
+
+create npc readix_avatar {
+    name = "ReadixGG"
+    model = "geo/defolt.geo.json"
+    texture = "textures/entity/defolt.png"
+   # animation = "animations/npc_classic.animation.json"
+    pos = 8, -60, 7
+    show_name = false
+    speed = 0.2
+}
+
+create npc knight {
+    name = "Верный Рыцарь"
+    model = "geo/defolt.geo.json"
+    texture = "textures/entity/knight.png"
+    #animation = "animations/npc_classic.animation.json"
+    pos = 8, -60, 9
+    show_name = false
+    speed = 0.2
+}
+
+async "readix_idle" {
+    readix_avatar.alwaysLookAt(knight)
+}
+
+async "knight_idle" {
+    knight.alwaysLookAt(readix_avatar)
+}
+
+# Тесты анимаций: hello, sad, hint, question, happy, laughter + stop(), setAdditiveWeight
+readix_avatar.setAdditiveWeight(1)  # процедурное дыхание и лёгкое дрожание рук поверх анимаций
+knight.setAdditiveWeight(1)
+
+val player = get_nearest_player(readix_avatar)
+chat("§7[!] Подойди к ReadixGG и нажми ПКМ, чтобы начать разговор.")
+val interactor = await interact(readix_avatar)
+
+readix_avatar.alwaysLookAt(interactor)
+knight.alwaysLookAt(interactor)
+readix_avatar.playOnce("hello")
+say(readix_avatar, "Привет, " + interactor.name + "! Нажми §e[F]§f, чтобы слушать дальше.")
+await keybind("f")
+
+# Диалог с выбором: create ui { ... }
+create ui dialog_panel {
+    size = [300, 128]
+    background = "#F0181828"
+    text("q_text", "Нужна твоя помощь с железом. Что скажешь?") {
+        pos = [12, 14]
+        color = "#EAEAEA"
+        scale = 1.0
+        layer = 0
+    }
+    button("ans_help", "Помогу, сколько нужно") {
+        pos = [12, 48]
+        size = [158, 22]
+        color = "#55336688"
+        hover = "#66447799"
+        layer = 1
+    }
+    button("ans_later", "Позже") {
+        pos = [12, 78]
+        size = [158, 22]
+        color = "#55336688"
+        hover = "#66447799"
+        layer = 1
+    }
+    entity("npc:readix_avatar") {
+        id = "portrait"
+        # pos/size — ячейка; crop [l,t,r,b] — сколько срезать с краёв; без anchor — feet_crop
+        pos = [188, 30]
+        size = [96, 98]
+        scale = 1.05
+        crop = [0, 0.0, 0.0, 0.4]
+        anchor_y = 2.1
+        layer = 0
+    }
+}
+ui_open(interactor, dialog_panel)
+val dialog_pick = await ui_click(interactor)
+ui_close(interactor)
+if (dialog_pick == "ans_help") {
+    readix_avatar.playOnce("happy")
+    say(readix_avatar, "Тогда по рукам — жду слитки!")
+} else {
+    readix_avatar.playOnce("sad")
+    say(readix_avatar, "Ладно, зайди, когда будет время.")
+}
+await keybind("f")
+
+
+knight.alwaysLookAt(readix_avatar)
+knight.playLoop("sad")  # грустная поза, когда говорит о проблеме
+say(knight, "Readix, у нас в кузнице закончилось железо. Без него мы не доделаем твой новый движок.")
+await keybind("f")
+
+
+readix_avatar.alwaysLookAt(interactor)
+knight.alwaysLookAt(interactor)
+knight.stop("sad")  # снять грусть
+readix_avatar.playLoop("hint")  # поза «подсказки» при просьбе о помощи
+
+say(readix_avatar, interactor.name + ", выручишь нас? Нужно 30 слитков железа. Кидай их мне (Q), я подберу.")
+await keybind("f")
+readix_avatar.stop("hint")
+
+say(knight, "Мы будем ждать тебя у тех скал. Поторопись!")
+await keybind("f")
+
+
+async "readix_run" {
+    readix_avatar.moveTo(5, -60, 15)
+}
+
+async "knight_run" {
+    knight.moveTo(7, -60, 17)
+}
+
+await task("readix_run")
+await task("knight_run")
+
+readix_avatar.stopLookAt()
+knight.stopLookAt()
+
+readix_avatar.alwaysLookAt(knight)
+knight.alwaysLookAt(readix_avatar)
+
+
+
+# --- 4. Ожидание сдачи ресурсов (подход, кидок, NPC подбирает) ---
+# need — цель; iron_quest_active — только пока идёт фаза «ждём 30 слитков» (сообщения и подбор железа включаются с await pickup)
+val need = 30
+val iron_quest_active = false
+
+on pickup(readix_avatar, "minecraft:iron_ingot") -> iron_progress {
+    val have = readix_avatar.countItem("minecraft:iron_ingot")
+    val left = need - have
+    if (iron_quest_active && left > 0) say(readix_avatar, "Осталось принести " + int_str(left) + ", ты принёс уже " + int_str(have) + "!")
+}
+
+val quest_done = false
+while (!quest_done) {
+    val checker = await interact(readix_avatar)
+
+    readix_avatar.alwaysLookAt(checker)
+    knight.alwaysLookAt(checker)
+
+    readix_avatar.pickupOnlyFrom(checker)
+    readix_avatar.stop("hint")
+    readix_avatar.playLoop("question")
+    say(readix_avatar, "Кидай железо сюда (Q)! Нужно 30.")
+
+    iron_quest_active = true
+    await pickup(readix_avatar, 30, "minecraft:iron_ingot")
+    iron_quest_active = false
+    readix_avatar.stop("question")
+    readix_avatar.playOnce("happy")
+
+    readix_avatar.pickupAny()
+    stop(iron_progress)
+    say(readix_avatar, "О, ты принёс всё вовремя! ")
+    await keybind("f")
+    quest_done = true
+}
+
+# --- 5. Финал (NPC смотрят друг на друга и разговаривают) ---
+
+
+say(readix_avatar, "Работа кипит! Ты лучший помощник.")
+await keybind("f")
+
+knight.playOnce("laughter")  # смех, когда кричит ПОГНАЛИ
+say(knight, "ЕЕЕЕ! ПОГНАЛИ!")
+await keybind("f")
+
+
+say(readix_avatar, "Удачи в приключениях! Еще увидимся.")
+await keybind("f")
+
+knight.playLoop("talking2")
+readix_avatar.playLoop("talking1")
+readix_avatar.alwaysLookAt(knight)
+knight.alwaysLookAt(readix_avatar)

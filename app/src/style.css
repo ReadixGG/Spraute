@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: #040e1f;
+    --color-surface: #040e1f;
+    --color-surface-low: #061326;
+    --color-surface-container: #0b1a2f;
+    --color-surface-bright: #1b2c47;
+    --color-primary: #d1ff9f;
+    --color-secondary: #ac8aff;
+    --color-tertiary: #47c4ff;
+    --color-on-surface: #dbe6fe;
+    --color-on-variant: #a0abc2;
+    --color-outline: #6b768b;
+    --font-headline: 'Space Grotesk';
+    --font-body: 'Inter';
+    --font-mono: 'JetBrains Mono';
+  }
+
+  body {
+    @apply antialiased bg-background text-on-surface;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-surface-bright/30 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)];
+    border-radius: 1.5rem;
+  }
+
+  .animate-blob {
+    animation: blob 20s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+
+  .animation-delay-4000 {
+    animation-delay: 4s;
+  }
+}
+
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(15vw, -25vh) scale(1.1);
+  }
+  66% {
+    transform: translate(-10vw, 15vh) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+/* Скроллбары */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

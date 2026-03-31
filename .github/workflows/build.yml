@@ -1,0 +1,62 @@
+name: Build Spraute Studio
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        working-directory: ./app
+        run: npm install
+
+      - name: Build Vite App
+        working-directory: ./app
+        run: npm run build
+
+      - name: Build Electron App (Windows)
+        if: matrix.os == 'windows-latest'
+        working-directory: ./app
+        run: npx electron-builder --win
+
+      - name: Build Electron App (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: ./app
+        run: npx electron-builder --linux
+
+      - name: Build Electron App (macOS)
+        if: matrix.os == 'macos-latest'
+        working-directory: ./app
+        run: npx electron-builder --mac
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Spraute-Studio-${{ matrix.os }}
+          path: |
+            app/dist-electron/*.exe
+            app/dist-electron/*.AppImage
+            app/dist-electron/*.deb
+            app/dist-electron/*.tar.gz
+            app/dist-electron/*.dmg
+            app/dist-electron/*.zip
+            app/dist-electron/latest*.yml
+          retention-days: 7

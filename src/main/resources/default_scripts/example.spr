@@ -1,0 +1,296 @@
+# Spraute Engine - Демонстрация от разработчика
+# Привет! Я ReadixGG, создатель этого движка. Сейчас я покажу тебе, как тут всё работает.
+#скрипт вряд ли запуститься, тут просто примеры
+
+# --- 1. Переменные и математика ---
+val base_hp = 20
+val bonus_hp = 5
+val total_hp = base_hp + bonus_hp
+# Скорость: 0.25 = обычная ходьба игрока, 0.3 = стандартный моб, 1.0 = очень быстро
+val walk_speed = 0.25
+
+chat("§7Вычисляю HP для моего NPC: " + total_hp)
+
+# --- 2. Спавн NPC ---
+create npc readix_avatar {
+    name = "ReadixGG"
+    hp = total_hp
+    speed = walk_speed
+    model = "geo/defolt.geo.json"
+    texture = "textures/entity/defolt.png"
+    pos = 8, -60, 8
+    rotate = 90, 0
+    show_name = true
+}
+
+chat("§aМой NPC успешно появился в мире! Дай мне 3 секунды...")
+say(readix_avatar, "Загрузка...")
+
+# --- 3. Асинхронная задержка ---
+await time(3)
+
+# --- 4. Обновление свойств в реальном времени ---
+readix_avatar.name = "Readix"
+chat("§cЯ готов! Сейчас попробую найти тебя.")
+
+# --- 5. Найти ближайшего игрока и посмотреть на него ---
+# --- меняю цвет ника в скобках ---
+set_names_color("#46a04dff")
+
+val player = get_nearest_player(readix_avatar)
+say(readix_avatar, "Ага, вот ты где, " + player.name + "! Добро пожаловать в мой движок.")
+
+# Фокусируем взгляд аватара на игроке
+readix_avatar.alwaysLookAt(player)
+
+# NPC может смотреть на другого NPC: npc1.alwaysLookAt(npc2) или npc1.headlookat(npc2)
+# Пример для двух NPC: create npc guard_a {...}; create npc guard_b {...}; guard_a.alwaysLookAt(guard_b); guard_b.alwaysLookAt(guard_a)
+
+# moveTo(x, y, z) — синхронный: скрипт ждёт, пока NPC дойдёт до точки (await не нужен)
+# readix_avatar.moveTo(15, -60, 15)
+# say(readix_avatar, "Я дошёл!")
+
+# entity.distanceTo(other) — дистанция между entity (player, npc, mob)
+# val d = readix_avatar.distanceTo(player)
+# chat("Дистанция: " + d)
+
+# npc.followUntil(entity) — NPC идёт за entity пока не подойдёт (по умолчанию 2 блока)
+# npc.followUntil(player, 3) — остановиться в 3 блоках от игрока
+# readix_avatar.followUntil(player)
+# say(readix_avatar, "Догнал!")
+
+# await pickup(npc_id, item_id, tag?) — ждёт пока NPC подберёт предмет, возвращает кол-во поднятых
+# val count = await pickup(readix_avatar, "minecraft:diamond")  # count = сколько подобрал в этом подборе
+# Поддерживает частичный сбор: кинули 15 — подобрал 15, кинули ещё 15 — подобрал 15
+
+# on pickup(npc_id, item_id, tag?) -> handler_id { body } — срабатывает при подборе предмета NPC
+# В теле доступны: _event_npc (entity), _event_item (ItemStack), _event_dropper (кто кинул, или null если обычный дроп)
+# on pickup(readix_avatar, "minecraft:diamond") -> diamond_handler {
+#     say(readix_avatar, "Подобрал алмаз!")
+#     stop(diamond_handler)
+# }
+
+# npc.pickupOnlyFrom(player) — NPC подбирает только предметы, кинутые этим игроком (Q)
+# npc.pickupAny() — снять ограничение, подбирать любые предметы
+
+# Анимации (overlay поверх idle — для additive эффекта анимация должна затрагивать только нужные кости)
+# npc.playOnce("wave") — проиграть один раз
+# npc.playLoop("arms_crossed") — зациклить (руки сложены + idle тело)
+# npc.playFreeze("pose_name") — проиграть и задержать последний кадр
+# npc.stopOverlay() — остановить overlay
+
+await interact(readix_avatar)
+
+# --- 6. Ожидание взаимодействия с игроком ---
+say(readix_avatar, "Подойди и нажми по мне ПКМ, чтобы продолжить...")
+val interactor = await interact(readix_avatar)
+
+# --- 7. Реакция на взаимодействие ---
+say(readix_avatar, "Отлично сработано, " + interactor.name + "! Надеюсь, тебе понравится писать здесь скрипты.")
+readix_avatar.show_name = false
+readix_avatar.stopLookAt()
+
+# --- 8. Условия (if / else if / else) ---
+val hp = readix_avatar.hp
+
+if (hp > 20) {
+    chat("§aНПС в отличной форме!")
+} else if (hp > 10) {
+    chat("§eНПС немного ранен")
+} else {
+    chat("§cНПС при смерти!")
+}
+
+# Логические операторы
+val is_alive = hp > 0
+val is_close = readix_avatar.x < 20
+
+if (is_alive && is_close) {
+    say(readix_avatar, "Я жив и рядом!")
+}
+
+if (!is_alive || !is_close) {
+    chat("§7НПС далеко или мёртв")
+}
+
+# --- 9. Циклы ---
+# while — обратный отсчёт
+val countdown = 3
+while (countdown > 0) {
+    say(readix_avatar, "Осталось " + countdown + "...")
+    await time(1)
+    countdown = countdown - 1
+}
+say(readix_avatar, "Поехали!")
+
+# for с range() — повторение действия
+for (i in range(1, 4)) {
+    chat("§7Шаг " + i + " из 3")
+    await time(0.5)
+}
+
+chat("§aВсе шаги завершены!")
+
+# --- 10. Пользовательские функции ---
+fun greet(target_name) {
+    chat("§6Привет, " + target_name + "! Добро пожаловать!")
+}
+
+fun add(a, b) {
+    return a + b
+}
+
+greet(player.name)
+val result = add(10, 25)
+chat("§710 + 25 = " + result)
+
+# Функция с логикой
+fun classify_hp(health) {
+    if (health > 30) {
+        return "отличное"
+    } else if (health > 15) {
+        return "нормальное"
+    } else {
+        return "критическое"
+    }
+}
+
+chat("§7Состояние НПС: " + classify_hp(readix_avatar.hp))
+
+# --- 10.5 Асинхронность ---
+# async { body } — запуск в фоне без имени (нельзя прервать/ждать)
+# async "id" { body } — именованная задача: await task("id"), stop_task("id"), task_done("id")
+# async "bg" {
+#     await time(5)
+#     chat("Прошло 5 сек в фоне!")
+# }
+# await task("bg")  # дождаться окончания
+# stop_task("bg")  # прервать
+# if (task_done("bg")) { chat("Готово!") }
+
+# --- 11. Фоновый обработчик событий (on) ---
+# Реагирует на каждое ПКМ по НПС, пока не остановлен
+val click_count = 0
+
+on interact(readix_avatar) -> click_handler {
+    click_count = click_count + 1
+    say(readix_avatar, "Ты нажал на меня " + click_count + " раз!")
+
+    if (click_count >= 3) {
+        say(readix_avatar, "Хватит кликать! Отключаю обработчик.")
+        stop(click_handler)
+    }
+}
+
+# --- 12. Периодический таймер (every) ---
+# Выполняется раз в 5 секунд, пока не остановлен
+val tick_counter = 0
+
+every(5) -> heartbeat {
+    tick_counter = tick_counter + 1
+    chat("§8[Heartbeat] Тик #" + tick_counter)
+
+    if (tick_counter >= 3) {
+        chat("§8[Heartbeat] Остановлен после 3 тиков.")
+        stop(heartbeat)
+    }
+}
+
+# --- 13. Предметы в руках NPC ---
+# Выдать предмет в правую руку
+readix_avatar.setItem("right", "minecraft:diamond_sword")
+
+# Выдать предмет в левую руку с NBT тегом
+readix_avatar.setItem("left", "minecraft:shield", "{Enchantments:[{id:unbreaking,lvl:3}]}")
+
+await time(5)
+
+# Убрать предмет из правой руки
+readix_avatar.removeItem("right")
+
+# Убрать все предметы из рук
+readix_avatar.removeItem()
+
+# --- 14. Ожидание нажатия клавиши (await keybind) ---
+chat("§eНажми клавишу F для продолжения...")
+await keybind("f")
+chat("§aОтлично! Ты нажал F!")
+
+# Фоновый обработчик клавиши
+on keybind("e") -> e_handler {
+    chat("§7Ты нажал E!")
+    stop(e_handler)
+}
+
+# --- 15. Работа с инвентарём игрока ---
+# Получить предмет из слота (0-8 = хотбар, 9-35 = инвентарь, 36-39 = броня, 40 = левая рука)
+val hotbar_item = player.slot(0)
+chat("§7В слоте 0 хотбара: " + hotbar_item)
+
+# Количество предметов в слоте
+val stack_size = player.slot_count(0)
+chat("§7Количество: " + stack_size)
+
+# Проверка наличия предмета в инвентаре
+if (player.has_item("minecraft:diamond")) {
+    chat("§bУ тебя есть алмаз!")
+} else {
+    chat("§7Алмазов нет...")
+}
+
+# Подсчёт конкретного предмета во всём инвентаре
+val diamond_count = player.countItem("minecraft:diamond")
+chat("§7Всего алмазов: " + diamond_count)
+
+# То же самое через встроенные функции (работает с любым игроком)
+val item_id = get_slot(player, 0)
+val has_sword = has_item(player, "minecraft:diamond_sword")
+val sword_count = countItem(player, "minecraft:diamond_sword")
+chat("§7Мечей: " + sword_count + ", есть: " + has_sword)
+
+# --- 16. Событие смерти (on death / await death) ---
+# Типы: "player", "npc", "mob", "any" или конкретный ID НПС
+
+# Фоновый обработчик — срабатывает при смерти любого игрока
+on death("player") -> player_death_handler {
+    chat("§cИгрок погиб!")
+    # _event_entity — кто умер, _event_killer — кто убил (может быть null)
+    if (_event_killer != null) {
+        chat("§7Убийца неизвестен... или это был моб")
+    }
+}
+
+# Обработчик смерти конкретного NPC
+on death(readix_avatar) -> npc_death_handler {
+    chat("§4Мой NPC убит!")
+    stop(npc_death_handler)
+}
+
+# Ожидание смерти моба (await) — скрипт остановится, пока не случится
+# val killer = await death("mob")
+# chat("§7Какой-то моб погиб!")
+
+# --- 17. execute() — выполнение команд ---
+execute("say Привет из скрипта!")
+# От лица игрока (если возможно)
+execute("give @s diamond 1", player)
+
+# --- 18. Глобальные и мировые переменные ---
+# global — общие между скриптами, сбрасываются при перезапуске сервера
+global val global_counter = 0
+global_counter = global_counter + 1
+chat("§7Глобальный счётчик: " + global_counter)
+
+# world — сохраняются в мире, переживают перезапуск
+world val world_visits = 0
+world_visits = world_visits + 1
+chat("§7Посещений мира: " + world_visits)
+
+# --- 19. Вызов другого скрипта (run_script) ---
+# Переменные (player, npc, и т.д.) передаются автоматически
+# run_script("intro")
+
+# --- 20. Триггеры скриптов (config/spraute_engine/triggers.json) ---
+# on_join — при каждом входе игрока
+# on_first_join — при первом входе игрока в мир
+# after — {"example": "next_script"} — после завершения example запустить next_script

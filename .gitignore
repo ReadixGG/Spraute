@@ -1,0 +1,29 @@
+# Узлы и сборки Electron
+app/node_modules/
+app/dist/
+app/dist-electron/
+app/release/
+app/*.log
+
+# Java и Forge (Мод)
+build/
+.gradle/
+bin/
+out/
+classes/
+*.class
+*.jar
+run/
+logs/
+crash-reports/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.cursor/
+*.iws
+
+# ОС
+.DS_Store
+Thumbs.db
