@@ -10,7 +10,7 @@
   "homepage": "https://github.com/ReadixGG/Spraute",
   "main": "electron-main.cjs",
   "scripts": {
-    "dev": "npx concurrently -k \"npx vite\" \"npx wait-on http://localhost:5173 && npx electron .\"",
+    "dev": "npx concurrently -k \"npx vite\" \"npx wait-on http://127.0.0.1:5173 && npx electron .\"",
     "build": "npx vite build",
     "start": "npx electron .",
     "preview": "npx vite build && npx electron .",
@@ -84,6 +84,5 @@
     "wait-on": "^8.0.5"
   },
   "keywords": [],
-  "author": "",
   "license": "ISC"
 }
