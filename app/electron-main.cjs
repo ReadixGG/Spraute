@@ -6,8 +6,8 @@ const { autoUpdater } = require('electron-updater');
 let store;
 let mainWindow;
 
-async function initStore() {
-  const { default: Store } = await import('electron-store');
+function initStore() {
+  const Store = require('electron-store');
   store = new Store({ name: 'spraute-studio' });
 }
 
@@ -67,7 +67,7 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  await initStore();
+  initStore();
   createWindow();
 
   // Настройка автообновления самой студии
