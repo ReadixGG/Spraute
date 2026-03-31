@@ -645,8 +645,25 @@ function setupDragAndDrop(el, item, wrapper) {
   el.addEventListener('dragstart', (e) => {
     draggedItem = { path: item.rel, name: item.name, isDir: item.isDir };
     el.classList.add('opacity-50');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', item.rel);
+    
+    // Разрешаем перемещение и копирование (для редактора)
+    e.dataTransfer.effectAllowed = 'copyMove';
+    
+    if (!item.isDir) {
+      // Формируем текст, который CodeMirror подхватит автоматически при наведении и сбросе
+      const ext = item.name.includes('.') ? item.name.split('.').pop() : '';
+      let insertText = `"${item.rel}"`;
+      if (ext === 'png' || ext === 'jpg' || ext === 'jpeg') {
+        insertText = `texture = "${item.rel}"`;
+      } else if (ext === 'json' && item.rel.includes('geo')) {
+        insertText = `model = "${item.rel}"`;
+      } else if (ext === 'json' && item.rel.includes('animations')) {
+        insertText = `animation = "${item.rel}"`;
+      }
+      e.dataTransfer.setData('text/plain', insertText);
+    } else {
+      e.dataTransfer.setData('text/plain', item.rel);
+    }
   });
   
   el.addEventListener('dragend', () => {
@@ -655,22 +672,25 @@ function setupDragAndDrop(el, item, wrapper) {
     draggedItem = null;
   });
   
-  // Только папки могут принимать файлы
+  // Только папки могут принимать файлы внутрь себя
   if (item.isDir) {
     el.addEventListener('dragover', (e) => {
       e.preventDefault();
+      e.stopPropagation(); // Не пускаем событие к корню
       if (draggedItem && draggedItem.path !== item.rel && !draggedItem.path.startsWith(item.rel + '/')) {
         e.dataTransfer.dropEffect = 'move';
         el.classList.add('drag-over', 'bg-primary/20', 'border', 'border-dashed', 'border-primary');
       }
     });
     
-    el.addEventListener('dragleave', () => {
+    el.addEventListener('dragleave', (e) => {
+      e.stopPropagation();
       el.classList.remove('drag-over', 'bg-primary/20', 'border', 'border-dashed', 'border-primary');
     });
     
     el.addEventListener('drop', async (e) => {
       e.preventDefault();
+      e.stopPropagation();
       el.classList.remove('drag-over', 'bg-primary/20', 'border', 'border-dashed', 'border-primary');
       
       if (draggedItem && draggedItem.path !== item.rel) {
@@ -678,19 +698,16 @@ function setupDragAndDrop(el, item, wrapper) {
         const srcName = draggedItem.name;
         const destPath = item.rel + '/' + srcName;
         
-        // Проверяем что не пытаемся переместить папку в саму себя
         if (srcPath.startsWith(item.rel + '/')) return;
+        if (srcPath === destPath) return; // файл уже здесь
         
         try {
           const exists = await window.spraute.exists(destPath);
           if (exists) {
             const confirm = await appConfirm(`"${srcName}" уже существует в "${item.name}". Заменить?`);
             if (!confirm) return;
-            if (draggedItem.isDir) {
-              await window.spraute.rmdir(destPath);
-            } else {
-              await window.spraute.unlink(destPath);
-            }
+            if (draggedItem.isDir) await window.spraute.rmdir(destPath);
+            else await window.spraute.unlink(destPath);
           }
           
           await window.spraute.rename(srcPath, destPath);
@@ -1906,60 +1923,53 @@ btnStudioUpdateInstall.addEventListener('click', () => {
   window.spraute.installStudioUpdate();
 });
 
-// Drag and Drop на редактор кода (вставка пути к файлу)
-document.addEventListener('DOMContentLoaded', () => {
-  const editorMount = document.getElementById('editor-mount');
+// ====== Drag and Drop для корневого каталога (вытащить из папки) ======
+const fileTree = document.getElementById('file-tree');
+
+fileTree.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  // Если событие дошло до корня и перетаскивается элемент
+  if (draggedItem && e.target === fileTree) {
+    e.dataTransfer.dropEffect = 'move';
+    fileTree.classList.add('bg-white/5');
+  }
+});
+
+fileTree.addEventListener('dragleave', (e) => {
+  if (e.target === fileTree) {
+    fileTree.classList.remove('bg-white/5');
+  }
+});
+
+fileTree.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  fileTree.classList.remove('bg-white/5');
   
-  editorMount.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    if (draggedItem && !draggedItem.isDir) {
-      e.dataTransfer.dropEffect = 'copy';
-      editorMount.classList.add('ring-2', 'ring-primary', 'ring-inset');
-    }
-  });
-
-  editorMount.addEventListener('dragleave', () => {
-    editorMount.classList.remove('ring-2', 'ring-primary', 'ring-inset');
-  });
-
-  editorMount.addEventListener('drop', (e) => {
-    e.preventDefault();
-    editorMount.classList.remove('ring-2', 'ring-primary', 'ring-inset');
+  if (draggedItem && e.target === fileTree) {
+    const srcPath = draggedItem.path;
+    const srcName = draggedItem.name;
+    const destPath = srcName; // Корень
     
-    if (draggedItem && !draggedItem.isDir && currentEditor) {
-      const filePath = draggedItem.path;
-      const fileName = draggedItem.name;
-      const ext = fileName.includes('.') ? fileName.split('.').pop() : '';
-      
-      // Формируем текст для вставки
-      let insertText = `"${filePath}"`;
-      
-      // Для разных типов файлов - разные шаблоны
-      if (ext === 'png' || ext === 'jpg' || ext === 'jpeg') {
-        insertText = `texture = "${filePath}"`;
-      } else if (ext === 'json' && filePath.includes('geo')) {
-        insertText = `model = "${filePath}"`;
-      } else if (ext === 'json' && filePath.includes('animation')) {
-        insertText = `animation = "${filePath}"`;
+    // Если файл уже в корне (нет слешей)
+    if (!srcPath.includes('/')) return;
+    if (srcPath === destPath) return;
+    
+    try {
+      const exists = await window.spraute.exists(destPath);
+      if (exists) {
+        const confirm = await appConfirm(`"${srcName}" уже существует в корне. Заменить?`);
+        if (!confirm) return;
+        if (draggedItem.isDir) await window.spraute.rmdir(destPath);
+        else await window.spraute.unlink(destPath);
       }
       
-      // Вставляем в позицию курсора
-      const cursor = currentEditor.state.selection.main.head;
-      currentEditor.dispatch({
-        changes: { from: cursor, insert: insertText },
-        selection: { anchor: cursor + insertText.length }
-      });
-      
-      // Помечаем как изменённый
-      const tab = openTabs.find(t => t.path === activeTabPath);
-      if (tab) {
-        tab.isDirty = true;
-        renderTabs();
-      }
-      
-      setStatus(`Вставлено: ${fileName}`);
+      await window.spraute.rename(srcPath, destPath);
+      await loadDirectory('');
+      setStatus(`Перемещено в корень: ${srcName}`);
+    } catch (err) {
+      alert(`Ошибка перемещения: ${err.message}`);
     }
-  });
+  }
 });
 
 // Запуск при загрузке DOM
