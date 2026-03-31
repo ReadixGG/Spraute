@@ -2890,8 +2890,8 @@ public class ScriptExecutor {
                             switch (propName) {
                                 case "model" -> npc.setModel(String.valueOf(value));
                                 case "texture" -> npc.setTexture(String.valueOf(value));
-                                case "idle_anim" -> npc.setIdleAnim(String.valueOf(value));
-                                case "walk_anim" -> npc.setWalkAnim(String.valueOf(value));
+                                case "idle_anim", "idleAnim" -> npc.setIdleAnim(String.valueOf(value));
+                                case "walk_anim", "walkAnim" -> npc.setWalkAnim(String.valueOf(value));
                                 default -> npc.customData.put(propName, value);
                             }
                         }
@@ -3025,7 +3025,9 @@ public class ScriptExecutor {
                 String name = props.containsKey("name") ? (String) props.get("name").get(0) : scriptId;
                 int hp = props.containsKey("hp") ? ((Number) props.get("hp").get(0)).intValue() : 20;
                 double speed = props.containsKey("speed") ? ((Number) props.get("speed").get(0)).doubleValue() : 0.3;
-                boolean showName = !props.containsKey("show_name") || Boolean.TRUE.equals(props.get("show_name").get(0));
+                boolean showName = true;
+                if (props.containsKey("showName")) showName = Boolean.TRUE.equals(props.get("showName").get(0));
+                else if (props.containsKey("show_name")) showName = Boolean.TRUE.equals(props.get("show_name").get(0));
                 boolean collision = !props.containsKey("collision") || Boolean.TRUE.equals(props.get("collision").get(0)) || "true".equalsIgnoreCase(String.valueOf(props.get("collision").get(0)));
                 
                 List<Object> pos = props.get("pos");
@@ -3066,11 +3068,13 @@ public class ScriptExecutor {
                         if (props.containsKey("texture")) {
                             npc.setTexture(String.valueOf(props.get("texture").get(0)));
                         }
-                        if (props.containsKey("idle_anim")) {
-                            npc.setIdleAnim(String.valueOf(props.get("idle_anim").get(0)));
+                        if (props.containsKey("idle_anim") || props.containsKey("idleAnim")) {
+                            Object val = props.containsKey("idleAnim") ? props.get("idleAnim").get(0) : props.get("idle_anim").get(0);
+                            npc.setIdleAnim(String.valueOf(val));
                         }
-                        if (props.containsKey("walk_anim")) {
-                            npc.setWalkAnim(String.valueOf(props.get("walk_anim").get(0)));
+                        if (props.containsKey("walk_anim") || props.containsKey("walkAnim")) {
+                            Object val = props.containsKey("walkAnim") ? props.get("walkAnim").get(0) : props.get("walk_anim").get(0);
+                            npc.setWalkAnim(String.valueOf(val));
                         }
                         if (existing != npc) level.addFreshEntity(npc);
                         
@@ -3174,7 +3178,7 @@ public class ScriptExecutor {
                         case "y" -> player.getY();
                         case "z" -> player.getZ();
                         case "data" -> org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().getPlayerSessionData(player.getUUID());
-                        case "saved_data" -> new PlayerSavedDataMap(player.getUUID(), source.getLevel().getServer(), source.getLevel());
+                        case "savedData" -> new PlayerSavedDataMap(player.getUUID(), source.getLevel().getServer(), source.getLevel());
                         default -> null;
                     };
                 }
@@ -3189,9 +3193,9 @@ public class ScriptExecutor {
                 if (npcEntity != null) {
                     return switch (prop.getPropertyName()) {
                         case "name" -> npcEntity.getCustomName() != null ? npcEntity.getCustomName().getString() : "";
-                        case "show_name" -> npcEntity.isCustomNameVisible();
+                        case "showName" -> npcEntity.isCustomNameVisible();
                         case "hp" -> npcEntity instanceof net.minecraft.world.entity.LivingEntity living ? living.getHealth() : 0;
-                        case "max_hp" -> npcEntity instanceof net.minecraft.world.entity.LivingEntity lh ? (lh.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH) != null 
+                        case "maxHp" -> npcEntity instanceof net.minecraft.world.entity.LivingEntity lh ? (lh.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH) != null 
                             ? lh.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).getBaseValue() : 0) : 0;
                         case "speed" -> npcEntity instanceof net.minecraft.world.entity.LivingEntity ls ? (ls.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED) != null 
                             ? ls.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED).getBaseValue() : 0) : 0;
@@ -3336,7 +3340,7 @@ public class ScriptExecutor {
                             net.minecraft.world.item.ItemStack stack = (hand.equals("left") || hand.equals("offhand")) ? player.getOffhandItem() : player.getMainHandItem();
                             yield stack.isEmpty() ? "" : net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem()).toString();
                         }
-                        case "held_item_nbt" -> {
+                        case "held_item_nbt", "heldItemNbt" -> {
                             String hand = methodArgs.isEmpty() ? "right" : String.valueOf(methodArgs.get(0)).toLowerCase();
                             net.minecraft.world.item.ItemStack stack = (hand.equals("left") || hand.equals("offhand")) ? player.getOffhandItem() : player.getMainHandItem();
                             yield stack.hasTag() ? stack.getTag().toString() : "";
