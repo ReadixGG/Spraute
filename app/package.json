@@ -70,6 +70,10 @@
     "wait-on": "^8.0.5"
   },
   "keywords": [],
-  "author": "",
+  "author": {
+    "name": "ReadixGG",
+    "email": "readixgg@example.com"
+  },
+  "homepage": "https://github.com/ReadixGG/Spraute",
   "license": "ISC"
 }
