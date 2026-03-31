@@ -63,7 +63,10 @@
         "provider": "generic",
         "url": "http://85.239.59.203/studio-updates/"
       }
-    ]
+    ],
+    "releaseInfo": {
+      "releaseNotesFile": "release-notes.md"
+    }
   },
   "devDependencies": {
     "@codemirror/autocomplete": "^6.20.1",
