@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "description": "Редактор скриптов Spraute — оболочка в духе VS Code для папки Minecraft",
+  "author": {
+    "name": "ZonarStudio",
+    "email": "contact@zonarstudio.com"
+  },
+  "homepage": "https://github.com/ReadixGG/Spraute",
   "main": "electron-main.cjs",
   "scripts": {
     "dev": "npx concurrently -k \"npx vite\" \"npx wait-on http://localhost:5173 && npx electron .\"",
@@ -29,7 +34,14 @@
       "package.json"
     ],
     "mac": {
-      "icon": "assets/icon_spraute.icns"
+      "icon": "assets/icon_spraute.icns",
+      "target": {
+        "target": "default",
+        "arch": [
+          "x64",
+          "arm64"
+        ]
+      }
     },
     "win": {
       "icon": "assets/icon_spraute.ico",
@@ -37,9 +49,11 @@
     },
     "linux": {
       "icon": "assets/icon_spraute.png",
+      "maintainer": "ZonarStudio <contact@zonarstudio.com>",
       "target": [
         "AppImage",
         "deb",
+        "rpm",
         "tar.gz"
       ]
     },
@@ -70,10 +84,6 @@
     "wait-on": "^8.0.5"
   },
   "keywords": [],
-  "author": {
-    "name": "ReadixGG",
-    "email": "readixgg@example.com"
-  },
-  "homepage": "https://github.com/ReadixGG/Spraute",
+  "author": "",
   "license": "ISC"
 }
