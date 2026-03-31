@@ -101,6 +101,45 @@
         <div class="flex items-center gap-3">
           <div class="w-6 h-6 bg-primary" style="-webkit-mask: url('/images/logo.svg') no-repeat center/contain; mask: url('/images/logo.svg') no-repeat center/contain;"></div>
           <span class="font-headline font-bold tracking-tight text-white">Spraute Studio</span>
+          
+          <!-- Раздел "Управление" -->
+          <div class="relative group ml-4">
+            <button class="flex items-center gap-1 text-sm font-medium text-on-variant hover:text-white transition-colors py-1 px-2 rounded-md hover:bg-white/5">
+              Управление
+              <span class="material-symbols-outlined text-[16px]">expand_more</span>
+            </button>
+            
+            <div class="absolute left-0 top-full mt-1 w-64 bg-surface-container border border-white/10 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-left -translate-y-2 group-hover:translate-y-0 z-50 py-2">
+              <div class="px-3 py-2 text-xs font-bold text-on-variant uppercase tracking-wider border-b border-white/5 mb-1">Файл</div>
+              <button id="menu-save" class="w-full px-4 py-2 flex items-center justify-between text-sm text-on-surface hover:text-white hover:bg-primary/20 transition-colors">
+                <span>Сохранить файл</span>
+                <kbd class="text-xs font-mono bg-background px-1.5 py-0.5 rounded border border-white/10">Ctrl+S</kbd>
+              </button>
+              
+              <div class="px-3 py-2 text-xs font-bold text-on-variant uppercase tracking-wider border-b border-white/5 mb-1 mt-2">Редактор</div>
+              <button id="menu-find" class="w-full px-4 py-2 flex items-center justify-between text-sm text-on-surface hover:text-white hover:bg-primary/20 transition-colors">
+                <span>Найти</span>
+                <kbd class="text-xs font-mono bg-background px-1.5 py-0.5 rounded border border-white/10">Ctrl+F</kbd>
+              </button>
+              <button id="menu-replace" class="w-full px-4 py-2 flex items-center justify-between text-sm text-on-surface hover:text-white hover:bg-primary/20 transition-colors">
+                <span>Заменить</span>
+                <kbd class="text-xs font-mono bg-background px-1.5 py-0.5 rounded border border-white/10">Ctrl+H</kbd>
+              </button>
+              <button id="menu-undo" class="w-full px-4 py-2 flex items-center justify-between text-sm text-on-surface hover:text-white hover:bg-primary/20 transition-colors">
+                <span>Отменить</span>
+                <kbd class="text-xs font-mono bg-background px-1.5 py-0.5 rounded border border-white/10">Ctrl+Z</kbd>
+              </button>
+              <button id="menu-redo" class="w-full px-4 py-2 flex items-center justify-between text-sm text-on-surface hover:text-white hover:bg-primary/20 transition-colors">
+                <span>Вернуть</span>
+                <kbd class="text-xs font-mono bg-background px-1.5 py-0.5 rounded border border-white/10">Ctrl+Y</kbd>
+              </button>
+              <button id="menu-autocomplete" class="w-full px-4 py-2 flex items-center justify-between text-sm text-on-surface hover:text-white hover:bg-primary/20 transition-colors">
+                <span>Автодополнение</span>
+                <kbd class="text-xs font-mono bg-background px-1.5 py-0.5 rounded border border-white/10">Ctrl+Space</kbd>
+              </button>
+            </div>
+          </div>
+          
           <div class="h-4 w-px bg-white/10 mx-2"></div>
           <span id="studio-path-display" class="font-mono text-xs text-on-variant"></span>
         </div>

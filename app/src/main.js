@@ -4,13 +4,13 @@ import { javascript } from "@codemirror/lang-javascript";
 import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
 import { HighlightStyle } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
-import { search, searchKeymap } from "@codemirror/search";
+import { search, searchKeymap, openSearchPanel } from "@codemirror/search";
 import { keymap } from "@codemirror/view";
-import { history, historyKeymap } from "@codemirror/commands";
+import { history, historyKeymap, undo, redo } from "@codemirror/commands";
 
 import { StreamLanguage, LanguageSupport } from "@codemirror/language";
 import { linter, lintGutter } from "@codemirror/lint";
-import { autocompletion, completeAnyWord, snippetCompletion, completionKeymap, acceptCompletion } from "@codemirror/autocomplete";
+import { autocompletion, completeAnyWord, snippetCompletion, completionKeymap, acceptCompletion, startCompletion } from "@codemirror/autocomplete";
 
 const sprauteLanguage = StreamLanguage.define({
   token(stream, state) {
@@ -1886,6 +1886,41 @@ document.getElementById('file-tree').addEventListener('contextmenu', (e) => {
   if (e.target === document.getElementById('file-tree')) {
     e.preventDefault();
     showContextMenu(e.pageX, e.pageY, '', true, null);
+  }
+});
+
+// ====== Меню "Управление" ======
+document.getElementById('menu-save')?.addEventListener('click', () => {
+  saveActiveTab();
+});
+document.getElementById('menu-find')?.addEventListener('click', () => {
+  if (currentEditor) {
+    openSearchPanel(currentEditor);
+    currentEditor.focus();
+  }
+});
+document.getElementById('menu-replace')?.addEventListener('click', () => {
+  if (currentEditor) {
+    openSearchPanel(currentEditor);
+    currentEditor.focus();
+  }
+});
+document.getElementById('menu-undo')?.addEventListener('click', () => {
+  if (currentEditor) {
+    undo(currentEditor);
+    currentEditor.focus();
+  }
+});
+document.getElementById('menu-redo')?.addEventListener('click', () => {
+  if (currentEditor) {
+    redo(currentEditor);
+    currentEditor.focus();
+  }
+});
+document.getElementById('menu-autocomplete')?.addEventListener('click', () => {
+  if (currentEditor) {
+    startCompletion(currentEditor);
+    currentEditor.focus();
   }
 });
 
