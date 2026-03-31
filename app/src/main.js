@@ -50,16 +50,16 @@ const sprauteKeywords = [
 
 const sprauteProperties = [
   // Базовые параметры NPC
-  "name", "hp", "speed", "pos", "rotate", "show_name", "collision", "model", "texture", "idle_anim", "walk_anim", "head",
+  "name", "hp", "speed", "pos", "rotate", "showName", "collision", "model", "texture", "idleAnim", "walkAnim", "head",
   
   // UI параметры
-  "size", "background", "bg", "can_close",
-  "anchor", "anchor_x", "anchor_y", "scale", "crop", "feet_crop",
-  "color", "hover", "bg_color", "outline_color",
+  "size", "background", "bg", "canClose",
+  "anchor", "anchorX", "anchorY", "scale", "crop", "feetCrop",
+  "color", "hover", "bgColor", "outlineColor",
   "wrap", "align", "tooltip", "layer", "order", "id",
-  "max_lines", "max_chars", "input_type", "placeholder",
-  "content_h", "scrollbar",
-  "grid_type", "cell_size", "thickness",
+  "maxLines", "maxChars", "inputType", "placeholder",
+  "contentH", "scrollbar",
+  "gridType", "cellSize", "thickness",
   
   // Остальное
   "text", "button", "slot", "image", "rect", "progress"

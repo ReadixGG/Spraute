@@ -82,7 +82,7 @@ public class SprauteScriptScreen extends Screen {
         this.panelW = readRootExtent(root, "w", sw, 200);
         this.panelH = readRootExtent(root, "h", sh, 150);
         this.bgArgb = parseColor(root.has("bg") ? root.get("bg").getAsString() : "#C0101010");
-        this.canClose = !root.has("can_close") || root.get("can_close").getAsBoolean();
+        this.canClose = !root.has("canClose") || root.get("canClose").getAsBoolean();
         parseWidgets();
     }
 
@@ -462,9 +462,9 @@ public class SprauteScriptScreen extends Screen {
                     case "w" -> new EntityW(ew.x, ew.y, (int)Float.parseFloat(value.trim()), ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim);
                     case "h" -> new EntityW(ew.x, ew.y, ew.w, (int)Float.parseFloat(value.trim()), ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim);
                     case "scale" -> new EntityW(ew.x, ew.y, ew.w, ew.h, Float.parseFloat(value.trim()), ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim);
-                    case "feet_crop" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, Float.parseFloat(value.trim()), ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim);
-                    case "anchor_x" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, clamp01(Float.parseFloat(value.trim())), ew.anchorY, ew.disableAnim);
-                    case "anchor_y" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, parseAnchorYPatch(value), ew.disableAnim);
+                    case "feetCrop" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, Float.parseFloat(value.trim()), ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim);
+                    case "anchorX" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, clamp01(Float.parseFloat(value.trim())), ew.anchorY, ew.disableAnim);
+                    case "anchorY" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, parseAnchorYPatch(value), ew.disableAnim);
                     case "crop" -> {
                         float[] c = parseCropPatch(value);
                         yield c != null ? new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, c[0], c[1], c[2], c[3], ew.anchorX, ew.anchorY, ew.disableAnim) : w;
@@ -550,8 +550,8 @@ public class SprauteScriptScreen extends Screen {
 
     private static float[] parseAnchor(JsonObject w) {
         float ax = 0f, ay = 0f;
-        if (w.has("anchor_x")) ax = w.get("anchor_x").getAsFloat();
-        if (w.has("anchor_y")) ay = w.get("anchor_y").getAsFloat();
+        if (w.has("anchorX")) ax = w.get("anchorX").getAsFloat();
+        if (w.has("anchorY")) ay = w.get("anchorY").getAsFloat();
         if (w.has("anchor")) {
             JsonElement el = w.get("anchor");
             if (el.isJsonPrimitive()) {
@@ -579,9 +579,9 @@ public class SprauteScriptScreen extends Screen {
         String wid = w.has("id") ? w.get("id").getAsString() : "";
         return switch (type) {
             case "rect", "panel" -> new RectW(x, y, ww, hh, parseColor(w.has("color") ? w.get("color").getAsString() : "#FFFFFFFF"), tooltip, wid);
-            case "grid_bg" -> new GridBgW(x, y, ww, hh, 
-                    w.has("grid_type") ? w.get("grid_type").getAsString() : "hv",
-                    w.has("cell_size") ? w.get("cell_size").getAsInt() : 20,
+            case "gridBg" -> new GridBgW(x, y, ww, hh, 
+                    w.has("gridType") ? w.get("gridType").getAsString() : "hv",
+                    w.has("cellSize") ? w.get("cellSize").getAsInt() : 20,
                     w.has("thickness") ? w.get("thickness").getAsInt() : 1,
                     parseColor(w.has("color") ? w.get("color").getAsString() : "#44FFFFFF"), tooltip, wid);
             case "image" -> new ImageW(x, y, ww, hh, w.has("texture") ? w.get("texture").getAsString() : "minecraft:textures/misc/unknown_pack.png", tooltip, wid);
@@ -590,22 +590,22 @@ public class SprauteScriptScreen extends Screen {
                 yield new TextW(x, y, w.has("text") ? w.get("text").getAsString() : "", parseColor(w.has("color") ? w.get("color").getAsString() : "#FFFFFF"), w.has("scale") ? w.get("scale").getAsFloat() : 1f, tooltip, wid,
                         w.has("wrap") ? readCoord(w, "wrap", pw) : 0,
                         w.has("align") ? w.get("align").getAsString().toLowerCase() : "left",
-                        w.has("max_lines") ? w.get("max_lines").getAsInt() : 0,
-                        w.has("max_chars") ? w.get("max_chars").getAsInt() : 0,
+                        w.has("maxLines") ? w.get("maxLines").getAsInt() : 0,
+                        w.has("maxChars") ? w.get("maxChars").getAsInt() : 0,
                         anchors[0], anchors[1]);
             }
             case "button" -> new ButtonW(
                     w.has("id") ? w.get("id").getAsString() : "",
                     x, y, ww, hh,
                     w.has("label") ? w.get("label").getAsString() : "",
-                    w.has("sub_label") ? w.get("sub_label").getAsString() : "",
+                    w.has("subLabel") ? w.get("subLabel").getAsString() : "",
                     parseColor(w.has("color") ? w.get("color").getAsString() : "#55336688"),
                     parseColor(w.has("hover") ? w.get("hover").getAsString() : "#66447799"),
                     w.has("texture") ? w.get("texture").getAsString() : null,
                     tooltip,
-                    w.has("label_wrap") ? readCoord(w, "label_wrap", pw) : 0,
-                    w.has("label_scale") ? w.get("label_scale").getAsFloat() : 1f,
-                    w.has("sub_scale") ? w.get("sub_scale").getAsFloat() : 0.65f);
+                    w.has("labelWrap") ? readCoord(w, "labelWrap", pw) : 0,
+                    w.has("labelScale") ? w.get("labelScale").getAsFloat() : 1f,
+                    w.has("subScale") ? w.get("subScale").getAsFloat() : 0.65f);
             case "entity" -> {
                 UUID uuid = null;
                 if (w.has("entityUuid")) {
@@ -614,7 +614,7 @@ public class SprauteScriptScreen extends Screen {
                     } catch (Exception ignored) {}
                 }
                 float scale = w.has("scale") ? w.get("scale").getAsFloat() : 1f;
-                float feetCrop = w.has("feet_crop") ? w.get("feet_crop").getAsFloat() : 0.38f;
+                float feetCrop = w.has("feetCrop") ? w.get("feetCrop").getAsFloat() : 0.38f;
                 float[] crop = new float[]{0f, 0f, 0f, 0f};
                 if (w.has("crop")) {
                     JsonArray c = w.getAsJsonArray("crop");
@@ -649,8 +649,8 @@ public class SprauteScriptScreen extends Screen {
                         anchorY = ay < 0f ? -1f : clamp01(ay);
                     }
                 } else {
-                    if (w.has("anchor_x")) anchorX = clamp01(w.get("anchor_x").getAsFloat());
-                    if (w.has("anchor_y")) anchorY = clamp01(w.get("anchor_y").getAsFloat());
+                    if (w.has("anchorX")) anchorX = clamp01(w.get("anchorX").getAsFloat());
+                    if (w.has("anchorY")) anchorY = clamp01(w.get("anchorY").getAsFloat());
                 }
                 boolean disableAnim = false;
                 if (w.has("animation")) {
@@ -663,9 +663,9 @@ public class SprauteScriptScreen extends Screen {
                 yield new EntityW(x, y, ww, hh, scale, uuid, feetCrop, tooltip, wid, crop[0], crop[1], crop[2], crop[3], anchorX, anchorY, disableAnim);
             }
             case "scroll" -> {
-                int contentH = readCoord(w, "content_h", ph);
+                int contentH = readCoord(w, "contentH", ph);
                 int scrollBg = parseColor(w.has("color") ? w.get("color").getAsString() : "#00000000");
-                boolean autoBar = w.has("auto_scrollbar") && w.get("auto_scrollbar").getAsBoolean();
+                boolean autoBar = w.has("autoScrollbar") && w.get("autoScrollbar").getAsBoolean();
                 boolean showBar = autoBar || (!w.has("scrollbar") || w.get("scrollbar").getAsBoolean());
                 ScrollW scroll = new ScrollW(x, y, ww, hh, contentH, scrollBg, tooltip, wid, showBar, autoBar);
                 if (w.has("children")) {
@@ -699,11 +699,11 @@ public class SprauteScriptScreen extends Screen {
                     w.has("text") ? w.get("text").getAsString() : "",
                     w.has("placeholder") ? w.get("placeholder").getAsString() : "",
                     parseColor(w.has("color") ? w.get("color").getAsString() : "#FFFFFF"),
-                    parseColor(w.has("bg_color") ? w.get("bg_color").getAsString() : "#FF000000"),
-                    parseColor(w.has("outline_color") ? w.get("outline_color").getAsString() : "#FFAAAAAA"),
+                    parseColor(w.has("bgColor") ? w.get("bgColor").getAsString() : "#FF000000"),
+                    parseColor(w.has("outlineColor") ? w.get("outlineColor").getAsString() : "#FFAAAAAA"),
                     w.has("scale") ? w.get("scale").getAsFloat() : 1f, tooltip,
-                    w.has("max_chars") ? w.get("max_chars").getAsInt() : 32,
-                    w.has("input_type") ? w.get("input_type").getAsString().toLowerCase() : "text");
+                    w.has("maxChars") ? w.get("maxChars").getAsInt() : 32,
+                    w.has("inputType") ? w.get("inputType").getAsString().toLowerCase() : "text");
             case "divider" -> new DividerW(x, y, ww, parseColor(w.has("color") ? w.get("color").getAsString() : "#44FFFFFF"), wid);
             case "item", "block" -> {
                 String itemId = "minecraft:stone";

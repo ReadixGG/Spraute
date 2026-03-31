@@ -73,10 +73,10 @@ public final class UiTemplate {
         if (rootProps.containsKey("id")) {
             root.addProperty("id", String.valueOf(eval.apply(rootProps.get("id"))));
         }
-        if (rootProps.containsKey("can_close")) {
-            Object v = eval.apply(rootProps.get("can_close"));
+        if (rootProps.containsKey("canClose")) {
+            Object v = eval.apply(rootProps.get("canClose"));
             boolean canClose = !(v instanceof Boolean b) || b;
-            root.addProperty("can_close", canClose);
+            root.addProperty("canClose", canClose);
         }
 
         JsonArray arr = new JsonArray();
@@ -139,17 +139,17 @@ public final class UiTemplate {
         if (rw.evaluatedProps.containsKey("anchor")) {
             Object a = rw.evaluatedProps.get("anchor");
             if (a instanceof List<?> list && list.size() >= 2) {
-                o.addProperty("anchor_x", clamp01(toFloat(list.get(0))));
-                o.addProperty("anchor_y", clamp01(toFloat(list.get(1))));
+                o.addProperty("anchorX", clamp01(toFloat(list.get(0))));
+                o.addProperty("anchorY", clamp01(toFloat(list.get(1))));
             } else if (a instanceof String str) {
                 o.addProperty("anchor", str);
             }
         } else {
-            if (rw.evaluatedProps.containsKey("anchor_x")) {
-                o.addProperty("anchor_x", propFloat(rw.evaluatedProps, "anchor_x", 0f));
+            if (rw.evaluatedProps.containsKey("anchorX")) {
+                o.addProperty("anchorX", propFloat(rw.evaluatedProps, "anchorX", 0f));
             }
-            if (rw.evaluatedProps.containsKey("anchor_y")) {
-                o.addProperty("anchor_y", propFloat(rw.evaluatedProps, "anchor_y", 0f));
+            if (rw.evaluatedProps.containsKey("anchorY")) {
+                o.addProperty("anchorY", propFloat(rw.evaluatedProps, "anchorY", 0f));
             }
         }
         o.addProperty("layer", propInt(rw.evaluatedProps, "layer", 0));
@@ -164,7 +164,7 @@ public final class UiTemplate {
         if (rw.evaluatedArgs.size() < 2) return null;
         String id = String.valueOf(rw.evaluatedArgs.get(0));
         String label = String.valueOf(rw.evaluatedArgs.get(1));
-        List<CompiledScript.Instruction> onClick = rw.eventHandlers != null ? rw.eventHandlers.get("on_click") : null;
+        List<CompiledScript.Instruction> onClick = rw.eventHandlers != null ? rw.eventHandlers.get("onClick") : null;
         if (onClick != null && !onClick.isEmpty()) {
             handlers.put(id, onClick);
         }
@@ -180,19 +180,19 @@ public final class UiTemplate {
         if (tex != null && !tex.isEmpty()) {
             o.addProperty("texture", tex);
         }
-        int labelWrap = propInt(rw.evaluatedProps, "label_wrap", 0);
+        int labelWrap = propInt(rw.evaluatedProps, "labelWrap", 0);
         if (labelWrap > 0) {
-            o.addProperty("label_wrap", labelWrap);
+            o.addProperty("labelWrap", labelWrap);
         }
-        if (rw.evaluatedProps.containsKey("label_scale")) {
-            o.addProperty("label_scale", propFloat(rw.evaluatedProps, "label_scale", 1f));
+        if (rw.evaluatedProps.containsKey("labelScale")) {
+            o.addProperty("labelScale", propFloat(rw.evaluatedProps, "labelScale", 1f));
         }
-        String sub = propStr(rw.evaluatedProps, "sub_label", null);
+        String sub = propStr(rw.evaluatedProps, "subLabel", null);
         if (sub != null && !sub.isEmpty()) {
-            o.addProperty("sub_label", sub);
+            o.addProperty("subLabel", sub);
         }
-        if (rw.evaluatedProps.containsKey("sub_scale")) {
-            o.addProperty("sub_scale", propFloat(rw.evaluatedProps, "sub_scale", 0.65f));
+        if (rw.evaluatedProps.containsKey("subScale")) {
+            o.addProperty("subScale", propFloat(rw.evaluatedProps, "subScale", 0.65f));
         }
         o.addProperty("layer", propInt(rw.evaluatedProps, "layer", 0));
         o.addProperty("order", order);
@@ -212,7 +212,7 @@ public final class UiTemplate {
         putWH(o, rw.evaluatedProps, "size", 64, 96, pw, ph);
         o.addProperty("entity", entity);
         o.addProperty("scale", propFloat(rw.evaluatedProps, "scale", 1f));
-        o.addProperty("feet_crop", propFloat(rw.evaluatedProps, "feet_crop", 0.38f));
+        o.addProperty("feetCrop", propFloat(rw.evaluatedProps, "feetCrop", 0.38f));
         putCropAndAnchor(o, rw.evaluatedProps);
         o.addProperty("layer", propInt(rw.evaluatedProps, "layer", 0));
         o.addProperty("order", order);
@@ -254,18 +254,18 @@ public final class UiTemplate {
         if (props.containsKey("anchor")) {
             Object a = props.get("anchor");
             if (a instanceof List<?> list && list.size() >= 2) {
-                o.addProperty("anchor_x", clamp01(toFloat(list.get(0))));
+                o.addProperty("anchorX", clamp01(toFloat(list.get(0))));
                 float ay = toFloat(list.get(1));
-                o.addProperty("anchor_y", ay < 0f ? -1f : clamp01(ay));
+                o.addProperty("anchorY", ay < 0f ? -1f : clamp01(ay));
             } else if (a instanceof String str) {
                 o.addProperty("anchor", str);
             }
         } else {
-            if (props.containsKey("anchor_x")) {
-                o.addProperty("anchor_x", propFloat(props, "anchor_x", 0.5f));
+            if (props.containsKey("anchorX")) {
+                o.addProperty("anchorX", propFloat(props, "anchorX", 0.5f));
             }
-            if (props.containsKey("anchor_y")) {
-                o.addProperty("anchor_y", propFloat(props, "anchor_y", 0.5f));
+            if (props.containsKey("anchorY")) {
+                o.addProperty("anchorY", propFloat(props, "anchorY", 0.5f));
             }
         }
     }
@@ -320,16 +320,16 @@ public final class UiTemplate {
         o.addProperty("id", id);
         putXY(o, rw.evaluatedProps, "pos", pw, ph);
         putWH(o, rw.evaluatedProps, "size", pw, ph, pw, ph);
-        int contentH = propInt(rw.evaluatedProps, "content_h", ph);
-        o.addProperty("content_h", contentH);
+        int contentH = propInt(rw.evaluatedProps, "contentH", ph);
+        o.addProperty("contentH", contentH);
         o.addProperty("color", propStr(rw.evaluatedProps, "color", "#00000000"));
         Object scrollbarVal = rw.evaluatedProps.get("scrollbar");
         if (scrollbarVal != null) {
             o.addProperty("scrollbar", isTruthy(scrollbarVal));
         }
-        Object autoBarVal = rw.evaluatedProps.get("auto_scrollbar");
+        Object autoBarVal = rw.evaluatedProps.get("autoScrollbar");
         if (autoBarVal != null) {
-            o.addProperty("auto_scrollbar", isTruthy(autoBarVal));
+            o.addProperty("autoScrollbar", isTruthy(autoBarVal));
         }
         o.addProperty("layer", propInt(rw.evaluatedProps, "layer", 0));
         o.addProperty("order", order);
