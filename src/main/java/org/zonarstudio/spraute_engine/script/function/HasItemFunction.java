@@ -13,7 +13,7 @@ import java.util.List;
  * Checks all inventory slots including armor and offhand.
  */
 public class HasItemFunction implements ScriptFunction {
-    @Override public String getName() { return "has_item"; }
+    @Override public String getName() { return "hasItem"; }
     @Override public int getArgCount() { return 2; }
     @Override public Class<?>[] getArgTypes() { return new Class[]{Object.class, String.class}; }
 

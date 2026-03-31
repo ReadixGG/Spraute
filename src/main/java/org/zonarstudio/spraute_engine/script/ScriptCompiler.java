@@ -39,7 +39,7 @@ public class ScriptCompiler {
                     assignNode.getName(), assignNode.getValue()
             ));
         } else if (node instanceof ScriptNode.FunctionCallNode callNode) {
-            if (callNode.getFunctionName().equals("stop_task")) {
+            if (callNode.getFunctionName().equals("stopTask")) {
                 if (callNode.getArgs().isEmpty()) throw new ScriptException("stop_task() requires task id");
                 instructions.add(new CompiledScript.Instruction(CompiledScript.Opcode.STOP_TASK, callNode.getArgs().get(0)));
             } else {
@@ -95,8 +95,8 @@ public class ScriptCompiler {
             } else if (func.equals("uiClick")) {
                 if (args.isEmpty()) throw new ScriptException("await uiClick(player) requires player");
                 instructions.add(new CompiledScript.Instruction(CompiledScript.Opcode.AWAIT_UI_CLICK, args.get(0)));
-            } else if (func.equals("ui_close")) {
-                if (args.isEmpty()) throw new ScriptException("await ui_close(player) requires player");
+            } else if (func.equals("uiClose")) {
+                if (args.isEmpty()) throw new ScriptException("await uiClose(player) requires player");
                 instructions.add(new CompiledScript.Instruction(CompiledScript.Opcode.AWAIT_UI_CLOSE, args.get(0)));
             } else if (func.equals("uiInput")) {
                 if (args.isEmpty()) throw new ScriptException("await uiInput(player, [widget_id]) requires player");
@@ -104,7 +104,7 @@ public class ScriptCompiler {
             } else if (func.equals("position")) {
                 if (args.size() < 4) throw new ScriptException("await position(player, x, y, z, [radius]) requires at least 4 arguments");
                 instructions.add(new CompiledScript.Instruction(CompiledScript.Opcode.AWAIT_POSITION, args.get(0), args.get(1), args.get(2), args.get(3), args.size() > 4 ? args.get(4) : null));
-            } else if (func.equals("inventory") || func.equals("has_item")) {
+            } else if (func.equals("inventory") || func.equals("hasItem")) {
                 if (args.size() < 2) throw new ScriptException("await inventory(player, item_id, [count]) requires player and item_id");
                 instructions.add(new CompiledScript.Instruction(CompiledScript.Opcode.AWAIT_INVENTORY, args.get(0), args.get(1), args.size() > 2 ? args.get(2) : null));
             } else if (func.equals("clickBlock")) {
@@ -198,14 +198,14 @@ public class ScriptCompiler {
         } else if (node instanceof ScriptNode.UiWidgetNode widgetNode) {
             Map<String, List<CompiledScript.Instruction>> eventHandlers = new HashMap<>();
             for (Map.Entry<String, ScriptNode> e : widgetNode.getEvents().entrySet()) {
-                if (!"on_click".equals(e.getKey())) continue;
+                if (!"onClick".equals(e.getKey())) continue;
                 ScriptNode body = e.getValue();
                 if (!(body instanceof ScriptNode.BlockNode bn)) continue;
                 List<CompiledScript.Instruction> ins = new ArrayList<>();
                 for (ScriptNode stmt : bn.getStatements()) {
                     compileNode(stmt, ins);
                 }
-                eventHandlers.put("on_click", ins);
+                eventHandlers.put("onClick", ins);
             }
             List<CompiledScript.Instruction> childBody = null;
             if (!widgetNode.getChildren().isEmpty()) {

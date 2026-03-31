@@ -12,7 +12,7 @@ public class TaskDoneFunction implements ScriptFunction {
 
     @Override
     public String getName() {
-        return "task_done";
+        return "taskDone";
     }
 
     @Override

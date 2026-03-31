@@ -368,7 +368,7 @@ public class ScriptExecutor {
                 case KEYBIND -> "keybind (" + keybind + ")";
                 case DEATH -> "death (" + deathTarget + ")";
                 case UI_CLICK -> "uiClick";
-                case UI_CLOSE -> "ui_close";
+                case UI_CLOSE -> "uiClose";
                 case MOVE_TO -> String.format("move_to (%.0f, %.0f, %.0f)", mx, my, mz);
                 case FOLLOW -> "follow (" + followTarget + ")";
                 case PICKUP -> "pickup";
@@ -542,7 +542,7 @@ public class ScriptExecutor {
             if (source.getLevel() != null) {
                 for (var entry : eventHandlers.entrySet()) {
                     EventHandler handler = entry.getValue();
-                    if (!handler.active || (!handler.eventName.equals("inventory") && !handler.eventName.equals("has_item"))) continue;
+                    if (!handler.active || (!handler.eventName.equals("inventory") && !handler.eventName.equals("hasItem"))) continue;
                     if (handler.eventArgs.size() < 2) continue;
                     
                     net.minecraft.world.entity.Entity playerEnt = resolveEntity(handler.eventArgs.get(0));
@@ -1414,7 +1414,7 @@ public class ScriptExecutor {
             for (var entry : eventHandlers.entrySet()) {
                 EventHandler handler = entry.getValue();
                 boolean isUiClick = handler.eventName.equals("uiClick") || handler.eventName.equals("uiclick");
-                boolean isUiClose = handler.eventName.equals("ui_close") || handler.eventName.equals("uiclose");
+                boolean isUiClose = handler.eventName.equals("uiClose") || handler.eventName.equals("uiclose");
                 boolean isUiInput = handler.eventName.equals("uiInput") || handler.eventName.equals("uiinput");
                 
                 if (!handler.active || (!isUiClick && !isUiClose && !isUiInput)) continue;
@@ -1500,7 +1500,7 @@ public class ScriptExecutor {
                     }
                 }
             }
-            fireBlockEvent("click_block", player, pos, blockStr, isLeft ? "left" : "right");
+            fireBlockEvent("clickBlock", player, pos, blockStr, isLeft ? "left" : "right");
         }
 
         public void onBreakBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block) {
@@ -1943,7 +1943,7 @@ public class ScriptExecutor {
                              }
                              pendingVarName = name;
                              return true;
-                         } else if (call.getFunctionName().equals("ui_click") || call.getFunctionName().equals("uiclick")) {
+                         } else if (call.getFunctionName().equals("uiClick") || call.getFunctionName().equals("uiclick")) {
                              if (call.getArgs().isEmpty()) return false;
                              net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
                              if (sp != null) {
@@ -1952,7 +1952,7 @@ public class ScriptExecutor {
                                  pendingVarName = name;
                                  return true;
                              }
-                         } else if (call.getFunctionName().equals("ui_close") || call.getFunctionName().equals("uiclose")) {
+                         } else if (call.getFunctionName().equals("uiClose") || call.getFunctionName().equals("uiclose")) {
                              if (call.getArgs().isEmpty()) return false;
                              net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
                              if (sp != null) {
@@ -1984,7 +1984,7 @@ public class ScriptExecutor {
                                  pendingVarName = name;
                                  return true;
                              }
-                         } else if (call.getFunctionName().equals("inventory") || call.getFunctionName().equals("has_item")) {
+                         } else if (call.getFunctionName().equals("inventory") || call.getFunctionName().equals("hasItem")) {
                              if (call.getArgs().size() < 2) return false;
                              net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
                              if (sp != null) {
@@ -1995,7 +1995,7 @@ public class ScriptExecutor {
                                  pendingVarName = name;
                                  return true;
                              }
-                         } else if (call.getFunctionName().equals("click_block") || call.getFunctionName().equals("breakBlock") || call.getFunctionName().equals("placeBlock")) {
+                         } else if (call.getFunctionName().equals("clickBlock") || call.getFunctionName().equals("breakBlock") || call.getFunctionName().equals("placeBlock")) {
                              if (call.getArgs().isEmpty()) return false;
                              net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
                              if (sp != null) {
@@ -2012,7 +2012,7 @@ public class ScriptExecutor {
                                      );
                                      if (call.getArgs().size() >= 5) waitBlockId = String.valueOf(evaluateExpression(call.getArgs().get(4)));
                                  }
-                                 if (call.getFunctionName().equals("click_block")) waitType = WaitType.CLICK_BLOCK;
+                                 if (call.getFunctionName().equals("clickBlock")) waitType = WaitType.CLICK_BLOCK;
                                  else if (call.getFunctionName().equals("breakBlock")) waitType = WaitType.BREAK_BLOCK;
                                  else waitType = WaitType.PLACE_BLOCK;
                                  blockEventMet = false;
@@ -2091,7 +2091,7 @@ public class ScriptExecutor {
                              }
                              pendingVarName = name;
                              return true;
-                         } else if (call.getFunctionName().equals("ui_click") || call.getFunctionName().equals("uiclick")) {
+                         } else if (call.getFunctionName().equals("uiClick") || call.getFunctionName().equals("uiclick")) {
                              if (call.getArgs().isEmpty()) return false;
                              net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
                              if (sp != null) {
@@ -2100,7 +2100,7 @@ public class ScriptExecutor {
                                  pendingVarName = name;
                                  return true;
                              }
-                         } else if (call.getFunctionName().equals("ui_close") || call.getFunctionName().equals("uiclose")) {
+                         } else if (call.getFunctionName().equals("uiClose") || call.getFunctionName().equals("uiclose")) {
                              if (call.getArgs().isEmpty()) return false;
                              net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
                              if (sp != null) {
@@ -2132,7 +2132,7 @@ public class ScriptExecutor {
                                  pendingVarName = name;
                                  return true;
                              }
-                         } else if (call.getFunctionName().equals("inventory") || call.getFunctionName().equals("has_item")) {
+                         } else if (call.getFunctionName().equals("inventory") || call.getFunctionName().equals("hasItem")) {
                              if (call.getArgs().size() < 2) return false;
                              net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
                              if (sp != null) {
@@ -2143,7 +2143,7 @@ public class ScriptExecutor {
                                  pendingVarName = name;
                                  return true;
                              }
-                         } else if (call.getFunctionName().equals("click_block") || call.getFunctionName().equals("breakBlock") || call.getFunctionName().equals("placeBlock")) {
+                         } else if (call.getFunctionName().equals("clickBlock") || call.getFunctionName().equals("breakBlock") || call.getFunctionName().equals("placeBlock")) {
                              if (call.getArgs().isEmpty()) return false;
                              net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
                              if (sp != null) {
@@ -2160,7 +2160,7 @@ public class ScriptExecutor {
                                      );
                                      if (call.getArgs().size() >= 5) waitBlockId = String.valueOf(evaluateExpression(call.getArgs().get(4)));
                                  }
-                                 if (call.getFunctionName().equals("click_block")) waitType = WaitType.CLICK_BLOCK;
+                                 if (call.getFunctionName().equals("clickBlock")) waitType = WaitType.CLICK_BLOCK;
                                  else if (call.getFunctionName().equals("breakBlock")) waitType = WaitType.BREAK_BLOCK;
                                  else waitType = WaitType.PLACE_BLOCK;
                                  blockEventMet = false;
@@ -2424,7 +2424,7 @@ public class ScriptExecutor {
             }
 
             // run_script(name) — вызвать другой скрипт с передачей переменных
-            if (functionName.equals("run_script")) {
+            if (functionName.equals("runScript")) {
                 if (!args.isEmpty()) {
                     String scriptName = String.valueOf(args.get(0));
                     Map<String, Object> vars = new HashMap<>(variables);
@@ -2505,7 +2505,7 @@ public class ScriptExecutor {
                             npc.setAdditiveWeight(net.minecraft.util.Mth.clamp(w, 0f, 1f));
                         }
                     }
-                    case "move_to", "moveto" -> {
+                    case "moveTo", "moveto" -> {
                         if (args.size() >= 3) {
                             double x = ((Number) args.get(0)).doubleValue();
                             double y = ((Number) args.get(1)).doubleValue();
@@ -2545,7 +2545,7 @@ public class ScriptExecutor {
                             if (target != null) npc.alwaysMoveToEntity(target, speed);
                         }
                     }
-                    case "stop_move", "stopmove" -> npc.stopMove();
+                    case "stopMove", "stopmove" -> npc.stopMove();
                     case "setidleanim" -> {
                         if (!args.isEmpty()) npc.setIdleAnim(String.valueOf(args.get(0)));
                         else npc.setIdleAnim("");
@@ -2577,7 +2577,7 @@ public class ScriptExecutor {
                         npc.discard();
                         // NpcManager entries for discarded UUIDs are naturally handled as missing/dead
                     }
-                    case "follow_until", "followuntil" -> {
+                    case "followUntil", "followuntil" -> {
                         net.minecraft.world.entity.Entity target = resolveEntity(args.size() >= 1 ? args.get(0) : null);
                         if (target != null && blocking) {
                             waitEntityUuid = npc.getUUID();
@@ -2601,7 +2601,7 @@ public class ScriptExecutor {
                         net.minecraft.world.entity.Entity dropper = resolveEntity(args.size() >= 1 ? args.get(0) : null);
                         npc.setPickupDropperFilter(dropper != null ? dropper.getUUID() : null);
                     }
-                    case "pickup_any", "pickupany" -> npc.clearPickupDropperFilter();
+                    case "pickupAny", "pickupany" -> npc.clearPickupDropperFilter();
                     case "lookat" -> {
                         if (args.size() >= 3 && args.get(0) instanceof Number) {
                             double lx = ((Number) args.get(0)).doubleValue();
@@ -2629,7 +2629,7 @@ public class ScriptExecutor {
                         if (!args.isEmpty()) npc.setHeadBone(String.valueOf(args.get(0)));
                         else npc.setHeadBone("head");
                     }
-                    case "count_item", "countitem" -> {
+                    case "countItem", "countitem" -> {
                         if (!args.isEmpty()) {
                             String itemId = String.valueOf(args.get(0));
                             if (args.size() >= 2) {
@@ -3232,7 +3232,7 @@ public class ScriptExecutor {
                     if (source.getLevel() != null) obj = source.getLevel().getEntity(uuid);
                 }
 
-                if (obj instanceof net.minecraft.world.entity.Entity entity && (method.equals("distance_to") || method.equals("distanceto"))) {
+                if (obj instanceof net.minecraft.world.entity.Entity entity && (method.equals("distanceTo") || method.equals("distanceto"))) {
                     net.minecraft.world.entity.Entity other = resolveEntity(methodArgs.isEmpty() ? null : methodArgs.get(0));
                     if (other != null) return entity.distanceTo(other);
                     return 0.0;
@@ -3281,7 +3281,7 @@ public class ScriptExecutor {
 
                 if (obj instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc) {
                     String m = method != null ? method.toLowerCase() : "";
-                    if ("count_item".equals(m) || "countitem".equals(m)) {
+                    if ("countItem".equals(m) || "countitem".equals(m)) {
                         if (!methodArgs.isEmpty()) {
                             String itemId = String.valueOf(methodArgs.get(0));
                             if (methodArgs.size() >= 2) {
@@ -3312,7 +3312,7 @@ public class ScriptExecutor {
                             }
                             yield "";
                         }
-                        case "slot_count" -> {
+                        case "slotCount" -> {
                             if (!methodArgs.isEmpty()) {
                                 int slot = ((Number) methodArgs.get(0)).intValue();
                                 if (slot >= 0 && slot <= 40) {
@@ -3321,7 +3321,7 @@ public class ScriptExecutor {
                             }
                             yield 0;
                         }
-                        case "slot_nbt" -> {
+                        case "slotNbt" -> {
                             if (!methodArgs.isEmpty()) {
                                 int slot = ((Number) methodArgs.get(0)).intValue();
                                 if (slot >= 0 && slot <= 40) {
@@ -3331,7 +3331,7 @@ public class ScriptExecutor {
                             }
                             yield "";
                         }
-                        case "held_item" -> {
+                        case "heldItem" -> {
                             String hand = methodArgs.isEmpty() ? "right" : String.valueOf(methodArgs.get(0)).toLowerCase();
                             net.minecraft.world.item.ItemStack stack = (hand.equals("left") || hand.equals("offhand")) ? player.getOffhandItem() : player.getMainHandItem();
                             yield stack.isEmpty() ? "" : net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem()).toString();
@@ -3341,7 +3341,7 @@ public class ScriptExecutor {
                             net.minecraft.world.item.ItemStack stack = (hand.equals("left") || hand.equals("offhand")) ? player.getOffhandItem() : player.getMainHandItem();
                             yield stack.hasTag() ? stack.getTag().toString() : "";
                         }
-                        case "has_item" -> {
+                        case "hasItem" -> {
                             if (!methodArgs.isEmpty()) {
                                 String itemId = String.valueOf(methodArgs.get(0));
                                 net.minecraft.resources.ResourceLocation searchRL = new net.minecraft.resources.ResourceLocation(itemId);
@@ -3357,7 +3357,7 @@ public class ScriptExecutor {
                             }
                             yield false;
                         }
-                        case "count_item", "countitem" -> {
+                        case "countItem", "countitem" -> {
                             if (!methodArgs.isEmpty()) {
                                 String itemId = String.valueOf(methodArgs.get(0));
                                 net.minecraft.resources.ResourceLocation searchRL = new net.minecraft.resources.ResourceLocation(itemId);

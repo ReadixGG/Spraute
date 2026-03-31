@@ -134,9 +134,28 @@ const sprauteFunctionsList = [
   "teleport(${1:x}, ${2:y}, ${3:z})"
 ];
 
+function smartSnippetCompletion(template, options) {
+  const snip = snippetCompletion(template, options);
+  if (typeof snip.apply === 'function') {
+    const originalApply = snip.apply;
+    snip.apply = (view, completion, from, to) => {
+      const nextChar = view.state.sliceDoc(to, to + 1);
+      if (nextChar === '(' && template.includes('(')) {
+        view.dispatch({
+          changes: {from, to, insert: options.label},
+          selection: {anchor: from + options.label.length}
+        });
+      } else {
+        originalApply(view, completion, from, to);
+      }
+    };
+  }
+  return snip;
+}
+
 const sprauteFunctionCompletions = sprauteFunctionsList.map(sig => {
   const name = sig.split('(')[0];
-  return snippetCompletion(sig, {label: name, detail: "method", type: "function"});
+  return smartSnippetCompletion(sig, {label: name, detail: "method", type: "function"});
 });
 
 const sprauteSnippets = [
@@ -1089,6 +1108,7 @@ async function switchToTab(path) {
         ".cm-content": {
           fontFamily: "var(--font-mono)",
           padding: "1rem 0",
+          paddingBottom: "50vh",
           backgroundColor: "transparent !important"
         },
         ".cm-gutters": {

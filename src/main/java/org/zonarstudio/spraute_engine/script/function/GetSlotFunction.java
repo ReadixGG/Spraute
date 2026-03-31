@@ -12,7 +12,7 @@ import java.util.List;
  * Slots: 0-8 = hotbar, 9-35 = inventory, 36-39 = armor (feet, legs, chest, head), 40 = offhand
  */
 public class GetSlotFunction implements ScriptFunction {
-    @Override public String getName() { return "get_slot"; }
+    @Override public String getName() { return "getSlot"; }
     @Override public int getArgCount() { return 2; }
     @Override public Class<?>[] getArgTypes() { return new Class[]{Object.class, Number.class}; }
 

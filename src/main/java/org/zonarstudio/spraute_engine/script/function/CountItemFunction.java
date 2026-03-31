@@ -12,7 +12,7 @@ import java.util.List;
  * count_item(player, "minecraft:diamond") -> number of that item across all slots
  */
 public class CountItemFunction implements ScriptFunction {
-    @Override public String getName() { return "count_item"; }
+    @Override public String getName() { return "countItem"; }
     @Override public int getArgCount() { return 2; }
     @Override public Class<?>[] getArgTypes() { return new Class[]{Object.class, String.class}; }
 
