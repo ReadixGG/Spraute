@@ -83,6 +83,27 @@ public class Spraute_engine {
     public static void onBreakBlock(net.minecraftforge.event.level.BlockEvent.BreakEvent event) {
         if (!event.getLevel().isClientSide() && event.getPlayer() != null) {
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onBreakBlock(event.getPlayer(), event.getPos(), event.getState().getBlock());
+            
+            if (event.getState().getBlock() instanceof org.zonarstudio.spraute_engine.registry.CustomGeoBlock customBlock) {
+                String dropId = customBlock.getDropItem();
+                if (dropId != null && !dropId.isEmpty()) {
+                    net.minecraft.world.item.Item drop = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(new net.minecraft.resources.ResourceLocation(Spraute_engine.MODID, dropId));
+                    if (drop == null || drop == net.minecraft.world.item.Items.AIR) {
+                        drop = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(new net.minecraft.resources.ResourceLocation("minecraft", dropId));
+                    }
+                    if (drop != null && drop != net.minecraft.world.item.Items.AIR) {
+                        net.minecraft.world.entity.item.ItemEntity itemEntity = new net.minecraft.world.entity.item.ItemEntity(
+                                (net.minecraft.world.level.Level)event.getLevel(),
+                                event.getPos().getX() + 0.5,
+                                event.getPos().getY() + 0.5,
+                                event.getPos().getZ() + 0.5,
+                                new net.minecraft.world.item.ItemStack(drop)
+                        );
+                        itemEntity.setDefaultPickUpDelay();
+                        ((net.minecraft.world.level.Level)event.getLevel()).addFreshEntity(itemEntity);
+                    }
+                }
+            }
         }
     }
 
@@ -160,6 +181,7 @@ public class Spraute_engine {
         @SubscribeEvent
         public static void registerRenderers(net.minecraftforge.client.event.EntityRenderersEvent.RegisterRenderers event) {
             event.registerEntityRenderer(ModEntities.SPRAUTE_NPC.get(), org.zonarstudio.spraute_engine.entity.client.SprauteNpcRenderer::new);
+            event.registerBlockEntityRenderer(org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CUSTOM_GEO_BLOCK_ENTITY, org.zonarstudio.spraute_engine.registry.CustomGeoBlockRenderer::new);
         }
 
         @SubscribeEvent
@@ -175,8 +197,8 @@ public class Spraute_engine {
 
         @SubscribeEvent
         public static void onAddPackFinders(net.minecraftforge.event.AddPackFindersEvent event) {
-            if (event.getPackType() == net.minecraft.server.packs.PackType.CLIENT_RESOURCES) {
-                // Register the run/spraute_engine/ directory as a resource pack
+            if (event.getPackType() == net.minecraft.server.packs.PackType.CLIENT_RESOURCES || event.getPackType() == net.minecraft.server.packs.PackType.SERVER_DATA) {
+                // Register the run/spraute_engine/ directory as a resource/data pack
                 java.nio.file.Path gameDir = net.minecraftforge.fml.loading.FMLPaths.GAMEDIR.get();
                 java.nio.file.Path assetsDir = gameDir.resolve("spraute_engine");
                 
@@ -191,10 +213,10 @@ public class Spraute_engine {
                         }
                     }
 
-                    LOGGER.info("[Spraute Engine] Registering external assets from: {}", assetsDir);
+                    LOGGER.info("[Spraute Engine] Registering external " + event.getPackType().name() + " from: {}", assetsDir);
                     event.addRepositorySource((consumer, constructor) -> {
                         var pack = net.minecraft.server.packs.repository.Pack.create(
-                                "spraute_engine_external",
+                                "spraute_engine_external_" + event.getPackType().name().toLowerCase(),
                                 true, // required
                                 () -> new org.zonarstudio.spraute_engine.resource.ExternalAssetPack(assetsDir),
                                 constructor,
@@ -206,7 +228,9 @@ public class Spraute_engine {
                         }
                     });
                 } else {
-                    LOGGER.warn("[Spraute Engine] External assets directory not found: {}", assetsDir);
+                    if (event.getPackType() == net.minecraft.server.packs.PackType.CLIENT_RESOURCES) {
+                        LOGGER.warn("[Spraute Engine] External assets directory not found: {}", assetsDir);
+                    }
                 }
             }
         }

@@ -12,6 +12,11 @@ import { StreamLanguage, LanguageSupport } from "@codemirror/language";
 import { linter, lintGutter } from "@codemirror/lint";
 import { autocompletion, completeAnyWord, snippetCompletion, completionKeymap, acceptCompletion, startCompletion } from "@codemirror/autocomplete";
 
+import * as Blockly from 'blockly/core';
+import { SprauteGenerator, textToBlocks, SprauteTheme, applyBlocklyThemeColors, updateDynamicLists, parseCustomBlocks, getDynamicToolbox, customCategories, clearCustomCategories } from './visual.js';
+
+import { visualBlocksDocs } from './docs.js';
+
 const sprauteLanguage = StreamLanguage.define({
   token(stream, state) {
     if (stream.eatSpace()) return null;
@@ -51,6 +56,11 @@ const sprauteKeywords = [
 const sprauteProperties = [
   // Базовые параметры NPC
   "name", "hp", "speed", "pos", "rotate", "showName", "collision", "model", "texture", "idleAnim", "walkAnim", "head",
+  
+  // Параметры кастомных блоков
+  "texture_up", "texture_down", "texture_north", "texture_south", "texture_west", "texture_east",
+  "light", "hardness", "drop", "maxStackSize",
+  "is_ore", "ore_vein", "ore_min", "ore_max", "ore_chances",
   
   // UI параметры
   "size", "background", "bg", "canClose",
@@ -168,7 +178,9 @@ const sprauteSnippets = [
   snippetCompletion("fun ${1:name}(${2:args}) {\n  ${3}\n}", {label: "fun", detail: "definition", type: "keyword"}),
   snippetCompletion("on ${1:event}(${2:args}) {\n  ${3}\n}", {label: "on", detail: "event handler", type: "keyword"}),
   snippetCompletion("create ui ${1:name} {\n  ${2}\n}", {label: "create ui", detail: "definition", type: "keyword"}),
-  snippetCompletion('create npc ${1:name} {\n  name = "${2:Display Name}"\n  hp = ${3:20}\n  model = "geo/defolt.geo.json"\n  texture = "textures/entity/defolt.png"\n  animation = "animations/npc_classic.animation.json"\n  pos = [${4:0, 64, 0}]\n  ${5}\n}', {label: "create npc", detail: "definition", type: "keyword"}),
+  snippetCompletion('create npc ${1:name} {\n  name = "${2:Display Name}"\n  hp = ${3:20}\n  model = "geo/defolt.geo.json"\n  texture = "textures/entity/defolt.png"\n  animation = "animations/npc_classic.animation.json"\n  pos = ${4:0, 64, 0}\n  ${5}\n}', {label: "create npc", detail: "definition", type: "keyword"}),
+  snippetCompletion('create block ${1:name} {\n  texture = "textures/block/${1}.png"\n  hardness = ${2:1.5}\n  ${3}\n}', {label: "create block", detail: "definition", type: "keyword"}),
+  snippetCompletion('create item ${1:name} {\n  texture = "textures/item/${1}.png"\n  ${2}\n}', {label: "create item", detail: "definition", type: "keyword"}),
   
   // on События
   snippetCompletion('on interact(${1:target}) -> ${2:handlerId} {\n  ${3}\n}', {label: "on interact", detail: "event", type: "keyword"}),
@@ -258,7 +270,12 @@ const sprauteLinter = linter((view) => {
     }
     
     if (inString) {
-      if (char === '"' && doc[i-1] !== '\\') inString = false;
+      // Escape
+      if (char === '\\') {
+        i++; // skip next char
+        continue;
+      }
+      if (char === '"') inString = false;
       else if (char === '\n') {
         diagnostics.push({
           from: i - 1,
@@ -444,6 +461,7 @@ async function init() {
       document.getElementById('initial-title').classList.add('hidden');
       document.getElementById('studio-path-display').innerText = path + '\\spraute_engine';
       showView('view-studio');
+      loadPluginsList();
       loadDirectory('');
     }
     
@@ -475,6 +493,7 @@ async function init() {
           document.getElementById('initial-title').classList.add('hidden');
           document.getElementById('studio-path-display').innerText = path + '\\spraute_engine';
           showView('view-studio');
+          loadPluginsList();
           loadDirectory('');
         }, 500);
       }, 1500);
@@ -590,6 +609,40 @@ function appPrompt(title, defaultValue = '') {
         resolve(null);
         cleanup();
       }
+    };
+  });
+}
+
+function appAlert(title) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('app-modal');
+    const box = document.getElementById('app-modal-box');
+    const titleEl = document.getElementById('modal-title');
+    const inputEl = document.getElementById('modal-input');
+    const btnCancel = document.getElementById('modal-btn-cancel');
+    const btnOk = document.getElementById('modal-btn-ok');
+
+    titleEl.innerText = title;
+    inputEl.style.display = 'none';
+    btnCancel.style.display = 'none';
+    
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+      box.classList.remove('scale-95', 'opacity-0');
+    }, 10);
+
+    const cleanup = () => {
+      box.classList.add('scale-95', 'opacity-0');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+      }, 200);
+      btnOk.onclick = null;
+      btnCancel.style.display = '';
+    };
+
+    btnOk.onclick = () => {
+      resolve();
+      cleanup();
     };
   });
 }
@@ -733,7 +786,7 @@ function setupDragAndDrop(el, item, wrapper) {
           await loadDirectory('');
           setStatus(`Перемещено: ${srcName} → ${item.name}/`);
         } catch (err) {
-          alert(`Ошибка перемещения: ${err.message}`);
+          appAlert(`Ошибка перемещения: ${err.message}`);
         }
       }
     });
@@ -782,6 +835,7 @@ async function loadDirectory(relPath, containerEl = null, level = 0, forceExpand
           else if (item.name === 'animations') { icon = 'animation'; iconColor = 'text-pink-400'; }
           else if (item.name === 'textures') { icon = 'image'; iconColor = 'text-yellow-400'; }
           else if (item.name === 'scripts') { icon = 'code_blocks'; iconColor = 'text-primary'; }
+          else if (item.name === 'plugins') { icon = 'extension'; iconColor = 'text-emerald-400'; }
         }
       } else {
         if (item.name.endsWith('.spr')) { icon = 'description'; iconColor = 'text-primary'; isFilled = 1; }
@@ -881,6 +935,8 @@ async function openFile(relPath, fileName) {
 // Глобальный экземпляр редактора
 let currentEditor = null;
 let currentOpenFile = null;
+let isVisualMode = false;
+let blocklyWorkspace = null;
 
 // Вкладки
 let openTabs = []; // { path: string, name: string, isImage: boolean, isDirty: boolean, state: EditorState|null }
@@ -903,6 +959,15 @@ function renderTabs() {
   
   container.classList.remove('hidden');
   document.getElementById('empty-state').classList.add('hidden');
+  
+  if (activeTabPath && activeTabPath.endsWith('.spr')) {
+    const btnToggleVisual = document.getElementById('btn-toggle-visual');
+    if (btnToggleVisual) btnToggleVisual.classList.remove('hidden');
+  } else {
+    const btnToggleVisual = document.getElementById('btn-toggle-visual');
+    if (btnToggleVisual) btnToggleVisual.classList.add('hidden');
+    if (isVisualMode) toggleVisualMode();
+  }
   
   container.innerHTML = '';
   openTabs.forEach(tab => {
@@ -934,7 +999,17 @@ function renderTabs() {
     tabEl.addEventListener('click', (e) => {
       if (e.target.closest('.tab-close-btn')) return;
       if (tab.path !== activeTabPath) {
-        switchToTab(tab.path);
+        // Если у нас включен визуальный режим для всех файлов, и мы переключаемся на скрипт - сохраняем его визуальным
+        switchToTab(tab.path).then(async () => {
+          if (tab.path.endsWith('.spr')) {
+            const visualPref = await window.spraute.storeGet('visualModeEnabled');
+            if (visualPref && !isVisualMode) {
+              toggleVisualMode();
+            } else if (!visualPref && isVisualMode) {
+               toggleVisualMode();
+            }
+          }
+        });
       }
     });
     
@@ -982,8 +1057,22 @@ async function saveTab(path) {
   
   try {
     let contentToSave;
-    if (path === activeTabPath && currentEditor) {
+    if (path === activeTabPath && isVisualMode && blocklyWorkspace) {
+      contentToSave = SprauteGenerator.workspaceToCode(blocklyWorkspace);
+      contentToSave = await injectPluginGlobals(contentToSave);
+      
+      if (currentEditor) {
+        currentEditor.dispatch({
+          changes: {
+            from: 0,
+            to: currentEditor.state.doc.length,
+            insert: contentToSave
+          }
+        });
+      }
+    } else if (path === activeTabPath && currentEditor) {
       contentToSave = currentEditor.state.doc.toString();
+      // contentToSave = await injectPluginGlobals(contentToSave); // Можно добавлять и в коде, но лучше только при визуальном
     } else if (tab.state) {
       contentToSave = tab.state.doc.toString();
     } else {
@@ -995,8 +1084,37 @@ async function saveTab(path) {
     renderTabs();
     setStatus(`Сохранено: ${tab.name}`);
   } catch (e) {
-    alert(`Ошибка при сохранении ${tab.name}: ${e.message}`);
+    appAlert(`Ошибка при сохранении ${tab.name}: ${e.message}`);
   }
+}
+
+async function injectPluginGlobals(code) {
+  if (!window.spraute) return code;
+  let finalCode = code;
+  let globalsToInject = "";
+  
+  for (const p of allPluginsData) {
+    if (p.isEnabled) {
+      try {
+        const jsonContent = await window.spraute.readFile(`${p.path}/plugin.json`, 'utf8');
+        const data = JSON.parse(jsonContent);
+        if (data.global_scripts) {
+          const scripts = data.global_scripts.split('\n');
+          for (const s of scripts) {
+            const trimmed = s.trim();
+            if (trimmed && !finalCode.includes(trimmed)) {
+              globalsToInject += trimmed + "\n";
+            }
+          }
+        }
+      } catch (e) {}
+    }
+  }
+  
+  if (globalsToInject) {
+    finalCode = globalsToInject + "\n" + finalCode;
+  }
+  return finalCode;
 }
 
 async function saveActiveTab() {
@@ -1007,7 +1125,7 @@ async function saveActiveTab() {
 
 // Слушатель Ctrl+S
 document.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'ы' || e.code === 'KeyS')) {
     e.preventDefault();
     saveActiveTab();
   }
@@ -1017,6 +1135,13 @@ async function switchToTab(path) {
   if (currentEditor && activeTabPath) {
     const activeTab = openTabs.find(t => t.path === activeTabPath);
     if (activeTab && !activeTab.isImage) {
+      if (isVisualMode && blocklyWorkspace) {
+        // Синхронизируем код из блоков перед переключением
+        const code = SprauteGenerator.workspaceToCode(blocklyWorkspace);
+        currentEditor.dispatch({
+          changes: { from: 0, to: currentEditor.state.doc.length, insert: code }
+        });
+      }
       activeTab.state = currentEditor.state;
     }
   }
@@ -1395,14 +1520,39 @@ async function switchToTab(path) {
       // Если стейт уже был, мы просто используем его (сохраняется история и позиция курсора)
       // Чтобы применить новую тему, пользователь должен закрыть и открыть вкладку, либо перезапустить приложение.
 
-      currentEditor = new EditorView({
-        state: stateToUse,
-        parent: editorMount
-      });
-      
-    } catch (e) {
-      editorMount.innerHTML = `<div class="p-4 text-red-400">Ошибка чтения файла: ${e.message}</div>`;
+    currentEditor = new EditorView({
+      state: stateToUse,
+      parent: editorMount
+    });
+    
+    // Если визуальный режим включен, обновляем блоки
+    if (isVisualMode) {
+      if (!blocklyWorkspace) {
+        // Инициализация при переключении
+        const blocklyMount = document.getElementById('blockly-mount');
+        blocklyWorkspace = Blockly.inject('blockly-mount', {
+          toolbox: toolbox,
+          theme: SprauteTheme,
+          grid: { spacing: 20, length: 3, colour: '#ccc', snap: true }
+        });
+        blocklyWorkspace.addChangeListener(() => {
+          const tab = openTabs.find(t => t.path === activeTabPath);
+          if (tab && isVisualMode) {
+            tab.isDirty = true;
+            renderTabs();
+          }
+        });
+      }
+      try {
+        textToBlocks(stateToUse.doc.toString(), blocklyWorkspace);
+      } catch (e) {
+        console.error("Parse error", e);
+      }
     }
+    
+  } catch (e) {
+    editorMount.innerHTML = `<div class="p-4 text-red-400">Ошибка чтения файла: ${e.message}</div>`;
+  }
   }
 }
 
@@ -1436,7 +1586,7 @@ document.getElementById('ctx-new-file').addEventListener('click', async () => {
   
   const exists = await window.spraute.exists(newPath);
   if (exists) {
-    alert('Файл с таким именем уже существует!');
+    appAlert('Файл с таким именем уже существует!');
     return;
   }
 
@@ -1444,7 +1594,7 @@ document.getElementById('ctx-new-file').addEventListener('click', async () => {
     await window.spraute.writeFile(newPath, '# Новый скрипт\n');
     loadDirectory(''); // Перезагружаем корень
   } catch(e) {
-    alert('Ошибка: ' + e.message);
+    appAlert('Ошибка: ' + e.message);
   }
 });
 
@@ -1456,7 +1606,7 @@ document.getElementById('ctx-new-folder').addEventListener('click', async () => 
   
   const exists = await window.spraute.exists(newPath);
   if (exists) {
-    alert('Папка с таким именем уже существует!');
+    appAlert('Папка с таким именем уже существует!');
     return;
   }
 
@@ -1464,7 +1614,7 @@ document.getElementById('ctx-new-folder').addEventListener('click', async () => 
     await window.spraute.mkdir(newPath);
     loadDirectory('');
   } catch(e) {
-    alert('Ошибка: ' + e.message);
+    appAlert('Ошибка: ' + e.message);
   }
 });
 
@@ -1484,7 +1634,7 @@ document.getElementById('ctx-rename').addEventListener('click', async () => {
     await window.spraute.rename(currentCtxRelPath, newPath);
     loadDirectory('');
   } catch(e) {
-    alert('Ошибка: ' + e.message);
+    appAlert('Ошибка: ' + e.message);
   }
 });
 
@@ -1503,7 +1653,7 @@ document.getElementById('ctx-delete').addEventListener('click', async () => {
     document.getElementById('editor-mount').innerHTML = '';
     loadDirectory('');
   } catch(e) {
-    alert('Ошибка: ' + e.message);
+    appAlert('Ошибка: ' + e.message);
   }
 });
 
@@ -1522,7 +1672,7 @@ document.addEventListener('keydown', async (e) => {
     return;
   }
   
-  if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'с' || e.code === 'KeyC')) {
     if (selectedItemPath) {
       clipboardPath = selectedItemPath;
       clipboardIsDir = selectedItemIsDir;
@@ -1530,7 +1680,7 @@ document.addEventListener('keydown', async (e) => {
     }
   }
   
-  if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'м' || e.code === 'KeyV')) {
     if (!clipboardPath) return;
     
     let destDir = selectedItemIsDir ? selectedItemPath : (selectedItemPath.includes('/') ? selectedItemPath.substring(0, selectedItemPath.lastIndexOf('/')) : '');
@@ -1549,7 +1699,7 @@ document.addEventListener('keydown', async (e) => {
       setStatus(`Вставлено: ${destPath}`);
       loadDirectory('');
     } catch(e) {
-      alert('Ошибка при вставке: ' + e.message);
+      appAlert('Ошибка при вставке: ' + e.message);
     }
   }
 });
@@ -1565,7 +1715,7 @@ document.getElementById('btn-root-new-file').addEventListener('click', async () 
 
   const exists = await window.spraute.exists(newPath);
   if (exists) {
-    alert('Файл с таким именем уже существует!');
+    appAlert('Файл с таким именем уже существует!');
     return;
   }
 
@@ -1574,7 +1724,7 @@ document.getElementById('btn-root-new-file').addEventListener('click', async () 
     setStatus(`Файл ${finalName} создан`);
     loadDirectory('');
   } catch(e) {
-    alert('Ошибка: ' + e.message);
+    appAlert('Ошибка: ' + e.message);
   }
 });
 
@@ -1587,7 +1737,7 @@ document.getElementById('btn-root-new-folder').addEventListener('click', async (
 
   const exists = await window.spraute.exists(newPath);
   if (exists) {
-    alert('Папка с таким именем уже существует!');
+    appAlert('Папка с таким именем уже существует!');
     return;
   }
 
@@ -1596,9 +1746,119 @@ document.getElementById('btn-root-new-folder').addEventListener('click', async (
     setStatus(`Папка ${name} создана`);
     loadDirectory('');
   } catch(e) {
-    alert('Ошибка: ' + e.message);
+    appAlert('Ошибка: ' + e.message);
   }
 });
+
+// --- Глобальный Поиск ---
+const btnGlobalSearch = document.getElementById('btn-open-global-search');
+const globalSearchModal = document.getElementById('global-search-modal');
+const globalSearchBox = document.getElementById('global-search-modal-box');
+const btnCloseGlobalSearch = document.getElementById('btn-close-global-search');
+const globalSearchInput = document.getElementById('global-search-input');
+const globalSearchResults = document.getElementById('global-search-results');
+
+if (btnGlobalSearch) {
+  btnGlobalSearch.addEventListener('click', () => {
+    globalSearchInput.value = '';
+    globalSearchResults.innerHTML = '<div class="text-center text-on-variant py-8 text-sm">Введите текст для поиска и нажмите Enter...</div>';
+    globalSearchModal.classList.remove('hidden');
+    setTimeout(() => {
+      globalSearchBox.classList.remove('scale-95', 'opacity-0');
+      globalSearchInput.focus();
+    }, 10);
+  });
+}
+
+if (btnCloseGlobalSearch) {
+  btnCloseGlobalSearch.addEventListener('click', () => {
+    globalSearchBox.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => globalSearchModal.classList.add('hidden'), 200);
+  });
+}
+
+if (globalSearchInput) {
+  globalSearchInput.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+      const query = globalSearchInput.value.trim();
+      if (!query) return;
+      
+      globalSearchResults.innerHTML = '<div class="text-center text-on-variant py-8 text-sm flex items-center justify-center gap-2"><span class="material-symbols-outlined animate-spin text-primary">autorenew</span>Поиск...</div>';
+      
+      try {
+        const results = await window.spraute.search(query);
+        if (results.length === 0) {
+          globalSearchResults.innerHTML = '<div class="text-center text-on-variant py-8 text-sm">Ничего не найдено</div>';
+          return;
+        }
+        
+        let html = '';
+        for (const res of results) {
+          if (res.type === 'file') {
+            const matchRegex = new RegExp(`(${query})`, 'gi');
+            const highlightedMatch = res.match.replace(matchRegex, '<span class="text-primary bg-primary/20 rounded px-1">$1</span>');
+            
+            html += `
+              <div class="search-result-item p-3 rounded-xl bg-black/20 hover:bg-black/40 border border-white/5 cursor-pointer transition-colors" data-file="${res.file}">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-primary">description</span>
+                  <span class="font-mono text-sm text-white">${res.file}</span>
+                </div>
+                <div class="text-xs text-on-variant mt-1">Файл: <span class="text-white">${highlightedMatch}</span></div>
+              </div>
+            `;
+          } else {
+            const matchRegex = new RegExp(`(${query})`, 'gi');
+            const highlightedMatch = res.match.replace(matchRegex, '<span class="text-primary bg-primary/20 rounded px-1">$1</span>');
+            
+            html += `
+              <div class="search-result-item p-3 rounded-xl bg-black/20 hover:bg-black/40 border border-white/5 cursor-pointer transition-colors" data-file="${res.file}" data-line="${res.line}">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-secondary">code_blocks</span>
+                  <span class="font-mono text-sm text-secondary">${res.file}:${res.line}</span>
+                </div>
+                <div class="text-xs text-on-variant mt-1 font-mono pl-6 overflow-hidden text-ellipsis whitespace-nowrap">${highlightedMatch}</div>
+              </div>
+            `;
+          }
+        }
+        globalSearchResults.innerHTML = html;
+      } catch(err) {
+        globalSearchResults.innerHTML = `<div class="text-center text-red-400 py-8 text-sm">Ошибка поиска: ${err.message}</div>`;
+      }
+    }
+  });
+}
+
+if (globalSearchResults) {
+  globalSearchResults.addEventListener('click', async (e) => {
+    const item = e.target.closest('.search-result-item');
+    if (item) {
+      const file = item.dataset.file;
+      const line = item.dataset.line;
+      await openFile(file, file.split('/').pop());
+      
+      if (line && currentEditor) {
+        setTimeout(() => {
+          try {
+            const l = parseInt(line, 10);
+            const doc = currentEditor.state.doc;
+            if (l >= 1 && l <= doc.lines) {
+              const pos = doc.line(l).from;
+              currentEditor.dispatch({
+                selection: { anchor: pos, head: pos },
+                effects: EditorView.scrollIntoView(pos, { y: 'center' })
+              });
+            }
+          } catch(e) {}
+        }, 100);
+      }
+      
+      globalSearchBox.classList.add('scale-95', 'opacity-0');
+      setTimeout(() => globalSearchModal.classList.add('hidden'), 200);
+    }
+  });
+}
 
 // Настройки (Settings Modal)
 const btnSettings = document.getElementById('btn-open-settings');
@@ -1938,141 +2198,271 @@ const studioUpdateInstallActions = document.getElementById('studio-update-instal
 
 let pendingStudioUpdate = null;
 
-window.spraute.onStudioUpdateAvailable((info) => {
-  document.getElementById('studio-update-version').innerText = `Версия: ${info.version}`;
-  document.getElementById('studio-update-notes').innerHTML = info.releaseNotes || 'Улучшения стабильности и новые функции.';
-  
-  if (info.isStartupCheck) {
-    // Крупное окно при старте
-    studioUpdateModal.classList.remove('hidden');
-    setTimeout(() => {
-      studioUpdateBox.classList.remove('scale-95', 'opacity-0');
-    }, 10);
-  } else {
-    // Небольшое окно (toast) во время работы
-    pendingStudioUpdate = () => {
+if (window.spraute) {
+  window.spraute.onStudioUpdateAvailable((info) => {
+    document.getElementById('studio-update-version').innerText = `Версия: ${info.version}`;
+    document.getElementById('studio-update-notes').innerHTML = info.releaseNotes || 'Улучшения стабильности и новые функции.';
+    
+    if (info.isStartupCheck) {
+      // Крупное окно при старте
       studioUpdateModal.classList.remove('hidden');
       setTimeout(() => {
         studioUpdateBox.classList.remove('scale-95', 'opacity-0');
       }, 10);
-    };
-    
-    document.getElementById('update-toast-title').innerText = 'Обновление Студии';
-    document.getElementById('update-toast-desc').innerText = `Доступна версия ${info.version}`;
-    const toast = document.getElementById('update-toast');
-    toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
-  }
-});
+    } else {
+      // Небольшое окно (toast) во время работы
+      pendingStudioUpdate = () => {
+        studioUpdateModal.classList.remove('hidden');
+        setTimeout(() => {
+          studioUpdateBox.classList.remove('scale-95', 'opacity-0');
+        }, 10);
+      };
+      
+      document.getElementById('update-toast-title').innerText = 'Обновление Студии';
+      document.getElementById('update-toast-desc').innerText = `Доступна версия ${info.version}`;
+      const toast = document.getElementById('update-toast');
+      toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+    }
+  });
+}
 
 // Обработка кликов по toast
-document.getElementById('btn-update-toast-ignore').addEventListener('click', () => {
-  const toast = document.getElementById('update-toast');
-  toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
-});
+const btnUpdateToastIgnore = document.getElementById('btn-update-toast-ignore');
+if (btnUpdateToastIgnore) {
+  btnUpdateToastIgnore.addEventListener('click', () => {
+    const toast = document.getElementById('update-toast');
+    if (toast) toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+  });
+}
 
-document.getElementById('btn-update-toast-show-main').addEventListener('click', () => {
-  const toast = document.getElementById('update-toast');
-  toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
-  if (pendingStudioUpdate) pendingStudioUpdate();
-  if (pendingModUpdate) pendingModUpdate();
-});
+const btnUpdateToastShowMain = document.getElementById('btn-update-toast-show-main');
+if (btnUpdateToastShowMain) {
+  btnUpdateToastShowMain.addEventListener('click', () => {
+    const toast = document.getElementById('update-toast');
+    if (toast) toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+    if (pendingStudioUpdate) pendingStudioUpdate();
+    if (typeof pendingModUpdate === 'function') pendingModUpdate();
+  });
+}
 
 // Логика обновления мода
 let pendingModUpdate = null;
 let currentModVersionToDownload = null;
+
+if (window.spraute) {
+  window.spraute.onModUpdateAvailable((info) => {
+    const modUpdateVersion = document.getElementById('mod-update-version');
+    if (modUpdateVersion) modUpdateVersion.innerText = `Версия: ${info.version}`;
+    
+    const modUpdateNotes = document.getElementById('mod-update-notes');
+    if (modUpdateNotes) modUpdateNotes.innerHTML = info.notes || 'Описание недоступно.';
+    
+    currentModVersionToDownload = info.version;
+    
+    const modUpdateModal = document.getElementById('mod-update-modal');
+    const modUpdateBox = document.getElementById('mod-update-box');
+    if (modUpdateModal && modUpdateBox) {
+      modUpdateModal.classList.remove('hidden');
+      setTimeout(() => {
+        modUpdateBox.classList.remove('scale-95', 'opacity-0');
+      }, 10);
+    }
+  });
+}
 
 const modUpdateModal = document.getElementById('mod-update-modal');
 const modUpdateBox = document.getElementById('mod-update-box');
 const btnModUpdateSkip = document.getElementById('btn-mod-update-skip');
 const btnModUpdateDownload = document.getElementById('btn-mod-update-download');
 
-window.spraute.onModUpdateAvailable((info) => {
-  document.getElementById('mod-update-version').innerText = `Версия: ${info.version}`;
-  document.getElementById('mod-update-notes').innerHTML = info.notes || 'Описание недоступно.';
-  currentModVersionToDownload = info.version;
-  
-  // Всегда показываем крупное окно, так как это происходит при загрузке проекта
-  modUpdateModal.classList.remove('hidden');
-  setTimeout(() => {
-    modUpdateBox.classList.remove('scale-95', 'opacity-0');
-  }, 10);
-});
+if (btnModUpdateSkip) {
+  btnModUpdateSkip.addEventListener('click', () => {
+    modUpdateBox.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => {
+      modUpdateModal.classList.add('hidden');
+    }, 300);
+  });
+}
 
-btnModUpdateSkip.addEventListener('click', () => {
-  modUpdateBox.classList.add('scale-95', 'opacity-0');
-  setTimeout(() => {
-    modUpdateModal.classList.add('hidden');
-  }, 300);
-});
-
-btnModUpdateDownload.addEventListener('click', async () => {
-  btnModUpdateDownload.innerText = 'Загрузка...';
-  btnModUpdateDownload.classList.add('opacity-50', 'pointer-events-none');
-  btnModUpdateSkip.classList.add('hidden');
-  
-  try {
-    const res = await window.spraute.downloadModUpdate(currentModVersionToDownload);
-    if (res.success) {
-      btnModUpdateDownload.innerText = `Мод обновлен до версии ${currentModVersionToDownload}!`;
-      btnModUpdateDownload.classList.remove('bg-secondary');
-      btnModUpdateDownload.classList.add('bg-green-600');
-      
-      setTimeout(() => {
-        modUpdateBox.classList.add('scale-95', 'opacity-0');
+if (btnModUpdateDownload) {
+  btnModUpdateDownload.addEventListener('click', async () => {
+    btnModUpdateDownload.innerText = 'Загрузка...';
+    btnModUpdateDownload.classList.add('opacity-50', 'pointer-events-none');
+    btnModUpdateSkip.classList.add('hidden');
+    
+    try {
+      const res = await window.spraute.downloadModUpdate(currentModVersionToDownload);
+      if (res.success) {
+        btnModUpdateDownload.innerText = `Мод обновлен до версии ${currentModVersionToDownload}!`;
+        btnModUpdateDownload.classList.remove('bg-secondary');
+        btnModUpdateDownload.classList.add('bg-green-600');
+        
         setTimeout(() => {
-          modUpdateModal.classList.add('hidden');
-          // Восстанавливаем кнопки
-          btnModUpdateDownload.innerText = 'Обновить мод';
-          btnModUpdateDownload.classList.add('bg-secondary');
-          btnModUpdateDownload.classList.remove('bg-green-600', 'opacity-50', 'pointer-events-none');
+          modUpdateBox.classList.add('scale-95', 'opacity-0');
+          setTimeout(() => {
+            modUpdateModal.classList.add('hidden');
+            // Восстанавливаем кнопки
+            btnModUpdateDownload.innerText = 'Обновить мод';
+            btnModUpdateDownload.classList.add('bg-secondary');
+            btnModUpdateDownload.classList.remove('bg-green-600', 'opacity-50', 'pointer-events-none');
+            btnModUpdateSkip.classList.remove('hidden');
+          }, 300);
+        }, 2000);
+      } else {
+        appAlert('Ошибка при скачивании мода: ' + res.error);
+        btnModUpdateDownload.innerText = 'Ошибка';
+        setTimeout(() => {
+          btnModUpdateDownload.innerText = 'Повторить';
+          btnModUpdateDownload.classList.remove('opacity-50', 'pointer-events-none');
           btnModUpdateSkip.classList.remove('hidden');
-        }, 300);
-      }, 2000);
-    } else {
-      alert('Ошибка при скачивании мода: ' + res.error);
-      btnModUpdateDownload.innerText = 'Ошибка';
-      setTimeout(() => {
-        btnModUpdateDownload.innerText = 'Повторить';
-        btnModUpdateDownload.classList.remove('opacity-50', 'pointer-events-none');
-        btnModUpdateSkip.classList.remove('hidden');
-      }, 2000);
+        }, 2000);
+      }
+    } catch (err) {
+      appAlert(err.message);
     }
-  } catch (err) {
-    alert(err.message);
+  });
+}
+
+if (btnStudioUpdateSkip) {
+  btnStudioUpdateSkip.addEventListener('click', () => {
+    studioUpdateBox.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => {
+      studioUpdateModal.classList.add('hidden');
+    }, 300);
+  });
+}
+
+if (btnStudioUpdateDownload) {
+  btnStudioUpdateDownload.addEventListener('click', () => {
+    window.spraute.downloadStudioUpdate();
+    btnStudioUpdateSkip.style.display = 'none';
+    btnStudioUpdateDownload.style.display = 'none';
+    studioUpdateProgressContainer.classList.remove('hidden');
+    studioUpdateProgressContainer.classList.add('flex');
+  });
+}
+
+if (window.spraute) {
+  window.spraute.onStudioUpdateProgress((progressObj) => {
+    const percent = Math.round(progressObj.percent);
+    studioUpdatePercent.innerText = `${percent}%`;
+    studioUpdateBar.style.width = `${percent}%`;
+  });
+
+  window.spraute.onStudioUpdateDownloaded(() => {
+    studioUpdateProgressContainer.classList.add('hidden');
+    studioUpdateProgressContainer.classList.remove('flex');
+    studioUpdateActions.classList.add('hidden');
+    studioUpdateInstallActions.classList.remove('hidden');
+  });
+}
+
+if (btnStudioUpdateInstall) {
+  btnStudioUpdateInstall.addEventListener('click', () => {
+    window.spraute.installStudioUpdate();
+  });
+}
+
+async function toggleVisualMode() {
+  const btn = document.getElementById('btn-toggle-visual');
+  if (!btn) return;
+  const editorMount = document.getElementById('editor-mount');
+  const blocklyMount = document.getElementById('blockly-mount');
+  
+  // Добавляем индикатор загрузки
+  const originalBtnContent = btn.innerHTML;
+  btn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">sync</span> Загрузка...';
+  btn.disabled = true;
+  
+  if (!isVisualMode) {
+    // Включаем визуальный режим
+    isVisualMode = true;
+    
+    // Сканируем рабочую область на предмет новых блоков и динамических данных
+    await scanWorkspaceForDynamicData(currentEditor ? currentEditor.state.doc.toString() : "");
+    
+    btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">code</span> Обычный код';
+    btn.classList.add('bg-primary/20', 'text-primary');
+    
+    editorMount.classList.add('hidden');
+    blocklyMount.classList.remove('hidden');
+    
+    if (!blocklyWorkspace) {
+      blocklyWorkspace = Blockly.inject('blockly-mount', {
+        toolbox: getDynamicToolbox(),
+        theme: SprauteTheme,
+        grid: {
+          spacing: 20,
+          length: 0,
+          snap: true
+        }
+      });
+      
+      blocklyWorkspace.addChangeListener(() => {
+        const tab = openTabs.find(t => t.path === activeTabPath);
+        if (tab && isVisualMode) {
+          if (!tab.isDirty) {
+            tab.isDirty = true;
+            renderTabs();
+          }
+        }
+      });
+    } else {
+      // Обновляем панель инструментов на случай если мы включили/выключили плагины
+      blocklyWorkspace.updateToolbox(getDynamicToolbox());
+    }
+    
+    // Парсим текущий код в блоки
+    if (currentEditor) {
+      const text = currentEditor.state.doc.toString();
+      try {
+        textToBlocks(text, blocklyWorkspace);
+      } catch (e) {
+        console.error("Parse error", e);
+      }
+    }
+    
+    // Сохраняем состояние визуального режима в LocalStorage для всех файлов
+    if (window.spraute) {
+      await window.spraute.storeSet('visualModeEnabled', true);
+    }
+    
+  } else {
+    // Возвращаемся в обычный код
+    isVisualMode = false;
+    btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">extension</span> Визуальный код';
+    btn.classList.remove('bg-primary/20', 'text-primary');
+    
+    blocklyMount.classList.add('hidden');
+    editorMount.classList.remove('hidden');
+    
+    Blockly.hideChaff();
+    
+    // Генерируем код из блоков
+    if (blocklyWorkspace && currentEditor) {
+      const code = SprauteGenerator.workspaceToCode(blocklyWorkspace);
+      
+      currentEditor.dispatch({
+        changes: {
+          from: 0,
+          to: currentEditor.state.doc.length,
+          insert: code
+        }
+      });
+    }
+    
+    if (window.spraute) {
+      await window.spraute.storeSet('visualModeEnabled', false);
+    }
   }
-});
+  
+  btn.disabled = false;
+}
 
-btnStudioUpdateSkip.addEventListener('click', () => {
-  studioUpdateBox.classList.add('scale-95', 'opacity-0');
-  setTimeout(() => {
-    studioUpdateModal.classList.add('hidden');
-  }, 300);
-});
-
-btnStudioUpdateDownload.addEventListener('click', () => {
-  window.spraute.downloadStudioUpdate();
-  btnStudioUpdateSkip.style.display = 'none';
-  btnStudioUpdateDownload.style.display = 'none';
-  studioUpdateProgressContainer.classList.remove('hidden');
-  studioUpdateProgressContainer.classList.add('flex');
-});
-
-window.spraute.onStudioUpdateProgress((progressObj) => {
-  const percent = Math.round(progressObj.percent);
-  studioUpdatePercent.innerText = `${percent}%`;
-  studioUpdateBar.style.width = `${percent}%`;
-});
-
-window.spraute.onStudioUpdateDownloaded(() => {
-  studioUpdateProgressContainer.classList.add('hidden');
-  studioUpdateProgressContainer.classList.remove('flex');
-  studioUpdateActions.classList.add('hidden');
-  studioUpdateInstallActions.classList.remove('hidden');
-});
-
-btnStudioUpdateInstall.addEventListener('click', () => {
-  window.spraute.installStudioUpdate();
-});
+const btnToggleVisual = document.getElementById('btn-toggle-visual');
+if (btnToggleVisual) {
+  btnToggleVisual.addEventListener('click', toggleVisualMode);
+}
 
 // ====== Drag and Drop для корневого каталога (вытащить из папки) ======
 const fileTree = document.getElementById('file-tree');
@@ -2118,10 +2508,1471 @@ fileTree.addEventListener('drop', async (e) => {
       await loadDirectory('');
       setStatus(`Перемещено в корень: ${srcName}`);
     } catch (err) {
-      alert(`Ошибка перемещения: ${err.message}`);
+      appAlert(`Ошибка перемещения: ${err.message}`);
     }
   }
 });
 
+// --- Плагины и Визуальные Библиотеки ---
+const btnMenuPlugins = document.getElementById('menu-plugins');
+const pluginsModal = document.getElementById('plugins-modal');
+const btnClosePlugins = document.getElementById('btn-close-plugins');
+const btnCreatePlugin = document.getElementById('btn-create-plugin');
+const btnLoadPlugin = document.getElementById('btn-load-plugin');
+const pluginsList = document.getElementById('plugins-list');
+const pluginsSearch = document.getElementById('plugins-search');
+const pluginsPagination = document.getElementById('plugins-pagination');
+
+let allPluginsData = [];
+let marketPluginsData = [];
+let currentPluginsTab = 'my';
+let currentPluginsPage = 1;
+const PLUGINS_PER_PAGE = 7;
+
+if (pluginsSearch) {
+  pluginsSearch.addEventListener('input', () => {
+    currentPluginsPage = 1;
+    renderPluginsList();
+  });
+}
+
+// Элементы модалки создания плагина
+const pluginCreateModal = document.getElementById('plugin-create-modal');
+const pluginCreateBox = document.getElementById('plugin-create-modal-box');
+const btnClosePluginCreate = document.getElementById('btn-close-plugin-create');
+const btnPluginCreateCancel = document.getElementById('btn-plugin-create-cancel');
+const btnPluginCreateConfirm = document.getElementById('btn-plugin-create-confirm');
+
+const inputPluginName = document.getElementById('plugin-create-name');
+const inputPluginAuthor = document.getElementById('plugin-create-author');
+const inputPluginMcVersion = document.getElementById('plugin-create-mcversion');
+const inputPluginDesc = document.getElementById('plugin-create-desc');
+
+// Элементы модалки настроек плагина
+const pluginSettingsModal = document.getElementById('plugin-settings-modal');
+const pluginSettingsBox = document.getElementById('plugin-settings-modal-box');
+const inputSettingsName = document.getElementById('plugin-settings-name');
+const inputSettingsAuthor = document.getElementById('plugin-settings-author');
+const inputSettingsMcVersion = document.getElementById('plugin-settings-mcversion');
+const inputSettingsDesc = document.getElementById('plugin-settings-desc');
+const inputSettingsGlobalScripts = document.getElementById('plugin-settings-global-scripts');
+const btnSettingsIcon = document.getElementById('btn-plugin-settings-icon');
+const inputSettingsIconFile = document.getElementById('plugin-settings-icon-file');
+const imgSettingsIconPreview = document.getElementById('plugin-settings-icon-preview');
+const iconSettingsPlaceholder = document.getElementById('plugin-settings-icon-placeholder');
+let currentPluginSettingsName = '';
+
+if (inputSettingsIconFile) {
+  inputSettingsIconFile.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      window._tempPluginIconBase64 = event.target.result;
+      imgSettingsIconPreview.src = event.target.result;
+      imgSettingsIconPreview.classList.remove('hidden');
+      iconSettingsPlaceholder.classList.add('hidden');
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Элементы модалки документации
+const builderDocsModal = document.getElementById('builder-docs-modal');
+const builderDocsBox = document.getElementById('builder-docs-modal-box');
+const btnBuilderDocs = document.getElementById('btn-builder-docs');
+
+if (btnMenuPlugins) {
+  btnMenuPlugins.addEventListener('click', () => {
+    pluginsModal.classList.remove('hidden');
+    setTimeout(() => {
+      document.getElementById('plugins-modal-box').classList.remove('scale-95', 'opacity-0');
+    }, 10);
+    loadPluginsList();
+  });
+}
+
+if (btnClosePlugins) {
+  btnClosePlugins.addEventListener('click', () => {
+    document.getElementById('plugins-modal-box').classList.add('scale-95', 'opacity-0');
+    setTimeout(() => pluginsModal.classList.add('hidden'), 200);
+  });
+}
+
+async function loadPluginsList() {
+  if (!pluginsList || !window.spraute) return;
+  pluginsList.innerHTML = '<div class="text-center text-on-variant py-8 text-xs">Загрузка...</div>';
+  
+  try {
+    const exists = await window.spraute.exists('plugins');
+    if (!exists) {
+      allPluginsData = [];
+      renderPluginsList();
+      return;
+    }
+    
+    const items = await window.spraute.listDir('plugins');
+    const pluginFolders = items.filter(i => i.isDir);
+    
+    allPluginsData = [];
+    for (const p of pluginFolders) {
+      let desc = "Пользовательский плагин / библиотека блоков";
+      let author = "";
+      let isEnabled = true;
+      let hasIcon = false;
+      try {
+        const jsonContent = await window.spraute.readFile(`${p.rel}/plugin.json`, 'utf8');
+        const data = JSON.parse(jsonContent);
+        if (data.description) desc = data.description;
+        if (data.author) author = data.author;
+        if (data.enabled === false) isEnabled = false;
+      } catch(e) {}
+      
+      try {
+        hasIcon = await window.spraute.exists(`${p.rel}/icon.png`);
+      } catch(e) {}
+      
+      allPluginsData.push({
+        name: p.name,
+        path: p.rel,
+        desc,
+        author,
+        isEnabled,
+        hasIcon
+      });
+      
+      // Авто-копирование скриптов при инициализации
+      if (isEnabled) {
+        try {
+          const srcScripts = `${p.rel}/scripts`;
+          if (await window.spraute.exists(srcScripts)) {
+            const destScripts = `scripts/plugins/${p.name}`;
+            if (!await window.spraute.exists('scripts/plugins')) {
+              await window.spraute.mkdir('scripts/plugins');
+            }
+            if (!await window.spraute.exists(destScripts)) {
+              await window.spraute.mkdir(destScripts);
+            }
+            await window.spraute.copy(srcScripts, destScripts);
+          }
+        } catch (e) {}
+      }
+    }
+    
+    // Загружаем сохраненный порядок
+    let pluginsOrder = [];
+    try {
+      if (await window.spraute.exists('plugins/plugins_order.json')) {
+        pluginsOrder = JSON.parse(await window.spraute.readFile('plugins/plugins_order.json', 'utf8'));
+      }
+    } catch(e) {}
+    
+    // Сортируем с учетом порядка
+    allPluginsData.sort((a, b) => {
+      let ia = pluginsOrder.indexOf(a.name);
+      let ib = pluginsOrder.indexOf(b.name);
+      if (ia === -1) ia = 999;
+      if (ib === -1) ib = 999;
+      if (ia === ib) return a.name.localeCompare(b.name);
+      return ia - ib;
+    });
+    
+    renderPluginsList();
+  } catch (e) {
+    pluginsList.innerHTML = `<div class="text-center text-red-400 py-8 text-xs">Ошибка: ${e.message}</div>`;
+  }
+}
+
+async function savePluginsOrder() {
+  try {
+    const order = allPluginsData.map(p => p.name);
+    await window.spraute.writeFile('plugins/plugins_order.json', JSON.stringify(order, null, 2));
+  } catch(e) {
+    console.error("Ошибка сохранения порядка плагинов", e);
+  }
+}
+
+async function loadMarketPlugins() {
+  pluginsList.innerHTML = '<div class="text-center text-on-variant py-8 text-xs">Загрузка из сети...</div>';
+  pluginsPagination.innerHTML = '';
+  try {
+    marketPluginsData = await window.spraute.marketList();
+    renderPluginsList();
+  } catch (e) {
+    pluginsList.innerHTML = `<div class="text-center text-red-400 py-8 text-xs">Ошибка загрузки магазина: ${e.message}</div>`;
+  }
+}
+
+async function renderPluginsList() {
+  let sourceData = currentPluginsTab === 'market' ? marketPluginsData : allPluginsData;
+  let filtered = sourceData;
+  const q = pluginsSearch ? pluginsSearch.value.toLowerCase().trim() : "";
+  if (q) {
+    filtered = filtered.filter(p => p.name.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q));
+  }
+  
+  if (filtered.length === 0) {
+    pluginsList.innerHTML = '<div class="text-center text-on-variant py-8 text-xs">Плагинов не найдено.</div>';
+    if (pluginsPagination) pluginsPagination.innerHTML = '';
+    return;
+  }
+  
+  const totalPages = Math.ceil(filtered.length / PLUGINS_PER_PAGE);
+  if (currentPluginsPage > totalPages) currentPluginsPage = totalPages;
+  
+  const start = (currentPluginsPage - 1) * PLUGINS_PER_PAGE;
+  const paginated = filtered.slice(start, start + PLUGINS_PER_PAGE);
+  
+  let html = '';
+  for (const p of paginated) {
+    let iconHtml = `<span class="material-symbols-outlined text-[18px]">extension</span>`;
+    
+    if (currentPluginsTab === 'market') {
+      const isInstalled = allPluginsData.find(localP => localP.name === p.name);
+      let btnHtml = '';
+      if (isInstalled) {
+         if (p.version && isInstalled.version && p.version !== isInstalled.version) {
+           btnHtml = `<button class="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/40 rounded-lg text-xs text-green-400 font-medium btn-plugin-market-download" data-plugin="${p.name}" data-file="${p.fileName}"><span class="material-symbols-outlined text-[14px] align-middle mr-1">update</span>Обновить</button>`;
+         } else {
+           btnHtml = `<span class="text-xs text-on-variant px-3 py-1.5"><span class="material-symbols-outlined text-[14px] align-middle mr-1">check</span>Установлен</span>`;
+         }
+      } else {
+         btnHtml = `<button class="px-3 py-1.5 bg-primary/20 hover:bg-primary/40 rounded-lg text-xs text-primary font-medium btn-plugin-market-download" data-plugin="${p.name}" data-file="${p.fileName}"><span class="material-symbols-outlined text-[14px] align-middle mr-1">download</span>Скачать</button>`;
+      }
+      
+      html += `
+      <div class="flex items-center justify-between p-3 rounded-xl bg-black/20 border border-white/5 hover:border-white/10 transition-colors group">
+        <div class="flex items-center gap-3 flex-1 overflow-hidden">
+          <div class="w-10 h-10 rounded-lg bg-primary/20 text-primary flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+            ${iconHtml}
+          </div>
+          <div class="flex-1 overflow-hidden pr-4">
+            <div class="font-medium text-white flex items-center gap-2 truncate">
+              ${p.name} 
+              ${p.version ? `<span class="px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-white shrink-0">v${p.version}</span>` : ''}
+              ${p.mcVersion ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-[10px] text-emerald-400 shrink-0 border border-emerald-500/20">MC ${p.mcVersion}</span>` : ''}
+              ${p.author ? `<span class="px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-white shrink-0">by ${p.author}</span>` : ''}
+            </div>
+            <div class="text-xs text-on-variant mt-0.5 truncate">${p.desc || ''}</div>
+          </div>
+        </div>
+        <div class="flex gap-2 shrink-0">
+          ${btnHtml}
+        </div>
+      </div>
+      `;
+    } else {
+      if (p.hasIcon) {
+        try {
+          if (window.spraute.readFile) {
+            const b64 = await window.spraute.readFile(`${p.path}/icon.png`, 'base64');
+            iconHtml = `<img src="data:image/png;base64,${b64}" class="w-full h-full object-cover" />`;
+          } else {
+            iconHtml = `<img src="/api/fs/${p.path}/icon.png" class="w-full h-full object-cover" onerror="this.outerHTML='<span class=\\'material-symbols-outlined text-[18px]\\'>extension</span>'" />`;
+          }
+        } catch(e) {}
+      }
+
+      html += `
+      <div class="flex items-center justify-between p-3 rounded-xl ${p.isEnabled ? 'bg-black/20' : 'bg-black/40 opacity-60'} border border-white/5 hover:border-white/10 transition-colors group">
+        <div class="flex items-center gap-3 flex-1 overflow-hidden">
+          
+          <!-- Галочка (Checkbox) включения/выключения -->
+          <label class="relative flex items-center cursor-pointer p-1" title="${p.isEnabled ? 'Отключить' : 'Включить'}">
+            <input type="checkbox" class="sr-only peer plugin-checkbox-toggle" data-plugin="${p.name}" data-state="${p.isEnabled}" ${p.isEnabled ? 'checked' : ''}>
+            <div class="w-5 h-5 border-2 border-white/20 rounded bg-black/40 peer-checked:bg-primary peer-checked:border-primary flex items-center justify-center transition-colors">
+              <span class="material-symbols-outlined text-[14px] text-background opacity-0 peer-checked:opacity-100 transition-opacity" style="font-variation-settings: 'wght' 700">check</span>
+            </div>
+          </label>
+
+          <div class="w-10 h-10 rounded-lg ${p.isEnabled ? 'bg-primary/20 text-primary' : 'bg-white/10 text-on-variant'} flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+            ${iconHtml}
+          </div>
+          
+          <div class="flex-1 overflow-hidden pr-4">
+            <div class="font-medium ${p.isEnabled ? 'text-white' : 'text-on-variant'} flex items-center gap-2 truncate">
+              ${p.name} 
+              ${p.version ? `<span class="px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-white shrink-0">v${p.version}</span>` : ''}
+              ${p.author ? `<span class="px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-white shrink-0">by ${p.author}</span>` : ''}
+            </div>
+            <div class="text-xs text-on-variant mt-0.5 truncate">${p.desc || ''}</div>
+          </div>
+        </div>
+
+        <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <button class="px-3 py-1.5 bg-primary/20 hover:bg-primary/40 rounded-lg text-xs text-primary font-medium btn-edit-plugin-blocks" data-plugin="${p.name}">Блоки</button>
+          <button class="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-white btn-edit-plugin-settings" data-plugin="${p.name}">
+             <span class="material-symbols-outlined text-[14px] block">settings</span>
+          </button>
+          <div class="flex flex-col gap-1 ml-2">
+            <button class="w-6 h-6 bg-white/5 hover:bg-white/10 rounded flex items-center justify-center text-white transition-colors btn-plugin-move-up" data-plugin="${p.name}" title="Сдвинуть вверх (приоритет парсинга)">
+              <span class="material-symbols-outlined text-[14px]">arrow_upward</span>
+            </button>
+            <button class="w-6 h-6 bg-white/5 hover:bg-white/10 rounded flex items-center justify-center text-white transition-colors btn-plugin-move-down" data-plugin="${p.name}" title="Сдвинуть вниз">
+              <span class="material-symbols-outlined text-[14px]">arrow_downward</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      `;
+    }
+  }
+  
+  pluginsList.innerHTML = html;
+  
+  if (pluginsPagination) renderPagination(totalPages);
+}
+
+function renderPagination(totalPages) {
+  if (!pluginsPagination) return;
+  if (totalPages <= 1) {
+    pluginsPagination.innerHTML = '';
+    return;
+  }
+  
+  let html = `<button class="w-8 h-8 rounded flex items-center justify-center bg-white/5 hover:bg-white/10 text-white transition-colors" ${currentPluginsPage === 1 ? 'disabled style="opacity:0.3"' : ''} onclick="currentPluginsPage--; renderPluginsList();"><span class="material-symbols-outlined text-[16px]">chevron_left</span></button>`;
+  
+  for(let i=1; i<=totalPages; i++) {
+     if (i === 1 || i === totalPages || (i >= currentPluginsPage - 1 && i <= currentPluginsPage + 1)) {
+        html += `<button class="w-8 h-8 rounded flex items-center justify-center ${i === currentPluginsPage ? 'bg-primary text-background font-bold' : 'bg-white/5 hover:bg-white/10 text-white'} transition-colors text-xs" onclick="currentPluginsPage=${i}; renderPluginsList();">${i}</button>`;
+     } else if (i === currentPluginsPage - 2 || i === currentPluginsPage + 2) {
+        html += `<span class="text-on-variant text-xs">...</span>`;
+     }
+  }
+  
+  html += `<button class="w-8 h-8 rounded flex items-center justify-center bg-white/5 hover:bg-white/10 text-white transition-colors" ${currentPluginsPage === totalPages ? 'disabled style="opacity:0.3"' : ''} onclick="currentPluginsPage++; renderPluginsList();"><span class="material-symbols-outlined text-[16px]">chevron_right</span></button>`;
+  
+  pluginsPagination.innerHTML = html;
+}
+
+  // Привязка обработчиков плагинов через делегирование (если кнопки были пересозданы) или напрямую
+document.addEventListener('click', async (e) => {
+  let target = e.target;
+  if (target.nodeType === 3) target = target.parentNode;
+  if (!target || !target.closest) return;
+  
+  if (target.closest('#tab-my-plugins')) {
+    currentPluginsTab = 'my';
+    document.getElementById('tab-my-plugins').classList.replace('border-transparent', 'border-primary');
+    document.getElementById('tab-my-plugins').classList.replace('text-on-variant', 'text-white');
+    document.getElementById('tab-market-plugins').classList.replace('border-primary', 'border-transparent');
+    document.getElementById('tab-market-plugins').classList.replace('text-white', 'text-on-variant');
+    document.getElementById('plugins-header-actions').classList.remove('hidden');
+    document.getElementById('plugins-header-buttons').classList.remove('hidden');
+    document.getElementById('plugins-header-text').textContent = 'Здесь вы можете управлять пользовательскими библиотеками блоков и расширениями.';
+    currentPluginsPage = 1;
+    renderPluginsList();
+  }
+
+  if (target.closest('#tab-market-plugins')) {
+    currentPluginsTab = 'market';
+    document.getElementById('tab-market-plugins').classList.replace('border-transparent', 'border-primary');
+    document.getElementById('tab-market-plugins').classList.replace('text-on-variant', 'text-white');
+    document.getElementById('tab-my-plugins').classList.replace('border-primary', 'border-transparent');
+    document.getElementById('tab-my-plugins').classList.replace('text-white', 'text-on-variant');
+    document.getElementById('plugins-header-actions').classList.remove('hidden');
+    document.getElementById('plugins-header-text').innerHTML = `Лучшие плагины сообщества. Загружаются напрямую с сервера обновлений.<br/><a href="#" onclick="window.spraute.openExternal('https://t.me/spraute_community/83357'); return false;" class="text-primary hover:underline mt-1 inline-block text-xs">Как добавить сюда свой плагин?</a>`;
+    document.getElementById('plugins-header-buttons').classList.add('hidden');
+    currentPluginsPage = 1;
+    loadMarketPlugins();
+  }
+  
+  if (target.closest('.btn-plugin-market-download')) {
+     const btn = target.closest('.btn-plugin-market-download');
+     const pName = btn.dataset.plugin;
+     const fName = btn.dataset.file;
+     btn.innerHTML = '<span class="material-symbols-outlined text-[14px] animate-spin">sync</span>Скачивание...';
+     btn.disabled = true;
+     try {
+        const res = await window.spraute.marketDownload(pName, fName);
+        if (res.success) {
+           setStatus(`Плагин ${pName} успешно загружен!`);
+           await loadPluginsList(); // Refresh local plugins so we know it's installed
+           renderPluginsList();
+        } else {
+           appAlert(`Ошибка скачивания: ${res.error}`);
+           btn.innerHTML = '<span class="material-symbols-outlined text-[14px]">download</span>Скачать';
+           btn.disabled = false;
+        }
+     } catch(e) {
+        appAlert(`Ошибка: ${e.message}`);
+        btn.innerHTML = '<span class="material-symbols-outlined text-[14px]">download</span>Скачать';
+        btn.disabled = false;
+     }
+  }
+
+  if (target.closest('.btn-plugin-move-up')) {
+    const pluginName = target.closest('.btn-plugin-move-up').dataset.plugin;
+    const idx = allPluginsData.findIndex(p => p.name === pluginName);
+    if (idx > 0) {
+      // Меняем местами
+      const temp = allPluginsData[idx - 1];
+      allPluginsData[idx - 1] = allPluginsData[idx];
+      allPluginsData[idx] = temp;
+      await savePluginsOrder();
+      renderPluginsList();
+    }
+  }
+
+  if (target.closest('.btn-plugin-move-down')) {
+    const pluginName = target.closest('.btn-plugin-move-down').dataset.plugin;
+    const idx = allPluginsData.findIndex(p => p.name === pluginName);
+    if (idx < allPluginsData.length - 1 && idx !== -1) {
+      // Меняем местами
+      const temp = allPluginsData[idx + 1];
+      allPluginsData[idx + 1] = allPluginsData[idx];
+      allPluginsData[idx] = temp;
+      await savePluginsOrder();
+      renderPluginsList();
+    }
+  }
+
+  if (target.closest('.plugin-checkbox-toggle') || target.closest('.btn-toggle-plugin')) {
+    const el = target.closest('.plugin-checkbox-toggle') || target.closest('.btn-toggle-plugin');
+    const pluginName = el.dataset.plugin;
+    
+    // Предотвращаем двойное срабатывание (на label и на input)
+    if (e.target.tagName.toLowerCase() === 'label' || e.target.closest('label')) {
+      if (el.tagName.toLowerCase() !== 'input') {
+         // Ждем когда событие дойдет до input
+         return;
+      }
+    }
+    
+    let currentState;
+    if (el.tagName.toLowerCase() === 'input' && el.type === 'checkbox') {
+        currentState = !el.checked;
+    } else {
+        currentState = el.dataset.state === 'true';
+    }
+    
+    try {
+      const pPath = `plugins/${pluginName}/plugin.json`;
+      const content = await window.spraute.readFile(pPath, 'utf8');
+      const data = JSON.parse(content);
+      data.enabled = !currentState;
+      await window.spraute.writeFile(pPath, JSON.stringify(data, null, 2));
+      
+      const pData = allPluginsData.find(p => p.name === pluginName);
+      if (pData) pData.isEnabled = !currentState;
+
+          // Если плагин включен, копируем его скрипты в spraute_engine/scripts/plugins/pluginName
+      if (data.enabled) {
+        try {
+          const srcScripts = `plugins/${pluginName}/scripts`;
+          if (await window.spraute.exists(srcScripts)) {
+            const destScripts = `scripts/plugins/${pluginName}`;
+            if (!await window.spraute.exists('scripts/plugins')) {
+              await window.spraute.mkdir('scripts/plugins');
+            }
+            if (!await window.spraute.exists(destScripts)) {
+              await window.spraute.mkdir(destScripts);
+            }
+            // Используем window.spraute.copy (если он копирует содержимое)
+            await window.spraute.copy(srcScripts, destScripts);
+            console.log(`Скрипты плагина ${pluginName} скопированы в рабочую среду.`);
+          }
+        } catch (e) {
+          console.error("Ошибка копирования скриптов плагина:", e);
+        }
+      }
+
+      renderPluginsList();
+      
+      // Обновляем визуальный режим если он включен
+      if (isVisualMode && currentEditor) {
+        await scanWorkspaceForDynamicData(currentEditor.state.doc.toString());
+        if (blocklyWorkspace) {
+          blocklyWorkspace.updateToolbox(getDynamicToolbox());
+        }
+      }
+    } catch(err) {
+      console.error("Ошибка переключения: " + err.message);
+    }
+  }
+  
+  if (target.closest('.btn-edit-plugin-settings')) {
+    const btn = target.closest('.btn-edit-plugin-settings');
+    const pluginName = btn.dataset.plugin;
+    currentPluginSettingsName = pluginName;
+    
+    try {
+      const pPath = `plugins/${pluginName}/plugin.json`;
+      const content = await window.spraute.readFile(pPath, 'utf8');
+      const data = JSON.parse(content);
+      
+      const elName = document.getElementById('plugin-settings-name');
+      const elAuthor = document.getElementById('plugin-settings-author');
+      const elMcVersion = document.getElementById('plugin-settings-mcversion');
+      const elDesc = document.getElementById('plugin-settings-desc');
+      const elScripts = document.getElementById('plugin-settings-global-scripts');
+      
+      if (elName) elName.value = data.name || pluginName;
+      if (elAuthor) elAuthor.value = data.author || '';
+      if (elMcVersion) elMcVersion.value = data.mc_version || '';
+      if (elDesc) elDesc.value = data.description || '';
+      if (elScripts) elScripts.value = data.global_scripts || '';
+      
+      // Иконка
+      const iconPath = `plugins/${pluginName}/icon.png`;
+      const hasIcon = await window.spraute.exists(iconPath);
+      const elIconFile = document.getElementById('plugin-settings-icon-file');
+      if (elIconFile) elIconFile.value = ''; // сброс файла
+      window._tempPluginIconBase64 = null; // временная переменная
+      
+      const elIconPreview = document.getElementById('plugin-settings-icon-preview');
+      const elIconPlaceholder = document.getElementById('plugin-settings-icon-placeholder');
+      
+      if (hasIcon && window.spraute.readFile) {
+        const b64 = await window.spraute.readFile(iconPath, 'base64');
+        if (elIconPreview && elIconPlaceholder) {
+          elIconPreview.src = `data:image/png;base64,${b64}`;
+          elIconPreview.classList.remove('hidden');
+          elIconPlaceholder.classList.add('hidden');
+        }
+      } else {
+        if (elIconPreview && elIconPlaceholder) {
+          elIconPreview.src = '';
+          elIconPreview.classList.add('hidden');
+          elIconPlaceholder.classList.remove('hidden');
+        }
+      }
+      
+      const elModal = document.getElementById('plugin-settings-modal');
+      const elBox = document.getElementById('plugin-settings-modal-box');
+      if (elModal && elBox) {
+        elModal.classList.remove('hidden');
+        setTimeout(() => {
+          elBox.classList.remove('scale-95', 'opacity-0');
+        }, 10);
+      }
+    } catch(err) {
+      appAlert("Ошибка загрузки настроек: " + err.message);
+    }
+  }
+
+  if (target.closest('#btn-close-plugin-settings') || target.closest('#btn-plugin-settings-cancel')) {
+    const elModal = document.getElementById('plugin-settings-modal');
+    const elBox = document.getElementById('plugin-settings-modal-box');
+    if (elBox && elModal) {
+      elBox.classList.add('scale-95', 'opacity-0');
+      setTimeout(() => elModal.classList.add('hidden'), 200);
+    }
+  }
+
+  if (target.closest('#btn-plugin-settings-icon')) {
+    const elIconFile = document.getElementById('plugin-settings-icon-file');
+    if (elIconFile) elIconFile.click();
+  }
+
+  if (target.closest('#btn-plugin-settings-export')) {
+    if (window.spraute.exportPluginZip) {
+      const res = await window.spraute.exportPluginZip(currentPluginSettingsName);
+      if (res && res.success) {
+        appAlert("Плагин успешно экспортирован:\n" + res.path);
+      } else if (res && res.error !== 'Отменено пользователем') {
+        appAlert("Ошибка экспорта: " + res.error);
+      }
+    } else {
+      appAlert("Функция экспорта не поддерживается. Пожалуйста, перезапустите Студию.");
+    }
+  }
+
+  if (target.closest('#btn-plugin-settings-save')) {
+    try {
+      const pPath = `plugins/${currentPluginSettingsName}/plugin.json`;
+      const content = await window.spraute.readFile(pPath, 'utf8');
+      const data = JSON.parse(content);
+      
+      const elAuthor = document.getElementById('plugin-settings-author');
+      const elMcVersion = document.getElementById('plugin-settings-mcversion');
+      const elDesc = document.getElementById('plugin-settings-desc');
+      const elScripts = document.getElementById('plugin-settings-global-scripts');
+      
+      if (elAuthor) data.author = elAuthor.value.trim();
+      if (elMcVersion) data.mc_version = elMcVersion.value.trim();
+      if (elDesc) data.description = elDesc.value.trim();
+      if (elScripts) data.global_scripts = elScripts.value; // не тримим, вдруг там пустые строки нужны
+      
+      await window.spraute.writeFile(pPath, JSON.stringify(data, null, 2));
+      
+      if (window._tempPluginIconBase64 && window.spraute.writeBase64) {
+        // Убираем префикс "data:image/png;base64,"
+        const base64Data = window._tempPluginIconBase64.split(',')[1];
+        await window.spraute.writeBase64(`plugins/${currentPluginSettingsName}/icon.png`, base64Data);
+      }
+      
+      const elModal = document.getElementById('plugin-settings-modal');
+      const elBox = document.getElementById('plugin-settings-modal-box');
+      if (elBox && elModal) {
+        elBox.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => elModal.classList.add('hidden'), 200);
+      }
+      loadPluginsList(); // Перезагружаем список
+    } catch (err) {
+      appAlert("Ошибка сохранения: " + err.message);
+    }
+  }
+
+  if (target.closest('#btn-create-plugin')) {
+    inputPluginName.value = '';
+    inputPluginAuthor.value = 'Unknown';
+    inputPluginDesc.value = '';
+    pluginCreateModal.classList.remove('hidden');
+    setTimeout(() => {
+      pluginCreateBox.classList.remove('scale-95', 'opacity-0');
+    }, 10);
+  }
+
+  if (target.closest('#btn-close-plugin-create') || target.closest('#btn-plugin-create-cancel')) {
+    pluginCreateBox.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => pluginCreateModal.classList.add('hidden'), 200);
+  }
+
+  if (target.closest('#btn-plugin-create-confirm')) {
+    const name = inputPluginName.value.trim();
+    const author = inputPluginAuthor.value.trim() || 'Unknown';
+    const mcVersion = inputPluginMcVersion.value;
+    const desc = inputPluginDesc.value.trim();
+
+    if (!name) {
+      appAlert('Название плагина не может быть пустым!');
+      return;
+    }
+    
+    // Проверка на допустимые символы (только буквы, цифры, _, -)
+    if (!/^[a-zA-Z0-9_\-]+$/.test(name)) {
+      appAlert('Имя плагина должно содержать только латинские буквы, цифры, тире или нижнее подчеркивание.');
+      return;
+    }
+    
+    try {
+      const existsPlugins = await window.spraute.exists('plugins');
+      if (!existsPlugins) {
+        await window.spraute.mkdir('plugins');
+      }
+      
+      const pPath = `plugins/${name}`;
+      const existsThisPlugin = await window.spraute.exists(pPath);
+      if (existsThisPlugin) {
+        appAlert('Плагин с таким именем уже существует!');
+        return;
+      }
+
+      await window.spraute.mkdir(pPath);
+      await window.spraute.mkdir(`${pPath}/blocks`);
+      await window.spraute.mkdir(`${pPath}/scripts`);
+      
+      // Создаем plugin.json
+      const pluginJson = {
+        name: name,
+        author: author,
+        version: "1.0.0",
+        mc_version: mcVersion,
+        description: desc
+      };
+      await window.spraute.writeFile(`${pPath}/plugin.json`, JSON.stringify(pluginJson, null, 2));
+
+      // Создаем README.md
+      const readme = `# Плагин ${name}\n\n**Автор:** ${author}\n**Описание:** ${desc}\n\nСюда вы можете помещать файлы .spr с синтаксисом \`#\\\` для создания визуальных блоков в папку \`blocks/\`.`;
+      await window.spraute.writeFile(`${pPath}/README.md`, readme);
+      
+      pluginCreateBox.classList.add('scale-95', 'opacity-0');
+      setTimeout(() => pluginCreateModal.classList.add('hidden'), 200);
+
+      setStatus(`Плагин ${name} успешно создан`);
+      loadPluginsList();
+    } catch(err) {
+      appAlert('Ошибка при создании плагина: ' + err.message);
+    }
+  }
+
+  if (target.closest('#btn-load-plugin')) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.zip,.spr';
+    
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      try {
+        const existsPlugins = await window.spraute.exists('plugins');
+        if (!existsPlugins) await window.spraute.mkdir('plugins');
+
+        // Если это отдельный .spr файл
+        if (file.name.endsWith('.spr')) {
+          const baseName = file.name.replace('.spr', '');
+          const pPath = `plugins/${baseName}`;
+          
+          if (await window.spraute.exists(pPath)) {
+             appAlert('Плагин с таким именем уже существует!');
+             return;
+          }
+          
+          await window.spraute.mkdir(pPath);
+          await window.spraute.mkdir(`${pPath}/blocks`);
+          
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+             const content = e.target.result;
+             await window.spraute.writeFile(`${pPath}/blocks/${file.name}`, content);
+             
+             const pluginJson = {
+               name: baseName,
+               author: "Unknown",
+               version: "1.0.0",
+               mc_version: "any",
+               description: "Импортированная библиотека блоков"
+             };
+             await window.spraute.writeFile(`${pPath}/plugin.json`, JSON.stringify(pluginJson, null, 2));
+             
+             setStatus(`Плагин ${baseName} успешно установлен`);
+             loadPluginsList();
+          };
+          reader.readAsText(file);
+        } else {
+          appAlert('Функция распаковки .zip плагинов находится в разработке.');
+        }
+      } catch(err) {
+        appAlert('Ошибка при установке плагина: ' + err.message);
+      }
+    };
+    
+    input.click();
+  }
+});
+
+// --- Редактор Блоков Плагина ---
+const pluginBlocksModal = document.getElementById('plugin-blocks-modal');
+const pluginBlocksBox = document.getElementById('plugin-blocks-modal-box');
+const pluginBlocksList = document.getElementById('plugin-blocks-list');
+const pluginBlocksTitle = document.getElementById('plugin-blocks-title');
+let currentEditingPlugin = null;
+
+// Категории плагина
+const categoriesModal = document.getElementById('categories-modal');
+const categoriesBox = document.getElementById('categories-modal-box');
+const categoriesList = document.getElementById('categories-list');
+const inputNewCatName = document.getElementById('new-category-name');
+const inputNewCatColor = document.getElementById('new-category-color');
+let pluginCategories = {}; // {name: color}
+
+async function loadPluginCategories(pluginName) {
+  pluginCategories = { "Мои блоки": "#38bdf8" }; // Дефолтная категория
+  try {
+    const catPath = `plugins/${pluginName}/categories.json`;
+    if (await window.spraute.exists(catPath)) {
+      const content = await window.spraute.readFile(catPath, 'utf8');
+      pluginCategories = { ...pluginCategories, ...JSON.parse(content) };
+    }
+  } catch(e) {}
+  renderCategories();
+  updateCategorySelect();
+}
+
+async function savePluginCategories(pluginName) {
+  try {
+    const catPath = `plugins/${pluginName}/categories.json`;
+    await window.spraute.writeFile(catPath, JSON.stringify(pluginCategories, null, 2));
+  } catch(e) { console.error("Save categories error:", e); }
+}
+
+function renderCategories() {
+  categoriesList.innerHTML = Object.entries(pluginCategories).map(([name, color]) => `
+    <div class="flex items-center justify-between p-2 rounded-lg bg-black/20 border border-white/5">
+      <div class="flex items-center gap-2">
+        <div class="w-5 h-5 rounded" style="background-color: ${color};"></div>
+        <span class="text-sm text-white">${name}</span>
+      </div>
+      <button class="text-red-400 hover:text-red-300 text-xs btn-delete-category" data-cat="${name}">Удалить</button>
+    </div>
+  `).join('');
+}
+
+function updateCategorySelect() {
+  const select = document.getElementById('builder-category');
+  if (!select) return;
+  select.innerHTML = Object.entries(pluginCategories).map(([name, color]) => 
+    `<option value="${name}" data-color="${color}">${name}</option>`
+  ).join('');
+  
+  // Добавляем обработчик смены категории
+  select.onchange = () => {
+    const selected = select.options[select.selectedIndex];
+    const catColor = selected.dataset.color || '#38bdf8';
+    inputBuilderColor.value = catColor;
+    inputBuilderColorPicker.value = catColor;
+  };
+}
+
+const blockBuilderModal = document.getElementById('block-builder-modal');
+const blockBuilderBox = document.getElementById('block-builder-modal-box');
+const inputBuilderId = document.getElementById('builder-id');
+const inputBuilderCategory = document.getElementById('builder-category'); // теперь это select
+const inputBuilderShape = document.getElementById('builder-shape');
+const inputBuilderColor = document.getElementById('builder-color');
+const inputBuilderColorPicker = document.getElementById('builder-color-picker');
+const inputBuilderUi = document.getElementById('builder-ui');
+const inputBuilderCode = document.getElementById('builder-code');
+const inputBuilderParse = document.getElementById('builder-parse');
+const btnBuilderPreview = document.getElementById('btn-builder-preview');
+let previewWorkspace = null;
+
+function updateBlockPreview() {
+    const rawId = inputBuilderId.value.trim();
+    // Используем временный id если пустой
+    const blockId = (rawId ? `${currentEditingPlugin}_preview_${rawId}` : `preview_${Date.now()}`).replace(/[^a-z0-9_.]/g, '_');
+    
+    let content = "";
+    let fullUi = inputBuilderUi.value;
+
+    if (!inputBuilderCode.value.trim() && !inputBuilderParse?.value.trim() && !fullUi.includes('[UI]')) {
+       // Unified syntax
+       let bodyContent = fullUi.split('\n').map(l => '#\\ ' + l).join('\n');
+       content = [
+          `#\\ block: ${blockId}`,
+          `#\\ category: Preview`,
+          `#\\ color: ${inputBuilderColor.value}`,
+          `#\\ shape: ${inputBuilderShape.value}`,
+          `#\\`,
+          bodyContent
+       ].filter(Boolean).join('\n') + '\n';
+    } else {
+       // Legacy syntax
+       let staticPart = fullUi, dynPart = "";
+       if (fullUi.includes('[DYNAMIC_UI]')) {
+         const idx = fullUi.indexOf('[DYNAMIC_UI]');
+         staticPart = fullUi.slice(0, idx).trim();
+         dynPart = fullUi.slice(idx + '[DYNAMIC_UI]'.length).trim();
+       }
+       
+       let uiContent = staticPart.split('\n').map(l => '#\\ ' + l).join('\n');
+       let dynContent = dynPart ? dynPart.split('\n').map(l => '#\\ ' + l).join('\n') : '';
+       let codeContent = inputBuilderCode.value.split('\n').map(l => '#\\ ' + l).join('\n');
+       let parseContent = inputBuilderParse && inputBuilderParse.value ? inputBuilderParse.value.split('\n').map(l => '#\\ ' + l).join('\n') : '';
+       
+       content = [
+          `#\\ block: ${blockId}`,
+          `#\\ category: Preview`,
+          `#\\ color: ${inputBuilderColor.value}`,
+          `#\\ shape: ${inputBuilderShape.value}`,
+          `#\\`,
+          `#\\ [UI]`,
+          uiContent,
+          dynContent ? `#\\\n#\\ [DYNAMIC_UI]\n${dynContent}` : '',
+          `#\\`,
+          `#\\ [CODE_GEN]`,
+          codeContent,
+          parseContent ? `#\\\n#\\ [CODE_PARSE]\n${parseContent}` : ''
+       ].filter(Boolean).join('\n') + '\n';
+    }
+    
+    try {
+      // Очищаем регистрацию предыдущего превью блока
+      if (window._lastPreviewBlockId && Blockly.Blocks[window._lastPreviewBlockId]) {
+        delete Blockly.Blocks[window._lastPreviewBlockId];
+        delete SprauteGenerator.forBlock[window._lastPreviewBlockId];
+      }
+      window._lastPreviewBlockId = blockId;
+      
+      parseCustomBlocks(content, "", true);
+      
+      if (!Blockly.Blocks[blockId] || typeof Blockly.Blocks[blockId].init !== 'function') {
+        document.getElementById('blockly-preview-mount').innerHTML = 
+          '<div class="flex items-center justify-center h-full text-red-400 text-xs p-3">Ошибка: не удалось зарегистрировать блок. Проверьте синтаксис UI.</div>';
+        return;
+      }
+      
+      if (!previewWorkspace) {
+        previewWorkspace = Blockly.inject('blockly-preview-mount', {
+          toolbox: null,
+          theme: SprauteTheme,
+          readOnly: false,
+          scrollbars: false,
+          trashcan: false,
+          zoom: { controls: false, wheel: false, startScale: 0.9 }
+        });
+      }
+      previewWorkspace.clear();
+      const newBlock = previewWorkspace.newBlock(blockId);
+      newBlock.initSvg();
+      newBlock.render();
+      newBlock.moveBy(20, 20);
+      
+    } catch(e) {
+      console.error("Preview Error:", e);
+      document.getElementById('blockly-preview-mount').innerHTML = 
+        `<div class="flex items-center justify-center h-full text-red-400 text-xs p-3">Ошибка: ${e.message}</div>`;
+    }
+}
+
+document.addEventListener('click', async (e) => {
+  let target = e.target;
+  if (target.nodeType === 3) target = target.parentNode; // Handle text nodes
+  if (!target || !target.closest) return;
+  
+  // Открыть список блоков плагина
+  if (target.closest('.btn-edit-plugin-blocks')) {
+    const pluginName = target.closest('.btn-edit-plugin-blocks').dataset.plugin;
+    currentEditingPlugin = pluginName;
+    pluginBlocksTitle.innerText = pluginName;
+    
+    await loadPluginCategories(pluginName);
+    
+    pluginBlocksModal.classList.remove('hidden');
+    setTimeout(() => {
+      pluginBlocksBox.classList.remove('scale-95', 'opacity-0');
+    }, 10);
+    
+    loadPluginBlocks(pluginName);
+  }
+  
+  // Открыть управление категориями
+  if (target.closest('#btn-manage-categories')) {
+    categoriesModal.classList.remove('hidden');
+    setTimeout(() => categoriesBox.classList.remove('scale-95', 'opacity-0'), 10);
+    renderCategories();
+  }
+  
+  // Закрыть управление категориями
+  if (target.closest('#btn-close-categories')) {
+    categoriesBox.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => categoriesModal.classList.add('hidden'), 200);
+  }
+  
+  // Добавить категорию
+  if (target.closest('#btn-add-category')) {
+    const name = inputNewCatName.value.trim();
+    const color = inputNewCatColor.value;
+    if (name && !pluginCategories[name]) {
+      pluginCategories[name] = color;
+      await savePluginCategories(currentEditingPlugin);
+      renderCategories();
+      updateCategorySelect();
+      inputNewCatName.value = '';
+    }
+  }
+  
+  // Удалить категорию
+  if (target.closest('.btn-delete-category')) {
+    const catName = target.closest('.btn-delete-category').dataset.cat;
+    if (catName !== "Мои блоки") {
+      delete pluginCategories[catName];
+      await savePluginCategories(currentEditingPlugin);
+      renderCategories();
+      updateCategorySelect();
+    }
+  }
+  
+  // Закрыть список блоков плагина
+  if (target.closest('#btn-close-plugin-blocks')) {
+    pluginBlocksBox.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => pluginBlocksModal.classList.add('hidden'), 200);
+  }
+  
+  // Редактировать блок
+  if (target.closest('.btn-edit-block')) {
+    const btn = target.closest('.btn-edit-block');
+    const filePath = btn.dataset.file;
+    const fileName = btn.dataset.name;
+    
+    try {
+      const text = await window.spraute.readFile(filePath, 'utf8');
+      
+      // Парсим метаданные из файла
+      const mId = text.match(/^#\\?\s*block:\s*(.+)/m);
+      const mCat = text.match(/^#\\?\s*category:\s*(.+)/m);
+      const mColor = text.match(/^#\\?\s*color:\s*(.+)/m);
+      const mShape = text.match(/^#\\?\s*shape:\s*(.+)/m);
+      
+      // Извлекаем UI секцию
+      const uiMatch = text.match(/\[UI\]([\s\S]*?)(?:\[DYNAMIC_UI\]|\[CODE_GEN\]|\[CODE_PARSE\]|$)/);
+      const dynMatch = text.match(/\[DYNAMIC_UI\]([\s\S]*?)(?:\[CODE_GEN\]|\[CODE_PARSE\]|$)/);
+      const codeMatch = text.match(/\[CODE_GEN\]([\s\S]*?)(?:\[CODE_PARSE\]|$)/);
+      const parseMatch = text.match(/\[CODE_PARSE\]([\s\S]*?)$/);
+      
+      function extractSection(match) {
+        if (!match) return "";
+        return match[1].split('\n')
+          .map(l => { const m = l.match(/^#\\?\s?(.*)/); return m ? m[1] : null; })
+          .filter(l => l !== null)
+          .join('\n').trim();
+      }
+      
+      const rawId = mId ? mId[1].trim() : fileName.replace('.spr','');
+      inputBuilderId.value = rawId;
+      inputBuilderId.readOnly = false;
+      inputBuilderId.dataset.editFile = filePath;
+      document.getElementById('builder-id-namespace').textContent = currentEditingPlugin ? `${currentEditingPlugin}.` : '';
+      document.getElementById('builder-id-error').classList.add('hidden');
+      
+      updateCategorySelect();
+      if (mCat) {
+        const sel = document.getElementById('builder-category');
+        for (let i = 0; i < sel.options.length; i++) {
+          if (sel.options[i].value === mCat[1].trim()) { sel.selectedIndex = i; break; }
+        }
+      }
+      inputBuilderShape.value = mShape ? mShape[1].trim() : 'statement';
+      const col = mColor ? mColor[1].trim() : '#38bdf8';
+      inputBuilderColor.value = col;
+      inputBuilderColorPicker.value = col;
+      
+      // Объединяем UI и DYNAMIC_UI в одно поле для легаси совместимости
+      let uiVal = extractSection(uiMatch);
+      const dynVal = extractSection(dynMatch);
+      if (dynVal) uiVal += '\n[DYNAMIC_UI]\n' + dynVal;
+      
+      // Если тело написано в новом синтаксисе (без секций)
+      if (!uiVal && !extractSection(codeMatch)) {
+        // Читаем тело напрямую
+        const lines = text.split('\n');
+        let inBody = false;
+        let body = [];
+        for (const l of lines) {
+           if (l.match(/^#\\?\s*block:/) || l.match(/^#\\?\s*category:/) || l.match(/^#\\?\s*color:/) || l.match(/^#\\?\s*shape:/)) continue;
+           if (!inBody && l.trim() !== '') inBody = true;
+           if (inBody) {
+              const m = l.match(/^#\\?\s?(.*)/);
+              if (m) body.push(m[1]);
+           }
+        }
+        inputBuilderUi.value = body.join('\n').trim();
+        inputBuilderCode.value = "";
+        if (inputBuilderParse) inputBuilderParse.value = "";
+      } else {
+        inputBuilderUi.value = uiVal;
+        inputBuilderCode.value = extractSection(codeMatch);
+        if (inputBuilderParse) inputBuilderParse.value = extractSection(parseMatch);
+      }
+      
+      document.getElementById('block-builder-modal-box').querySelector('h2').textContent = `Редактирование: ${rawId}`;
+      
+      blockBuilderModal.classList.remove('hidden');
+      setTimeout(() => {
+        blockBuilderBox.classList.remove('scale-95', 'opacity-0');
+        setTimeout(updateBlockPreview, 150);
+      }, 10);
+    } catch(err) {
+      appAlert('Ошибка при открытии файла блока: ' + err.message);
+    }
+  }
+
+  // Удалить плагин (из настроек)
+  if (target.closest('#btn-plugin-settings-delete')) {
+    if (await appConfirm(`Вы уверены, что хотите удалить этот плагин со всеми его блоками и ресурсами?`)) {
+      try {
+        const pluginName = currentPluginSettingsName;
+        await window.spraute.rmdir(`plugins/${pluginName}`);
+        
+        // Удаляем из списка порядка
+        allPluginsData = allPluginsData.filter(p => p.name !== pluginName);
+        await savePluginsOrder();
+        
+        // Закрываем модалку настроек
+        document.getElementById('plugin-settings-modal-box').classList.add('scale-95', 'opacity-0');
+        setTimeout(() => document.getElementById('plugin-settings-modal').classList.add('hidden'), 200);
+        
+        // Перерисовываем список
+        loadPluginsList();
+      } catch(e) {
+        appAlert('Ошибка при удалении плагина: ' + e.message);
+      }
+    }
+  }
+
+  // Открыть конструктор нового блока
+  if (target.closest('#btn-create-block')) {
+    inputBuilderId.value = '';
+    inputBuilderId.readOnly = false;
+    document.getElementById('builder-id-namespace').textContent = currentEditingPlugin ? `${currentEditingPlugin}.` : '';
+    document.getElementById('builder-id-error').classList.add('hidden');
+    updateCategorySelect();
+    inputBuilderShape.value = 'statement';
+    const firstCatColor = Object.values(pluginCategories)[0] || '#38bdf8';
+    inputBuilderColor.value = firstCatColor;
+    inputBuilderColorPicker.value = firstCatColor;
+    
+    // Делаем пример более сложным (наведение)
+    inputBuilderUi.value = `row: [npc: dropdown_npc] "Смотреть" [mode: dropdown(один раз: lookat, всегда: alwayslookat, перестать: stoplookat)] "на" [target_type: dropdown(НИПа: npc, игрока: player, моба: mob)]
+if mode == "stoplookat":
+  template: {npc}.stoplookat()
+if mode == "lookat" or mode == "alwayslookat":
+  if target_type == "npc":
+    row: "по имени" [target_npc: dropdown_npc]
+    template: {npc}.{mode}("{target_npc}")
+  if target_type == "player":
+    input: target_player (type: value) "переменная игрока"
+    template: {npc}.{mode}({target_player})
+  if target_type == "mob":
+    row: "моб" (target_mob: text: "zombie")
+    template: {npc}.{mode}("{target_mob}")`;
+    
+    inputBuilderCode.value = ``;
+    if (inputBuilderParse) inputBuilderParse.value = '';
+    document.getElementById('block-builder-modal-box').querySelector('h2').textContent = 'Конструктор визуального блока';
+    
+    blockBuilderModal.classList.remove('hidden');
+    setTimeout(() => {
+      blockBuilderBox.classList.remove('scale-95', 'opacity-0');
+      setTimeout(updateBlockPreview, 150);
+    }, 10);
+  }
+  
+  // Валидация ID в реальном времени
+  if (target.closest('#builder-id')) {
+    document.getElementById('builder-id').addEventListener('input', (ev) => {
+      const v = ev.target.value;
+      const valid = /^[a-z0-9_]*$/.test(v);
+      document.getElementById('builder-id-error').classList.toggle('hidden', valid);
+      ev.target.value = v.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    }, { once: true });
+  }
+  
+  // Закрыть конструктор блока
+  if (target.closest('#btn-close-block-builder') || target.closest('#btn-builder-cancel')) {
+    blockBuilderBox.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => blockBuilderModal.classList.add('hidden'), 200);
+  }
+  
+  // Синхронизация цветов в конструкторе
+  if (target.closest('#builder-color-picker')) {
+    inputBuilderColorPicker.addEventListener('input', () => {
+      inputBuilderColor.value = inputBuilderColorPicker.value;
+    }, {once: true});
+  }
+  if (target.closest('#builder-color')) {
+    inputBuilderColor.addEventListener('input', () => {
+      inputBuilderColorPicker.value = inputBuilderColor.value;
+    }, {once: true});
+  }
+
+  // Обновление предпросмотра
+  if (target.closest('#btn-builder-preview')) {
+    updateBlockPreview();
+  }
+
+  // Сохранить блок
+  if (target.closest('#btn-builder-save')) {
+    if (!currentEditingPlugin) return;
+    const blockId = inputBuilderId.value.trim();
+    if (!blockId) { appAlert("ID блока не может быть пустым!"); return; }
+    if (!/^[a-z0-9_]+$/.test(blockId)) {
+      appAlert("ID блока может содержать только маленькие латинские буквы, цифры и нижнее подчёркивание!");
+      return;
+    }
+    
+    let fullUi = inputBuilderUi.value;
+    
+    let content = "";
+    if (!inputBuilderCode.value.trim() && (!inputBuilderParse || !inputBuilderParse.value.trim()) && !fullUi.includes('[UI]')) {
+       // Unified syntax
+       let bodyContent = fullUi.split('\n').map(l => '#\\ ' + l).join('\n');
+       content = [
+          `#\\ block: ${blockId}`,
+          `#\\ category: ${inputBuilderCategory.value}`,
+          `#\\ color: ${inputBuilderColor.value}`,
+          `#\\ shape: ${inputBuilderShape.value}`,
+          `#\\`,
+          bodyContent
+       ].filter(Boolean).join('\n') + '\n';
+    } else {
+       // Legacy syntax
+       let staticPart = fullUi, dynPart = "";
+       if (fullUi.includes('[DYNAMIC_UI]')) {
+         const idx = fullUi.indexOf('[DYNAMIC_UI]');
+         staticPart = fullUi.slice(0, idx).trim();
+         dynPart = fullUi.slice(idx + '[DYNAMIC_UI]'.length).trim();
+       }
+       
+       let uiContent = staticPart.split('\n').map(l => '#\\ ' + l).join('\n');
+       let dynContent = dynPart ? dynPart.split('\n').map(l => '#\\ ' + l).join('\n') : '';
+       let codeContent = inputBuilderCode.value.split('\n').map(l => '#\\ ' + l).join('\n');
+       let parseContent = inputBuilderParse && inputBuilderParse.value ? inputBuilderParse.value.split('\n').map(l => '#\\ ' + l).join('\n') : '';
+       
+       content = [
+          `#\\ block: ${blockId}`,
+          `#\\ category: ${inputBuilderCategory.value}`,
+          `#\\ color: ${inputBuilderColor.value}`,
+          `#\\ shape: ${inputBuilderShape.value}`,
+          `#\\`,
+          `#\\ [UI]`,
+          uiContent,
+          dynContent ? `#\\\n#\\ [DYNAMIC_UI]\n${dynContent}` : '',
+          `#\\`,
+          `#\\ [CODE_GEN]`,
+          codeContent,
+          parseContent ? `#\\\n#\\ [CODE_PARSE]\n${parseContent}` : ''
+       ].filter(Boolean).join('\n') + '\n';
+    }
+    
+    try {
+      const pPath = `plugins/${currentEditingPlugin}/blocks/${blockId}.spr`;
+      await window.spraute.writeFile(pPath, content);
+      
+      blockBuilderBox.classList.add('scale-95', 'opacity-0');
+      setTimeout(() => blockBuilderModal.classList.add('hidden'), 200);
+      
+      setStatus(`Блок ${currentEditingPlugin}.${blockId} сохранён`);
+      loadPluginBlocks(currentEditingPlugin);
+    } catch (err) {
+      appAlert("Ошибка при сохранении блока: " + err.message);
+    }
+  }
+
+  // Показать документацию
+  if (target.closest('#btn-builder-docs')) {
+    e.preventDefault();
+    const builderDocsModal = document.getElementById('builder-docs-modal');
+    const builderDocsBox = document.getElementById('builder-docs-modal-box');
+    if (builderDocsModal && builderDocsBox) {
+      builderDocsModal.classList.remove('hidden');
+      setTimeout(() => {
+        builderDocsBox.classList.remove('scale-95', 'opacity-0');
+      }, 10);
+      
+      Promise.resolve(visualBlocksDocs)
+        .then(text => {
+          let html = text
+            .replace(/^# (.*$)/gim, '<h1 class="text-xl font-bold text-white mb-4">$1</h1>')
+            .replace(/^## (.*$)/gim, '<h2 class="text-lg font-bold text-primary mt-6 mb-3 border-b border-white/10 pb-2">$1</h2>')
+            .replace(/^### (.*$)/gim, '<h3 class="text-md font-bold text-secondary mt-4 mb-2">$1</h3>')
+            .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+            .replace(/\*(.*)\*/gim, '<em>$1</em>')
+            .replace(/```(?:spraute|html|javascript)?\n([\s\S]*?)```/gim, '<pre class="bg-black/30 p-4 rounded-xl border border-white/5 my-4 overflow-x-auto text-xs font-mono"><code>$1</code></pre>')
+            .replace(/`([^`]+)`/gim, '<code class="bg-black/20 px-1.5 py-0.5 rounded text-primary">$1</code>')
+            .replace(/^\- (.*$)/gim, '<li class="ml-4 list-disc">$1</li>')
+            .replace(/\n\n/gim, '<br>');
+          document.getElementById('builder-docs-content').innerHTML = html;
+        })
+        .catch(err => {
+          document.getElementById('builder-docs-content').innerHTML = 'Ошибка загрузки документации: ' + err.message;
+        });
+    }
+  }
+
+  // Закрыть модалку документации
+  if (target.closest('#btn-close-builder-docs')) {
+    const builderDocsModal = document.getElementById('builder-docs-modal');
+    const builderDocsBox = document.getElementById('builder-docs-modal-box');
+    if (builderDocsBox && builderDocsModal) {
+      builderDocsBox.classList.add('scale-95', 'opacity-0');
+      setTimeout(() => builderDocsModal.classList.add('hidden'), 200);
+    }
+  }
+});
+
+window.deletePluginBlock = async function(filePath, fileName) {
+  if (await appConfirm(`Удалить блок "${fileName}"? Это действие нельзя отменить.`)) {
+    try {
+      await window.spraute.unlink(filePath);
+      loadPluginBlocks(currentEditingPlugin);
+    } catch(e) {
+      appAlert('Ошибка при удалении: ' + e.message);
+    }
+  }
+};
+
+async function loadPluginBlocks(pluginName) {
+  pluginBlocksList.innerHTML = '<div class="text-center text-on-variant py-8 text-xs">Загрузка...</div>';
+  try {
+    const blocksPath = `plugins/${pluginName}/blocks`;
+    const exists = await window.spraute.exists(blocksPath);
+    if (!exists) {
+      pluginBlocksList.innerHTML = '<div class="text-center text-on-variant py-8 text-xs">Блоков пока нет.</div>';
+      return;
+    }
+    
+    const files = await window.spraute.listDir(blocksPath);
+    const sprFiles = files.filter(f => !f.isDir && f.name.endsWith('.spr'));
+    
+    if (sprFiles.length === 0) {
+      pluginBlocksList.innerHTML = '<div class="text-center text-on-variant py-8 text-xs">Блоков пока нет. Создайте первый!</div>';
+      return;
+    }
+    
+    let html = '';
+    for (const f of sprFiles) {
+      let bName = f.name;
+      let bCat = "Без категории";
+      let bColor = "#555555";
+      try {
+        const text = await window.spraute.readFile(f.rel, 'utf8');
+        const mCat = text.match(/#\\\s*category:\s*(.*)/);
+        const mColor = text.match(/#\\\s*color:\s*(.*)/);
+        if (mCat) bCat = mCat[1].trim();
+        if (mColor) bColor = mColor[1].trim();
+      } catch(e){}
+      
+      html += `
+      <div class="flex items-center justify-between p-3 rounded-xl bg-black/20 border border-white/5 group">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded border border-white/10 flex items-center justify-center shadow-sm" style="background-color: ${bColor}40;">
+            <div class="w-4 h-4 rounded-sm" style="background-color: ${bColor};"></div>
+          </div>
+          <div>
+            <div class="font-mono text-sm text-white">${bName}</div>
+            <div class="text-[10px] text-on-variant uppercase tracking-wider mt-0.5">${bCat}</div>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button class="px-3 py-1.5 bg-primary/20 hover:bg-primary/40 rounded-lg text-xs text-primary transition-colors btn-edit-block" 
+            data-file="${f.rel}" data-name="${f.name}">Изменить</button>
+          <button class="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/40 rounded-lg text-xs text-red-400 transition-colors" 
+            onclick="window.deletePluginBlock('${f.rel.replace(/\\/g, '\\\\\\\\')}', '${f.name}')">Удалить</button>
+        </div>
+      </div>
+      `;
+    }
+    pluginBlocksList.innerHTML = html;
+  } catch(e) {
+    pluginBlocksList.innerHTML = `<div class="text-center text-red-400 py-8 text-xs">Ошибка: ${e.message}</div>`;
+  }
+}
+
+// --- Импорт Визуальных Блоков и Сбор Данных ---
+const btnImportScript = document.getElementById('btn-import-script');
+let importedScriptsText = ""; 
+
+if (btnImportScript) {
+  btnImportScript.addEventListener('click', async () => {
+    const name = await appPrompt('Путь к скрипту для импорта (например, scripts/my_lib.spr):');
+    if (!name || !name.trim()) return;
+    
+    try {
+      const content = await window.spraute.readFile(name.trim(), 'utf8');
+      importedScriptsText += "\n" + content;
+      
+      if (isVisualMode && currentEditor) {
+        await scanWorkspaceForDynamicData(currentEditor.state.doc.toString());
+      }
+      setStatus(`Скрипт ${name} импортирован для визуальных блоков`);
+    } catch(e) {
+      appAlert(`Ошибка при импорте ${name}: ` + e.message);
+    }
+  });
+}
+
+async function scanWorkspaceForDynamicData(currentText) {
+  let npcs = ['_event_npc'];
+  let anims = [];
+
+  try {
+    if (window.spraute) {
+      const animFiles = await window.spraute.listDir('animations');
+      for (const f of animFiles) {
+        if (!f.isDir && f.name.endsWith('.json')) {
+          const content = await window.spraute.readFile(f.rel, 'utf8');
+          try {
+            const json = JSON.parse(content);
+            if (json.animations) {
+              for (const aName in json.animations) {
+                if (!anims.includes(aName)) anims.push(aName);
+              }
+            }
+          } catch(e) {}
+        }
+      }
+    }
+  } catch(e) {}
+
+  let fullText = currentText + "\n" + importedScriptsText;
+  
+  // Рекурсивный поиск импортов внутри скриптов
+  if (window.spraute) {
+    const importRegex = /import\s+["']([^"']+)["']/g;
+    let match;
+    let queue = [];
+    while ((match = importRegex.exec(currentText)) !== null) {
+      queue.push(match[1]);
+    }
+    
+    let visited = new Set();
+    while(queue.length > 0) {
+      let f = queue.shift();
+      if (visited.has(f)) continue;
+      visited.add(f);
+      try {
+        let p = f.endsWith('.spr') ? f : `scripts/${f}.spr`;
+        let content = await window.spraute.readFile(p, 'utf8');
+        fullText += "\n" + content;
+        
+        let m2;
+        while ((m2 = importRegex.exec(content)) !== null) {
+          queue.push(m2[1]);
+        }
+      } catch(e) {}
+    }
+  }
+
+  // Поиск всех создаваемых НИПов
+  const matches = fullText.matchAll(/create\s+npc\s+(\w+)/g);
+  for (const match of matches) {
+    if (!npcs.includes(match[1])) npcs.push(match[1]);
+  }
+
+  if (anims.length === 0) anims.push("(нет анимаций)");
+  
+  updateDynamicLists(npcs, anims);
+
+  // Сбор и парсинг всех пользовательских блоков из плагинов
+  if (window.spraute) {
+    try {
+      clearCustomCategories(); // Очищаем старые категории
+      let customBlocksText = "";
+      const pluginsExists = await window.spraute.exists('plugins');
+      if (pluginsExists) {
+        const plugins = await window.spraute.listDir('plugins');
+        for (const p of plugins) {
+          if (p.isDir) {
+            let isEnabled = true;
+            try {
+              const pData = JSON.parse(await window.spraute.readFile(`${p.rel}/plugin.json`, 'utf8'));
+              if (pData.enabled === false) isEnabled = false;
+            } catch(e){}
+            
+            if (!isEnabled) continue; // Пропускаем отключенные плагины
+
+            const bPath = `plugins/${p.name}/blocks`;
+            const bExists = await window.spraute.exists(bPath);
+            if (bExists) {
+              const files = await window.spraute.listDir(bPath);
+              for (const f of files) {
+                if (!f.isDir && f.name.endsWith('.spr')) {
+                  const bText = await window.spraute.readFile(f.rel, 'utf8');
+                  customBlocksText += "\n" + bText;
+                  // Парсим сразу с namespace плагина
+                  parseCustomBlocks(bText, p.name.toLowerCase().replace(/[^a-z0-9_]/g, '_'));
+                }
+              }
+            }
+          }
+        }
+      }
+      parseCustomBlocks(customBlocksText);
+    } catch(err) {
+      console.error("Ошибка при загрузке кастомных блоков", err);
+    }
+  }
+}
+
+window.addEventListener('error', (e) => {
+  const errDiv = document.createElement('div');
+  errDiv.style = "position:absolute; z-index:9999; top:0; left:0; background:rgba(255,0,0,0.8); color:white; padding:10px; width:100%;";
+  errDiv.innerText = "Runtime Error: " + e.message + " in " + e.filename + ":" + e.lineno;
+  document.body.appendChild(errDiv);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  const errDiv = document.createElement('div');
+  errDiv.style = "position:absolute; z-index:9999; top:50px; left:0; background:rgba(255,0,0,0.8); color:white; padding:10px; width:100%;";
+  errDiv.innerText = "Promise Rejection: " + e.reason;
+  document.body.appendChild(errDiv);
+});
+
 // Запуск при загрузке DOM
-document.addEventListener('DOMContentLoaded', init);
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
