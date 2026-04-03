@@ -131,4 +131,43 @@ public class JavaFunctions {
             return obj;
         }
     }
+
+    public static class SendPacketFunction implements ScriptFunction {
+        @Override
+        public String getName() {
+            return "sendPacket";
+        }
+
+        @Override
+        public int getArgCount() {
+            return 2;
+        }
+
+        @Override
+        public Class<?>[] getArgTypes() {
+            return new Class<?>[] { Object.class, Object.class };
+        }
+
+        @Override
+        public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
+            if (args.size() < 2) return false;
+            Object playerObj = args.get(0);
+            Object packetObj = args.get(1);
+
+            net.minecraft.world.entity.Entity entity = null;
+            if (playerObj instanceof net.minecraft.world.entity.Entity e) {
+                entity = e;
+            } else if (playerObj instanceof String id) {
+                if (source.getLevel() != null) {
+                    entity = source.getLevel().getServer().getPlayerList().getPlayerByName(id);
+                }
+            }
+
+            if (entity instanceof net.minecraft.server.level.ServerPlayer player && packetObj instanceof net.minecraft.network.protocol.Packet<?> packet) {
+                player.connection.send(packet);
+                return true;
+            }
+            return false;
+        }
+    }
 }

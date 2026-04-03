@@ -3255,6 +3255,8 @@ public class ScriptExecutor {
                         case "x" -> player.getX();
                         case "y" -> player.getY();
                         case "z" -> player.getZ();
+                        case "uuid" -> player.getUUID().toString();
+                        case "java" -> player;
                         case "data" -> org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().getPlayerSessionData(player.getUUID());
                         case "savedData" -> new PlayerSavedDataMap(player.getUUID(), source.getLevel().getServer(), source.getLevel());
                         default -> null;
@@ -3282,6 +3284,8 @@ public class ScriptExecutor {
                         case "z" -> npcEntity.getZ();
                         case "yaw" -> npcEntity.getYRot();
                         case "pitch" -> npcEntity.getXRot();
+                        case "uuid" -> npcEntity.getUUID().toString();
+                        case "java" -> npcEntity;
                         case "model" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? npc.getModel() : "";
                         case "texture" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? npc.getTexture() : "";
                         default -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? npc.customData.get(prop.getPropertyName()) : null;
@@ -3319,10 +3323,14 @@ public class ScriptExecutor {
                     if (source.getLevel() != null) obj = source.getLevel().getEntity(uuid);
                 }
 
-                if (obj instanceof net.minecraft.world.entity.Entity entity && (method.equals("distanceTo") || method.equals("distanceto"))) {
-                    net.minecraft.world.entity.Entity other = resolveEntity(methodArgs.isEmpty() ? null : methodArgs.get(0));
-                    if (other != null) return entity.distanceTo(other);
-                    return 0.0;
+                if (obj instanceof net.minecraft.world.entity.Entity entity) {
+                    if (method.equals("java")) return entity;
+                    if (method.equals("uuid")) return entity.getUUID().toString();
+                    if (method.equals("distanceTo") || method.equals("distanceto")) {
+                        net.minecraft.world.entity.Entity other = resolveEntity(methodArgs.isEmpty() ? null : methodArgs.get(0));
+                        if (other != null) return entity.distanceTo(other);
+                        return 0.0;
+                    }
                 }
 
                 if (obj instanceof java.util.List list) {

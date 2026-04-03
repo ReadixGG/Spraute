@@ -58,6 +58,7 @@ public class FunctionRegistry {
         register(new SnapshotFunctions.LoadSnapshot());
         register(new JavaFunctions.JavaClassFunction());
         register(new JavaFunctions.JavaNewFunction());
+        register(new JavaFunctions.SendPacketFunction());
     }
 
     public static void register(ScriptFunction function) {

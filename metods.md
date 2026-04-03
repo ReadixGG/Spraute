@@ -123,8 +123,9 @@ ID предмета в слоте инвентаря (`""` если пусто).
 
 | Функция | Описание |
 |---------|----------|
-| `java_class(class_name)` | Возвращает объект Java-класса по его полному имени (например, `"java.util.Random"`). Если класс не в белом списке, вернет `null` и выведет предупреждение в консоль сервера. |
+| `java_class(class_name)` | Возвращает объект Java-класса по его полному имени (например, `"java.util.Random"`). Если класс не в белом списке, вернет `null` и выведет предупреждение в консоль сервера. Можно вызывать статические методы напрямую: `java_class("java.lang.Math").max(1, 2)`. |
 | `java_new(class, arg1, ...)` | Создает новый экземпляр переданного Java-класса (полученного через `java_class`), передавая в конструктор указанные аргументы. Типы аргументов приводятся автоматически. |
+| `sendPacket(player, java_packet)` | Отправляет указанный Java-пакет игроку `player`. Игрок может быть строковым никнеймом или объектом. Пакет должен быть экземпляром `net.minecraft.network.protocol.Packet`. |
 
 *Пример использования:*
 ```javascript
@@ -132,6 +133,16 @@ val RandomClass = java_class("java.util.Random")
 val randomObj = java_new(RandomClass)
 val randomInt = randomObj.nextInt(100) # Вызов Java-метода напрямую
 chat("Случайное число из Java: " + wholeStr(randomInt))
+
+val Math = java_class("java.lang.Math")
+chat("Максимум из 1 и 5: " + wholeStr(Math.max(1, 5)))
+
+val Lifecycle = java_class("net.minecraftforge.server.ServerLifecycleHooks")
+val server = Lifecycle.getCurrentServer()
+
+val SetCameraPacket = java_class("net.minecraft.network.protocol.game.ClientboundSetCameraPacket")
+val packet = java_new(SetCameraPacket, camera_npc.java) # Использование .java для развертывания Entity
+sendPacket(player, packet)
 ```
 
 ### Снапшоты структур и мира
@@ -369,11 +380,11 @@ create ui my_ui {
 
 Если `object` — переменная с игроком:
 
-- `name`, `hp`, `x`, `y`, `z`
+- `name`, `hp`, `x`, `y`, `z`, `uuid`, `java`
 
 Если — NPC (строковый id или сущность):
 
-- `name`, `show_name`, `hp`, `max_hp`, `speed`, `x`, `y`, `z`, `yaw`, `pitch`, `model`, `texture`
+- `name`, `show_name`, `hp`, `max_hp`, `speed`, `x`, `y`, `z`, `yaw`, `pitch`, `model`, `texture`, `uuid`, `java`
 
 Неизвестное имя свойства — `null` / предупреждение в лог.
 
@@ -381,8 +392,10 @@ create ui my_ui {
 
 ## Методы сущностей
 
-### Любая сущность: `a.distance_to(b)`
-Расстояние до другой сущности (`b` — объект или разрешённый id / `player` / `npc` / …).
+### Любая сущность
+`a.distance_to(b)` - Расстояние до другой сущности (`b` — объект или разрешённый id / `player` / `npc` / …).
+`a.java()` - Возвращает оригинальный Java-объект `Entity` (например, ServerPlayer) для использования в Java API.
+`a.uuid()` - Возвращает строковый UUID сущности.
 
 ### Игрок: `player.method(...)`
 
