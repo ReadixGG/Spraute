@@ -1,0 +1,18 @@
+[
+  {
+    "name": "MyEpicCombat",
+    "author": "ZonarStudio",
+    "desc": "Самый крутой плагин для создания боссфайтов и PvP арен.",
+    "version": "1.0.0",
+    "mcVersion": "1.20.1",
+    "fileName": "MyEpicCombat.splugin"
+  },
+  {
+    "name": "AdvancedDialogues",
+    "author": "ReadixGG",
+    "desc": "Сложные ветвящиеся диалоги с выбором ответов.",
+    "version": "1.2.5",
+    "mcVersion": "1.19.4",
+    "fileName": "AdvancedDialogues_v1.splugin"
+  }
+]
