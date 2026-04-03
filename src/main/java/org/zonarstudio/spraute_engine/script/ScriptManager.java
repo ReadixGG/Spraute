@@ -228,6 +228,10 @@ public class ScriptManager {
         executor.onChat(player, message);
     }
 
+    public void onOrbPickup(net.minecraft.server.level.ServerPlayer player, String texture, int amount) {
+        executor.onOrbPickup(player, texture, amount);
+    }
+
     /**
      * Get all loaded script names (including those with compile errors) for tab completion.
      */

@@ -59,6 +59,7 @@ public class FunctionRegistry {
         register(new JavaFunctions.JavaClassFunction());
         register(new JavaFunctions.JavaNewFunction());
         register(new JavaFunctions.SendPacketFunction());
+        register(new SpawnOrbFunction());
     }
 
     public static void register(ScriptFunction function) {

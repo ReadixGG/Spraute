@@ -120,6 +120,15 @@ public class ScriptExecutor {
         }
     }
 
+    public void onOrbPickup(net.minecraft.server.level.ServerPlayer player, String texture, int amount) {
+        for (ActiveScript script : activeScripts) {
+            script.onOrbPickup(player, texture, amount);
+        }
+        for (ActiveScript script : scriptsToAdd) {
+            script.onOrbPickup(player, texture, amount);
+        }
+    }
+
     /** Stop all running scripts and clear state. */
     public void stopAll() {
         for (ActiveScript script : activeScripts) {
@@ -1701,6 +1710,44 @@ public class ScriptExecutor {
                 else variables.remove("_event_player");
                 if (prevMsg != null) variables.put("_event_message", prevMsg);
                 else variables.remove("_event_message");
+            }
+        }
+
+        public void onOrbPickup(net.minecraft.server.level.ServerPlayer player, String texture, int amount) {
+            for (var entry : eventHandlers.entrySet()) {
+                EventHandler handler = entry.getValue();
+                if (!handler.active || !handler.eventName.equals("orb_pickup")) continue;
+
+                if (!handler.eventArgs.isEmpty()) {
+                    net.minecraft.world.entity.Entity targetEntity = resolveEntity(handler.eventArgs.get(0));
+                    if (targetEntity == null || !player.getUUID().equals(targetEntity.getUUID())) continue;
+                }
+
+                if (handler.eventArgs.size() >= 2) {
+                    Object texArg = handler.eventArgs.get(1);
+                    if (texArg instanceof String s && !s.equals(texture)) continue;
+                }
+
+                Object prevPlayer = variables.get("_event_player");
+                Object prevTexture = variables.get("_event_texture");
+                Object prevAmount = variables.get("_event_amount");
+
+                variables.put("_event_player", player);
+                variables.put("_event_texture", texture);
+                variables.put("_event_amount", amount);
+
+                try {
+                    executeInstructionBlock(handler.bodyInstructions);
+                } catch (ReturnException e) {
+                    handler.active = false;
+                } catch (Exception e) {
+                    LOGGER.error("[Script: {}] Event handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
+                    handler.active = false;
+                }
+
+                if (prevPlayer != null) variables.put("_event_player", prevPlayer); else variables.remove("_event_player");
+                if (prevTexture != null) variables.put("_event_texture", prevTexture); else variables.remove("_event_texture");
+                if (prevAmount != null) variables.put("_event_amount", prevAmount); else variables.remove("_event_amount");
             }
         }
 

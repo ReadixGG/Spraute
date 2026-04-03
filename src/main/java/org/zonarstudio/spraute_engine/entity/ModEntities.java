@@ -18,6 +18,14 @@ public class ModEntities {
                             .sized(0.6f, 1.8f)
                             .build("spraute_npc"));
 
+    public static final RegistryObject<EntityType<SprauteOrbEntity>> SPRAUTE_ORB =
+            ENTITIES.register("spraute_orb",
+                    () -> EntityType.Builder.<SprauteOrbEntity>of((type, level) -> new SprauteOrbEntity(type, level), MobCategory.MISC)
+                            .sized(0.5f, 0.5f)
+                            .clientTrackingRange(6)
+                            .updateInterval(20)
+                            .build("spraute_orb"));
+
     public static void register(IEventBus eventBus) {
         ENTITIES.register(eventBus);
     }
