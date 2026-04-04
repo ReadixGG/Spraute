@@ -263,6 +263,23 @@ public class Spraute_engine {
         }
 
         @SubscribeEvent
+        public static void registerParticleProviders(net.minecraftforge.client.event.RegisterParticleProvidersEvent event) {
+            for (org.zonarstudio.spraute_engine.registry.CustomParticleRegistry.CustomParticleDef def : org.zonarstudio.spraute_engine.registry.CustomParticleRegistry.PARTICLES.values()) {
+                net.minecraft.core.particles.SimpleParticleType type = (net.minecraft.core.particles.SimpleParticleType) net.minecraftforge.registries.ForgeRegistries.PARTICLE_TYPES.getValue(new net.minecraft.resources.ResourceLocation(MODID, def.id));
+                if (type != null) {
+                    event.register(type, spriteSet -> new net.minecraft.client.particle.ParticleProvider<net.minecraft.core.particles.SimpleParticleType>() {
+                        @Override
+                        public net.minecraft.client.particle.Particle createParticle(net.minecraft.core.particles.SimpleParticleType t, net.minecraft.client.multiplayer.ClientLevel l, double x, double y, double z, double vx, double vy, double vz) {
+                            org.zonarstudio.spraute_engine.client.SprauteCustomParticle particle = new org.zonarstudio.spraute_engine.client.SprauteCustomParticle(l, x, y, z, vx, vy, vz);
+                            particle.pickSprite(spriteSet);
+                            return particle;
+                        }
+                    });
+                }
+            }
+        }
+
+        @SubscribeEvent
         public static void onRegisterReloadListeners(net.minecraftforge.client.event.RegisterClientReloadListenersEvent event) {
             event.registerReloadListener((net.minecraft.server.packs.resources.PreparableReloadListener)
                 (preparationBarrier, resourceManager, profiler1, profiler2, backgroundExecutor, gameExecutor) ->

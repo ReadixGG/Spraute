@@ -272,6 +272,19 @@ public class ExternalAssetPack extends AbstractPackResources {
             }
         }
         
+        if (resourcePath.startsWith("assets/" + NAMESPACE + "/particles/")) {
+            String id = resourcePath.substring(("assets/" + NAMESPACE + "/particles/").length(), resourcePath.length() - 5);
+            org.zonarstudio.spraute_engine.registry.CustomParticleRegistry.CustomParticleDef def = org.zonarstudio.spraute_engine.registry.CustomParticleRegistry.PARTICLES.get(id);
+            if (def != null && def.texture != null) {
+                String texturePath = def.texture;
+                if (!texturePath.contains(":")) {
+                    texturePath = NAMESPACE + ":" + texturePath;
+                }
+                String json = "{\n  \"textures\": [\n    \"" + texturePath + "\"\n  ]\n}";
+                return new ByteArrayInputStream(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+        }
+        
         Path resolved = rootDir.resolve(resourcePath);
         if (Files.exists(resolved)) {
             return getFixedJsonStream(resolved);
@@ -321,6 +334,11 @@ public class ExternalAssetPack extends AbstractPackResources {
                 org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomBlockDef def = org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.BLOCKS.get(blockId);
                 if (def != null && def.isOre) return true;
             }
+        }
+        if (resourcePath.startsWith("assets/" + NAMESPACE + "/particles/")) {
+            String id = resourcePath.substring(("assets/" + NAMESPACE + "/particles/").length(), resourcePath.length() - 5);
+            org.zonarstudio.spraute_engine.registry.CustomParticleRegistry.CustomParticleDef def = org.zonarstudio.spraute_engine.registry.CustomParticleRegistry.PARTICLES.get(id);
+            if (def != null) return true;
         }
         return Files.exists(rootDir.resolve(resourcePath));
     }
@@ -372,6 +390,12 @@ public class ExternalAssetPack extends AbstractPackResources {
         if (type == PackType.SERVER_DATA && pathPrefix.startsWith("forge/biome_modifier")) {
             for (org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomBlockDef def : org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.BLOCKS.values()) {
                 if (def.isOre) list.add(new ResourceLocation(NAMESPACE, "forge/biome_modifier/" + def.id + "_ore.json"));
+            }
+        }
+
+        if (type == PackType.CLIENT_RESOURCES && pathPrefix.startsWith("particles")) {
+            for (org.zonarstudio.spraute_engine.registry.CustomParticleRegistry.CustomParticleDef def : org.zonarstudio.spraute_engine.registry.CustomParticleRegistry.PARTICLES.values()) {
+                list.add(new ResourceLocation(NAMESPACE, "particles/" + def.id + ".json"));
             }
         }
 
