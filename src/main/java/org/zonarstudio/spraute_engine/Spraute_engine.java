@@ -261,7 +261,7 @@ public class Spraute_engine {
             event.registerEntityRenderer(ModEntities.SPRAUTE_ORB.get(), org.zonarstudio.spraute_engine.entity.client.SprauteOrbRenderer::new);
             
             // Only register if we actually have custom blocks that need it
-            if (org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CUSTOM_GEO_BLOCK_ENTITY != null && !org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.REGISTERED_BLOCKS.isEmpty()) {
+            if (org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CUSTOM_GEO_BLOCK_ENTITY != null) {
                 try {
                     event.registerBlockEntityRenderer(org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CUSTOM_GEO_BLOCK_ENTITY, org.zonarstudio.spraute_engine.registry.CustomGeoBlockRenderer::new);
                 } catch (Exception e) {
