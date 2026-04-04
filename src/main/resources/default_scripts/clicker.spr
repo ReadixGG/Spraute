@@ -1,6 +1,5 @@
 include "spraute_chat"
 
-clicker_npc.look(false, "clicker_npc")
 val block_x = 16
 val block_y = -60
 val block_z = -3
