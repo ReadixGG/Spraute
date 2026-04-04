@@ -289,6 +289,16 @@ public class ExternalAssetPack extends AbstractPackResources {
         if (Files.exists(resolved)) {
             return getFixedJsonStream(resolved);
         }
+        
+        if (resourcePath.startsWith("assets/" + NAMESPACE + "/")) {
+            Path shortResolved = rootDir.resolve(resourcePath.substring(("assets/" + NAMESPACE + "/").length()));
+            if (Files.exists(shortResolved)) return getFixedJsonStream(shortResolved);
+        }
+        if (resourcePath.startsWith("data/" + NAMESPACE + "/")) {
+            Path shortResolved = rootDir.resolve(resourcePath.substring(("data/" + NAMESPACE + "/").length()));
+            if (Files.exists(shortResolved)) return getFixedJsonStream(shortResolved);
+        }
+
         throw new ResourcePackFileNotFoundException(rootDir.toFile(), resourcePath);
     }
 
@@ -340,7 +350,19 @@ public class ExternalAssetPack extends AbstractPackResources {
             org.zonarstudio.spraute_engine.registry.CustomParticleRegistry.CustomParticleDef def = org.zonarstudio.spraute_engine.registry.CustomParticleRegistry.PARTICLES.get(id);
             if (def != null) return true;
         }
-        return Files.exists(rootDir.resolve(resourcePath));
+        Path resolved = rootDir.resolve(resourcePath);
+        if (Files.exists(resolved)) return true;
+        
+        if (resourcePath.startsWith("assets/" + NAMESPACE + "/")) {
+            Path shortResolved = rootDir.resolve(resourcePath.substring(("assets/" + NAMESPACE + "/").length()));
+            if (Files.exists(shortResolved)) return true;
+        }
+        if (resourcePath.startsWith("data/" + NAMESPACE + "/")) {
+            Path shortResolved = rootDir.resolve(resourcePath.substring(("data/" + NAMESPACE + "/").length()));
+            if (Files.exists(shortResolved)) return true;
+        }
+        
+        return false;
     }
 
     @Override
