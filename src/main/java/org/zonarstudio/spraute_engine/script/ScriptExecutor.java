@@ -277,6 +277,12 @@ public class ScriptExecutor {
         private int waitPickupBaseCount = 0;
         /** Max items to pick up (cap). -1 = no cap. */
         private int waitPickupMaxCount = -1;
+        
+        private UUID waitOrbPickupPlayerUuid = null;
+        private String waitOrbPickupTexture = null;
+        private int waitOrbPickupTargetCount = 0;
+        private int waitOrbPickupCurrentCount = 0;
+
         /** Target for MOVE_TO wait — completion is distance-based; navigation alone is unreliable (path null = isDone). */
         private double waitMoveTargetX;
         private double waitMoveTargetY;
@@ -391,6 +397,7 @@ public class ScriptExecutor {
                 case MOVE_TO -> String.format("move_to (%.0f, %.0f, %.0f)", mx, my, mz);
                 case FOLLOW -> "follow (" + followTarget + ")";
                 case PICKUP -> "pickup";
+                case ORB_PICKUP -> "orbPickup";
                 case WAIT_TASK -> "task";
                 case POSITION -> "position";
                 case INVENTORY -> "inventory";
@@ -1714,9 +1721,29 @@ public class ScriptExecutor {
         }
 
         public void onOrbPickup(net.minecraft.server.level.ServerPlayer player, String texture, int amount) {
+            if (waitType == WaitType.ORB_PICKUP && waitOrbPickupPlayerUuid != null && waitOrbPickupPlayerUuid.equals(player.getUUID())) {
+                if (waitOrbPickupTexture == null || waitOrbPickupTexture.equals(texture)) {
+                    waitOrbPickupCurrentCount += amount;
+                    if (waitOrbPickupCurrentCount >= waitOrbPickupTargetCount) {
+                        waitType = WaitType.NONE;
+                    }
+                }
+            }
+            
+            for (AsyncTask task : asyncTasks.values()) {
+                if (task.waitType == WaitType.ORB_PICKUP && task.waitOrbPickupPlayerUuid != null && task.waitOrbPickupPlayerUuid.equals(player.getUUID())) {
+                    if (task.waitOrbPickupTexture == null || task.waitOrbPickupTexture.equals(texture)) {
+                        task.waitOrbPickupCurrentCount += amount;
+                        if (task.waitOrbPickupCurrentCount >= task.waitOrbPickupTargetCount) {
+                            task.waitType = WaitType.NONE;
+                        }
+                    }
+                }
+            }
+
             for (var entry : eventHandlers.entrySet()) {
                 EventHandler handler = entry.getValue();
-                if (!handler.active || !handler.eventName.equals("orb_pickup")) continue;
+                if (!handler.active || !handler.eventName.equals("orbPickup")) continue;
 
                 if (!handler.eventArgs.isEmpty()) {
                     net.minecraft.world.entity.Entity targetEntity = resolveEntity(handler.eventArgs.get(0));
@@ -2035,6 +2062,18 @@ public class ScriptExecutor {
                              }
                              pendingVarName = name;
                              return true;
+                         } else if (call.getFunctionName().equals("orbPickup") || call.getFunctionName().equals("orb_pickup")) {
+                             if (call.getArgs().size() < 2) return false;
+                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                             if (sp != null) {
+                                 waitOrbPickupPlayerUuid = sp.getUUID();
+                                 waitOrbPickupTargetCount = ((Number) evaluateExpression(call.getArgs().get(1))).intValue();
+                                 waitOrbPickupTexture = call.getArgs().size() >= 3 && call.getArgs().get(2) != null ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
+                                 waitOrbPickupCurrentCount = 0;
+                                 waitType = WaitType.ORB_PICKUP;
+                                 pendingVarName = name;
+                                 return true;
+                             }
                          } else if (call.getFunctionName().equals("uiClick") || call.getFunctionName().equals("uiclick")) {
                              if (call.getArgs().isEmpty()) return false;
                              net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
@@ -2183,6 +2222,18 @@ public class ScriptExecutor {
                              }
                              pendingVarName = name;
                              return true;
+                         } else if (call.getFunctionName().equals("orbPickup") || call.getFunctionName().equals("orb_pickup")) {
+                             if (call.getArgs().size() < 2) return false;
+                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                             if (sp != null) {
+                                 waitOrbPickupPlayerUuid = sp.getUUID();
+                                 waitOrbPickupTargetCount = ((Number) evaluateExpression(call.getArgs().get(1))).intValue();
+                                 waitOrbPickupTexture = call.getArgs().size() >= 3 && call.getArgs().get(2) != null ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
+                                 waitOrbPickupCurrentCount = 0;
+                                 waitType = WaitType.ORB_PICKUP;
+                                 pendingVarName = name;
+                                 return true;
+                             }
                          } else if (call.getFunctionName().equals("uiClick") || call.getFunctionName().equals("uiclick")) {
                              if (call.getArgs().isEmpty()) return false;
                              net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
@@ -2340,6 +2391,21 @@ public class ScriptExecutor {
                     }
                     waitType = WaitType.PICKUP;
                     return true;
+                }
+                case AWAIT_ORB_PICKUP -> {
+                    ScriptNode pNode = (ScriptNode) instruction.getArg(0);
+                    ScriptNode amountNode = (ScriptNode) instruction.getArg(1);
+                    ScriptNode texNode = instruction.getArgCount() >= 3 && instruction.getArg(2) != null ? (ScriptNode) instruction.getArg(2) : null;
+                    
+                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
+                    if (sp != null) {
+                        waitOrbPickupPlayerUuid = sp.getUUID();
+                        waitOrbPickupTargetCount = ((Number) evaluateExpression(amountNode)).intValue();
+                        waitOrbPickupTexture = texNode != null ? String.valueOf(evaluateExpression(texNode)) : null;
+                        waitOrbPickupCurrentCount = 0;
+                        waitType = WaitType.ORB_PICKUP;
+                        return true;
+                    }
                 }
                 case ASYNC_START -> {
                     String taskId = (String) instruction.getArg(0);
@@ -3999,6 +4065,11 @@ public class ScriptExecutor {
             boolean waitChatIgnorePunct = true;
             boolean chatEventMet = false;
             String chatMatchedMessage = "";
+            
+            UUID waitOrbPickupPlayerUuid = null;
+            String waitOrbPickupTexture = null;
+            int waitOrbPickupTargetCount = 0;
+            int waitOrbPickupCurrentCount = 0;
 
             AsyncTask(String id, List<CompiledScript.Instruction> instructions) {
                 this.id = id;
@@ -4008,7 +4079,7 @@ public class ScriptExecutor {
     }
 
         private enum WaitType {
-        NONE, TIME, INTERACT, NEXT, KEYBIND, DEATH, UI_CLICK, UI_CLOSE, MOVE_TO, FOLLOW, PICKUP, WAIT_TASK,
+        NONE, TIME, INTERACT, NEXT, KEYBIND, DEATH, UI_CLICK, UI_CLOSE, MOVE_TO, FOLLOW, PICKUP, ORB_PICKUP, WAIT_TASK,
         POSITION, INVENTORY, CLICK_BLOCK, BREAK_BLOCK, PLACE_BLOCK, UI_INPUT, CHAT
     }
 

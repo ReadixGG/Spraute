@@ -35,6 +35,7 @@ public class CompiledScript {
         AWAIT_KEYBIND, // Wait for key press. Args: [ScriptNode keyName]
         AWAIT_DEATH,  // Wait for entity death. Args: [ScriptNode entityId/type]
         AWAIT_PICKUP, // Wait for NPC to pick up item. Args: [ScriptNode npcId, ScriptNode amount, ScriptNode itemId, ScriptNode nbt?]
+        AWAIT_ORB_PICKUP, // Wait for player to pick up orb. Args: [ScriptNode player, ScriptNode amount, ScriptNode texture]
         ASYNC_START,  // Start async block. Args: [String taskId?, List<Instruction> bodyInstructions]
         AWAIT_TASK,   // Wait for named task to finish. Args: [ScriptNode taskId]
         STOP_TASK,    // Interrupt a named task. Args: [ScriptNode taskId]

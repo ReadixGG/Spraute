@@ -83,6 +83,10 @@ public class ScriptCompiler {
                 if (args.size() < 3) throw new ScriptException("await pickup(npc_id, amount, item_id, nbt?) requires at least npc_id, amount, item_id");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_PICKUP,
                         args.get(0), args.get(1), args.get(2), args.size() >= 4 ? args.get(3) : null));
+            } else if (func.equals("orbPickup") || func.equals("orb_pickup")) {
+                if (args.size() < 2) throw new ScriptException("await orbPickup(player, amount, texture?) requires at least player and amount");
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_ORB_PICKUP,
+                        args.get(0), args.get(1), args.size() >= 3 ? args.get(2) : null));
             } else if (func.equals("task")) {
                 if (args.isEmpty()) throw new ScriptException("await task() requires task id");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_TASK, args.get(0)));
