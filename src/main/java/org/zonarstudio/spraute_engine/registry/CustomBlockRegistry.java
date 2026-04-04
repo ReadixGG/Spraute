@@ -225,11 +225,12 @@ public class CustomBlockRegistry {
         }
         
         if (event.getRegistryKey().equals(Registry.BLOCK_ENTITY_TYPE_REGISTRY)) {
-            if (!REGISTERED_BLOCKS.isEmpty()) {
-                Block[] blocksArr = REGISTERED_BLOCKS.toArray(new Block[0]);
-                CUSTOM_GEO_BLOCK_ENTITY = BlockEntityType.Builder.of(CustomGeoBlockEntity::new, blocksArr).build(null);
-                event.register(Registry.BLOCK_ENTITY_TYPE_REGISTRY, new ResourceLocation(Spraute_engine.MODID, "custom_geo_block"), () -> CUSTOM_GEO_BLOCK_ENTITY);
-            }
+            Block[] blocksArr = REGISTERED_BLOCKS.toArray(new Block[0]);
+            // Even if empty, we MUST register the BlockEntityType or Forge will crash later
+            // if we try to register a renderer for it, or it will just be null.
+            // A BlockEntityType with no valid blocks is allowed.
+            CUSTOM_GEO_BLOCK_ENTITY = BlockEntityType.Builder.of(CustomGeoBlockEntity::new, blocksArr).build(null);
+            event.register(Registry.BLOCK_ENTITY_TYPE_REGISTRY, new ResourceLocation(Spraute_engine.MODID, "custom_geo_block"), () -> CUSTOM_GEO_BLOCK_ENTITY);
         }
     }
 }
