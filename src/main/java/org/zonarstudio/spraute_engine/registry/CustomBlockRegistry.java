@@ -57,6 +57,7 @@ public class CustomBlockRegistry {
         public int oreMinY = -64;
         public int oreMaxY = 64;
         public int oreChances = 10;
+        public String oreDimension = "minecraft:overworld";
     }
 
     public static class CustomItemDef {
@@ -95,6 +96,7 @@ public class CustomBlockRegistry {
         Pattern oreMinPattern = Pattern.compile("ore_min\\s*=\\s*(-?\\d+)");
         Pattern oreMaxPattern = Pattern.compile("ore_max\\s*=\\s*(-?\\d+)");
         Pattern oreChancesPattern = Pattern.compile("ore_chances\\s*=\\s*(\\d+)");
+        Pattern oreDimensionPattern = Pattern.compile("ore_dimension\\s*=\\s*\"([^\"]+)\"");
 
         try {
             Files.walk(scriptsDir).filter(p -> p.toString().endsWith(".spr")).forEach(file -> {
@@ -152,6 +154,9 @@ public class CustomBlockRegistry {
 
                         Matcher oreChancesM = oreChancesPattern.matcher(body);
                         if (oreChancesM.find()) def.oreChances = Integer.parseInt(oreChancesM.group(1));
+
+                        Matcher oreDimM = oreDimensionPattern.matcher(body);
+                        if (oreDimM.find()) def.oreDimension = oreDimM.group(1);
 
                         BLOCKS.put(def.id, def);
                         LOGGER.info("[Spraute Engine] Found custom block declaration: {}", def.id);

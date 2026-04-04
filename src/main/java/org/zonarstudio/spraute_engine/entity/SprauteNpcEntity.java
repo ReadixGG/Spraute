@@ -108,6 +108,11 @@ public class SprauteNpcEntity extends PathfinderMob {
 
     public final java.util.Map<String, Object> customData = new java.util.concurrent.ConcurrentHashMap<>();
 
+    public String dropItem = "";
+    public int dropMin = 1;
+    public int dropMax = 1;
+    public int dropChance = 100;
+
     public SprauteNpcEntity(EntityType<? extends PathfinderMob> type, Level level) {
         super(type, level);
         this.setCanPickUpLoot(true);
@@ -652,6 +657,11 @@ public class SprauteNpcEntity extends PathfinderMob {
         c.putString("HeadBoneName", getHeadBoneName());
         c.putString("IdleAnim", getIdleAnim());
         c.putString("WalkAnim", getWalkAnim());
+        
+        c.putString("DropItem", dropItem);
+        c.putInt("DropMin", dropMin);
+        c.putInt("DropMax", dropMax);
+        c.putInt("DropChance", dropChance);
     }
 
     @Override
@@ -663,6 +673,27 @@ public class SprauteNpcEntity extends PathfinderMob {
         if (c.contains("HeadBoneName")) setHeadBone(c.getString("HeadBoneName"));
         if (c.contains("IdleAnim")) setIdleAnim(c.getString("IdleAnim"));
         if (c.contains("WalkAnim")) setWalkAnim(c.getString("WalkAnim"));
+        
+        if (c.contains("DropItem")) dropItem = c.getString("DropItem");
+        if (c.contains("DropMin")) dropMin = c.getInt("DropMin");
+        if (c.contains("DropMax")) dropMax = c.getInt("DropMax");
+        if (c.contains("DropChance")) dropChance = c.getInt("DropChance");
+    }
+
+    @Override
+    protected void dropCustomDeathLoot(net.minecraft.world.damagesource.DamageSource source, int looting, boolean recentlyHit) {
+        super.dropCustomDeathLoot(source, looting, recentlyHit);
+        if (dropItem != null && !dropItem.isEmpty()) {
+            if (this.random.nextInt(100) < dropChance) {
+                int amount = dropMin + this.random.nextInt(Math.max(1, dropMax - dropMin + 1));
+                net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(
+                    new net.minecraft.resources.ResourceLocation(dropItem.contains(":") ? dropItem : "minecraft:" + dropItem)
+                );
+                if (item != null && item != net.minecraft.world.item.Items.AIR) {
+                    this.spawnAtLocation(new net.minecraft.world.item.ItemStack(item, amount));
+                }
+            }
+        }
     }
 
     public static AttributeSupplier.Builder setAttributes() {

@@ -126,7 +126,13 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin') {
+    app.quit();
+    // Принудительное завершение через 500 мс на случай зависших процессов (например, автоапдейтер или таймеры)
+    setTimeout(() => {
+      process.exit(0);
+    }, 500);
+  }
 });
 
 ipcMain.handle('dialog:select-minecraft-folder', async () => {

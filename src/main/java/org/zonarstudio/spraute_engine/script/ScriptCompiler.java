@@ -59,7 +59,7 @@ public class ScriptCompiler {
             ));
         } else if (node instanceof ScriptNode.PropertyAssignmentNode propNode) {
             instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.SET_PROPERTY,
-                    propNode.getObjectName(), propNode.getPropertyName(), propNode.getValue()
+                    propNode.getObject(), propNode.getPropertyName(), propNode.getValue()
             ));
         } else if (node instanceof ScriptNode.AwaitNode awaitNode) {
             String func = awaitNode.getCall().getFunctionName();
@@ -118,7 +118,7 @@ public class ScriptCompiler {
             }
         } else if (node instanceof ScriptNode.MethodCallNode methodNode) {
             instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.CALL_METHOD,
-                    methodNode.getObjectName(), methodNode.getMethodName(), methodNode.getArgs()
+                    methodNode.getObject(), methodNode.getMethodName(), methodNode.getArgs()
             ));
         } else if (node instanceof ScriptNode.PropertyAccessNode || node instanceof ScriptNode.IndexAccessNode) {
             // Stand-alone access as a statement is a no-op

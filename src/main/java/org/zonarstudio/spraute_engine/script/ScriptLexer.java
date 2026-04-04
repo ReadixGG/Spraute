@@ -162,8 +162,6 @@ public class ScriptLexer {
                 if (pos + 1 < source.length() && source.charAt(pos + 1) == '>') {
                     tokens.add(new ScriptToken(ScriptToken.TokenType.ARROW, "->", line, pos - lineStart));
                     pos += 2;
-                } else if (pos + 1 < source.length() && Character.isDigit(source.charAt(pos + 1))) {
-                    tokens.add(readNumber());
                 } else {
                     tokens.add(new ScriptToken(ScriptToken.TokenType.MINUS, "-", line, pos - lineStart));
                     pos++;
@@ -221,8 +219,6 @@ public class ScriptLexer {
     private ScriptToken readNumber() {
         int start = pos;
         boolean hasDot = false;
-        
-        if (source.charAt(pos) == '-') pos++;
         
         while (pos < source.length()) {
             char c = source.charAt(pos);

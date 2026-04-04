@@ -156,30 +156,53 @@ public class ExternalAssetPack extends AbstractPackResources {
                 String blockId = id.substring(0, id.length() - 4);
                 org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomBlockDef def = org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.BLOCKS.get(blockId);
                 if (def != null && def.isOre) {
+                    String targets = "";
+                    if (def.oreDimension.contains("nether")) {
+                        targets = "      {\n" +
+                                "        \"state\": {\n" +
+                                "          \"Name\": \"spraute_engine:" + blockId + "\"\n" +
+                                "        },\n" +
+                                "        \"target\": {\n" +
+                                "          \"predicate_type\": \"minecraft:tag_match\",\n" +
+                                "          \"tag\": \"minecraft:base_stone_nether\"\n" +
+                                "        }\n" +
+                                "      }\n";
+                    } else if (def.oreDimension.contains("end")) {
+                        targets = "      {\n" +
+                                "        \"state\": {\n" +
+                                "          \"Name\": \"spraute_engine:" + blockId + "\"\n" +
+                                "        },\n" +
+                                "        \"target\": {\n" +
+                                "          \"predicate_type\": \"minecraft:block_match\",\n" +
+                                "          \"block\": \"minecraft:end_stone\"\n" +
+                                "        }\n" +
+                                "      }\n";
+                    } else {
+                        targets = "      {\n" +
+                                "        \"state\": {\n" +
+                                "          \"Name\": \"spraute_engine:" + blockId + "\"\n" +
+                                "        },\n" +
+                                "        \"target\": {\n" +
+                                "          \"predicate_type\": \"minecraft:tag_match\",\n" +
+                                "          \"tag\": \"minecraft:stone_ore_replaceables\"\n" +
+                                "        }\n" +
+                                "      },\n" +
+                                "      {\n" +
+                                "        \"state\": {\n" +
+                                "          \"Name\": \"spraute_engine:" + blockId + "\"\n" +
+                                "        },\n" +
+                                "        \"target\": {\n" +
+                                "          \"predicate_type\": \"minecraft:tag_match\",\n" +
+                                "          \"tag\": \"minecraft:deepslate_ore_replaceables\"\n" +
+                                "        }\n" +
+                                "      }\n";
+                    }
                     String json = "{\n" +
                             "  \"type\": \"minecraft:ore\",\n" +
                             "  \"config\": {\n" +
                             "    \"discard_chance_on_air_exposure\": 0.0,\n" +
                             "    \"size\": " + def.oreVeinSize + ",\n" +
-                            "    \"targets\": [\n" +
-                            "      {\n" +
-                            "        \"state\": {\n" +
-                            "          \"Name\": \"spraute_engine:" + blockId + "\"\n" +
-                            "        },\n" +
-                            "        \"target\": {\n" +
-                            "          \"predicate_type\": \"minecraft:tag_match\",\n" +
-                            "          \"tag\": \"minecraft:stone_ore_replaceables\"\n" +
-                            "        }\n" +
-                            "      },\n" +
-                            "      {\n" +
-                            "        \"state\": {\n" +
-                            "          \"Name\": \"spraute_engine:" + blockId + "\"\n" +
-                            "        },\n" +
-                            "        \"target\": {\n" +
-                            "          \"predicate_type\": \"minecraft:tag_match\",\n" +
-                            "          \"tag\": \"minecraft:deepslate_ore_replaceables\"\n" +
-                            "        }\n" +
-                            "      }\n" +
+                            "    \"targets\": [\n" + targets +
                             "    ]\n" +
                             "  }\n" +
                             "}";
@@ -232,9 +255,15 @@ public class ExternalAssetPack extends AbstractPackResources {
                 String blockId = id.substring(0, id.length() - 4);
                 org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomBlockDef def = org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.BLOCKS.get(blockId);
                 if (def != null && def.isOre) {
+                    String biomeTag = switch (def.oreDimension) {
+                        case "minecraft:overworld", "overworld" -> "#minecraft:is_overworld";
+                        case "minecraft:the_nether", "nether" -> "#minecraft:is_nether";
+                        case "minecraft:the_end", "end" -> "#minecraft:is_end";
+                        default -> def.oreDimension;
+                    };
                     String json = "{\n" +
                             "  \"type\": \"forge:add_features\",\n" +
-                            "  \"biomes\": \"#minecraft:is_overworld\",\n" +
+                            "  \"biomes\": \"" + biomeTag + "\",\n" +
                             "  \"features\": \"spraute_engine:" + blockId + "_ore\",\n" +
                             "  \"step\": \"underground_ores\"\n" +
                             "}";

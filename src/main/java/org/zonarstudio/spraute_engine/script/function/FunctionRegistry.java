@@ -60,6 +60,8 @@ public class FunctionRegistry {
         register(new JavaFunctions.JavaNewFunction());
         register(new JavaFunctions.SendPacketFunction());
         register(new SpawnOrbFunction());
+        register(new DropFunctions.AddMobDropFunction());
+        register(new DropFunctions.AddBlockDropFunction());
     }
 
     public static void register(ScriptFunction function) {

@@ -2541,7 +2541,7 @@ public class ScriptExecutor {
 
         /** @return true if script should pause (e.g. move_to when blocking) */
         private boolean executeCallMethod(CompiledScript.Instruction instruction, boolean blocking, AsyncTask taskScope) {
-            String objName = (String) instruction.getArg(0);
+            ScriptNode objNode = (ScriptNode) instruction.getArg(0);
             String methodName = (String) instruction.getArg(1);
             List<ScriptNode> argsNodes = (List<ScriptNode>) instruction.getArg(2);
             
@@ -2550,20 +2550,21 @@ public class ScriptExecutor {
                 args.add(evaluateExpression(argNode));
             }
 
-            Object obj = getVariable(objName);
+            Object obj = evaluateExpression(objNode);
+            
+            if (obj == null && objNode instanceof ScriptNode.IdentifierNode idNode) {
+                String idStr = idNode.getName();
+                if (org.zonarstudio.spraute_engine.entity.NpcManager.get(idStr) != null) {
+                    obj = idStr;
+                }
+            }
+
             if (obj instanceof String npcId) {
                 UUID uuid = org.zonarstudio.spraute_engine.entity.NpcManager.get(npcId);
                 if (uuid != null && source.getLevel() != null) {
                     net.minecraft.world.entity.Entity resolved = source.getLevel().getEntity(uuid);
                     if (resolved != null) obj = resolved;
                 }
-            }
-            if (obj == null && org.zonarstudio.spraute_engine.entity.NpcManager.get(objName) != null) {
-               UUID uuid = org.zonarstudio.spraute_engine.entity.NpcManager.get(objName);
-               net.minecraft.server.level.ServerLevel level = source.getLevel();
-               if (level != null) {
-                   obj = level.getEntity(uuid);
-               }
             }
 
             if (obj instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc) {
@@ -2911,21 +2912,26 @@ public class ScriptExecutor {
         }
 
         private void executeSetProperty(CompiledScript.Instruction instruction) {
-            String objectId = (String) instruction.getArg(0);
+            ScriptNode objectNode = (ScriptNode) instruction.getArg(0);
             String propName = (String) instruction.getArg(1);
             ScriptNode valueNode = (ScriptNode) instruction.getArg(2);
             Object value = evaluateExpression(valueNode);
 
-            Object varObj = getVariable(objectId);
+            Object varObj = evaluateExpression(objectNode);
+            
+            if (varObj == null && objectNode instanceof ScriptNode.IdentifierNode idNode) {
+                String idStr = idNode.getName();
+                if (org.zonarstudio.spraute_engine.entity.NpcManager.get(idStr) != null) {
+                    varObj = idStr;
+                }
+            }
+
             if (varObj instanceof java.util.Map map) {
                 map.put(propName, value);
                 return;
             }
 
-            var entity = org.zonarstudio.spraute_engine.entity.NpcManager.getEntity(objectId, source.getLevel());
-            if (entity == null && varObj instanceof net.minecraft.world.entity.Entity e) {
-                entity = e;
-            }
+            var entity = varObj instanceof net.minecraft.world.entity.Entity e ? e : null;
             if (entity == null && varObj instanceof String strId) {
                 entity = org.zonarstudio.spraute_engine.entity.NpcManager.getEntity(strId, source.getLevel());
             }
@@ -2997,6 +3003,10 @@ public class ScriptExecutor {
                                 case "texture" -> npc.setTexture(String.valueOf(value));
                                 case "idleAnim" -> npc.setIdleAnim(String.valueOf(value));
                                 case "walkAnim" -> npc.setWalkAnim(String.valueOf(value));
+                                case "drop_item" -> npc.dropItem = String.valueOf(value);
+                                case "drop_min" -> npc.dropMin = value instanceof Number n ? n.intValue() : 1;
+                                case "drop_max" -> npc.dropMax = value instanceof Number n ? n.intValue() : 1;
+                                case "drop_chance" -> npc.dropChance = value instanceof Number n ? n.intValue() : 100;
                                 default -> npc.customData.put(propName, value);
                             }
                         }
@@ -3166,7 +3176,19 @@ public class ScriptExecutor {
                     }
                 }
 
+                List<Object> dimArgs = props.get("dimension");
+                String dimensionId = null;
+                if (dimArgs != null && !dimArgs.isEmpty()) {
+                    dimensionId = String.valueOf(dimArgs.get(0));
+                }
+
                 net.minecraft.server.level.ServerLevel level = source.getLevel();
+                if (dimensionId != null) {
+                    net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> resKey = net.minecraft.resources.ResourceKey.create(net.minecraft.core.Registry.DIMENSION_REGISTRY, new net.minecraft.resources.ResourceLocation(dimensionId.contains(":") ? dimensionId : "minecraft:" + dimensionId));
+                    net.minecraft.server.level.ServerLevel dim = source.getLevel().getServer().getLevel(resKey);
+                    if (dim != null) level = dim;
+                }
+
                 if (level != null) {
                     net.minecraft.world.entity.Entity existing = org.zonarstudio.spraute_engine.entity.NpcManager.getEntity(scriptId, level);
                     org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc = null;
@@ -3200,6 +3222,18 @@ public class ScriptExecutor {
                         }
                         if (props.containsKey("walkAnim")) {
                             npc.setWalkAnim(String.valueOf(props.get("walkAnim").get(0)));
+                        }
+                        if (props.containsKey("drop_item")) {
+                            npc.dropItem = String.valueOf(props.get("drop_item").get(0));
+                        }
+                        if (props.containsKey("drop_min")) {
+                            npc.dropMin = ((Number)props.get("drop_min").get(0)).intValue();
+                        }
+                        if (props.containsKey("drop_max")) {
+                            npc.dropMax = ((Number)props.get("drop_max").get(0)).intValue();
+                        }
+                        if (props.containsKey("drop_chance")) {
+                            npc.dropChance = ((Number)props.get("drop_chance").get(0)).intValue();
                         }
                         if (existing != npc) level.addFreshEntity(npc);
                         
@@ -3285,10 +3319,13 @@ public class ScriptExecutor {
                 throw new RuntimeException("Unknown function: " + call.getFunctionName());
             }
             if (node instanceof ScriptNode.PropertyAccessNode prop) {
-                String objName = prop.getObjectName();
-                Object obj = getVariable(objName);
-                if (obj == null && org.zonarstudio.spraute_engine.entity.NpcManager.get(objName) != null) {
-                    obj = objName;
+                Object obj = evaluateExpression(prop.getObject());
+                String objName = "";
+                if (obj == null && prop.getObject() instanceof ScriptNode.IdentifierNode idNode) {
+                    objName = idNode.getName();
+                    if (org.zonarstudio.spraute_engine.entity.NpcManager.get(objName) != null) {
+                        obj = objName;
+                    }
                 }
                 
                 if (obj instanceof java.util.Map map) {
@@ -3313,7 +3350,7 @@ public class ScriptExecutor {
                 net.minecraft.world.entity.Entity npcEntity = null;
                 if (obj instanceof String npcId) {
                     npcEntity = org.zonarstudio.spraute_engine.entity.NpcManager.getEntity(npcId, source.getLevel());
-                } else if (obj == null) {
+                } else if (obj == null && !objName.isEmpty()) {
                     npcEntity = org.zonarstudio.spraute_engine.entity.NpcManager.getEntity(objName, source.getLevel());
                 }
                 
@@ -3335,6 +3372,10 @@ public class ScriptExecutor {
                         case "java" -> npcEntity;
                         case "model" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? npc.getModel() : "";
                         case "texture" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? npc.getTexture() : "";
+                        case "drop_item" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? npc.dropItem : "";
+                        case "drop_min" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? npc.dropMin : 0;
+                        case "drop_max" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? npc.dropMax : 0;
+                        case "drop_chance" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? npc.dropChance : 0;
                         default -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? npc.customData.get(prop.getPropertyName()) : null;
                     };
                 }
@@ -3350,14 +3391,21 @@ public class ScriptExecutor {
                 return null;
             }
             if (node instanceof ScriptNode.MethodCallNode methodCall) {
-                String objName = methodCall.getObjectName();
+                Object obj = evaluateExpression(methodCall.getObject());
+                String objName = "";
+                if (obj == null && methodCall.getObject() instanceof ScriptNode.IdentifierNode idNode) {
+                    objName = idNode.getName();
+                    if (org.zonarstudio.spraute_engine.entity.NpcManager.get(objName) != null) {
+                        obj = objName;
+                    }
+                }
+                
                 String method = methodCall.getMethodName();
                 List<Object> methodArgs = new ArrayList<>();
                 for (ScriptNode argNode : methodCall.getArgs()) {
                     methodArgs.add(evaluateExpression(argNode));
                 }
 
-                Object obj = getVariable(objName);
                 if (obj instanceof String npcId) {
                     UUID uuid = org.zonarstudio.spraute_engine.entity.NpcManager.get(npcId);
                     if (uuid != null && source.getLevel() != null) {
@@ -3365,7 +3413,7 @@ public class ScriptExecutor {
                         if (resolved != null) obj = resolved;
                     }
                 }
-                if (obj == null && org.zonarstudio.spraute_engine.entity.NpcManager.get(objName) != null) {
+                if (obj == null && !objName.isEmpty() && org.zonarstudio.spraute_engine.entity.NpcManager.get(objName) != null) {
                     UUID uuid = org.zonarstudio.spraute_engine.entity.NpcManager.get(objName);
                     if (source.getLevel() != null) obj = source.getLevel().getEntity(uuid);
                 }
@@ -3563,6 +3611,14 @@ public class ScriptExecutor {
             if (node instanceof ScriptNode.UnaryNotNode unaryNot) {
                 Object operand = evaluateExpression(unaryNot.getOperand());
                 return !isTruthy(operand);
+            }
+            if (node instanceof ScriptNode.UnaryMinusNode unaryMinus) {
+                Object operand = evaluateExpression(unaryMinus.getOperand());
+                if (operand instanceof Integer i) return -i;
+                if (operand instanceof Long l) return -l;
+                if (operand instanceof Float f) return -f;
+                if (operand instanceof Number n) return -n.doubleValue();
+                return 0;
             }
             if (node instanceof ScriptNode.BinaryExpressionNode binary) {
                 if (binary.getOperator().getType() == ScriptToken.TokenType.AND) {

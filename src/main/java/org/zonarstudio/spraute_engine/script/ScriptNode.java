@@ -153,17 +153,17 @@ package org.zonarstudio.spraute_engine.script;
         @Override public void setLine(int line) { this.line = line; }
         @Override public int getColumn() { return column; }
         @Override public void setColumn(int col) { this.column = col; }
-        private final String objectName;
+        private final ScriptNode object;
         private final String propertyName;
         private final ScriptNode value;
 
-        public PropertyAssignmentNode(String objectName, String propertyName, ScriptNode value) {
-            this.objectName = objectName;
+        public PropertyAssignmentNode(ScriptNode object, String propertyName, ScriptNode value) {
+            this.object = object;
             this.propertyName = propertyName;
             this.value = value;
         }
 
-        public String getObjectName() { return objectName; }
+        public ScriptNode getObject() { return object; }
         public String getPropertyName() { return propertyName; }
         public ScriptNode getValue() { return value; }
     }
@@ -197,17 +197,17 @@ package org.zonarstudio.spraute_engine.script;
         @Override public void setLine(int line) { this.line = line; }
         @Override public int getColumn() { return column; }
         @Override public void setColumn(int col) { this.column = col; }
-        private final String objectName;
+        private final ScriptNode object;
         private final String methodName;
         private final java.util.List<ScriptNode> args;
 
-        public MethodCallNode(String objectName, String methodName, java.util.List<ScriptNode> args) {
-            this.objectName = objectName;
+        public MethodCallNode(ScriptNode object, String methodName, java.util.List<ScriptNode> args) {
+            this.object = object;
             this.methodName = methodName;
             this.args = args;
         }
 
-        public String getObjectName() { return objectName; }
+        public ScriptNode getObject() { return object; }
         public String getMethodName() { return methodName; }
         public java.util.List<ScriptNode> getArgs() { return args; }
     }
@@ -222,15 +222,15 @@ package org.zonarstudio.spraute_engine.script;
         @Override public void setLine(int line) { this.line = line; }
         @Override public int getColumn() { return column; }
         @Override public void setColumn(int col) { this.column = col; }
-        private final String objectName;
+        private final ScriptNode object;
         private final String propertyName;
 
-        public PropertyAccessNode(String objectName, String propertyName) {
-            this.objectName = objectName;
+        public PropertyAccessNode(ScriptNode object, String propertyName) {
+            this.object = object;
             this.propertyName = propertyName;
         }
 
-        public String getObjectName() { return objectName; }
+        public ScriptNode getObject() { return object; }
         public String getPropertyName() { return propertyName; }
     }
 
@@ -311,6 +311,25 @@ package org.zonarstudio.spraute_engine.script;
         private final ScriptNode operand;
 
         public UnaryNotNode(ScriptNode operand) {
+            this.operand = operand;
+        }
+
+        public ScriptNode getOperand() { return operand; }
+    }
+
+    /**
+     * A unary minus expression: -expr
+     */
+    class UnaryMinusNode implements ScriptNode {
+        private int line = -1;
+        private int column = -1;
+        @Override public int getLine() { return line; }
+        @Override public void setLine(int line) { this.line = line; }
+        @Override public int getColumn() { return column; }
+        @Override public void setColumn(int col) { this.column = col; }
+        private final ScriptNode operand;
+
+        public UnaryMinusNode(ScriptNode operand) {
             this.operand = operand;
         }
 

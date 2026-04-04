@@ -66,6 +66,38 @@ public class Spraute_engine {
     }
 
     @SubscribeEvent
+    public static void onLivingDrops(net.minecraftforge.event.entity.living.LivingDropsEvent event) {
+        if (!event.getEntity().level.isClientSide) {
+            String mobId = net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES.getKey(event.getEntity().getType()).toString();
+            java.util.List<org.zonarstudio.spraute_engine.registry.CustomDropRegistry.DropRule> drops = org.zonarstudio.spraute_engine.registry.CustomDropRegistry.MOB_DROPS.get(mobId);
+            if (drops != null) {
+                boolean replaced = false;
+                for (var rule : drops) {
+                    if (rule.replace && !replaced) {
+                        event.getDrops().clear();
+                        replaced = true;
+                    }
+                    if (event.getEntity().level.random.nextInt(100) < rule.chance) {
+                        int count = rule.min + event.getEntity().level.random.nextInt(Math.max(1, rule.max - rule.min + 1));
+                        net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(
+                            new net.minecraft.resources.ResourceLocation(rule.itemId.contains(":") ? rule.itemId : "minecraft:" + rule.itemId)
+                        );
+                        if (item != null && item != net.minecraft.world.item.Items.AIR) {
+                            net.minecraft.world.entity.item.ItemEntity itemEntity = new net.minecraft.world.entity.item.ItemEntity(
+                                event.getEntity().level,
+                                event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(),
+                                new net.minecraft.world.item.ItemStack(item, count)
+                            );
+                            itemEntity.setDefaultPickUpDelay();
+                            event.getDrops().add(itemEntity);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @SubscribeEvent
     public static void onLeftClickBlock(net.minecraftforge.event.entity.player.PlayerInteractEvent.LeftClickBlock event) {
         if (!event.getLevel().isClientSide) {
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onClickBlock(event.getEntity(), event.getPos(), event.getLevel().getBlockState(event.getPos()).getBlock(), true);
@@ -84,6 +116,39 @@ public class Spraute_engine {
         if (!event.getLevel().isClientSide() && event.getPlayer() != null) {
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onBreakBlock(event.getPlayer(), event.getPos(), event.getState().getBlock());
             
+            String blockId = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(event.getState().getBlock()).toString();
+            java.util.List<org.zonarstudio.spraute_engine.registry.CustomDropRegistry.DropRule> drops = org.zonarstudio.spraute_engine.registry.CustomDropRegistry.BLOCK_DROPS.get(blockId);
+            if (drops != null) {
+                boolean replaced = false;
+                for (var rule : drops) {
+                    if (rule.replace && !replaced) {
+                        replaced = true;
+                    }
+                    if (((net.minecraft.world.level.Level)event.getLevel()).random.nextInt(100) < rule.chance) {
+                        int count = rule.min + ((net.minecraft.world.level.Level)event.getLevel()).random.nextInt(Math.max(1, rule.max - rule.min + 1));
+                        net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(
+                            new net.minecraft.resources.ResourceLocation(rule.itemId.contains(":") ? rule.itemId : "minecraft:" + rule.itemId)
+                        );
+                        if (item != null && item != net.minecraft.world.item.Items.AIR) {
+                            net.minecraft.world.entity.item.ItemEntity itemEntity = new net.minecraft.world.entity.item.ItemEntity(
+                                (net.minecraft.world.level.Level)event.getLevel(),
+                                event.getPos().getX() + 0.5,
+                                event.getPos().getY() + 0.5,
+                                event.getPos().getZ() + 0.5,
+                                new net.minecraft.world.item.ItemStack(item, count)
+                            );
+                            itemEntity.setDefaultPickUpDelay();
+                            ((net.minecraft.world.level.Level)event.getLevel()).addFreshEntity(itemEntity);
+                        }
+                    }
+                }
+                if (replaced) {
+                    ((net.minecraft.world.level.Level)event.getLevel()).setBlockAndUpdate(event.getPos(), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+                    event.setCanceled(true);
+                    return;
+                }
+            }
+
             if (event.getState().getBlock() instanceof org.zonarstudio.spraute_engine.registry.CustomGeoBlock customBlock) {
                 String dropId = customBlock.getDropItem();
                 if (dropId != null && !dropId.isEmpty()) {
