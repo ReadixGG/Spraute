@@ -12,7 +12,7 @@ public class GetNearestPlayerFunction implements ScriptFunction {
 
     @Override
     public String getName() {
-        return "get_nearest_player";
+        return "getNearestPlayer";
     }
 
     @Override

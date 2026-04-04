@@ -20,7 +20,7 @@ public class SetNamesColorFunction implements ScriptFunction {
 
     @Override
     public String getName() {
-        return "set_names_color";
+        return "setNamesColor";
     }
 
     @Override
