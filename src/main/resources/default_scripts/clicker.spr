@@ -1,0 +1,233 @@
+include "spraute_chat"
+
+clicker_npc.look(false, "clicker_npc")
+val block_x = 16
+val block_y = -60
+val block_z = -3
+setBlock(block_x, block_y, block_z, "minecraft:gold_block")
+
+create npc clicker_npc {
+    name = "§e§lХранитель Блока"
+    hp = 20
+    pos = block_x + 2, block_y, block_z
+    show_name = true
+    model = "geo/defolt.geo.json"
+    texture = "textures/entity/knight.png"
+    animation = "animations/npc_classic.animation.json"
+}
+
+clicker_npc.alwaysLookAt(block_x, block_y, block_z)
+
+fun init_player_data(p) {
+    val data = p.saved_data
+    if (data["money"] == null) {
+        data["money"] = 0
+        data["level"] = 1
+        data["xp"] = 0
+        data["max_xp"] = 10
+        data["click_power"] = 1
+        data["xp_power"] = 1
+    }
+}
+
+create ui main_hud {
+    size = ["100%", "100%"]
+    background = "#00000000"
+    text("money_text", "$ 0") {
+        pos = ["98%", "45%"]
+        anchor = ["1.0", "0.5"]
+        color = "#55FF55"
+        scale = 2.0
+    }
+    text("hint_text", "Нажми G для магазина") {
+        pos = ["98%", "52%"]
+        anchor = ["1.0", "0.5"]
+        color = "#AAAAAA"
+        scale = 1.0
+    }
+    rect("xp_bg") {
+        pos = ["35%", "10"]
+        size = ["30%", "20"]
+        color = "#555555"
+    }
+    rect("xp_fill") {
+        pos = ["35%", "10"]
+        size = ["0%", "20"] # Ширина будет меняться динамически
+        color = "#FFAA00"
+    }
+    text("level_text", "Уровень: 1 (0/10)") {
+        pos = ["50%", "20"]
+        anchor = "center"
+        color = "#FFFFFF"
+        scale = 1.2
+    }
+}
+
+fun update_hud(p) {
+    val money = p.saved_data["money"]
+    val lvl = p.saved_data["level"]
+    val xp = p.saved_data["xp"]
+    val max_xp = p.saved_data["max_xp"]
+    uiUpdate(p, "money_text", "text", "$ " + money)
+    uiUpdate(p, "level_text", "text", "Уровень: " + lvl + " (" + xp + "/" + max_xp + ")")
+    uiUpdate(p, "shop_money_text", "text", "Твой баланс: $ " + money)
+    val percent = (xp * 100) / max_xp
+    val width_percent = (percent * 30) / 100
+    uiUpdate(p, "xp_fill", "w", width_percent + "%")
+}
+
+create ui shop_ui {
+    size = ["200", "150"]
+    background = "#DD222222"
+    can_close = true
+    text("title", "Магазин Улучшений") {
+        pos = ["45", "10"]
+        color = "#FFAA00"
+        scale = 1.2
+    }
+    text("shop_money_text", "Твой баланс: $ 0") {
+        pos = ["45", "25"]
+        color = "#55FF55"
+        scale = 1.0
+    }
+    button("upg_power", "Сила клика (+1) | 50$") {
+        pos = ["20", "40"]
+        size = ["160", "25"]
+        color = "#44AA44"
+        hover = "#55FF55"
+    }
+    button("upg_xp", "Опыт за клик (+1) | 100$") {
+        pos = ["20", "75"]
+        size = ["160", "25"]
+        color = "#4444AA"
+        hover = "#5555FF"
+    }
+}
+
+on uiClick() -> shop_click_handler {
+    val p = _event_player
+    val btn = _event_widget
+    val data = p.saved_data
+    val my_npc = "clicker_npc"
+    
+    if (btn == "upg_power") {
+        val cost = 50
+        if (data["money"] >= cost) {
+            data["money"] = data["money"] - cost
+            data["click_power"] = data["click_power"] + 1
+            playSound(p, "minecraft:entity.player.levelup", 1.0, 2.0)
+            chat("§aВы успешно улучшили Силу клика!")
+            update_hud(p)
+            my_npc.playOnce("yes")
+        } else {
+            playSound(p, "minecraft:block.note_block.bass", 1.0, 0.5)
+            chat("§cНедостаточно денег!")
+        }
+    }
+    
+    if (btn == "upg_xp") {
+        val cost = 100
+        if (data["money"] >= cost) {
+            data["money"] = data["money"] - cost
+            data["xp_power"] = data["xp_power"] + 1
+            playSound(p, "minecraft:entity.player.levelup", 1.0, 2.0)
+            chat("§aВы успешно улучшили получаемый Опыт!")
+            update_hud(p)
+            my_npc.playOnce("yes")
+        } else {
+            playSound(p, "minecraft:block.note_block.bass", 1.0, 0.5)
+            chat("§cНедостаточно денег!")
+        }
+    }
+}
+
+on keybind("G") -> shop_bind {
+    val p = _event_player
+    init_player_data(p)
+    uiOpen(p, shop_ui)
+    uiUpdate(p, "shop_money_text", "text", "Твой баланс: $ " + p.saved_data["money"])
+}
+
+on orbPickup() -> clicker_orb {
+    val p = _event_player
+    val tex = _event_texture
+    if (tex == "minecraft:textures/item/sunflower.png") {
+        init_player_data(p)
+        val data = p.saved_data
+        data["money"] = data["money"] + _event_amount
+        update_hud(p)
+    }
+}
+
+on clickBlock(block_x, block_y, block_z) -> block_click {
+    val p = _event_player
+    init_player_data(p)
+    overlayOpen(p, main_hud)
+    val power = p.saved_data["click_power"]
+    val xp_gain = p.saved_data["xp_power"]
+    val data = p.saved_data
+    
+    spawnOrb("minecraft:textures/item/sunflower.png", power, block_x + 0.5, block_y + 1.2, block_z + 0.5)
+    
+    data["xp"] = data["xp"] + xp_gain
+    particleSpawn("minecraft:happy_villager", block_x + 0.5, block_y + 1.2, block_z + 0.5, 3, 0.2, 0.2, 0.2, 0)
+    playSound(p, "minecraft:entity.experience_orb.pickup", 0.5, 2.0)
+    
+    val my_npc = "clicker_npc"
+    if (random() < 0.1) {
+        my_npc.playOnce("attack")
+    }
+    
+    if (data["xp"] >= data["max_xp"]) {
+        data["xp"] = data["xp"] - data["max_xp"]
+        data["level"] = data["level"] + 1
+        data["max_xp"] = data["max_xp"] * 2
+        playSound(p, "minecraft:entity.player.levelup", 1.0, 1.0)
+        chat("§eПоздравляем! Вы достигли §l" + data["level"] + "§e уровня!")
+        particleSpawn("minecraft:totem_of_undying", p.x, p.y + 1.0, p.z, 50, 0.4, 0.5, 0.4, 0.15)
+        particleSpiral("minecraft:happy_villager", p.x, p.y, p.z, 1.5, 2.0, 30, 0, 0, 0, 0)
+        my_npc.alwaysLookAt(p)
+        val r = random()
+        val anim_name = ""
+        val is_loop = false
+        
+        if (r < 0.2) {
+            anim_name = "happy"
+            my_npc.playFreeze(anim_name)
+            npc_chat(p, my_npc, "Ого, растешь на глазах!", "#FFFFFF")
+        } else if (r < 0.4) {
+            anim_name = "Sweat"
+            my_npc.playOnce(anim_name)
+            npc_chat(p, my_npc, "Фух... Не устал еще кликать?", "#FFFFFF")
+        } else if (r < 0.6) {
+            anim_name = "crossArm"
+            my_npc.playOnce(anim_name)
+            npc_chat(p, my_npc, "Хм, неплохо, неплохо...", "#FFFFFF")
+        } else if (r < 0.8) {
+            anim_name = "Hands"
+            my_npc.playOnce(anim_name)
+            npc_chat(p, my_npc, "Давай, жми сильнее!", "#FFFFFF")
+        } else {
+            anim_name = "disgust"
+            is_loop = true
+            my_npc.playLoop(anim_name)
+            npc_chat(p, my_npc, "Опять новый уровень... Как же ты задолбал.", "#FFFFFF")
+        }
+        
+        async {
+            await time(3)
+            if (is_loop) {
+                my_npc.stop(anim_name)
+            }
+            my_npc.alwaysLookAt(block_x, block_y, block_z)
+        }
+    }
+    update_hud(p)
+}
+
+val start_player = getNearestPlayer("clicker_npc")
+if (start_player != null) {
+    init_player_data(start_player)
+    overlayOpen(start_player, main_hud)
+    update_hud(start_player)
+}
