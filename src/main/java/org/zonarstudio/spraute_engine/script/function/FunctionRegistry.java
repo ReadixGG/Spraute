@@ -63,6 +63,12 @@ public class FunctionRegistry {
         register(new SpawnOrbFunction());
         register(new RemoveOrbsFunction());
         register(new CancelEventFunction());
+        register(new BlockDisplayFunctions.SetBlockDisplay());
+        register(new BlockDisplayFunctions.SetBlockDisplayModel());
+        register(new BlockDisplayFunctions.SetBlockDisplayBlock());
+        register(new BlockDisplayFunctions.RemoveBlockDisplay());
+        register(new BlockDisplayFunctions.OpenBlockUi());
+        register(new BlockDisplayFunctions.GetBlockSlot());
         register(new DropFunctions.AddMobDropFunction());
         register(new DropFunctions.AddBlockDropFunction());
         register(new ScriptManagementFunctions.StartScriptFunction());

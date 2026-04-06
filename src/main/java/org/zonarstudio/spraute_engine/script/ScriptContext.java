@@ -17,6 +17,20 @@ public class ScriptContext {
     private Function<String, Boolean> taskChecker = null;
     private UiSessionBinding uiSessionBinding;
 
+    private boolean eventCanceled = false;
+
+    public void cancelEvent() {
+        this.eventCanceled = true;
+    }
+
+    public void setEventCanceled(boolean canceled) {
+        this.eventCanceled = canceled;
+    }
+
+    public boolean isEventCanceled() {
+        return eventCanceled;
+    }
+
     public String getNameColor() {
         return nameColor;
     }

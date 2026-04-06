@@ -1632,14 +1632,15 @@ public class ScriptExecutor {
                     Object prevZ = variables.get("_event_z");
                     Object prevBlock = variables.get("_event_block");
                     Object prevAction = variables.get("_event_action");
-                    Object prevCanceled = variables.get("_event_canceled");
+                    boolean prevCanceled = context.isEventCanceled();
                     
                     variables.put("_event_player", player);
                     variables.put("_event_x", pos.getX());
                     variables.put("_event_y", pos.getY());
                     variables.put("_event_z", pos.getZ());
                     variables.put("_event_block", blockStr);
-                    variables.put("_event_canceled", false);
+                    context.setEventCanceled(false);
+
                     if (extraAction != null) variables.put("_event_action", extraAction);
                     
                     try {
@@ -1650,7 +1651,7 @@ public class ScriptExecutor {
                         LOGGER.error("[Script: {}] Event handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
                     }
                     
-                    if (Boolean.TRUE.equals(variables.get("_event_canceled"))) {
+                    if (context.isEventCanceled() || Boolean.TRUE.equals(variables.get("_event_canceled"))) {
                         canceled = true;
                     }
                     
@@ -1662,7 +1663,7 @@ public class ScriptExecutor {
                     if (extraAction != null) {
                         if (prevAction != null) variables.put("_event_action", prevAction); else variables.remove("_event_action");
                     }
-                    if (prevCanceled != null) variables.put("_event_canceled", prevCanceled); else variables.remove("_event_canceled");
+                    context.setEventCanceled(prevCanceled);
                 }
             }
             return canceled;

@@ -15,10 +15,16 @@ import org.zonarstudio.spraute_engine.registry.CustomMenuRegistry;
 public class SprauteContainerMenu extends AbstractContainerMenu {
     public final String json;
     private final SimpleContainer customContainer;
+    private final boolean dropOnClose;
 
     public SprauteContainerMenu(int id, Inventory playerInv, String json) {
+        this(id, playerInv, json, null);
+    }
+
+    public SprauteContainerMenu(int id, Inventory playerInv, String json, SimpleContainer existingContainer) {
         super(CustomMenuRegistry.SPRAUTE_CONTAINER, id);
         this.json = json;
+        this.dropOnClose = (existingContainer == null);
         
         int customSlotCount = 0;
         JsonObject root = null;
@@ -35,7 +41,11 @@ public class SprauteContainerMenu extends AbstractContainerMenu {
             }
         } catch (Exception e) {}
         
-        this.customContainer = new SimpleContainer(customSlotCount);
+        if (existingContainer != null) {
+            this.customContainer = existingContainer;
+        } else {
+            this.customContainer = new SimpleContainer(customSlotCount);
+        }
         
         if (root != null) {
             JsonArray children = root.getAsJsonArray("children");
@@ -47,7 +57,9 @@ public class SprauteContainerMenu extends AbstractContainerMenu {
                     if ("slot".equals(type)) {
                         int x = child.has("pos") ? child.getAsJsonArray("pos").get(0).getAsInt() : 0;
                         int y = child.has("pos") ? child.getAsJsonArray("pos").get(1).getAsInt() : 0;
-                        this.addSlot(new Slot(this.customContainer, currentCustomSlotIndex++, x, y));
+                        if (currentCustomSlotIndex < this.customContainer.getContainerSize()) {
+                            this.addSlot(new Slot(this.customContainer, currentCustomSlotIndex++, x, y));
+                        }
                     } else if ("player_inventory".equals(type)) {
                         int startX = child.has("pos") ? child.getAsJsonArray("pos").get(0).getAsInt() : 8;
                         int startY = child.has("pos") ? child.getAsJsonArray("pos").get(1).getAsInt() : 84;
@@ -64,6 +76,14 @@ public class SprauteContainerMenu extends AbstractContainerMenu {
                     }
                 }
             }
+        }
+    }
+
+    @Override
+    public void removed(Player player) {
+        super.removed(player);
+        if (this.dropOnClose && this.customContainer != null) {
+            this.clearContainer(player, this.customContainer);
         }
     }
 

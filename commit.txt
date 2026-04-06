@@ -1,9 +1,0 @@
-Update engine to 0.3.0: Add removeOrbs, cancelEvent, drop functions
-
-- Added `removeOrbs` script function to remove custom orbs by texture
-- Added `cancelEvent` script function to cancel events like `on placeBlock`
-- Added `drop` script function for NPCs to drop items, optionally taking from their inventory
-- Added new player properties (`look_x`, `look_y`, `look_z`, `pitch`, `yaw`)
-- Updated metods.md documentation with the new features
-- Updated Studio (app) to v0.3.0 and added new syntax highlighting and autocompletion for these features
-- Disabled macOS identity signing in Studio package.json to prevent Gatekeeper corruption errors for unsigned builds

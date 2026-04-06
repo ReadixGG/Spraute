@@ -153,7 +153,13 @@ const sprauteFunctionsList = [
   "addMobDrop(${1:mob_id}, ${2:item_id})",
   "addBlockDrop(${1:block_id}, ${2:item_id})",
   "drop(${1:item_id}, ${2:count})",
-  "addDrop(${1:item_id})"
+  "addDrop(${1:item_id})",
+  "openBlockUi(${1:player}, ${2:x}, ${3:y}, ${4:z}, ${5:ui_template})",
+  "setBlockDisplay(${1:x}, ${2:y}, ${3:z}, ${4:id}, ${5:item_id}, ${6:ox}, ${7:oy}, ${8:oz}, ${9:rx}, ${10:ry}, ${11:rz}, ${12:scale})",
+  "setBlockDisplayModel(${1:x}, ${2:y}, ${3:z}, ${4:id}, ${5:model}, ${6:texture}, ${7:ox}, ${8:oy}, ${9:oz}, ${10:rx}, ${11:ry}, ${12:rz}, ${13:scale})",
+  "setBlockDisplayBlock(${1:x}, ${2:y}, ${3:z}, ${4:id}, ${5:block_id}, ${6:ox}, ${7:oy}, ${8:oz}, ${9:rx}, ${10:ry}, ${11:rz}, ${12:scale})",
+  "removeBlockDisplay(${1:x}, ${2:y}, ${3:z}, ${4:id})",
+  "getBlockSlot(${1:x}, ${2:y}, ${3:z}, ${4:slot})"
 ];
 
 function smartSnippetCompletion(template, options) {

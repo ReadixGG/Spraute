@@ -23,7 +23,7 @@ public class CancelEventFunction implements ScriptFunction {
 
     @Override
     public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
-        context.getVariables().put("_event_canceled", true);
+        context.cancelEvent();
         return null;
     }
 }
