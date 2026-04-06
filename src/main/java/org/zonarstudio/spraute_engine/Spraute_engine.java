@@ -74,6 +74,57 @@ public class Spraute_engine {
     }
 
     @SubscribeEvent
+    public static void onItemUseFinish(net.minecraftforge.event.entity.living.LivingEntityUseItemEvent.Finish event) {
+        if (!event.getEntity().level.isClientSide && event.getEntity() instanceof net.minecraft.world.entity.player.Player player) {
+            org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerAction(player, "eat", event.getItem().getItem());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onItemFished(net.minecraftforge.event.entity.player.ItemFishedEvent event) {
+        if (!event.getEntity().level.isClientSide) {
+            org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerAction(event.getEntity(), "fish", null);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onBlockToolModification(net.minecraftforge.event.level.BlockEvent.BlockToolModificationEvent event) {
+        if (!event.getLevel().isClientSide() && event.getPlayer() != null) {
+            if (event.getToolAction() == net.minecraftforge.common.ToolActions.HOE_TILL) {
+                org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerAction(event.getPlayer(), "hoe", event.getState().getBlock());
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLivingJump(net.minecraftforge.event.entity.living.LivingEvent.LivingJumpEvent event) {
+        if (!event.getEntity().level.isClientSide && event.getEntity() instanceof net.minecraft.world.entity.player.Player player) {
+            org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerAction(player, "jump", null);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerSleep(net.minecraftforge.event.entity.player.PlayerSleepInBedEvent event) {
+        if (!event.getEntity().level.isClientSide) {
+            org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerAction(event.getEntity(), "sleep", null);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onItemCrafted(net.minecraftforge.event.entity.player.PlayerEvent.ItemCraftedEvent event) {
+        if (!event.getEntity().level.isClientSide) {
+            org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerAction(event.getEntity(), "craft", event.getCrafting().getItem());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onItemTossed(net.minecraftforge.event.entity.item.ItemTossEvent event) {
+        if (!event.getPlayer().level.isClientSide) {
+            org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerAction(event.getPlayer(), "drop", event.getEntity().getItem().getItem());
+        }
+    }
+
+    @SubscribeEvent
     public static void onLivingDeath(net.minecraftforge.event.entity.living.LivingDeathEvent event) {
         if (!event.getEntity().level.isClientSide) {
             net.minecraft.world.entity.Entity killer = event.getSource().getEntity();

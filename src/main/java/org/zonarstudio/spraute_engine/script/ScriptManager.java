@@ -233,6 +233,10 @@ public class ScriptManager {
         executor.onChat(player, message);
     }
 
+    public void onPlayerAction(net.minecraft.world.entity.player.Player player, String actionType, Object target) {
+        executor.onPlayerAction(player, actionType, target);
+    }
+
     public void onOrbPickup(net.minecraft.server.level.ServerPlayer player, String texture, int amount) {
         executor.onOrbPickup(player, texture, amount);
     }

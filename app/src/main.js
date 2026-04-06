@@ -114,6 +114,10 @@ const sprauteFunctionsList = [
   "uiUpdate(${1:player}, ${2:widget_id}, ${3:field}, ${4:value})",
   "uiAnimate(${1:player}, ${2:widget_id}, ${3:field}, ${4:value}, ${5:duration})",
   "uiTouch(${1:player}, ${2:id1}, ${3:id2})",
+  
+  // Игрок Действия
+  "action(${1:player}, ${2:action_type}, ${3:target})",
+  "playerAction(${1:player}, ${2:action_type}, ${3:target})",
 
   // Частицы
   "particleSpawn(${1:type}, ${2:x}, ${3:y}, ${4:z}, ${5:count}, ${6:dx}, ${7:dy}, ${8:dz}, ${9:speed})",

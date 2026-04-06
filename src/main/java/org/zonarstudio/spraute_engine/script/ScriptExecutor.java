@@ -131,6 +131,15 @@ public class ScriptExecutor {
         }
     }
 
+    public void onPlayerAction(net.minecraft.world.entity.player.Player player, String actionType, Object target) {
+        for (ActiveScript script : activeScripts) {
+            script.onPlayerAction(player, actionType, target);
+        }
+        for (ActiveScript script : scriptsToAdd) {
+            script.onPlayerAction(player, actionType, target);
+        }
+    }
+
     /** Stop all running scripts and clear state. */
     public void stopAll() {
         for (ActiveScript script : activeScripts) {
@@ -327,6 +336,12 @@ public class ScriptExecutor {
         private boolean waitChatIgnorePunct = true;
         private boolean chatEventMet = false;
         private String chatMatchedMessage = "";
+        
+        // Player Action
+        private UUID waitPlayerActionPlayerUuid = null;
+        private String waitPlayerActionType = "";
+        private String waitPlayerActionTarget = null;
+        private boolean playerActionMet = false;
 
         // User-defined functions
         private final Map<String, UserFunction> userFunctions = new HashMap<>();
@@ -1867,6 +1882,76 @@ public class ScriptExecutor {
             }
         }
 
+        public void onPlayerAction(net.minecraft.world.entity.player.Player player, String actionType, Object target) {
+            if (waitType == WaitType.PLAYER_ACTION && player.getUUID().equals(waitPlayerActionPlayerUuid)) {
+                if (waitPlayerActionType.equalsIgnoreCase(actionType)) {
+                    if (waitPlayerActionTarget == null || (target != null && matchesActionTarget(target, waitPlayerActionTarget))) {
+                        playerActionMet = true;
+                        asyncResult = target;
+                    }
+                }
+            }
+            
+            for (var entry : eventHandlers.entrySet()) {
+                EventHandler handler = entry.getValue();
+                if (!handler.active || !handler.eventName.equals("action")) continue;
+                if (handler.eventArgs.size() < 2) continue;
+                
+                net.minecraft.world.entity.Entity playerEnt = resolveEntity(handler.eventArgs.get(0));
+                if (playerEnt == null || !playerEnt.getUUID().equals(player.getUUID())) continue;
+                
+                String expectedAction = String.valueOf(handler.eventArgs.get(1));
+                if (!expectedAction.equalsIgnoreCase(actionType)) continue;
+                
+                if (handler.eventArgs.size() > 2) {
+                    String expectedTarget = String.valueOf(handler.eventArgs.get(2));
+                    if (!matchesActionTarget(target, expectedTarget)) continue;
+                }
+                
+                Object prevPlayer = variables.get("_event_player");
+                Object prevTarget = variables.get("_event_target");
+                variables.put("_event_player", player);
+                variables.put("_event_target", target);
+                
+                try {
+                    executeInstructionBlock(handler.bodyInstructions);
+                } catch (ReturnException e) {
+                    handler.active = false;
+                } catch (Exception e) {
+                    LOGGER.error("[Script: {}] Action handler error: {}", script.getName(), e.getMessage());
+                }
+                
+                if (prevPlayer != null) variables.put("_event_player", prevPlayer);
+                else variables.remove("_event_player");
+                if (prevTarget != null) variables.put("_event_target", prevTarget);
+                else variables.remove("_event_target");
+            }
+            
+            for (AsyncTask task : asyncTasks.values()) {
+                if (task.waitType == WaitType.PLAYER_ACTION && player.getUUID().equals(task.waitPlayerActionPlayerUuid)) {
+                    if (task.waitPlayerActionType.equalsIgnoreCase(actionType)) {
+                        if (task.waitPlayerActionTarget == null || (target != null && matchesActionTarget(target, task.waitPlayerActionTarget))) {
+                            task.playerActionMet = true;
+                            asyncResult = target;
+                        }
+                    }
+                }
+            }
+        }
+        
+        private boolean matchesActionTarget(Object target, String expected) {
+            if (target == null) return false;
+            if (target instanceof net.minecraft.world.item.Item item) {
+                String regName = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(item).toString();
+                return regName.equals(expected) || regName.replace("minecraft:", "").equals(expected);
+            }
+            if (target instanceof net.minecraft.world.level.block.Block block) {
+                String regName = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(block).toString();
+                return regName.equals(expected) || regName.replace("minecraft:", "").equals(expected);
+            }
+            return String.valueOf(target).equals(expected);
+        }
+
         private boolean matchesDeathTarget(net.minecraft.world.entity.LivingEntity entity, String target) {
             // Match by NPC script ID
             UUID npcUuid = org.zonarstudio.spraute_engine.entity.NpcManager.get(target);
@@ -2277,6 +2362,18 @@ public class ScriptExecutor {
                                  pendingVarName = name;
                                  return true;
                              }
+                         } else if (call.getFunctionName().equals("action") || call.getFunctionName().equals("playerAction")) {
+                             if (call.getArgs().size() < 2) return false;
+                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                             if (sp != null) {
+                                 waitPlayerActionPlayerUuid = sp.getUUID();
+                                 waitPlayerActionType = String.valueOf(evaluateExpression(call.getArgs().get(1)));
+                                 waitPlayerActionTarget = call.getArgs().size() > 2 && call.getArgs().get(2) != null ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
+                                 playerActionMet = false;
+                                 waitType = WaitType.PLAYER_ACTION;
+                                 pendingVarName = name;
+                                 return true;
+                             }
                          }
                     }
                     putVariable(name, evaluateExpression(valueNode));
@@ -2434,6 +2531,18 @@ public class ScriptExecutor {
                                  else if (call.getFunctionName().equals("breakBlock")) waitType = WaitType.BREAK_BLOCK;
                                  else waitType = WaitType.PLACE_BLOCK;
                                  blockEventMet = false;
+                                 pendingVarName = name;
+                                 return true;
+                             }
+                         } else if (call.getFunctionName().equals("action") || call.getFunctionName().equals("playerAction")) {
+                             if (call.getArgs().size() < 2) return false;
+                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                             if (sp != null) {
+                                 waitPlayerActionPlayerUuid = sp.getUUID();
+                                 waitPlayerActionType = String.valueOf(evaluateExpression(call.getArgs().get(1)));
+                                 waitPlayerActionTarget = call.getArgs().size() > 2 && call.getArgs().get(2) != null ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
+                                 playerActionMet = false;
+                                 waitType = WaitType.PLAYER_ACTION;
                                  pendingVarName = name;
                                  return true;
                              }
@@ -2606,6 +2715,21 @@ public class ScriptExecutor {
                         );
                         
                         waitType = WaitType.UI_OVERLAP;
+                        return true;
+                    }
+                }
+                case AWAIT_PLAYER_ACTION -> {
+                    ScriptNode pNode = (ScriptNode) instruction.getArg(0);
+                    ScriptNode actionNode = (ScriptNode) instruction.getArg(1);
+                    ScriptNode targetNode = instruction.getArgCount() >= 3 ? (ScriptNode) instruction.getArg(2) : null;
+                    
+                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
+                    if (sp != null) {
+                        waitPlayerActionPlayerUuid = sp.getUUID();
+                        waitPlayerActionType = String.valueOf(evaluateExpression(actionNode));
+                        waitPlayerActionTarget = targetNode != null ? String.valueOf(evaluateExpression(targetNode)) : null;
+                        playerActionMet = false;
+                        waitType = WaitType.PLAYER_ACTION;
                         return true;
                     }
                 }
@@ -4368,7 +4492,8 @@ public class ScriptExecutor {
 
         private enum WaitType {
         NONE, TIME, INTERACT, NEXT, KEYBIND, DEATH, UI_CLICK, UI_CLOSE, MOVE_TO, FOLLOW, PICKUP, ORB_PICKUP, WAIT_TASK,
-        POSITION, INVENTORY, CLICK_BLOCK, BREAK_BLOCK, PLACE_BLOCK, UI_INPUT, CHAT, UI_OVERLAP
+        POSITION, INVENTORY, CLICK_BLOCK, BREAK_BLOCK, PLACE_BLOCK, UI_INPUT, CHAT, UI_OVERLAP,
+        PLAYER_ACTION
     }
 
     public static class PlayerSavedDataMap extends java.util.AbstractMap<String, Object> {

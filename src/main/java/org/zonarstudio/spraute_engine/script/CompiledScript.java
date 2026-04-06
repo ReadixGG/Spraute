@@ -50,6 +50,7 @@ public class CompiledScript {
         AWAIT_PLACE_BLOCK,
         AWAIT_CHAT,
         AWAIT_UI_TOUCH,
+        AWAIT_PLAYER_ACTION,
         UI_WIDGET, // Emit a widget into the current UI builder context. Args: [String kind, List<ScriptNode> args, Map<String,ScriptNode> props, Map<String,List<Instruction>> eventHandlers, List<Instruction> childBody (nullable)]
         FADE_IN,   // Show fade-in screen. Args: [Map<String,ScriptNode> props]
         INCLUDE,   // Include another script's functions/handlers. Args: [String scriptName]

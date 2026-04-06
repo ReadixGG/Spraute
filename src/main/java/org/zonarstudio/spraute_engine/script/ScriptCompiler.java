@@ -126,6 +126,9 @@ public class ScriptCompiler {
             } else if (func.equals("uiTouch") || func.equals("uiOverlap")) {
                 if (args.size() < 3) throw new ScriptException("await uiTouch(player, id1, id2) requires player, id1, id2");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_UI_TOUCH, args.get(0), args.get(1), args.get(2)));
+            } else if (func.equals("action") || func.equals("playerAction")) {
+                if (args.size() < 2) throw new ScriptException("await action(player, action_type, [target]) requires player and action_type");
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_PLAYER_ACTION, args.get(0), args.get(1), args.size() > 2 ? args.get(2) : null));
             } else {
                 throw new ScriptException("Unknown await trigger: " + func);
             }
