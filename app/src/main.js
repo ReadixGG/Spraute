@@ -4012,6 +4012,10 @@ window.addEventListener('error', (e) => {
   document.body.appendChild(errDiv);
 });
 window.addEventListener('unhandledrejection', (e) => {
+  if (e.reason && e.reason.toString().includes('decodeAudioData')) {
+    e.preventDefault();
+    return; // Игнорируем ошибку звука от Blockly
+  }
   const errDiv = document.createElement('div');
   errDiv.style = "position:absolute; z-index:9999; top:50px; left:0; background:rgba(255,0,0,0.8); color:white; padding:10px; width:100%;";
   errDiv.innerText = "Promise Rejection: " + e.reason;
