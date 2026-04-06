@@ -12,6 +12,7 @@ jobs:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
@@ -22,7 +23,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install Dependencies
         working-directory: ./app
@@ -59,4 +60,4 @@ jobs:
             app/dist-electron/*.dmg
             app/dist-electron/*.zip
             app/dist-electron/latest*.yml
-          retention-days: 7
+          retention-days: 1
