@@ -4032,7 +4032,6 @@ async function scanWorkspaceForDynamicData(currentText) {
   if (window.spraute) {
     try {
       clearCustomCategories(); // Очищаем старые категории
-      let customBlocksText = "";
       const pluginsExists = await window.spraute.exists('plugins');
       if (pluginsExists) {
         const plugins = await window.spraute.listDir('plugins');
@@ -4053,7 +4052,6 @@ async function scanWorkspaceForDynamicData(currentText) {
               for (const f of files) {
                 if (!f.isDir && f.name.endsWith('.spr')) {
                   const bText = await window.spraute.readFile(f.rel, 'utf8');
-                  customBlocksText += "\n" + bText;
                   // Парсим сразу с namespace плагина
                   parseCustomBlocks(bText, p.name.toLowerCase().replace(/[^a-z0-9_]/g, '_'));
                 }
@@ -4062,7 +4060,6 @@ async function scanWorkspaceForDynamicData(currentText) {
           }
         }
       }
-      parseCustomBlocks(customBlocksText);
     } catch(err) {
       console.error("Ошибка при загрузке кастомных блоков", err);
     }
