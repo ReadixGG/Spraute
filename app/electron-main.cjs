@@ -518,7 +518,7 @@ ipcMain.handle('app:init-workspace', async (event, mcPath) => {
 
 ipcMain.handle('app:set-titlebar', (event, color, symbolColor) => {
   const win = BrowserWindow.fromWebContents(event.sender);
-  if (win) {
+  if (win && typeof win.setTitleBarOverlay === 'function') {
     win.setTitleBarOverlay({
       color: color,
       symbolColor: symbolColor
