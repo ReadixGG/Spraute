@@ -695,7 +695,7 @@ public class ScriptParser {
             "contentH", "content_h", "scrollbar", "autoScrollbar", "hover", "texture", "id", "slice_borders", "slice_scale",
             "feetCrop", "feet_crop", "crop", "anchor", "anchorX", "anchor_x", "anchorY", "anchor_y", "viewport", "tooltip", "block", "item",
             "labelWrap", "labelScale", "subLabel", "subScale", "bgColor", "outlineColor", "maxLines", "max_lines", "maxChars", "max_chars", "inputType", "placeholder", "gridType", "cellSize", "thickness",
-            "nameTag", "name_tag", "noLookAt", "no_look_at", "noFollowCursor", "no_follow_cursor", "noHurtAnim", "no_hurt_anim", "animation"
+            "nameTag", "name_tag", "noLookAt", "no_look_at", "noFollowCursor", "no_follow_cursor", "noHurtAnim", "no_hurt_anim", "animation", "renderBones", "render_bones"
     );
 
     private static boolean isWidgetPropertyName(String name) {
