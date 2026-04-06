@@ -15,8 +15,9 @@ const COLORS = { SYSTEM: '#a855f7' };
 Blockly.Blocks['spraute_raw_code'] = {
   init: function() {
     this.appendDummyInput()
-        .appendField("Выполнить код:")
-        .appendField(new Blockly.FieldTextInput("say(player, \"Привет\")"), "CODE");
+        .appendField("Выполнить код:");
+    this.appendDummyInput()
+        .appendField(new Blockly.FieldMultilineInput("say(player, \"Привет\")"), "CODE");
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(COLORS.SYSTEM);
@@ -603,9 +604,32 @@ export function textToBlocks(text, workspace) {
   function parseStatements(str, currentWorkspace) {
     let currentConn = null;
     let firstBlock = null;
-    let localRemaining = str.trim();
+
+    let lines = str.split('\n');
+    while(lines.length > 0 && lines[0].trim() === '') lines.shift();
+    while(lines.length > 0 && lines[lines.length-1].trim() === '') lines.pop();
+    
+    let baseIndent = -1;
+    for (const l of lines) {
+      if (l.trim() === '') continue;
+      const indent = l.match(/^\s*/)[0].length;
+      if (baseIndent === -1 || indent < baseIndent) baseIndent = indent;
+    }
+    if (baseIndent > 0) {
+      lines = lines.map(l => {
+        if (l.trim() === '') return '';
+        const m = l.match(/^\s*/);
+        if (m && m[0].length >= baseIndent) return l.substring(baseIndent);
+        return l.trimStart();
+      });
+    }
+    
+    let localRemaining = lines.join('\n');
 
     while (localRemaining.length > 0) {
+      localRemaining = localRemaining.replace(/^(?:[ \t]*\n)+/, '');
+      if (localRemaining.trim() === '') break;
+
       let matched = false;
       
       // Сначала пытаемся применить кастомные парсеры (по порядку плагинов)
@@ -647,7 +671,7 @@ export function textToBlocks(text, workspace) {
             }
             currentConn = newBlock.nextConnection;
 
-            localRemaining = localRemaining.slice(result.length).trim();
+            localRemaining = localRemaining.slice(result.length);
             matched = true;
             break;
           }
@@ -665,10 +689,12 @@ export function textToBlocks(text, workspace) {
             localRemaining = "";
          } else {
             line = localRemaining.slice(0, lineEnd);
-            localRemaining = localRemaining.slice(lineEnd + 1).trim();
+            localRemaining = localRemaining.slice(lineEnd + 1);
          }
          
-         if (line && !line.startsWith('#')) {
+         line = line.replace(/\r$/, '').replace(/\s+$/, '');
+         
+         if (line && !line.trimStart().startsWith('#')) {
             const rawBlock = currentWorkspace.newBlock('spraute_raw_code');
             rawBlock.setFieldValue(line, 'CODE');
             rawBlock.initSvg();
