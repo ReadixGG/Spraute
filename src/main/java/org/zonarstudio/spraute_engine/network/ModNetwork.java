@@ -58,5 +58,9 @@ public class ModNetwork {
                 CloseSprauteOverlayPacket::encode,
                 CloseSprauteOverlayPacket::decode,
                 CloseSprauteOverlayPacket::handle);
+        CHANNEL.registerMessage(id++, SyncLoadScreenPacket.class,
+                SyncLoadScreenPacket::encode,
+                SyncLoadScreenPacket::decode,
+                SyncLoadScreenPacket::handle);
     }
 }

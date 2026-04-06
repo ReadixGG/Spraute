@@ -92,7 +92,26 @@ public class SprauteCommands {
                                                 .executes(SprauteCommands::executeVarListGlobal))
                                         .then(Commands.literal("world")
                                                 .executes(SprauteCommands::executeVarListWorld))))
+                        .then(Commands.literal("load_screen")
+                                .then(Commands.literal("on").executes(SprauteCommands::executeLoadScreenOn))
+                                .then(Commands.literal("off").executes(SprauteCommands::executeLoadScreenOff)))
         );
+    }
+
+    private static int executeLoadScreenOn(CommandContext<CommandSourceStack> context) {
+        ServerLevel level = context.getSource().getLevel();
+        ScriptWorldData data = ScriptWorldData.get(level);
+        data.put("_sys_load_screen_off", false);
+        context.getSource().sendSuccess(Component.literal("§a[Spraute]§r Заставка при входе §eвключена§r для этого мира."), true);
+        return 1;
+    }
+
+    private static int executeLoadScreenOff(CommandContext<CommandSourceStack> context) {
+        ServerLevel level = context.getSource().getLevel();
+        ScriptWorldData data = ScriptWorldData.get(level);
+        data.put("_sys_load_screen_off", true);
+        context.getSource().sendSuccess(Component.literal("§a[Spraute]§r Заставка при входе §eвыключена§r для этого мира."), true);
+        return 1;
     }
 
     private static int executeRun(CommandContext<CommandSourceStack> context) {

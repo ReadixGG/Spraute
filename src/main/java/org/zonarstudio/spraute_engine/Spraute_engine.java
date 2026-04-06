@@ -44,6 +44,22 @@ public class Spraute_engine {
     }
 
     @SubscribeEvent
+    public static void onPlayerLoggedIn(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
+        if (!event.getEntity().level.isClientSide && event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+            org.zonarstudio.spraute_engine.script.ScriptWorldData data = org.zonarstudio.spraute_engine.script.ScriptWorldData.get(serverPlayer.getLevel());
+            boolean showScreen = true;
+            Object val = data.get("_sys_load_screen_off", serverPlayer.getServer(), serverPlayer.getLevel());
+            if (val instanceof Boolean b && b) {
+                showScreen = false;
+            }
+            org.zonarstudio.spraute_engine.network.ModNetwork.CHANNEL.send(
+                    net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> serverPlayer),
+                    new org.zonarstudio.spraute_engine.network.SyncLoadScreenPacket(showScreen)
+            );
+        }
+    }
+
+    @SubscribeEvent
     public static void onServerTick(net.minecraftforge.event.TickEvent.ServerTickEvent event) {
         if (event.phase == net.minecraftforge.event.TickEvent.Phase.END) {
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().tick();
