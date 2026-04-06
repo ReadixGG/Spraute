@@ -83,13 +83,14 @@ fun npc_chat(player, npc_id, text, color) {
                 entity("npc:" + npc_id, "chat_head") {
                     pos = [0, 0]
                     size = [24, clip_h * 2]
-                    scale = 1.7
+                    scale = 2.1
                     anchor_y = 1.4
                     nameTag = false
                     noLookAt = true
                     noFollowCursor = true
                     noHurtAnim = true
                     animation = false
+                    renderBones = "Head"
                 }
             }
 
@@ -187,7 +188,7 @@ on keybind("B") -> chat_history_kb {
                             entity("npc:" + msg["npc"], "hist_head_" + j) {
                                 pos = [0, 0]
                                 size = [24, h_clip * 2]
-                                scale = 1.7
+                                scale = 2.1
                                 anchor_y = 1.4
                                 nameTag = false
                                 noLookAt = true
