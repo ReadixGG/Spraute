@@ -194,6 +194,7 @@ on keybind("B") -> chat_history_kb {
                                 noFollowCursor = true
                                 noHurtAnim = true
                                 animation = false
+                                renderBones = "Head"
                             }
                         }
                     }
