@@ -17,6 +17,7 @@
     "studio": "npm run dev"
   },
   "dependencies": {
+    "@blockly/field-multilineinput": "^6.0.8",
     "@codemirror/lint": "^6.9.5",
     "adm-zip": "^0.5.17",
     "blockly": "^12.5.1",

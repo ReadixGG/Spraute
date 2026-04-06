@@ -1,4 +1,5 @@
 import * as Blockly from 'blockly/core';
+import { FieldMultilineInput } from '@blockly/field-multilineinput';
 import 'blockly/blocks';
 
 // ================= ГЕНЕРАТОР КОДА =================
@@ -17,7 +18,7 @@ Blockly.Blocks['spraute_raw_code'] = {
     this.appendDummyInput()
         .appendField("Выполнить код:");
     this.appendDummyInput()
-        .appendField(new Blockly.FieldMultilineInput("say(player, \"Привет\")"), "CODE");
+        .appendField(new FieldMultilineInput("say(player, \"Привет\")"), "CODE");
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(COLORS.SYSTEM);
