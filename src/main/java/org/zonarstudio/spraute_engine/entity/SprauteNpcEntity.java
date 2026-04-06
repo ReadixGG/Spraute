@@ -106,6 +106,11 @@ public class SprauteNpcEntity extends PathfinderMob {
     private float sprauteBodyYawEndOfTick = 0f;
     private boolean sprauteBodyYawHasEndOfTick = false;
 
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> HITBOX_WIDTH =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> HITBOX_HEIGHT =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+
     public final java.util.Map<String, Object> customData = new java.util.concurrent.ConcurrentHashMap<>();
 
     public final java.util.List<org.zonarstudio.spraute_engine.registry.CustomDropRegistry.DropRule> customDrops = new java.util.concurrent.CopyOnWriteArrayList<>();
@@ -138,6 +143,8 @@ public class SprauteNpcEntity extends PathfinderMob {
         this.entityData.define(WALK_ANIM, "walk");
         this.entityData.define(IS_MOVING_SYNCED, false);
         this.entityData.define(HAS_COLLISION, true);
+        this.entityData.define(HITBOX_WIDTH, 0.6f);
+        this.entityData.define(HITBOX_HEIGHT, 1.8f);
     }
 
     // ========== Model/Texture/Animation resources ==========
@@ -147,6 +154,12 @@ public class SprauteNpcEntity extends PathfinderMob {
     public String getTexture() { return this.entityData.get(TEXTURE_RES); }
     public void setAnimation(String v) { this.entityData.set(ANIMATION_RES, v); }
     public String getAnimation() { return this.entityData.get(ANIMATION_RES); }
+
+    public void setHitbox(float width, float height) {
+        this.entityData.set(HITBOX_WIDTH, width);
+        this.entityData.set(HITBOX_HEIGHT, height);
+        this.refreshDimensions();
+    }
 
     // ========== Overlay animation (additive layer) ==========
     /**
@@ -730,6 +743,26 @@ public class SprauteNpcEntity extends PathfinderMob {
 
     public static AttributeSupplier.Builder setAttributes() {
         return PathfinderMob.createMobAttributes().add(Attributes.MAX_HEALTH, 20d).add(Attributes.MOVEMENT_SPEED, 0.3d);
+    }
+
+    @Override
+    public net.minecraft.world.phys.AABB getBoundingBoxForCulling() {
+        return super.getBoundingBoxForCulling(); // Could be customized if needed
+    }
+
+    @Override
+    public void onSyncedDataUpdated(net.minecraft.network.syncher.EntityDataAccessor<?> pKey) {
+        super.onSyncedDataUpdated(pKey);
+        if (HITBOX_WIDTH.equals(pKey) || HITBOX_HEIGHT.equals(pKey)) {
+            refreshDimensions();
+        }
+    }
+
+    @Override
+    public net.minecraft.world.entity.EntityDimensions getDimensions(net.minecraft.world.entity.Pose pPose) {
+        float w = this.entityData.get(HITBOX_WIDTH);
+        float h = this.entityData.get(HITBOX_HEIGHT);
+        return net.minecraft.world.entity.EntityDimensions.scalable(w, h);
     }
 
     /** @return true if this NPC is currently walking (with debounce to avoid flicker). */

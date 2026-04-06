@@ -2825,6 +2825,13 @@ public class ScriptExecutor {
                     case "stop" -> {
                         if (!args.isEmpty()) npc.stopOverlayAnimation(String.valueOf(args.get(0)));
                     }
+                    case "sethitbox" -> {
+                        if (args.size() >= 2) {
+                            float w = ((Number) args.get(0)).floatValue();
+                            float h = ((Number) args.get(1)).floatValue();
+                            npc.setHitbox(w, h);
+                        }
+                    }
                     case "setadditiveweight" -> {
                         if (!args.isEmpty()) {
                             float w = ((Number) args.get(0)).floatValue();

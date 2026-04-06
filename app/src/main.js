@@ -129,6 +129,7 @@ const sprauteFunctionsList = [
   "playFreeze(${1:anim})",
   "stopOverlay()",
   "setAdditiveWeight(${1:weight})",
+  "setHitbox(${1:width}, ${2:height})",
   "moveTo(${1:x}, ${2:y}, ${3:z})",
   "alwaysMoveTo(${1:entity_or_pos})",
   "stopMove()",

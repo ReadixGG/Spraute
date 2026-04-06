@@ -53,6 +53,7 @@ public class CustomBlockRegistry {
         public String dropItem;
         public String tab;
         public boolean directional = true;
+        public float[] hitbox;
         
         public boolean isOre = false;
         public int oreVeinSize = 8;
@@ -109,6 +110,7 @@ public class CustomBlockRegistry {
         Pattern textureEastPattern = Pattern.compile("texture_east\\s*=\\s*\"([^\"]+)\"");
         Pattern collisionPattern = Pattern.compile("collision\\s*=\\s*(true|false)");
         Pattern directionalPattern = Pattern.compile("directional\\s*=\\s*(true|false)");
+        Pattern hitboxPattern = Pattern.compile("hitbox\\s*=\\s*\\[([^\\]]*)\\]");
         Pattern maxStackPattern = Pattern.compile("maxStackSize\\s*=\\s*(\\d+)");
         Pattern lightPattern = Pattern.compile("light\\s*=\\s*(\\d+)");
         Pattern hardnessPattern = Pattern.compile("hardness\\s*=\\s*([0-9.]+)");
@@ -259,6 +261,17 @@ public class CustomBlockRegistry {
                         Matcher dirM = directionalPattern.matcher(body);
                         if (dirM.find()) def.directional = Boolean.parseBoolean(dirM.group(1));
 
+                        Matcher hitM = hitboxPattern.matcher(body);
+                        if (hitM.find()) {
+                            String[] parts = hitM.group(1).split("[,;\\s]+");
+                            if (parts.length >= 6) {
+                                def.hitbox = new float[6];
+                                for (int i = 0; i < 6; i++) {
+                                    def.hitbox[i] = Float.parseFloat(parts[i].trim());
+                                }
+                            }
+                        }
+
                         Matcher dropM = dropPattern.matcher(body);
                         if (dropM.find()) def.dropItem = dropM.group(1);
                         
@@ -331,7 +344,7 @@ public class CustomBlockRegistry {
                 
                 if (!def.hasCollision) props.noCollission();
                 
-                Block block = new CustomGeoBlock(props, def.model, def.texture, def.dropItem, def.directional);
+                Block block = new CustomGeoBlock(props, def.model, def.texture, def.dropItem, def.directional, def.hitbox);
                 REGISTERED_BLOCKS.add(block);
                 event.register(Registry.BLOCK_REGISTRY, new ResourceLocation(Spraute_engine.MODID, def.id), () -> block);
             }
