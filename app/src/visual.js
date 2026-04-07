@@ -342,7 +342,7 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
       }
 
       try {
-        const initFn = new Function('Blockly', 'getNpcsDropdown', 'self', staticUiJs || "");
+        const initFn = new Function('Blockly', 'getNpcsDropdown', 'self', "");
         initFn(Blockly, getNpcsDropdown, self);
       } catch(e) { console.error(`[Block ${fullId}] Init UI error:`, e); }
 
@@ -372,7 +372,7 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
     },
 
     mutationToDom: function() {
-      const container = document.createElement('mutation');
+      const container = Blockly.utils.xml.createElement('mutation');
       for (const input of this.inputList) {
         for (const field of input.fieldRow) {
           if (field.name) {
@@ -598,124 +598,129 @@ export function getDynamicToolbox() {
 
 // ================= ПАРСЕР ТЕКСТА В БЛОКИ =================
 export function textToBlocks(text, workspace) {
-  workspace.clear();
-  let remainingText = text.trim();
-  const x = 20, y = 20;
+  try {
+    workspace.clear();
+    let remainingText = text.trim();
+    const x = 20, y = 20;
+    const allBlocks = [];
 
-  function parseStatements(str, currentWorkspace) {
-    let currentConn = null;
-    let firstBlock = null;
+    function parseStatements(str, currentWorkspace) {
+      let currentConn = null;
+      let firstBlock = null;
 
-    let lines = str.split('\n');
-    while(lines.length > 0 && lines[0].trim() === '') lines.shift();
-    while(lines.length > 0 && lines[lines.length-1].trim() === '') lines.pop();
-    
-    let baseIndent = -1;
-    for (const l of lines) {
-      if (l.trim() === '') continue;
-      const indent = l.match(/^\s*/)[0].length;
-      if (baseIndent === -1 || indent < baseIndent) baseIndent = indent;
-    }
-    if (baseIndent > 0) {
-      lines = lines.map(l => {
-        if (l.trim() === '') return '';
-        const m = l.match(/^\s*/);
-        if (m && m[0].length >= baseIndent) return l.substring(baseIndent);
-        return l.trimStart();
-      });
-    }
-    
-    let localRemaining = lines.join('\n');
-
-    while (localRemaining.length > 0) {
-      localRemaining = localRemaining.replace(/^(?:[ \t]*\n)+/, '');
-      if (localRemaining.trim() === '') break;
-
-      let matched = false;
+      let lines = str.split('\n');
+      while(lines.length > 0 && lines[0].trim() === '') lines.shift();
+      while(lines.length > 0 && lines[lines.length-1].trim() === '') lines.pop();
       
-      // Сначала пытаемся применить кастомные парсеры (по порядку плагинов)
-      for (const parser of customParsers) {
-        try {
-          const result = parser.fn(localRemaining);
-          if (result && result.length > 0) {
-            const newBlock = currentWorkspace.newBlock(parser.id);
-            if (result.fields) {
-              for (const [k, v] of Object.entries(result.fields)) {
-                newBlock.setFieldValue(v, k);
-                newBlock[`val_${k}`] = v; // for dynamic ui
-              }
-            }
-            // Вызываем updateShape чтобы создались слоты, если блок динамический
-            if (newBlock.updateShape_) newBlock.updateShape_();
+      let baseIndent = -1;
+      for (const l of lines) {
+        if (l.trim() === '') continue;
+        const indent = l.match(/^\s*/)[0].length;
+        if (baseIndent === -1 || indent < baseIndent) baseIndent = indent;
+      }
+      if (baseIndent > 0) {
+        lines = lines.map(l => {
+          if (l.trim() === '') return '';
+          const m = l.match(/^\s*/);
+          if (m && m[0].length >= baseIndent) return l.substring(baseIndent);
+          return l.trimStart();
+        });
+      }
+      
+      let localRemaining = lines.join('\n');
 
-            if (result.statements) {
-              for (const [k, innerStr] of Object.entries(result.statements)) {
-                const innerFirst = parseStatements(innerStr, currentWorkspace);
-                if (innerFirst) {
-                  const input = newBlock.getInput(k);
-                  if (input && input.connection) {
-                    input.connection.connect(innerFirst.previousConnection);
+      while (localRemaining.length > 0) {
+        localRemaining = localRemaining.replace(/^(?:[ \t]*\n)+/, '');
+        if (localRemaining.trim() === '') break;
+
+        let matched = false;
+        
+        for (const parser of customParsers) {
+          try {
+            const result = parser.fn(localRemaining);
+            if (result && result.length > 0) {
+              const newBlock = currentWorkspace.newBlock(parser.id);
+              allBlocks.push(newBlock);
+              if (result.fields) {
+                for (const [k, v] of Object.entries(result.fields)) {
+                  newBlock.setFieldValue(v, k);
+                  newBlock[`val_${k}`] = v;
+                }
+              }
+              if (newBlock.updateShape_) newBlock.updateShape_();
+
+              if (result.statements) {
+                for (const [k, innerStr] of Object.entries(result.statements)) {
+                  const innerFirst = parseStatements(innerStr, currentWorkspace);
+                  if (innerFirst) {
+                    const input = newBlock.getInput(k);
+                    if (input && input.connection) {
+                      input.connection.connect(innerFirst.previousConnection);
+                    }
                   }
                 }
               }
-            }
-            
-            // Если есть поля-значения (вложенные value блоки) - можно поддержать в будущем
-            
-            newBlock.initSvg();
-            newBlock.render();
+              
+              newBlock.initSvg();
 
-            if (currentConn) {
-              currentConn.connect(newBlock.previousConnection);
-            } else {
-               firstBlock = newBlock;
-            }
-            currentConn = newBlock.nextConnection;
+              if (currentConn) {
+                currentConn.connect(newBlock.previousConnection);
+              } else {
+                firstBlock = newBlock;
+              }
+              currentConn = newBlock.nextConnection;
 
-            localRemaining = localRemaining.slice(result.length);
-            matched = true;
-            break;
+              localRemaining = localRemaining.slice(result.length);
+              matched = true;
+              break;
+            }
+          } catch(e) {
+            console.error(`Parser error in ${parser.id}:`, e);
           }
-        } catch(e) {
-          console.error(`Parser error in ${parser.id}:`, e);
+        }
+
+        if (!matched) {
+          const lineEnd = localRemaining.indexOf('\n');
+          let line = "";
+          if (lineEnd === -1) {
+              line = localRemaining;
+              localRemaining = "";
+          } else {
+              line = localRemaining.slice(0, lineEnd);
+              localRemaining = localRemaining.slice(lineEnd + 1);
+          }
+          
+          line = line.replace(/\r$/, '').replace(/\s+$/, '');
+          
+          if (line && !line.trimStart().startsWith('#')) {
+              const rawBlock = currentWorkspace.newBlock('spraute_raw_code');
+              allBlocks.push(rawBlock);
+              rawBlock.setFieldValue(line, 'CODE');
+              rawBlock.initSvg();
+
+              if (currentConn) {
+                currentConn.connect(rawBlock.previousConnection);
+              } else {
+                firstBlock = rawBlock;
+              }
+              currentConn = rawBlock.nextConnection;
+          }
         }
       }
-
-      if (!matched) {
-         // Fallback к построчному сырому коду
-         const lineEnd = localRemaining.indexOf('\n');
-         let line = "";
-         if (lineEnd === -1) {
-            line = localRemaining;
-            localRemaining = "";
-         } else {
-            line = localRemaining.slice(0, lineEnd);
-            localRemaining = localRemaining.slice(lineEnd + 1);
-         }
-         
-         line = line.replace(/\r$/, '').replace(/\s+$/, '');
-         
-         if (line && !line.trimStart().startsWith('#')) {
-            const rawBlock = currentWorkspace.newBlock('spraute_raw_code');
-            rawBlock.setFieldValue(line, 'CODE');
-            rawBlock.initSvg();
-            rawBlock.render();
-
-            if (currentConn) {
-              currentConn.connect(rawBlock.previousConnection);
-            } else {
-               firstBlock = rawBlock;
-            }
-            currentConn = rawBlock.nextConnection;
-         }
-      }
+      return firstBlock;
     }
-    return firstBlock;
-  }
 
-  const rootBlock = parseStatements(remainingText, workspace);
-  if (rootBlock) {
-    rootBlock.moveBy(x, y);
+    const rootBlock = parseStatements(remainingText, workspace);
+    if (rootBlock) {
+      rootBlock.moveBy(x, y);
+    }
+
+    // Batch render after all blocks are created and connected
+    for (const b of allBlocks) {
+      b.render();
+    }
+  } catch(e) {
+    console.error("Parse error", e);
   }
 }
 

@@ -89,7 +89,28 @@
     </div>
 
     <!-- Рабочая область (Studio) -->
-    <div id="view-studio" class="hidden w-full h-full flex flex-col opacity-0 transition-opacity duration-1000">
+    <div id="view-studio" class="hidden w-full h-full flex flex-col opacity-0 transition-opacity duration-1000 relative">
+      <!-- Оверлей загрузки -->
+      <div id="studio-loading-overlay" class="absolute inset-0 z-[999] bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center gap-6 transition-opacity duration-500">
+        <div class="flex flex-col items-center gap-4">
+          <div class="relative w-16 h-16">
+            <div class="absolute inset-0 rounded-full border-2 border-white/5"></div>
+            <div class="absolute inset-0 rounded-full border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+            <div class="absolute inset-2 rounded-full border-2 border-t-transparent border-r-secondary border-b-transparent border-l-transparent animate-spin" style="animation-direction: reverse; animation-duration: 1.5s;"></div>
+            <div class="absolute inset-0 flex items-center justify-center">
+              <div class="w-6 h-6 bg-primary" style="-webkit-mask: url('/images/logo.svg') no-repeat center/contain; mask: url('/images/logo.svg') no-repeat center/contain;"></div>
+            </div>
+          </div>
+          <div class="text-center space-y-2">
+            <h3 class="font-headline text-lg font-bold text-white">Подготовка студии</h3>
+            <p id="studio-loading-label" class="text-sm text-on-variant font-mono">Инициализация...</p>
+          </div>
+          <div class="w-48 h-1 bg-white/5 rounded-full overflow-hidden">
+            <div id="studio-loading-bar" class="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- Кастомная область для перетаскивания окна поверх всего (чтобы перекрывала кнопки, но не перекрывала WCO) -->
       <div class="h-8 shrink-0 w-full flex items-center px-4 bg-background" style="-webkit-app-region: drag;">
          <!-- Название приложения слева от кнопок закрытия -->
@@ -172,10 +193,10 @@
           <button id="btn-open-global-search" class="w-10 h-10 rounded-xl flex items-center justify-center text-on-variant hover:text-white hover:bg-white/5 transition-colors" title="Поиск">
             <span class="material-symbols-outlined">search</span>
           </button>
-          <a href="#" onclick="if(window.electronAPI) window.electronAPI.openExternal('https://t.me/spraute_esd'); else window.open('https://t.me/spraute_esd', '_blank'); return false;" class="w-10 h-10 rounded-xl flex items-center justify-center text-on-variant hover:text-[#0088cc] hover:bg-white/5 transition-colors" title="Telegram">
+          <a href="#" onclick="if(window.spraute) window.spraute.openExternal('https://t.me/spraute_esd'); else window.open('https://t.me/spraute_esd', '_blank'); return false;" class="w-10 h-10 rounded-xl flex items-center justify-center text-on-variant hover:text-[#0088cc] hover:bg-white/5 transition-colors" title="Telegram">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2L2 10.5l6.5 2.5 10-8-8 10v4l4-2.5 5.5 5.5L21.5 2z"/></svg>
           </a>
-          <a href="#" onclick="if(window.electronAPI) window.electronAPI.openExternal('https://boosty.to/readixgg'); else window.open('https://boosty.to/readixgg', '_blank'); return false;" class="w-10 h-10 rounded-xl flex items-center justify-center text-on-variant hover:text-[#f15f2c] hover:bg-white/5 transition-colors" title="Boosty">
+          <a href="#" onclick="if(window.spraute) window.spraute.openExternal('https://boosty.to/readixgg'); else window.open('https://boosty.to/readixgg', '_blank'); return false;" class="w-10 h-10 rounded-xl flex items-center justify-center text-on-variant hover:text-[#f15f2c] hover:bg-white/5 transition-colors" title="Boosty">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
           </a>
           <div class="flex-1"></div>
@@ -203,7 +224,7 @@
         </section>
 
         <!-- Редактор / Пустая область -->
-        <section class="flex-1 bg-background flex flex-col relative overflow-hidden">
+        <section id="editor-area" class="flex-1 bg-background flex flex-col relative overflow-hidden">
           <!-- Вкладки (Tabs) -->
           <div id="tabs-container" class="h-10 bg-surface-container border-b border-white/5 flex items-center overflow-x-auto overflow-y-hidden shrink-0 hidden relative z-30">
             <!-- Вкладки будут здесь -->

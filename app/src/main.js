@@ -431,6 +431,62 @@ function showView(id) {
   });
 }
 
+// Оверлей загрузки студии
+function showLoadingOverlay(show = true) {
+  const overlay = document.getElementById('studio-loading-overlay');
+  if (!overlay) return;
+  if (show) {
+    overlay.classList.remove('opacity-0', 'pointer-events-none');
+    overlay.style.display = '';
+  } else {
+    overlay.classList.add('opacity-0');
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      overlay.classList.add('pointer-events-none');
+    }, 500);
+  }
+}
+
+function updateLoadingOverlay(label, pct) {
+  const lbl = document.getElementById('studio-loading-label');
+  const bar = document.getElementById('studio-loading-bar');
+  if (lbl) lbl.textContent = label;
+  if (bar) bar.style.width = Math.min(100, Math.round(pct)) + '%';
+}
+
+// Мини-оверлей для переходов визуального режима (поверх editor/blockly)
+function showVisualTransition(show, label) {
+  let el = document.getElementById('visual-transition-overlay');
+  if (show) {
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'visual-transition-overlay';
+      el.className = 'absolute inset-0 z-50 bg-background/90 backdrop-blur-sm flex flex-col items-center justify-center gap-3 transition-opacity duration-300';
+      el.innerHTML = `
+        <div class="relative w-10 h-10">
+          <div class="absolute inset-0 rounded-full border-2 border-white/5"></div>
+          <div class="absolute inset-0 rounded-full border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+        </div>
+        <span id="visual-transition-label" class="text-sm text-on-variant font-mono"></span>
+      `;
+      const parent = document.getElementById('editor-area') || document.getElementById('editor-mount')?.parentElement;
+      if (parent) {
+        if (!parent.style.position && getComputedStyle(parent).position === 'static') {
+          parent.style.position = 'relative';
+        }
+        parent.appendChild(el);
+      }
+    }
+    const lbl = el.querySelector('#visual-transition-label');
+    if (lbl) lbl.textContent = label || 'Подготовка визуального режима...';
+    el.style.display = '';
+    el.classList.remove('opacity-0');
+  } else if (el) {
+    el.classList.add('opacity-0');
+    setTimeout(() => { if (el) el.style.display = 'none'; }, 300);
+  }
+}
+
 // Инициализация
 async function init() {
   if (!window.spraute) {
@@ -485,18 +541,16 @@ async function init() {
   const bgOp = await window.spraute.storeGet('bgOpacity');
   applyBgImage(bgImg || '', bgOp || 0.2);
 
-  // Функция синхронизации и запуска
   async function runUpdaterAndStart(path, background = false) {
     if (!background) {
       document.getElementById('initial-title').classList.remove('hidden');
       showView('view-updater');
     } else {
-      // Сразу показываем студию
       document.getElementById('initial-title').classList.add('hidden');
       document.getElementById('studio-path-display').innerText = path + '\\spraute_engine';
       showView('view-studio');
-      loadPluginsList();
-      loadDirectory('');
+      showLoadingOverlay(true);
+      updateLoadingOverlay('Загрузка проекта...', 5);
     }
     
     const logs = document.getElementById('updater-logs');
@@ -510,6 +564,7 @@ async function init() {
         logs.scrollTop = logs.scrollHeight;
       } else {
         setStatus(msg);
+        updateLoadingOverlay(msg, 20);
       }
     });
 
@@ -517,22 +572,40 @@ async function init() {
     await window.spraute.storeSet('minecraftPath', path);
 
     if (!background) {
-      // Даем пользователю полторы секунды прочитать, что всё ок
       setTimeout(() => {
         const updaterView = document.getElementById('view-updater');
         updaterView.classList.remove('opacity-100', 'translate-y-0');
         updaterView.classList.add('opacity-0', '-translate-y-4');
         
-        setTimeout(() => {
+        setTimeout(async () => {
           document.getElementById('initial-title').classList.add('hidden');
           document.getElementById('studio-path-display').innerText = path + '\\spraute_engine';
+
           showView('view-studio');
+          showLoadingOverlay(true);
+          updateLoadingOverlay('Подготовка визуального редактора...', 30);
+
+          await VisualEngine.warmUp('', (label, pct) => {
+            updateLoadingOverlay(label, 30 + (pct / 100) * 60);
+          });
+
+          updateLoadingOverlay('Загрузка файлов...', 92);
           loadPluginsList();
           loadDirectory('');
+          updateLoadingOverlay('Готово!', 100);
+          setTimeout(() => showLoadingOverlay(false), 400);
         }, 500);
       }, 1500);
     } else {
-      setStatus("Обновление завершено");
+      updateLoadingOverlay('Подготовка визуального редактора...', 30);
+      await VisualEngine.warmUp('', (label, pct) => {
+        updateLoadingOverlay(label, 30 + (pct / 100) * 60);
+      });
+      updateLoadingOverlay('Загрузка файлов...', 92);
+      loadPluginsList();
+      loadDirectory('');
+      updateLoadingOverlay('Готово!', 100);
+      setTimeout(() => showLoadingOverlay(false), 400);
     }
   }
 
@@ -853,6 +926,7 @@ async function loadDirectory(relPath, containerEl = null, level = 0, forceExpand
       el.className = 'flex items-center gap-2 py-1.5 hover:bg-white/5 cursor-pointer text-on-surface hover:text-white transition-colors group';
       el.style.paddingLeft = `${(level * 16) + 16}px`;
       el.style.paddingRight = '16px';
+      el.dataset.filePath = item.rel;
       
       let icon = 'draft';
       let iconColor = 'text-on-variant';
@@ -950,6 +1024,19 @@ async function loadDirectory(relPath, containerEl = null, level = 0, forceExpand
   }
 }
 
+function highlightFileInTree(filePath) {
+  if (!filePath) return;
+  const tree = document.getElementById('file-tree');
+  if (!tree) return;
+  tree.querySelectorAll('.bg-primary\\/10').forEach(n => n.classList.remove('bg-primary/10', 'text-primary', 'border-l-2', 'border-primary'));
+  const target = tree.querySelector(`[data-file-path="${CSS.escape(filePath)}"]`);
+  if (target) {
+    target.classList.add('bg-primary/10', 'text-primary', 'border-l-2', 'border-primary');
+    selectedItemPath = filePath;
+    selectedItemIsDir = false;
+  }
+}
+
 async function openFile(relPath, fileName) {
   let tab = openTabs.find(t => t.path === relPath);
   if (!tab) {
@@ -971,6 +1058,307 @@ let currentEditor = null;
 let currentOpenFile = null;
 let isVisualMode = false;
 let blocklyWorkspace = null;
+let _suppressDirty = false;
+
+// ====== Система быстрого переключения визуального режима ======
+const VisualEngine = {
+  _ready: false,
+  _blocksCached: false,
+  _dynamicDataCached: false,
+  _cachedNpcs: ['_event_npc'],
+  _cachedAnims: [],
+  _scanPromise: null,
+  _initPromise: null,
+  _lastScanText: '',
+
+  // Инициализация Blockly workspace заранее (скрытый)
+  async ensureWorkspace() {
+    if (blocklyWorkspace) return blocklyWorkspace;
+    if (this._initPromise) return this._initPromise;
+
+    this._initPromise = new Promise((resolve) => {
+      const blocklyMount = document.getElementById('blockly-mount');
+      if (!blocklyMount) { resolve(null); return; }
+
+      // Временно показываем blockly-mount для inject (Blockly требует видимый контейнер)
+      const wasHidden = blocklyMount.classList.contains('hidden');
+      if (wasHidden) {
+        blocklyMount.style.position = 'absolute';
+        blocklyMount.style.left = '-9999px';
+        blocklyMount.style.top = '-9999px';
+        blocklyMount.style.width = '800px';
+        blocklyMount.style.height = '600px';
+        blocklyMount.classList.remove('hidden');
+        blocklyMount.style.display = 'block';
+      }
+
+      blocklyWorkspace = Blockly.inject('blockly-mount', {
+        toolbox: getDynamicToolbox(),
+        theme: SprauteTheme,
+        grid: { spacing: 20, length: 0, snap: true },
+        move: { scrollbars: true, drag: true, wheel: true },
+        sounds: false
+      });
+
+      blocklyWorkspace.addChangeListener((e) => {
+        if (_suppressDirty) return;
+        if (e.isUiEvent) return;
+        const tab = openTabs.find(t => t.path === activeTabPath);
+        if (tab && isVisualMode) {
+          if (!tab.isDirty) {
+            tab.isDirty = true;
+            renderTabs();
+          }
+        }
+      });
+
+      // Flyout scrollbar sync
+      function syncFlyoutScrollbar() {
+        const flyout = blocklyWorkspace.getFlyout ? blocklyWorkspace.getFlyout() : null;
+        const isFlyoutOpen = flyout && flyout.isVisible();
+        document.querySelectorAll('#blockly-mount svg.blocklyFlyoutScrollbar').forEach(sb => {
+          sb.classList.toggle('flyout-scrollbar-visible', !!isFlyoutOpen);
+        });
+      }
+      blocklyWorkspace.addChangeListener((e) => {
+        if (e.type === Blockly.Events.TOOLBOX_ITEM_SELECT) {
+          syncFlyoutScrollbar();
+          setTimeout(syncFlyoutScrollbar, 50);
+        }
+      });
+
+      if (wasHidden) {
+        blocklyMount.classList.add('hidden');
+        blocklyMount.style.display = 'none';
+        blocklyMount.style.position = '';
+        blocklyMount.style.left = '';
+        blocklyMount.style.top = '';
+        blocklyMount.style.width = '';
+        blocklyMount.style.height = '';
+      }
+
+      this._ready = true;
+      resolve(blocklyWorkspace);
+    });
+
+    return this._initPromise;
+  },
+
+  // Фоновое сканирование — кэширует NPC, анимации и кастомные блоки
+  async scanInBackground(currentText) {
+    if (currentText === this._lastScanText && this._dynamicDataCached) return;
+    if (this._scanPromise) return this._scanPromise;
+    
+    this._scanPromise = this._doScan(currentText);
+    try { await this._scanPromise; } finally { this._scanPromise = null; }
+  },
+
+  async _doScan(currentText) {
+    let npcs = ['_event_npc'];
+    let anims = [];
+
+    try {
+      if (window.spraute) {
+        const animFiles = await window.spraute.listDir('animations');
+        for (const f of animFiles) {
+          if (!f.isDir && f.name.endsWith('.json')) {
+            const content = await window.spraute.readFile(f.rel, 'utf8');
+            try {
+              const json = JSON.parse(content);
+              if (json.animations) {
+                for (const aName in json.animations) {
+                  if (!anims.includes(aName)) anims.push(aName);
+                }
+              }
+            } catch(e) {}
+          }
+        }
+      }
+    } catch(e) {}
+
+    let fullText = currentText + "\n" + importedScriptsText;
+
+    if (window.spraute) {
+      const importRegex = /import\s+["']([^"']+)["']/g;
+      let match;
+      let queue = [];
+      while ((match = importRegex.exec(currentText)) !== null) {
+        queue.push(match[1]);
+      }
+      let visited = new Set();
+      while (queue.length > 0) {
+        let f = queue.shift();
+        if (visited.has(f)) continue;
+        visited.add(f);
+        try {
+          let p = f.endsWith('.spr') ? f : `scripts/${f}.spr`;
+          let content = await window.spraute.readFile(p, 'utf8');
+          fullText += "\n" + content;
+          let m2;
+          while ((m2 = importRegex.exec(content)) !== null) {
+            queue.push(m2[1]);
+          }
+        } catch(e) {}
+      }
+    }
+
+    const matches = fullText.matchAll(/create\s+npc\s+(\w+)/g);
+    for (const match of matches) {
+      if (!npcs.includes(match[1])) npcs.push(match[1]);
+    }
+    if (anims.length === 0) anims.push("(нет анимаций)");
+
+    this._cachedNpcs = npcs;
+    this._cachedAnims = anims;
+    this._dynamicDataCached = true;
+    updateDynamicLists(npcs, anims);
+    this._lastScanText = currentText;
+  },
+
+  // Предзагрузка блоков плагинов — вызывается при старте и при включении/выключении плагина
+  async preloadPluginBlocks() {
+    if (!window.spraute) return;
+    try {
+      clearCustomCategories();
+      const pluginsExists = await window.spraute.exists('plugins');
+      if (!pluginsExists) return;
+      
+      const plugins = await window.spraute.listDir('plugins');
+      for (const p of plugins) {
+        if (!p.isDir) continue;
+        let isEnabled = true;
+        try {
+          const pData = JSON.parse(await window.spraute.readFile(`${p.rel}/plugin.json`, 'utf8'));
+          if (pData.enabled === false) isEnabled = false;
+        } catch(e){}
+        if (!isEnabled) continue;
+
+        const bPath = `plugins/${p.name}/blocks`;
+        const bExists = await window.spraute.exists(bPath);
+        if (!bExists) continue;
+        
+        const files = await window.spraute.listDir(bPath);
+        for (const f of files) {
+          if (!f.isDir && f.name.endsWith('.spr')) {
+            const bText = await window.spraute.readFile(f.rel, 'utf8');
+            parseCustomBlocks(bText, p.name.toLowerCase().replace(/[^a-z0-9_]/g, '_'));
+          }
+        }
+      }
+      this._blocksCached = true;
+
+      // Обновляем тулбокс если workspace уже есть
+      if (blocklyWorkspace) {
+        blocklyWorkspace.updateToolbox(getDynamicToolbox());
+      }
+    } catch(err) {
+      console.error("[VisualEngine] Plugin block preload error:", err);
+    }
+  },
+
+  // Запуск фоновой подготовки всего
+  // Полный прогрев с колбэком прогресса
+  async warmUp(currentText, onProgress) {
+    const steps = [
+      { label: 'Загрузка блоков плагинов...', fn: () => this.preloadPluginBlocks() },
+      { label: 'Сканирование проекта...', fn: () => this.scanInBackground(currentText || '') },
+      { label: 'Инициализация визуального редактора...', fn: () => this.ensureWorkspace() }
+    ];
+    for (let i = 0; i < steps.length; i++) {
+      if (onProgress) onProgress(steps[i].label, (i / steps.length) * 100);
+      await steps[i].fn();
+    }
+    if (onProgress) onProgress('Готово', 100);
+  },
+
+  // Применить закэшированные данные + обновить тулбокс
+  _lastToolboxJson: null,
+
+  applyCache() {
+    if (this._dynamicDataCached) {
+      updateDynamicLists(this._cachedNpcs, this._cachedAnims);
+    }
+    if (blocklyWorkspace) {
+      const toolbox = getDynamicToolbox();
+      const json = JSON.stringify(toolbox);
+      if (json !== this._lastToolboxJson) {
+        this._lastToolboxJson = json;
+        blocklyWorkspace.updateToolbox(toolbox);
+      }
+    }
+  },
+
+  // === Per-file block cache ===
+  _fileBlocksCache: new Map(), // path → { xml: string, textHash: string }
+
+  _hashText(text) {
+    let h = 0;
+    for (let i = 0; i < text.length; i++) {
+      h = ((h << 5) - h + text.charCodeAt(i)) | 0;
+    }
+    return h + '_' + text.length;
+  },
+
+  saveFileBlocks(filePath, sourceText) {
+    if (!blocklyWorkspace || !filePath) return;
+    try {
+      const xml = Blockly.Xml.workspaceToDom(blocklyWorkspace);
+      const hash = sourceText ? this._hashText(sourceText) : null;
+      this._fileBlocksCache.set(filePath, {
+        xml: Blockly.Xml.domToText(xml),
+        textHash: hash
+      });
+    } catch(e) {}
+  },
+
+  restoreFileBlocks(filePath) {
+    if (!blocklyWorkspace || !filePath) return false;
+    const cached = this._fileBlocksCache.get(filePath);
+    if (!cached) return false;
+    const prev = _suppressDirty;
+    _suppressDirty = true;
+    try {
+      blocklyWorkspace.clear();
+      const xml = Blockly.utils.xml.textToDom(cached.xml);
+      Blockly.Xml.domToWorkspace(xml, blocklyWorkspace);
+      return true;
+    } catch(e) {
+      return false;
+    } finally {
+      _suppressDirty = prev;
+    }
+  },
+
+  isCacheValidForText(filePath, text) {
+    const cached = this._fileBlocksCache.get(filePath);
+    if (!cached || !cached.textHash) return false;
+    return cached.textHash === this._hashText(text);
+  },
+
+  clearFileCache(filePath) {
+    if (filePath) this._fileBlocksCache.delete(filePath);
+  },
+
+  // === Live sync — debounced сканирование при редактировании ===
+  _liveSyncTimer: null,
+
+  scheduleLiveSync(text, filePath) {
+    // Text changed — cached blocks for this file are stale
+    if (filePath) {
+      const cached = this._fileBlocksCache.get(filePath);
+      if (cached && cached.textHash !== this._hashText(text)) {
+        this._fileBlocksCache.delete(filePath);
+      }
+    }
+    if (this._liveSyncTimer) clearTimeout(this._liveSyncTimer);
+    this._liveSyncTimer = setTimeout(() => {
+      this._liveSyncTimer = null;
+      if (text !== this._lastScanText) {
+        this.scanInBackground(text);
+      }
+    }, 2000);
+  }
+};
 
 // Вкладки
 let openTabs = []; // { path: string, name: string, isImage: boolean, isDirty: boolean, state: EditorState|null }
@@ -991,8 +1379,15 @@ function renderTabs() {
       blocklyMount.style.display = 'none';
     }
     
-    document.querySelectorAll('.blocklyWidgetDiv, .blocklyTooltipDiv, .blocklyDropDownDiv').forEach(el => {
-      if (el) el.style.display = 'none';
+    document.querySelectorAll('.blocklyWidgetDiv, .blocklyTooltipDiv, .blocklyDropDownDiv, .blocklyToolboxDiv').forEach(el => {
+      if (el) {
+        el.style.display = 'none';
+        el.style.left = '0';
+        el.style.top = '0';
+        el.style.width = '0';
+        el.style.height = '0';
+        el.style.overflow = 'hidden';
+      }
     });
 
     if (currentEditor) {
@@ -1084,6 +1479,24 @@ async function closeTab(path) {
   if (tabIndex === -1) return;
   const tab = openTabs[tabIndex];
 
+  // Если закрываем активный таб в визуальном режиме — синхронизируем блоки → код
+  if (path === activeTabPath && isVisualMode && blocklyWorkspace && currentEditor) {
+    const code = SprauteGenerator.workspaceToCode(blocklyWorkspace);
+    // Защита: если генератор вернул пустоту, а в редакторе есть текст — не затираем
+    if (code && code.trim().length > 0) {
+      VisualEngine.saveFileBlocks(path, code);
+      currentEditor.dispatch({
+        changes: { from: 0, to: currentEditor.state.doc.length, insert: code }
+      });
+    }
+    tab.state = currentEditor.state;
+    if (!tab.isDirty) {
+      tab.isDirty = true;
+    }
+  } else if (path === activeTabPath && currentEditor) {
+    tab.state = currentEditor.state;
+  }
+
   if (tab.isDirty) {
     const confirm = await appConfirm(`Сохранить изменения в "${tab.name}" перед закрытием?`);
     if (confirm) {
@@ -1092,6 +1505,7 @@ async function closeTab(path) {
   }
 
   openTabs.splice(tabIndex, 1);
+  VisualEngine.clearFileCache(path);
 
   if (activeTabPath === path) {
     if (openTabs.length > 0) {
@@ -1186,13 +1600,19 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+let _switchTabLock = null;
 async function switchToTab(path) {
+  if (_switchTabLock) await _switchTabLock;
+  let _resolve;
+  _switchTabLock = new Promise(r => { _resolve = r; });
+
+  try {
   if (currentEditor && activeTabPath) {
     const activeTab = openTabs.find(t => t.path === activeTabPath);
     if (activeTab && !activeTab.isImage) {
       if (isVisualMode && blocklyWorkspace) {
-        // Синхронизируем код из блоков перед переключением
         const code = SprauteGenerator.workspaceToCode(blocklyWorkspace);
+        VisualEngine.saveFileBlocks(activeTabPath, code);
         currentEditor.dispatch({
           changes: { from: 0, to: currentEditor.state.doc.length, insert: code }
         });
@@ -1203,6 +1623,7 @@ async function switchToTab(path) {
 
   activeTabPath = path;
   renderTabs();
+  highlightFileInTree(path);
   
   const tab = openTabs.find(t => t.path === path);
   if (!tab) return;
@@ -1540,6 +1961,10 @@ async function switchToTab(path) {
               currentTab.isDirty = true;
               renderTabs();
             }
+            // Live sync — фоновый ресканинг при редактировании .spr
+            if (path.endsWith('.spr')) {
+              VisualEngine.scheduleLiveSync(update.state.doc.toString(), path);
+            }
           }
         })
       ];
@@ -1580,35 +2005,44 @@ async function switchToTab(path) {
       parent: editorMount
     });
     
-    // Если визуальный режим включен, обновляем блоки
+    // Если визуальный режим включен, загружаем блоки
     if (isVisualMode) {
-      if (!blocklyWorkspace) {
-        // Инициализация при переключении
-        const blocklyMount = document.getElementById('blockly-mount');
-        blocklyWorkspace = Blockly.inject('blockly-mount', {
-          toolbox: toolbox,
-          theme: SprauteTheme,
-          grid: { spacing: 20, length: 3, colour: '#ccc', snap: true }
-        });
-        blocklyWorkspace.addChangeListener(() => {
-          const tab = openTabs.find(t => t.path === activeTabPath);
-          if (tab && isVisualMode) {
-            tab.isDirty = true;
-            renderTabs();
+      const hasCachedBlocks = VisualEngine.isCacheValidForText(path, stateToUse.doc.toString());
+      if (!hasCachedBlocks) {
+        showVisualTransition(true, 'Загрузка блоков...');
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      }
+      await VisualEngine.ensureWorkspace();
+      if (blocklyWorkspace) {
+        const text = stateToUse.doc.toString();
+        _suppressDirty = true;
+        try {
+          if (hasCachedBlocks) {
+            VisualEngine.restoreFileBlocks(path);
+          } else {
+            try {
+              textToBlocks(text, blocklyWorkspace);
+            } catch (e) {
+              console.error("Parse error", e);
+            }
+            VisualEngine.saveFileBlocks(path, text);
           }
-        });
+        } finally { _suppressDirty = false; }
+        Blockly.svgResize(blocklyWorkspace);
       }
-      try {
-        textToBlocks(stateToUse.doc.toString(), blocklyWorkspace);
-      } catch (e) {
-        console.error("Parse error", e);
-      }
+      if (!hasCachedBlocks) showVisualTransition(false);
+    }
+
+    // Фоновый ресканинг для подготовки визуального режима
+    if (path.endsWith('.spr')) {
+      VisualEngine.scanInBackground(stateToUse.doc.toString());
     }
     
   } catch (e) {
     editorMount.innerHTML = `<div class="p-4 text-red-400">Ошибка чтения файла: ${e.message}</div>`;
   }
   }
+  } finally { _resolve(); _switchTabLock = null; }
 }
 
 // Управление контекстным меню
@@ -2473,101 +2907,92 @@ async function toggleVisualMode() {
   if (!btn) return;
   const editorMount = document.getElementById('editor-mount');
   const blocklyMount = document.getElementById('blockly-mount');
-  
-  // Добавляем индикатор загрузки
-  const originalBtnContent = btn.innerHTML;
-  btn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">sync</span> Загрузка...';
   btn.disabled = true;
-  
+
   if (!isVisualMode) {
-    // Включаем визуальный режим
+    // === КОД → ВИЗУАЛ ===
+    showVisualTransition(true, 'Подготовка визуального режима...');
+
     isVisualMode = true;
-    
-    // Сканируем рабочую область на предмет новых блоков и динамических данных
-    await scanWorkspaceForDynamicData(currentEditor ? currentEditor.state.doc.toString() : "");
-    
     btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">code</span> Обычный код';
     btn.classList.add('bg-primary/20', 'text-primary');
-    
+
+    // Даём браузеру отрисовать оверлей
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    await VisualEngine.ensureWorkspace();
+    VisualEngine.applyCache();
+
     editorMount.classList.add('hidden');
     editorMount.style.display = 'none';
     blocklyMount.classList.remove('hidden');
     blocklyMount.style.display = 'block';
-    
-    if (!blocklyWorkspace) {
-      blocklyWorkspace = Blockly.inject('blockly-mount', {
-        toolbox: getDynamicToolbox(),
-        theme: SprauteTheme,
-        grid: {
-          spacing: 20,
-          length: 0,
-          snap: true
-        }
-      });
-      
-      blocklyWorkspace.addChangeListener(() => {
-        const tab = openTabs.find(t => t.path === activeTabPath);
-        if (tab && isVisualMode) {
-          if (!tab.isDirty) {
-            tab.isDirty = true;
-            renderTabs();
-          }
-        }
-      });
-    } else {
-      // Обновляем панель инструментов на случай если мы включили/выключили плагины
-      blocklyWorkspace.updateToolbox(getDynamicToolbox());
-    }
-    
-    // Парсим текущий код в блоки
-    if (currentEditor) {
+    blocklyMount.style.width = '';
+    blocklyMount.style.height = '';
+    document.body.classList.add('visual-mode-active');
+
+    document.querySelectorAll('.blocklyToolboxDiv').forEach(el => {
+      if (el) { el.style.display = ''; el.style.width = ''; el.style.height = ''; el.style.overflow = ''; }
+    });
+
+    if (currentEditor && blocklyWorkspace) {
       const text = currentEditor.state.doc.toString();
+      _suppressDirty = true;
       try {
-        textToBlocks(text, blocklyWorkspace);
-      } catch (e) {
-        console.error("Parse error", e);
+        if (activeTabPath && VisualEngine.isCacheValidForText(activeTabPath, text)) {
+          VisualEngine.restoreFileBlocks(activeTabPath);
+        } else {
+          try { textToBlocks(text, blocklyWorkspace); } catch (e) { console.error("Parse error", e); }
+          if (activeTabPath) VisualEngine.saveFileBlocks(activeTabPath, text);
+        }
+      } finally { _suppressDirty = false; }
+
+      if (text !== VisualEngine._lastScanText) {
+        VisualEngine.scanInBackground(text).then(() => { VisualEngine.applyCache(); });
       }
     }
-    
-    // Сохраняем состояние визуального режима в LocalStorage для всех файлов
-    if (window.spraute) {
-      await window.spraute.storeSet('visualModeEnabled', true);
-    }
-    
+
+    if (blocklyWorkspace) Blockly.svgResize(blocklyWorkspace);
+    if (window.spraute) window.spraute.storeSet('visualModeEnabled', true);
+
+    showVisualTransition(false);
+
   } else {
-    // Возвращаемся в обычный код
+    // === ВИЗУАЛ → КОД ===
+    showVisualTransition(true, 'Генерация кода...');
+
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
     isVisualMode = false;
     btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">extension</span> Визуальный код';
     btn.classList.remove('bg-primary/20', 'text-primary');
-    
-    blocklyMount.classList.add('hidden');
-    blocklyMount.style.display = 'none';
-    editorMount.classList.remove('hidden');
-    editorMount.style.display = 'block';
-    
-    Blockly.hideChaff();
-    document.querySelectorAll('.blocklyWidgetDiv, .blocklyTooltipDiv, .blocklyDropDownDiv').forEach(el => {
-      if (el) el.style.display = 'none';
-    });
-    
-    // Генерируем код из блоков
+
     if (blocklyWorkspace && currentEditor) {
       const code = SprauteGenerator.workspaceToCode(blocklyWorkspace);
-      
+      if (activeTabPath) VisualEngine.saveFileBlocks(activeTabPath, code);
       currentEditor.dispatch({
-        changes: {
-          from: 0,
-          to: currentEditor.state.doc.length,
-          insert: code
-        }
+        changes: { from: 0, to: currentEditor.state.doc.length, insert: code }
       });
     }
-    
-    if (window.spraute) {
-      await window.spraute.storeSet('visualModeEnabled', false);
-    }
+
+    blocklyMount.classList.add('hidden');
+    blocklyMount.style.display = 'none';
+    blocklyMount.style.width = '0';
+    blocklyMount.style.height = '0';
+    editorMount.classList.remove('hidden');
+    editorMount.style.display = 'block';
+    document.body.classList.remove('visual-mode-active');
+
+    Blockly.hideChaff();
+    document.querySelectorAll('.blocklyWidgetDiv, .blocklyTooltipDiv, .blocklyDropDownDiv, .blocklyToolboxDiv').forEach(el => {
+      if (el) { el.style.display = 'none'; el.style.left = '0'; el.style.top = '0'; el.style.width = '0'; el.style.height = '0'; el.style.overflow = 'hidden'; }
+    });
+
+    if (window.spraute) window.spraute.storeSet('visualModeEnabled', false);
+
+    showVisualTransition(false);
   }
-  
+
   btn.disabled = false;
 }
 
@@ -3091,13 +3516,8 @@ document.addEventListener('click', async (e) => {
 
       renderPluginsList();
       
-      // Обновляем визуальный режим если он включен
-      if (isVisualMode && currentEditor) {
-        await scanWorkspaceForDynamicData(currentEditor.state.doc.toString());
-        if (blocklyWorkspace) {
-          blocklyWorkspace.updateToolbox(getDynamicToolbox());
-        }
-      }
+      // Перезагружаем блоки плагинов и обновляем тулбокс
+      await VisualEngine.preloadPluginBlocks();
     } catch(err) {
       console.error("Ошибка переключения: " + err.message);
     }
@@ -3956,9 +4376,10 @@ if (btnImportScript) {
       const content = await window.spraute.readFile(name.trim(), 'utf8');
       importedScriptsText += "\n" + content;
       
-      if (isVisualMode && currentEditor) {
-        await scanWorkspaceForDynamicData(currentEditor.state.doc.toString());
-      }
+      // Фоновый ресканинг
+      VisualEngine.scanInBackground(currentEditor ? currentEditor.state.doc.toString() : '').then(() => {
+        VisualEngine.applyCache();
+      });
       setStatus(`Скрипт ${name} импортирован для визуальных блоков`);
     } catch(e) {
       appAlert(`Ошибка при импорте ${name}: ` + e.message);
@@ -3966,105 +4387,7 @@ if (btnImportScript) {
   });
 }
 
-async function scanWorkspaceForDynamicData(currentText) {
-  let npcs = ['_event_npc'];
-  let anims = [];
-
-  try {
-    if (window.spraute) {
-      const animFiles = await window.spraute.listDir('animations');
-      for (const f of animFiles) {
-        if (!f.isDir && f.name.endsWith('.json')) {
-          const content = await window.spraute.readFile(f.rel, 'utf8');
-          try {
-            const json = JSON.parse(content);
-            if (json.animations) {
-              for (const aName in json.animations) {
-                if (!anims.includes(aName)) anims.push(aName);
-              }
-            }
-          } catch(e) {}
-        }
-      }
-    }
-  } catch(e) {}
-
-  let fullText = currentText + "\n" + importedScriptsText;
-  
-  // Рекурсивный поиск импортов внутри скриптов
-  if (window.spraute) {
-    const importRegex = /import\s+["']([^"']+)["']/g;
-    let match;
-    let queue = [];
-    while ((match = importRegex.exec(currentText)) !== null) {
-      queue.push(match[1]);
-    }
-    
-    let visited = new Set();
-    while(queue.length > 0) {
-      let f = queue.shift();
-      if (visited.has(f)) continue;
-      visited.add(f);
-      try {
-        let p = f.endsWith('.spr') ? f : `scripts/${f}.spr`;
-        let content = await window.spraute.readFile(p, 'utf8');
-        fullText += "\n" + content;
-        
-        let m2;
-        while ((m2 = importRegex.exec(content)) !== null) {
-          queue.push(m2[1]);
-        }
-      } catch(e) {}
-    }
-  }
-
-  // Поиск всех создаваемых НИПов
-  const matches = fullText.matchAll(/create\s+npc\s+(\w+)/g);
-  for (const match of matches) {
-    if (!npcs.includes(match[1])) npcs.push(match[1]);
-  }
-
-  if (anims.length === 0) anims.push("(нет анимаций)");
-  
-  updateDynamicLists(npcs, anims);
-
-  // Сбор и парсинг всех пользовательских блоков из плагинов
-  if (window.spraute) {
-    try {
-      clearCustomCategories(); // Очищаем старые категории
-      const pluginsExists = await window.spraute.exists('plugins');
-      if (pluginsExists) {
-        const plugins = await window.spraute.listDir('plugins');
-        for (const p of plugins) {
-          if (p.isDir) {
-            let isEnabled = true;
-            try {
-              const pData = JSON.parse(await window.spraute.readFile(`${p.rel}/plugin.json`, 'utf8'));
-              if (pData.enabled === false) isEnabled = false;
-            } catch(e){}
-            
-            if (!isEnabled) continue; // Пропускаем отключенные плагины
-
-            const bPath = `plugins/${p.name}/blocks`;
-            const bExists = await window.spraute.exists(bPath);
-            if (bExists) {
-              const files = await window.spraute.listDir(bPath);
-              for (const f of files) {
-                if (!f.isDir && f.name.endsWith('.spr')) {
-                  const bText = await window.spraute.readFile(f.rel, 'utf8');
-                  // Парсим сразу с namespace плагина
-                  parseCustomBlocks(bText, p.name.toLowerCase().replace(/[^a-z0-9_]/g, '_'));
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch(err) {
-      console.error("Ошибка при загрузке кастомных блоков", err);
-    }
-  }
-}
+// Legacy — заменён VisualEngine.scanInBackground + VisualEngine.preloadPluginBlocks
 
 window.addEventListener('error', (e) => {
   const errDiv = document.createElement('div');
