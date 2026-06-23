@@ -10,6 +10,45 @@ Blockly.setLocale(En);
 // ================= ГЕНЕРАТОР КОДА =================
 export const SprauteGenerator = new Blockly.Generator('Spraute');
 
+/** Blockly valueToCode бросает ошибку на пустом слоте — для копирования/вставки и GUI-блоков нужен мягкий вариант. */
+const _nativeValueToCode = SprauteGenerator.valueToCode.bind(SprauteGenerator);
+SprauteGenerator.valueToCode = function(block, name, order, fallback) {
+  if (!block?.getInput(name)) return fallback ?? '';
+  if (!block.getInputTargetBlock(name)) return fallback ?? '';
+  try {
+    const code = _nativeValueToCode(block, name, order);
+    return code == null || code === '' ? (fallback ?? '') : code;
+  } catch (e) {
+    return fallback ?? '';
+  }
+};
+
+const _nativeStatementToCode = SprauteGenerator.statementToCode.bind(SprauteGenerator);
+SprauteGenerator.statementToCode = function(block, name, fallback) {
+  if (!block?.getInput(name)) return fallback ?? '';
+  try {
+    const code = _nativeStatementToCode(block, name);
+    return code == null ? (fallback ?? '') : code;
+  } catch (e) {
+    return fallback ?? '';
+  }
+};
+
+/** Перед paste/duplicate: Blockly вызывает loadExtraState до loadFields — не затирать val_* дефолтами. */
+export function beginBlocklyRestore(workspace) {
+  if (workspace) workspace._sprauteRestoringBlocks = true;
+}
+
+export function endBlocklyRestore(workspace) {
+  if (!workspace) return;
+  workspace._sprauteRestoringBlocks = false;
+  for (const block of workspace.getAllBlocks(false)) {
+    if (typeof block.syncValFromFields_ === 'function') block.syncValFromFields_();
+    if (typeof block.updateShape_ === 'function') block.updateShape_();
+  }
+  refreshDynamicDropdownFields(workspace);
+}
+
 SprauteGenerator.scrub_ = function(block, code, opt_thisOnly) {
   const nextBlock = block.nextConnection && block.nextConnection.targetBlock();
   const nextCode = opt_thisOnly ? '' : SprauteGenerator.blockToCode(nextBlock);
@@ -280,6 +319,62 @@ export function clearCustomCategories() {
   customParsers = [];
   pluginCategoryOrder = [];
   blockWriteStart = new Map();
+}
+
+const _missingBlockPlaceholders = new Set();
+
+/** Заглушка для типов блоков из .sprv, которых больше нет в плагинах (переименование/удаление). */
+export function registerMissingBlockType(type) {
+  if (!type || _missingBlockPlaceholders.has(type)) return;
+  if (Blockly.Blocks[type] && typeof Blockly.Blocks[type].init === 'function') return;
+
+  _missingBlockPlaceholders.add(type);
+  const label = type.includes('.') ? type.split('.').pop() : type;
+  Blockly.Blocks[type] = {
+    init: function () {
+      this.appendDummyInput()
+        .appendField('⚠ устаревший блок')
+        .appendField(label, 'MISSING_LABEL');
+      this.appendDummyInput()
+        .appendField(new FieldMultilineInput(`// тип «${type}» не найден — обновите блок`), 'CODE');
+      this.setPreviousStatement(true, null);
+      this.setNextStatement(true, null);
+      this.setColour('#b91c1c');
+      this.setTooltip(`Блок «${type}» отсутствует в плагинах. Замените на актуальный из палитры.`);
+    },
+  };
+  SprauteGenerator.forBlock[type] = function (block) {
+    const code = block.getFieldValue('CODE') || '';
+    return `/* MISSING BLOCK: ${type} */\n${code}\n`;
+  };
+}
+
+/** Старые .sprv могли хранить type с «:» вместо «.» (procode:npc_chat → procode.npc_chat). */
+function normalizeLegacyBlockType(type) {
+  if (!type || !type.includes(':')) return type;
+  const dot = type.replace(/:/g, '.');
+  if (Blockly.Blocks[dot] && typeof Blockly.Blocks[dot].init === 'function') return dot;
+  return type;
+}
+
+/** Регистрирует заглушки для всех неизвестных type= в XML перед domToWorkspace. */
+export function prepareBlocklyXmlForLoad(xmlDom) {
+  const missing = [];
+  if (!xmlDom) return missing;
+  const blocks = xmlDom.getElementsByTagName('block');
+  const seen = new Set();
+  for (let i = 0; i < blocks.length; i++) {
+    let type = blocks[i].getAttribute('type');
+    if (!type || seen.has(type)) continue;
+    const normalized = normalizeLegacyBlockType(type);
+    if (normalized !== type) blocks[i].setAttribute('type', normalized);
+    type = normalized;
+    seen.add(type);
+    if (Blockly.Blocks[type] && typeof Blockly.Blocks[type].init === 'function') continue;
+    registerMissingBlockType(type);
+    missing.push(type);
+  }
+  return missing;
 }
 
 export function registerPluginCategoryOrder(categories) {
@@ -767,6 +862,7 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
       this.trackedFields_ = [];
       this.conditionVars_ = condVarsArray;
       this.filledWatchFields_ = filledVarsArray;
+      this._sprauteForceFilled_ = filledVarsArray.length ? {} : null;
       this._sprauteShape_ = shape;
       
       this.setColour(color);
@@ -891,10 +987,15 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
     },
 
     syncValFromFields_: function() {
+      const restoring = !!(this.workspace?._sprauteRestoringBlocks || this._restoringShape_);
       for (const input of this.inputList) {
         for (const field of input.fieldRow) {
           if (!field.name) continue;
           try {
+            if (restoring) {
+              const cached = this[`val_${field.name}`];
+              if (cached != null && String(cached).trim() !== '') continue;
+            }
             const v = field.getValue();
             if (v != null && v !== '') this[`val_${field.name}`] = v;
           } catch(e) {}
@@ -935,9 +1036,10 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
         }
       }
       if (this.filledWatchFields_?.length) {
-        this.syncFilledWatchMutation_();
+        this._sprauteForceFilled_ = this._sprauteForceFilled_ || {};
         for (const n of this.filledWatchFields_) {
-          if (this._sprauteForceFilled_?.[n]) {
+          if (isValueSlotFilled(this, n)) this._sprauteForceFilled_[n] = true;
+          if (this._sprauteForceFilled_[n]) {
             container.setAttribute(`v_${n}`, 'true');
           }
         }
@@ -969,10 +1071,13 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
       }
       this.expandFilledWatchChain_();
       // При загрузке .sprv — развернуть все сохранённые слоты до подключения вложенных блоков.
-      if (hasDyn && this.workspace?._sprauteRestoringBlocks) {
-        this.updateShape_();
-      } else if (hasDyn) {
-        this.updateShape_();
+      if (hasDyn) {
+        this._restoringShape_ = true;
+        try {
+          this.updateShape_();
+        } finally {
+          this._restoringShape_ = false;
+        }
       }
     },
 
@@ -1004,10 +1109,11 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
         if (Object.keys(toggles).length) state._toggles = toggles;
       }
       if (this.filledWatchFields_?.length) {
-        this.syncFilledWatchMutation_();
+        this._sprauteForceFilled_ = this._sprauteForceFilled_ || {};
         const filled = {};
         for (const n of this.filledWatchFields_) {
-          if (this._sprauteForceFilled_?.[n]) filled[n] = true;
+          if (isValueSlotFilled(this, n)) this._sprauteForceFilled_[n] = true;
+          if (this._sprauteForceFilled_[n]) filled[n] = true;
         }
         if (Object.keys(filled).length) state._filledSlots = filled;
       }
@@ -1046,7 +1152,14 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
         if (fname === '_toggles' || fname === '_filledSlots' || fname === '_codeSlots') continue;
         this[`val_${fname}`] = val;
       }
-      if (hasDyn) this.updateShape_();
+      if (hasDyn) {
+        this._restoringShape_ = true;
+        try {
+          this.updateShape_();
+        } finally {
+          this._restoringShape_ = false;
+        }
+      }
     },
 
     onchange: function(e) {
@@ -1199,19 +1312,25 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
   SprauteGenerator.forBlock[fullId] = function(block) {
     function _getVal(name) {
       if (block.getInput(name) && block.getInput(name).type === 3) {
-        return SprauteGenerator.statementToCode(block, name) || "";
+        return SprauteGenerator.statementToCode(block, name, "") || "";
       }
       let target = block.getInputTargetBlock(name);
       if (target) {
-        let gen = SprauteGenerator.blockToCode(target);
-        if (Array.isArray(gen)) return gen[0] || "";
-        return gen || "";
+        try {
+          let gen = SprauteGenerator.blockToCode(target);
+          if (Array.isArray(gen)) return gen[0] || "";
+          return gen || "";
+        } catch (e) {}
       }
       let cached = block[`val_${name}`];
       if (cached != null && String(cached).trim() !== '') return String(cached).trim();
-      let v = block.getFieldValue(name);
-      if (v === null || v === undefined) v = block[`val_${name}`];
-      return v === null || v === undefined ? "" : v;
+      try {
+        if (block.getField(name)) {
+          let v = block.getFieldValue(name);
+          if (v != null && v !== '') return v;
+        }
+      } catch (e) {}
+      return block[`val_${name}`] ?? "";
     }
 
     /** Строковый литерал для шаблонов: не дублирует кавычки у блока «текст». */
@@ -1356,8 +1475,13 @@ function showBlocklyCtxMenu(block, x, y) {
       icon: '⧉', label: 'Дублировать',
       action() {
         const ws = block.workspace;
-        const dup = block.duplicate();
-        dup && dup.moveBy(30, 30);
+        beginBlocklyRestore(ws);
+        try {
+          const dup = block.duplicate();
+          dup && dup.moveBy(30, 30);
+        } finally {
+          setTimeout(() => endBlocklyRestore(ws), 0);
+        }
       }
     },
     {

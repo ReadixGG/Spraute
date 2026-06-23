@@ -14,7 +14,7 @@ import { linter, lintGutter } from "@codemirror/lint";
 import { autocompletion, completeAnyWord, snippetCompletion, completionKeymap, acceptCompletion, startCompletion } from "@codemirror/autocomplete";
 
 import * as Blockly from 'blockly';
-import { SprauteGenerator, generateWorkspaceCode, SprauteTheme, applyBlocklyThemeColors, updateDynamicLists, parseCustomBlocks, getDynamicToolbox, customCategories, clearCustomCategories, registerPluginCategoryOrder, applyPluginCategoryColors, sortPluginBlocks, attachBlocklyContextMenu, attachDynamicBlockReshapeListener, extractNpcCreateIdsFromBlocklyXml, extractNpcIdsFromWorkspace, extractCreateNpcIdsFromSpr, buildNpcDropdownIds, refreshDynamicDropdownFields, syncNpcDropdownsFromWorkspace } from './visual.js';
+import { SprauteGenerator, generateWorkspaceCode, SprauteTheme, applyBlocklyThemeColors, updateDynamicLists, parseCustomBlocks, getDynamicToolbox, customCategories, clearCustomCategories, registerPluginCategoryOrder, applyPluginCategoryColors, sortPluginBlocks, attachBlocklyContextMenu, attachDynamicBlockReshapeListener, extractNpcCreateIdsFromBlocklyXml, extractNpcIdsFromWorkspace, extractCreateNpcIdsFromSpr, buildNpcDropdownIds, refreshDynamicDropdownFields, syncNpcDropdownsFromWorkspace, beginBlocklyRestore, endBlocklyRestore, prepareBlocklyXmlForLoad } from './visual.js';
 
 import { visualBlocksDocs } from './docs.js';
 import { initGuiEditor, setupGuiEditorBridge } from './gui-editor.js';
@@ -595,16 +595,17 @@ function updateLoadingOverlay(label, pct) {
 function showVisualTransition(show, label) {
   let el = document.getElementById('visual-transition-overlay');
   if (show) {
+    hideVisualLoadError();
     if (!el) {
       el = document.createElement('div');
       el.id = 'visual-transition-overlay';
       el.className = 'absolute inset-0 z-50 bg-background/90 backdrop-blur-sm flex flex-col items-center justify-center gap-3 transition-opacity duration-300';
       el.innerHTML = `
-        <div class="relative w-10 h-10">
+        <div id="visual-transition-spinner" class="relative w-10 h-10">
           <div class="absolute inset-0 rounded-full border-2 border-white/5"></div>
           <div class="absolute inset-0 rounded-full border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
         </div>
-        <span id="visual-transition-label" class="text-sm text-on-variant font-mono"></span>
+        <span id="visual-transition-label" class="text-sm text-on-variant font-mono text-center px-4"></span>
       `;
       const parent = document.getElementById('editor-area') || document.getElementById('editor-mount')?.parentElement;
       if (parent) {
@@ -615,12 +616,40 @@ function showVisualTransition(show, label) {
       }
     }
     const lbl = el.querySelector('#visual-transition-label');
+    const spinner = el.querySelector('#visual-transition-spinner');
     if (lbl) lbl.textContent = label || 'Подготовка визуального режима...';
+    if (spinner) spinner.style.display = '';
     el.style.display = '';
     el.classList.remove('opacity-0');
   } else if (el) {
     el.classList.add('opacity-0');
     setTimeout(() => { if (el) el.style.display = 'none'; }, 300);
+  }
+}
+
+function hideVisualLoadError() {
+  const banner = document.getElementById('visual-load-error');
+  if (banner) banner.classList.add('hidden');
+}
+
+/** Предупреждение при загрузке .sprv — полоса над workspace, не перекрывает блоки. */
+function showVisualLoadError(message, { missingBlocks } = {}) {
+  showVisualTransition(false);
+  const banner = document.getElementById('visual-load-error');
+  const textEl = document.getElementById('visual-load-error-text');
+  const dismissBtn = document.getElementById('visual-load-error-dismiss');
+  if (!banner || !textEl) return;
+
+  let text = message || 'неизвестная ошибка';
+  if (missingBlocks?.length) {
+    text += '\n\nНе найдены блоки (показаны красным — замените на актуальные):\n• ' + missingBlocks.join('\n• ');
+  }
+  textEl.textContent = text;
+  banner.classList.remove('hidden');
+
+  if (dismissBtn && !dismissBtn._sprauteBound) {
+    dismissBtn._sprauteBound = true;
+    dismissBtn.addEventListener('click', hideVisualLoadError);
   }
 }
 
@@ -1342,7 +1371,15 @@ function restoreVisualWorkspaceFromXml(xmlText) {
       );
     }
     augmentBlocklyXmlFilledSlots(xml);
+    const missingBlockTypes = prepareBlocklyXmlForLoad(xml);
     Blockly.Xml.domToWorkspace(xml, blocklyWorkspace);
+    hideVisualLoadError();
+    if (missingBlockTypes.length) {
+      showVisualLoadError(
+        'В скрипте есть блоки, которых нет в плагинах.',
+        { missingBlocks: missingBlockTypes }
+      );
+    }
     for (const block of blocklyWorkspace.getAllBlocks(false)) {
       if (typeof block.syncValFromFields_ === 'function') block.syncValFromFields_();
     }
@@ -1376,7 +1413,7 @@ function restoreVisualWorkspaceFromXml(xmlText) {
   } finally {
     if (blocklyWorkspace) {
       for (const block of blocklyWorkspace.getAllBlocks(false)) {
-        if (block._sprauteForceFilled_) block._sprauteForceFilled_ = null;
+        if (typeof block.pruneFilledWatchState_ === 'function') block.pruneFilledWatchState_();
       }
       blocklyWorkspace._sprauteRestoringBlocks = false;
     }
@@ -1417,6 +1454,7 @@ function setVisualEditorVisible(visible) {
       if (el) { el.style.display = ''; el.style.width = ''; el.style.height = ''; el.style.overflow = ''; }
     });
   } else {
+    hideVisualLoadError();
     layout?.classList.add('hidden');
     if (layout) layout.style.display = 'none';
     editorMount?.classList.remove('hidden');
@@ -2664,7 +2702,12 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (e.code === 'KeyV' || k === 'v' || e.key === 'м') {
-    Blockly.clipboard.paste();
+    beginBlocklyRestore(blocklyWorkspace);
+    try {
+      Blockly.clipboard.paste();
+    } finally {
+      setTimeout(() => endBlocklyRestore(blocklyWorkspace), 0);
+    }
     _stopKeyEvent(e);
     return;
   }
