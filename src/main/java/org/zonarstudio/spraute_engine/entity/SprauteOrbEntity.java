@@ -18,6 +18,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.NetworkHooks;
+import org.zonarstudio.spraute_engine.compat.SprauteEntityCompat;
 import org.zonarstudio.spraute_engine.script.ScriptManager;
 
 public class SprauteOrbEntity extends Entity {
@@ -83,7 +84,7 @@ public class SprauteOrbEntity extends Entity {
         this.yo = this.getY();
         this.zo = this.getZ();
 
-        if (this.level.isClientSide) {
+        if (SprauteEntityCompat.level(this).isClientSide) {
             if (this.lerpSteps > 0) {
                 double dx = this.getX() + (this.lerpX - this.getX()) / (double) this.lerpSteps;
                 double dy = this.getY() + (this.lerpY - this.getY()) / (double) this.lerpSteps;
@@ -96,14 +97,14 @@ public class SprauteOrbEntity extends Entity {
         } else {
             this.setDeltaMovement(this.getDeltaMovement().add(0.0D, -0.03D, 0.0D));
 
-            this.noPhysics = !this.level.noCollision(this, this.getBoundingBox().deflate(1.0E-7D));
+            this.noPhysics = !SprauteEntityCompat.level(this).noCollision(this, this.getBoundingBox().deflate(1.0E-7D));
             if (this.noPhysics) {
                 this.moveTowardsClosestSpace(this.getX(), (this.getBoundingBox().minY + this.getBoundingBox().maxY) / 2.0D, this.getZ());
             }
 
             if (this.targetTime <= 0 || this.targetPlayer == null || this.targetPlayer.isRemoved()) {
                 this.targetTime = 20;
-                this.targetPlayer = this.level.getNearestPlayer(this, 8.0D);
+                this.targetPlayer = SprauteEntityCompat.level(this).getNearestPlayer(this, 8.0D);
             } else {
                 this.targetTime--;
             }
@@ -128,12 +129,12 @@ public class SprauteOrbEntity extends Entity {
 
             this.move(MoverType.SELF, this.getDeltaMovement());
             float friction = 0.98F;
-            if (this.onGround) {
-                BlockPos groundPos = new BlockPos(this.getX(), this.getY() - 1.0D, this.getZ());
-                friction = this.level.getBlockState(groundPos).getBlock().getFriction() * 0.98F;
+            if (SprauteEntityCompat.onGround(this)) {
+                BlockPos groundPos = new BlockPos((int) this.getX(), (int) (this.getY() - 1.0D), (int) this.getZ());
+                friction = SprauteEntityCompat.level(this).getBlockState(groundPos).getBlock().getFriction() * 0.98F;
             }
             this.setDeltaMovement(this.getDeltaMovement().multiply((double) friction, 0.98D, (double) friction));
-            if (this.onGround) {
+            if (SprauteEntityCompat.onGround(this)) {
                 this.setDeltaMovement(this.getDeltaMovement().multiply(1.0D, -0.9D, 1.0D));
             }
         }
@@ -146,12 +147,12 @@ public class SprauteOrbEntity extends Entity {
 
     @Override
     public void playerTouch(Player player) {
-        if (!this.level.isClientSide && this.pickDelay == 0) {
-            if (this.level instanceof net.minecraft.server.level.ServerLevel sl) {
+        if (!SprauteEntityCompat.level(this).isClientSide && this.pickDelay == 0) {
+            if (SprauteEntityCompat.level(this) instanceof net.minecraft.server.level.ServerLevel sl) {
                 sl.getChunkSource().broadcast(this, new net.minecraft.network.protocol.game.ClientboundTakeItemEntityPacket(this.getId(), player.getId(), 1));
             }
             player.take(this, 1);
-            this.level.playSound(null, player.getX(), player.getY(), player.getZ(), net.minecraft.sounds.SoundEvents.EXPERIENCE_ORB_PICKUP, net.minecraft.sounds.SoundSource.PLAYERS, 0.1F, 0.5F * ((this.random.nextFloat() - this.random.nextFloat()) * 0.7F + 1.8F));
+            SprauteEntityCompat.level(this).playSound(null, player.getX(), player.getY(), player.getZ(), net.minecraft.sounds.SoundEvents.EXPERIENCE_ORB_PICKUP, net.minecraft.sounds.SoundSource.PLAYERS, 0.1F, 0.5F * ((this.random.nextFloat() - this.random.nextFloat()) * 0.7F + 1.8F));
             
             if (player instanceof ServerPlayer serverPlayer) {
                 ScriptManager.getInstance().onOrbPickup(serverPlayer, this.getTexture(), this.value);
@@ -176,7 +177,11 @@ public class SprauteOrbEntity extends Entity {
     }
 
     @Override
-    public Packet<?> getAddEntityPacket() {
+    //? if >=1.20.1 {
+    public Packet<ClientGamePacketListener> getAddEntityPacket() {
+    //?} else {
+    /*public Packet<?> getAddEntityPacket() {
+    *///?}
         return NetworkHooks.getEntitySpawningPacket(this);
     }
 }

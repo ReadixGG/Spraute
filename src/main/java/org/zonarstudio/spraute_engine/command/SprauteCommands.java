@@ -102,7 +102,11 @@ public class SprauteCommands {
         ServerLevel level = context.getSource().getLevel();
         ScriptWorldData data = ScriptWorldData.get(level);
         data.put("_sys_load_screen_off", false);
-        context.getSource().sendSuccess(Component.literal("§a[Spraute]§r Заставка при входе §eвключена§r для этого мира."), true);
+        //? if >=1.20.1 {
+        context.getSource().sendSuccess(() -> Component.literal("§a[Spraute]§r Заставка при входе §eвключена§r для этого мира."), true);
+        //?} else {
+        /*context.getSource().sendSuccess(Component.literal("§a[Spraute]§r Заставка при входе §eвключена§r для этого мира."), true);
+        *///?}
         return 1;
     }
 
@@ -110,7 +114,11 @@ public class SprauteCommands {
         ServerLevel level = context.getSource().getLevel();
         ScriptWorldData data = ScriptWorldData.get(level);
         data.put("_sys_load_screen_off", true);
-        context.getSource().sendSuccess(Component.literal("§a[Spraute]§r Заставка при входе §eвыключена§r для этого мира."), true);
+        //? if >=1.20.1 {
+        context.getSource().sendSuccess(() -> Component.literal("§a[Spraute]§r Заставка при входе §eвыключена§r для этого мира."), true);
+        //?} else {
+        /*context.getSource().sendSuccess(Component.literal("§a[Spraute]§r Заставка при входе §eвыключена§r для этого мира."), true);
+        *///?}
         return 1;
     }
 
@@ -146,10 +154,17 @@ public class SprauteCommands {
 
         manager.reload();
         int count = manager.getScriptNames().size();
+        //? if >=1.20.1 {
         source.sendSuccess(
+                () -> Component.literal("§a[Spraute]§r §fReloaded §e" + count + "§f script(s)"),
+                true
+        );
+        //?} else {
+        /*source.sendSuccess(
                 Component.literal("§a[Spraute]§r §fReloaded §e" + count + "§f script(s)"),
                 true
         );
+        *///?}
         return 1;
     }
 
@@ -164,15 +179,30 @@ public class SprauteCommands {
 
         var names = manager.getScriptNames();
         if (names.isEmpty()) {
-            source.sendSuccess(Component.literal("§7[Spraute]§r No scripts loaded."), false);
+            //? if >=1.20.1 {
+            source.sendSuccess(() -> Component.literal("§7[Spraute]§r No scripts loaded."), false);
+            //?} else {
+            /*source.sendSuccess(Component.literal("§7[Spraute]§r No scripts loaded."), false);
+            *///?}
         } else {
+            //? if >=1.20.1 {
             source.sendSuccess(
+                    () -> Component.literal("§6[Spraute]§r §fСкрипты (§e" + names.size() + "§f):"),
+                    false
+            );
+            //?} else {
+            /*source.sendSuccess(
                     Component.literal("§6[Spraute]§r §fСкрипты (§e" + names.size() + "§f):"),
                     false
             );
+            *///?}
             for (String name : names.stream().sorted().toList()) {
                 String suffix = manager.hasCompileError(name) ? " §c(ошибка компиляции)" : "";
-                source.sendSuccess(Component.literal("  §7- §f" + name + suffix), false);
+                //? if >=1.20.1 {
+                source.sendSuccess(() -> Component.literal("  §7- §f" + name + suffix), false);
+                //?} else {
+                /*source.sendSuccess(Component.literal("  §7- §f" + name + suffix), false);
+                *///?}
             }
         }
         return 1;
@@ -188,10 +218,17 @@ public class SprauteCommands {
         }
 
         var path = manager.getScriptsDir().toAbsolutePath();
+        //? if >=1.20.1 {
         source.sendSuccess(
+                () -> Component.literal("§6[Spraute]§r §fСкрипты загружаются из: §e" + path),
+                false
+        );
+        //?} else {
+        /*source.sendSuccess(
                 Component.literal("§6[Spraute]§r §fСкрипты загружаются из: §e" + path),
                 false
         );
+        *///?}
         return 1;
     }
 
@@ -206,7 +243,11 @@ public class SprauteCommands {
         }
 
         if (manager.stopScript(scriptName)) {
-            source.sendSuccess(Component.literal("§a[Spraute]§r §fСкрипт §e" + scriptName + "§f остановлен."), false);
+            //? if >=1.20.1 {
+            source.sendSuccess(() -> Component.literal("§a[Spraute]§r §fСкрипт §e" + scriptName + "§f остановлен."), false);
+            //?} else {
+            /*source.sendSuccess(Component.literal("§a[Spraute]§r §fСкрипт §e" + scriptName + "§f остановлен."), false);
+            *///?}
             return 1;
         } else {
             source.sendFailure(Component.literal("§a[Spraute]§r §fСкрипт §e" + scriptName + "§f не запущен."));
@@ -235,7 +276,11 @@ public class SprauteCommands {
         try {
             net.minecraft.server.level.ServerPlayer player = source.getPlayerOrException();
             player.connection.send(new net.minecraft.network.protocol.game.ClientboundStopSoundPacket(null, null));
-            source.sendSuccess(Component.literal("§a[Spraute]§r §fЗвуки остановлены."), false);
+            //? if >=1.20.1 {
+            source.sendSuccess(() -> Component.literal("§a[Spraute]§r §fЗвуки остановлены."), false);
+            //?} else {
+            /*source.sendSuccess(Component.literal("§a[Spraute]§r §fЗвуки остановлены."), false);
+            *///?}
             return 1;
         } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
             source.sendFailure(Component.literal("§cThis command can only be run by a player."));
@@ -249,9 +294,17 @@ public class SprauteCommands {
         try {
             net.minecraft.server.level.ServerPlayer player = source.getPlayerOrException();
             net.minecraft.resources.ResourceLocation rl = soundId.contains(":") ? new net.minecraft.resources.ResourceLocation(soundId) : new net.minecraft.resources.ResourceLocation("minecraft", soundId);
-            net.minecraft.sounds.SoundEvent event = new net.minecraft.sounds.SoundEvent(rl);
+            //? if >=1.20.1 {
+            net.minecraft.sounds.SoundEvent event = net.minecraft.sounds.SoundEvent.createVariableRangeEvent(rl);
+            //?} else {
+            /*net.minecraft.sounds.SoundEvent event = new net.minecraft.sounds.SoundEvent(rl);
+            *///?}
             player.playNotifySound(event, net.minecraft.sounds.SoundSource.MASTER, 1.0f, 1.0f);
-            source.sendSuccess(Component.literal("§a[Spraute]§r §fИграет звук: §e" + soundId), false);
+            //? if >=1.20.1 {
+            source.sendSuccess(() -> Component.literal("§a[Spraute]§r §fИграет звук: §e" + soundId), false);
+            //?} else {
+            /*source.sendSuccess(Component.literal("§a[Spraute]§r §fИграет звук: §e" + soundId), false);
+            *///?}
             return 1;
         } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
             source.sendFailure(Component.literal("§cThis command can only be run by a player."));
@@ -271,7 +324,11 @@ public class SprauteCommands {
             return 0;
         }
         manager.clearGlobalVariables();
-        source.sendSuccess(Component.literal("§6[Spraute]§r §fГлобальные переменные очищены."), true);
+        //? if >=1.20.1 {
+        source.sendSuccess(() -> Component.literal("§6[Spraute]§r §fГлобальные переменные очищены."), true);
+        //?} else {
+        /*source.sendSuccess(Component.literal("§6[Spraute]§r §fГлобальные переменные очищены."), true);
+        *///?}
         return 1;
     }
 
@@ -284,7 +341,11 @@ public class SprauteCommands {
             return 0;
         }
         if (manager.removeGlobalVariable(name)) {
-            source.sendSuccess(Component.literal("§6[Spraute]§r §fГлобальная переменная §e" + name + "§f удалена."), true);
+            //? if >=1.20.1 {
+            source.sendSuccess(() -> Component.literal("§6[Spraute]§r §fГлобальная переменная §e" + name + "§f удалена."), true);
+            //?} else {
+            /*source.sendSuccess(Component.literal("§6[Spraute]§r §fГлобальная переменная §e" + name + "§f удалена."), true);
+            *///?}
             return 1;
         }
         source.sendFailure(Component.literal("§c[Spraute]§r §fГлобальной переменной §e" + name + "§f нет."));
@@ -299,10 +360,17 @@ public class SprauteCommands {
             return 0;
         }
         ScriptWorldData.get(level).clearAll();
+        //? if >=1.20.1 {
         source.sendSuccess(
+                () -> Component.literal("§6[Spraute]§r §fПеременные мира очищены (измерение: §e" + level.dimension().location() + "§f)."),
+                true
+        );
+        //?} else {
+        /*source.sendSuccess(
                 Component.literal("§6[Spraute]§r §fПеременные мира очищены (измерение: §e" + level.dimension().location() + "§f)."),
                 true
         );
+        *///?}
         return 1;
     }
 
@@ -317,10 +385,17 @@ public class SprauteCommands {
         ScriptWorldData data = ScriptWorldData.get(level);
         if (data.has(name)) {
             data.remove(name);
+            //? if >=1.20.1 {
             source.sendSuccess(
+                    () -> Component.literal("§6[Spraute]§r §fПеременная мира §e" + name + "§f удалена (§7" + level.dimension().location() + "§f)."),
+                    true
+            );
+            //?} else {
+            /*source.sendSuccess(
                     Component.literal("§6[Spraute]§r §fПеременная мира §e" + name + "§f удалена (§7" + level.dimension().location() + "§f)."),
                     true
             );
+            *///?}
             return 1;
         }
         source.sendFailure(Component.literal("§c[Spraute]§r §fПеременной §e" + name + "§f в этом измерении нет."));
@@ -336,11 +411,23 @@ public class SprauteCommands {
         }
         var keys = manager.getGlobalVariableNames().stream().sorted().toList();
         if (keys.isEmpty()) {
-            source.sendSuccess(Component.literal("§7[Spraute]§r Глобальных переменных нет."), false);
+            //? if >=1.20.1 {
+            source.sendSuccess(() -> Component.literal("§7[Spraute]§r Глобальных переменных нет."), false);
+            //?} else {
+            /*source.sendSuccess(Component.literal("§7[Spraute]§r Глобальных переменных нет."), false);
+            *///?}
         } else {
-            source.sendSuccess(Component.literal("§6[Spraute]§r §fГлобальные (§e" + keys.size() + "§f):"), false);
+            //? if >=1.20.1 {
+            source.sendSuccess(() -> Component.literal("§6[Spraute]§r §fГлобальные (§e" + keys.size() + "§f):"), false);
+            //?} else {
+            /*source.sendSuccess(Component.literal("§6[Spraute]§r §fГлобальные (§e" + keys.size() + "§f):"), false);
+            *///?}
             for (String k : keys) {
-                source.sendSuccess(Component.literal("  §7- §f" + k), false);
+                //? if >=1.20.1 {
+                source.sendSuccess(() -> Component.literal("  §7- §f" + k), false);
+                //?} else {
+                /*source.sendSuccess(Component.literal("  §7- §f" + k), false);
+                *///?}
             }
         }
         return 1;
@@ -355,17 +442,35 @@ public class SprauteCommands {
         }
         var keys = ScriptWorldData.get(level).allKeys().stream().sorted().toList();
         if (keys.isEmpty()) {
+            //? if >=1.20.1 {
             source.sendSuccess(
+                    () -> Component.literal("§7[Spraute]§r В этом измерении переменных нет (§7" + level.dimension().location() + "§r)."),
+                    false
+            );
+            //?} else {
+            /*source.sendSuccess(
                     Component.literal("§7[Spraute]§r В этом измерении переменных нет (§7" + level.dimension().location() + "§r)."),
                     false
             );
+            *///?}
         } else {
+            //? if >=1.20.1 {
             source.sendSuccess(
+                    () -> Component.literal("§6[Spraute]§r §fМир §7" + level.dimension().location() + "§f (§e" + keys.size() + "§f):"),
+                    false
+            );
+            //?} else {
+            /*source.sendSuccess(
                     Component.literal("§6[Spraute]§r §fМир §7" + level.dimension().location() + "§f (§e" + keys.size() + "§f):"),
                     false
             );
+            *///?}
             for (String k : keys) {
-                source.sendSuccess(Component.literal("  §7- §f" + k), false);
+                //? if >=1.20.1 {
+                source.sendSuccess(() -> Component.literal("  §7- §f" + k), false);
+                //?} else {
+                /*source.sendSuccess(Component.literal("  §7- §f" + k), false);
+                *///?}
             }
         }
         return 1;

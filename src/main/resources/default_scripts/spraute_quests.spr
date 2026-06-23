@@ -1,113 +1,313 @@
 # ================================================================
 #  Spraute Quests — Журнал квестов
 #  Запуск: /spraute run spraute_quests
+#  import("spraute_quests") — API в других скриптах
 #  Открытие/закрытие: клавиша H
 # ================================================================
 
-# ──── Список квестов мира (сохраняется между сессиями в данных мира) ────
-if (!has_var("quest_list")) {
-    var world quest_list = list_create()
+# ──── Заготовленные статусы квеста (можно и через функции questStatus*()) ────
+val QS_AVAILABLE = "§aДоступен"
+val QS_PROGRESS = "§eВ процессе"
+val QS_COMPLETED = "§2Выполнен"
+val QS_FAILED = "§cПровален"
+val QS_FROZEN = "§bЗаморожен"
+val QS_HIDDEN = "§8Скрыт"
 
-    val q1 = dict_create()
-    dict_set(q1, "id", "iron_forge")
-    dict_set(q1, "name", "Железный заказ")
-    dict_set(q1, "author", "Кузнец Борис")
-    dict_set(q1, "status", "§eВ процессе")
-    dict_set(q1, "goals", "• Принести 30 слитков железа\n• Отдать кузнецу Борису")
-    dict_set(q1, "desc", "Кузнец Борис из деревни у реки попросил тебя раздобыть 30 железных слитков.\nБез них он не сможет выковать новый меч для капитана стражи.\nЗагляни в шахты к югу от деревни — там всегда было полно руды.")
-    list_add(quest_list, q1)
+# Состояния отдельных целей: active | done | failed
 
-    val q2 = dict_create()
-    dict_set(q2, "id", "lost_crystal")
-    dict_set(q2, "name", "Потерянный артефакт")
-    dict_set(q2, "author", "Маг Элара")
-    dict_set(q2, "status", "§aДоступен")
-    dict_set(q2, "goals", "• Найти Кристалл Бури в подземелье\n• Вернуть кристалл магу Эларе")
-    dict_set(q2, "desc", "Маг Элара из башни на холме потеряла древний Кристалл Бури, который унесли скелеты в подземелье под руинами.\nБез этого кристалла она не может защитить деревню от надвигающегося шторма.")
-    list_add(quest_list, q2)
+# ──── Список квестов мира (сохраняется между сессиями) ────
+if (!hasVar("quest_list")) {
+    var world quest_list = listCreate()
 
-    val q3 = dict_create()
-    dict_set(q3, "id", "oak_spirit")
-    dict_set(q3, "name", "Страж леса")
-    dict_set(q3, "author", "Дух Дуба")
-    dict_set(q3, "status", "§7Завершён")
-    dict_set(q3, "goals", "• Посадить 10 саженцев дуба\n• Поговорить с Духом Дуба")
-    dict_set(q3, "desc", "Древний Дух Дуба попросил восстановить вырубленный участок леса.\nТы посадил саженцы и лес начал возрождаться.\nДух благословил тебя силой природы.")
-    list_add(quest_list, q3)
+    val q1 = dictCreate()
+    dictSet(q1, "id", "iron_forge")
+    dictSet(q1, "name", "Железный заказ")
+    dictSet(q1, "author", "Кузнец Борис")
+    dictSet(q1, "status", QS_PROGRESS)
+    dictSet(q1, "goal_list", list(
+        dict("text", "Принести 30 слитков железа", "state", "active"),
+        dict("text", "Отдать кузнецу Борису", "state", "active")
+    ))
+    dictSet(q1, "goals", "")
+    dictSet(q1, "desc", "Кузнец Борис из деревни у реки попросил тебя раздобыть 30 железных слитков.\nБез них он не сможет выковать новый меч для капитана стражи.\nЗагляни в шахты к югу от деревни — там всегда было полно руды.")
+    listAdd(quest_list, q1)
+
+    val q2 = dictCreate()
+    dictSet(q2, "id", "lost_crystal")
+    dictSet(q2, "name", "Потерянный артефакт")
+    dictSet(q2, "author", "Маг Элара")
+    dictSet(q2, "status", QS_AVAILABLE)
+    dictSet(q2, "goal_list", list(
+        dict("text", "Найти Кристалл Бури в подземелье", "state", "active"),
+        dict("text", "Вернуть кристалл магу Эларе", "state", "active")
+    ))
+    dictSet(q2, "goals", "")
+    dictSet(q2, "desc", "Маг Элара из башни на холме потеряла древний Кристалл Бури, который унесли скелеты в подземелье под руинами.\nБез этого кристалла она не может защитить деревню от надвигающегося шторма.")
+    listAdd(quest_list, q2)
+
+    val q3 = dictCreate()
+    dictSet(q3, "id", "oak_spirit")
+    dictSet(q3, "name", "Страж леса")
+    dictSet(q3, "author", "Дух Дуба")
+    dictSet(q3, "status", QS_COMPLETED)
+    dictSet(q3, "goal_list", list(
+        dict("text", "Посадить 10 саженцев дуба", "state", "done"),
+        dict("text", "Поговорить с Духом Дуба", "state", "done")
+    ))
+    dictSet(q3, "goals", "")
+    dictSet(q3, "desc", "Древний Дух Дуба попросил восстановить вырубленный участок леса.\nТы посадил саженцы и лес начал возрождаться.\nДух благословил тебя силой природы.")
+    listAdd(quest_list, q3)
 }
 
-# ──── API: создание квеста ────
-fun add_quest(id, name, author, desc, goals) {
-    val q = dict_create()
-    dict_set(q, "id", id)
-    dict_set(q, "name", name)
-    dict_set(q, "author", author)
-    dict_set(q, "status", "§aДоступен")
-    dict_set(q, "goals", goals)
-    dict_set(q, "desc", desc)
-    list_add(quest_list, q)
-}
+# ──── Статусы (алиасы) ────
+fun questStatusAvailable() { return QS_AVAILABLE }
+fun questStatusInProgress() { return QS_PROGRESS }
+fun questStatusCompleted() { return QS_COMPLETED }
+fun questStatusFailed() { return QS_FAILED }
+fun questStatusFrozen() { return QS_FROZEN }
+fun questStatusHidden() { return QS_HIDDEN }
 
-# ──── API: изменение поля квеста ────
-fun set_quest_field(id, field, value) {
-    val count = list_size(quest_list)
+fun set_quest_available(id) { set_quest_status(id, QS_AVAILABLE) }
+fun set_quest_in_progress(id) { set_quest_status(id, QS_PROGRESS) }
+fun set_quest_completed(id) { set_quest_status(id, QS_COMPLETED) }
+fun set_quest_failed(id) { set_quest_status(id, QS_FAILED) }
+fun set_quest_frozen(id) { set_quest_status(id, QS_FROZEN) }
+fun set_quest_hidden(id) { set_quest_status(id, QS_HIDDEN) }
+
+# ──── Внутренние хелперы ────
+fun find_quest(id) {
+    val count = listSize(quest_list)
     var i = 0
     while (i < count) {
-        val q = list_get(quest_list, i)
-        if (dict_get(q, "id") == id) {
-            dict_set(q, field, value)
+        val q = listGet(quest_list, i)
+        if (dictGet(q, "id") == id) { return q }
+        i = i + 1
+    }
+    return null
+}
+
+fun quest_goal(text) {
+    return dict("text", text, "state", "active")
+}
+
+fun quest_import_goals_text(q, raw) {
+    if (raw == null) { return }
+    if (raw == "") { return }
+    val gl = dictGet(q, "goal_list")
+    val lines = raw.split("\n")
+    var i = 0
+    while (i < listSize(lines)) {
+        var line = listGet(lines, i)
+        line = line.replace("• ", "")
+        line = line.replace("•", "")
+        if (line != "") {
+            listAdd(gl, quest_goal(line))
         }
         i = i + 1
     }
 }
 
-# ──── API: изменение статуса ────
+fun quest_get_goal_list(q) {
+    var gl = dictGet(q, "goal_list")
+    if (gl == null) {
+        gl = list()
+        dictSet(q, "goal_list", gl)
+        val legacy = dictGet(q, "goals")
+        if (legacy != null) {
+            if (legacy != "") {
+                quest_import_goals_text(q, legacy)
+            }
+        }
+    }
+    return gl
+}
+
+fun quest_format_goals_display(q) {
+    val gl = quest_get_goal_list(q)
+    var out = ""
+    var i = 0
+    while (i < listSize(gl)) {
+        val g = listGet(gl, i)
+        val txt = dictGet(g, "text")
+        val st = dictGet(g, "state")
+        var line = ""
+        if (st == "done") {
+            line = "§a§m✔ " + txt + "§r"
+        } else if (st == "failed") {
+            line = "§c✖ " + txt
+        } else {
+            line = "§7• " + txt
+        }
+        if (out == "") { out = line }
+        else { out = out + "\n" + line }
+        i = i + 1
+    }
+    dictSet(q, "goals", out)
+    return out
+}
+
+fun quest_maybe_auto_complete(id) {
+    val q = find_quest(id)
+    if (q == null) { return }
+    val gl = quest_get_goal_list(q)
+    if (listSize(gl) < 1) { return }
+    var all_done = true
+    var i = 0
+    while (i < listSize(gl)) {
+        val g = listGet(gl, i)
+        if (dictGet(g, "state") != "done") { all_done = false }
+        i = i + 1
+    }
+    if (all_done) {
+        set_quest_completed(id)
+    }
+}
+
+fun quest_set_goal_state(id, index, state) {
+    val q = find_quest(id)
+    if (q == null) { return }
+    val gl = quest_get_goal_list(q)
+    if (index < 0) { return }
+    if (index >= listSize(gl)) { return }
+    val g = listGet(gl, index)
+    dictSet(g, "state", state)
+    quest_format_goals_display(q)
+    if (state == "done") {
+        set_quest_in_progress(id)
+        quest_maybe_auto_complete(id)
+    }
+}
+
+fun quest_set_goal_state_by_text(id, needle, state) {
+    val q = find_quest(id)
+    if (q == null) { return }
+    if (needle == null) { return }
+    if (needle == "") { return }
+    val gl = quest_get_goal_list(q)
+    var i = 0
+    while (i < listSize(gl)) {
+        val g = listGet(gl, i)
+        val txt = dictGet(g, "text")
+        if (txt.contains(needle)) {
+            dictSet(g, "state", state)
+        }
+        i = i + 1
+    }
+    quest_format_goals_display(q)
+    if (state == "done") {
+        set_quest_in_progress(id)
+        quest_maybe_auto_complete(id)
+    }
+}
+
+# ──── API: квесты ────
+fun add_quest(id, name, author, desc, goals) {
+    val q = dictCreate()
+    dictSet(q, "id", id)
+    dictSet(q, "name", name)
+    dictSet(q, "author", author)
+    dictSet(q, "status", QS_AVAILABLE)
+    dictSet(q, "goal_list", list())
+    dictSet(q, "goals", "")
+    dictSet(q, "desc", desc)
+    if (goals != null) {
+        if (goals != "") {
+            quest_import_goals_text(q, goals)
+        }
+    }
+    quest_format_goals_display(q)
+    listAdd(quest_list, q)
+}
+
+fun add_quest_with_goals(id, name, author, desc, goal_list) {
+    val q = dictCreate()
+    dictSet(q, "id", id)
+    dictSet(q, "name", name)
+    dictSet(q, "author", author)
+    dictSet(q, "status", QS_AVAILABLE)
+    dictSet(q, "goal_list", goal_list)
+    dictSet(q, "goals", "")
+    dictSet(q, "desc", desc)
+    quest_format_goals_display(q)
+    listAdd(quest_list, q)
+}
+
+fun has_quest(id) {
+    if (find_quest(id) != null) { return true }
+    return false
+}
+
+fun set_quest_field(id, field, value) {
+    val q = find_quest(id)
+    if (q == null) { return }
+    dictSet(q, field, value)
+}
+
 fun set_quest_status(id, status) {
     set_quest_field(id, "status", status)
 }
 
-# ──── API: удаление квеста ────
 fun remove_quest(id) {
-    val count = list_size(quest_list)
+    val count = listSize(quest_list)
     var i = 0
     var to_remove = -1
     while (i < count) {
-        val q = list_get(quest_list, i)
-        if (dict_get(q, "id") == id) {
+        val q = listGet(quest_list, i)
+        if (dictGet(q, "id") == id) {
             to_remove = i
         }
         i = i + 1
     }
     if (to_remove >= 0) {
-        list_remove(quest_list, to_remove)
+        listRemove(quest_list, to_remove)
     }
 }
 
-# ──── API: добавить цель к квесту ────
+# ──── API: цели (index с 0) ────
 fun add_quest_goal(id, goal) {
-    val count = list_size(quest_list)
-    var i = 0
-    while (i < count) {
-        val q = list_get(quest_list, i)
-        if (dict_get(q, "id") == id) {
-            val old_goals = dict_get(q, "goals")
-            dict_set(q, "goals", old_goals + "\n• " + goal)
-        }
-        i = i + 1
-    }
+    val q = find_quest(id)
+    if (q == null) { return }
+    val gl = quest_get_goal_list(q)
+    listAdd(gl, quest_goal(goal))
+    quest_format_goals_display(q)
 }
 
-# ──── API: добавить текст к описанию ────
+fun complete_quest_goal(id, index) {
+    quest_set_goal_state(id, index, "done")
+}
+
+fun fail_quest_goal(id, index) {
+    quest_set_goal_state(id, index, "failed")
+}
+
+fun reset_quest_goal(id, index) {
+    quest_set_goal_state(id, index, "active")
+}
+
+fun complete_quest_goal_by_text(id, needle) {
+    quest_set_goal_state_by_text(id, needle, "done")
+}
+
+fun fail_quest_goal_by_text(id, needle) {
+    quest_set_goal_state_by_text(id, needle, "failed")
+}
+
+# ──── API: описание ────
 fun add_quest_desc(id, text) {
-    val count = list_size(quest_list)
-    var i = 0
-    while (i < count) {
-        val q = list_get(quest_list, i)
-        if (dict_get(q, "id") == id) {
-            val old_desc = dict_get(q, "desc")
-            dict_set(q, "desc", old_desc + "\n" + text)
-        }
-        i = i + 1
+    append_quest_desc(id, text)
+}
+
+fun append_quest_desc(id, text) {
+    val q = find_quest(id)
+    if (q == null) { return }
+    if (text == null) { return }
+    if (text == "") { return }
+    var old_desc = dictGet(q, "desc")
+    if (old_desc == null) { old_desc = "" }
+    if (old_desc == "") {
+        dictSet(q, "desc", text)
+    } else {
+        dictSet(q, "desc", old_desc + "\n" + text)
     }
 }
 
@@ -115,54 +315,40 @@ fun add_quest_desc(id, text) {
 #  UI: Полноэкранный журнал квестов
 # ================================================================
 
-val player = get_nearest_player()
+val player = getNearestPlayer()
 var selected_idx = 0
 
-# Высота плашки от числа строк заголовка: явные \n + оценка переноса по узкой колонке (~25 симв./строка при масштабе 0.68)
 fun quest_row_h(quest_name) {
-    # Считаем количество явных переносов \n
-    var nl = str_newline_count(quest_name) + 1
-    
-    # Увеличим порог оценки переноса до ~35 символов (для масштаба 0.68 это точнее)
-    val wrap_lines = (str_len(quest_name) + 34) / 35
+    var nl = strNewlineCount(quest_name) + 1
+    val wrap_lines = (strLen(quest_name) + 34) / 35
     if (wrap_lines > nl) {
         nl = wrap_lines
     }
-    
-    # Формула: 4 (отступ сверху) + (кол-во строк * высота строки 5) + 6 (подзаголовок) + 2 (запас снизу)
-    # Для одной строки выйдет 4 + 5 + 6 + 2 = 17 (вместо прежних 18+, но с учетом автора)
-    # Если нужно еще плотнее, уменьшите последние числа.
     return 4 + nl * 5 + 6
 }
 
 fun open_quest_ui(p, sel) {
-    val count = list_size(quest_list)
+    val count = listSize(quest_list)
     var safe_sel = sel
     if (count > 0) {
-        if (safe_sel < 0) {
-            safe_sel = 0
-        }
-        if (safe_sel >= count) {
-            safe_sel = count - 1
-        }
+        if (safe_sel < 0) { safe_sel = 0 }
+        if (safe_sel >= count) { safe_sel = count - 1 }
     }
     selected_idx = safe_sel
 
-    # content_h скролла списка нужен до выполнения тела — считаем вторым проходом
     var sidebar_h = 12
     var j = 0
     while (j < count) {
-        val qj = list_get(quest_list, j)
-        sidebar_h = sidebar_h + quest_row_h(dict_get(qj, "name")) + 2
+        val qj = listGet(quest_list, j)
+        sidebar_h = sidebar_h + quest_row_h(dictGet(qj, "name")) + 2
         j = j + 1
     }
 
     create ui quest_menu {
         size = ["100%", "100%"]
-        # ~30% прозрачность фона (альфа ≈ 70% непрозрачности): #B2 + цвет
         background = "#B2000000"
+        canClose = true
 
-        # ═══ Левая колонка: было 36% / 35% — уменьшено в 1.4 раза (~25.7% / 25%) ═══
         rect("sidebar_bg") {
             pos = [0, 0]
             size = ["25.71%", "100%"]
@@ -188,9 +374,9 @@ fun open_quest_ui(p, sel) {
             var y_acc = 6
             var i = 0
             while (i < count) {
-                val q = list_get(quest_list, i)
-                val q_name = dict_get(q, "name")
-                val q_author = dict_get(q, "author")
+                val q = listGet(quest_list, i)
+                val q_name = dictGet(q, "name")
+                val q_author = dictGet(q, "author")
                 val row_h = quest_row_h(q_name)
 
                 var btn_color = "#40335577"
@@ -214,7 +400,6 @@ fun open_quest_ui(p, sel) {
             }
         }
 
-        # ═══ Правая панель (детали квеста) ═══
         if (count > 0) {
             rect("right_bg") {
                 pos = ["27%", 0]
@@ -223,16 +408,16 @@ fun open_quest_ui(p, sel) {
                 layer = 1
             }
 
-            val sel_q = list_get(quest_list, safe_sel)
-            val s_name = dict_get(sel_q, "name")
-            val s_author = dict_get(sel_q, "author")
-            val s_status = dict_get(sel_q, "status")
-            val s_goals = dict_get(sel_q, "goals")
-            val s_desc = dict_get(sel_q, "desc")
+            val sel_q = listGet(quest_list, safe_sel)
+            val s_name = dictGet(sel_q, "name")
+            val s_author = dictGet(sel_q, "author")
+            val s_status = dictGet(sel_q, "status")
+            val s_goals = quest_format_goals_display(sel_q)
+            val s_desc = dictGet(sel_q, "desc")
 
-            val gl = str_len(s_goals)
-            val dl = str_len(s_desc)
-            var goals_lines = str_newline_count(s_goals) + 1
+            val gl = strLen(s_goals)
+            val dl = strLen(s_desc)
+            var goals_lines = strNewlineCount(s_goals) + 1
             val goals_wrap = (gl + 71) / 72
             if (goals_wrap > goals_lines) {
                 goals_lines = goals_wrap
@@ -244,7 +429,7 @@ fun open_quest_ui(p, sel) {
             val y_div_desc = 68 + goals_h + 2
             val y_desc_t = y_div_desc + 4
             val y_desc_b = y_desc_t + 9
-            var desc_lines = str_newline_count(s_desc) + 1
+            var desc_lines = strNewlineCount(s_desc) + 1
             val desc_wrap = (dl + 71) / 72
             if (desc_wrap > desc_lines) {
                 desc_lines = desc_wrap
@@ -331,46 +516,46 @@ fun open_quest_ui(p, sel) {
         }
     }
 
-    ui_open(p, quest_menu)
+    uiOpen(p, quest_menu)
 }
 
-# ══════════════════════════════════════════════
-#  Keybind H — открытие / закрытие журнала
-# ══════════════════════════════════════════════
-
 var global quest_journal_open = false
+var global quest_journal_player = null
+
+on uiClick() -> quests_ui_click {
+    if (!quest_journal_open) { return null }
+    val p = _eventPlayer
+    val click = _eventWidget
+    if (p == null) { return null }
+    var idx = 0
+    val cnt = listSize(quest_list)
+    while (idx < cnt) {
+        if (click == "sel_" + idx) {
+            selected_idx = idx
+            open_quest_ui(p, selected_idx)
+        }
+        idx = idx + 1
+    }
+}
+
+on uiClose() -> quests_ui_close {
+    if (quest_journal_open) {
+        quest_journal_open = false
+        quest_journal_player = null
+    }
+}
 
 on keybind("h") -> toggle_quests {
-    val p = _event_player
+    val p = _eventPlayer
 
     if (quest_journal_open) {
-        ui_close(p)
+        uiClose(p)
         quest_journal_open = false
-        stop_task("journal_loop")
+        quest_journal_player = null
     } else {
         quest_journal_open = true
+        quest_journal_player = p
         selected_idx = 0
         open_quest_ui(p, selected_idx)
-
-        async "journal_loop" {
-            while (quest_journal_open) {
-                val click = await ui_click(p)
-
-                if (click == "__close__" || click == "") {
-                    quest_journal_open = false
-                    ui_close(p)
-                } else {
-                    var idx = 0
-                    val cnt = list_size(quest_list)
-                    while (idx < cnt) {
-                        if (click == "sel_" + idx) {
-                            selected_idx = idx
-                            open_quest_ui(p, selected_idx)
-                        }
-                        idx = idx + 1
-                    }
-                }
-            }
-        }
     }
 }

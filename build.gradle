@@ -1,7 +1,8 @@
 plugins {
     id 'eclipse'
     id 'idea'
-    id 'net.minecraftforge.gradle' version '5.1.+'
+    id 'dev.kikugie.stonecutter'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
 }
 
 
@@ -152,11 +153,14 @@ dependencies {
 // When "copyIdeResources" is enabled, this will also run before the game launches in IDE environments.
 // See https://docs.gradle.org/current/dsl/org.gradle.language.jvm.tasks.ProcessResources.html
 tasks.named('processResources', ProcessResources).configure {
-    var replaceProperties = [minecraft_version   : minecraft_version, minecraft_version_range: minecraft_version_range,
-                             forge_version       : forge_version, forge_version_range: forge_version_range,
-                             loader_version_range: loader_version_range,
-                             mod_id              : mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
-                             mod_authors         : mod_authors, mod_description: mod_description,]
+    var replaceProperties = [minecraft_version          : minecraft_version, minecraft_version_range: minecraft_version_range,
+                             forge_version              : forge_version, forge_version_range: forge_version_range,
+                             loader_version_range       : loader_version_range,
+                             pack_format                : pack_format,
+                             forge_resource_pack_format : forge_resource_pack_format,
+                             forge_data_pack_format     : forge_data_pack_format,
+                             mod_id                     : mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
+                             mod_authors                : mod_authors, mod_description: mod_description,]
 
     inputs.properties replaceProperties
 
@@ -182,5 +186,5 @@ tasks.named('jar', Jar).configure {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+    options.encoding = 'UTF-8'
 }

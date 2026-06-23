@@ -5,7 +5,7 @@ create npc readix_avatar {
     texture = "textures/entity/defolt.png"
    # animation = "animations/npc_classic.animation.json"
     pos = 8, -60, 7
-    show_name = false
+    showName = false
     speed = 0.2
 }
 
@@ -15,7 +15,7 @@ create npc knight {
     texture = "textures/entity/knight.png"
     #animation = "animations/npc_classic.animation.json"
     pos = 8, -60, 9
-    show_name = false
+    showName = false
     speed = 0.2
 }
 
@@ -31,7 +31,7 @@ async "knight_idle" {
 readix_avatar.setAdditiveWeight(1)  # процедурное дыхание и лёгкое дрожание рук поверх анимаций
 knight.setAdditiveWeight(1)
 
-val player = get_nearest_player(readix_avatar)
+val player = getNearestPlayer(readix_avatar)
 chat("§7[!] Подойди к ReadixGG и нажми ПКМ, чтобы начать разговор.")
 val interactor = await interact(readix_avatar)
 
@@ -76,9 +76,9 @@ create ui dialog_panel {
         layer = 0
     }
 }
-ui_open(interactor, dialog_panel)
-val dialog_pick = await ui_click(interactor)
-ui_close(interactor)
+uiOpen(interactor, dialog_panel)
+val dialog_pick = await uiClick(interactor)
+uiClose(interactor)
 if (dialog_pick == "ans_help") {
     readix_avatar.playOnce("happy")
     say(readix_avatar, "Тогда по рукам — жду слитки!")
@@ -135,7 +135,7 @@ val iron_quest_active = false
 on pickup(readix_avatar, "minecraft:iron_ingot") -> iron_progress {
     val have = readix_avatar.countItem("minecraft:iron_ingot")
     val left = need - have
-    if (iron_quest_active && left > 0) say(readix_avatar, "Осталось принести " + int_str(left) + ", ты принёс уже " + int_str(have) + "!")
+    if (iron_quest_active && left > 0) say(readix_avatar, "Осталось принести " + intStr(left) + ", ты принёс уже " + intStr(have) + "!")
 }
 
 val quest_done = false

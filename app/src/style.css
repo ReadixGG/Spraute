@@ -27,7 +27,11 @@
 
 @layer utilities {
   .glass-panel {
-    @apply bg-surface-bright/30 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)];
+    background: color-mix(in srgb, var(--color-surface-bright) 30%, transparent);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     border-radius: 1.5rem;
   }
 
@@ -148,4 +152,67 @@ body:not(.visual-mode-active) .blocklyDropDownDiv {
 .blocklyWidgetDiv .blocklyMenuItemDisabled:hover {
   background: transparent !important;
   color: var(--color-on-surface) !important;
+}
+
+/* GUI Editor */
+.gui-editor-input {
+  @apply bg-surface-container border border-white/10 rounded-lg px-2 py-1 text-sm text-on-surface;
+}
+.gui-editor-btn {
+  @apply px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/10 transition-colors;
+}
+.gui-editor-btn-primary {
+  @apply px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors;
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+.gui-editor-btn-primary:hover {
+  background: color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+.gui-editor-btn-icon {
+  @apply w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-on-variant;
+}
+.gui-palette-btn {
+  @apply w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left text-xs hover:bg-white/10 border border-transparent hover:border-white/10 transition-colors;
+}
+.gui-canvas-root { min-height: 280px; }
+.gui-widget {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid rgba(255,255,255,0.15);
+  cursor: move;
+  user-select: none;
+  border-radius: 4px;
+}
+.gui-widget.selected {
+  outline: 2px solid var(--color-tertiary);
+  outline-offset: 1px;
+  z-index: 9999 !important;
+}
+.gui-widget-label {
+  font-size: 10px;
+  padding: 2px 4px;
+  opacity: 0.85;
+  pointer-events: none;
+}
+.gui-prop-row {
+  @apply flex flex-col gap-0.5 mb-2;
+}
+.gui-prop-row span {
+  @apply text-on-variant text-[10px];
+}
+.gui-prop-row input, .gui-prop-row select {
+  @apply gui-editor-input w-full text-xs py-1;
+}
+.gui-btn-danger {
+  @apply w-full py-1.5 rounded text-xs bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30;
+}
+.gui-tree-list { list-style: none; padding: 0; margin: 0; }
+.gui-tree-list li {
+  @apply py-1 px-1 rounded cursor-pointer truncate;
+}
+.gui-tree-list li.active, .gui-tree-list li:hover {
+  color: var(--color-tertiary);
+  background: color-mix(in srgb, var(--color-tertiary) 20%, transparent);
 }

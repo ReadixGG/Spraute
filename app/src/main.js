@@ -1,5 +1,6 @@
 import { EditorView, basicSetup } from "codemirror";
-import { EditorState } from "@codemirror/state";
+import { lineNumbers, highlightActiveLineGutter, highlightActiveLine, drawSelection } from "@codemirror/view";
+import { EditorState, Transaction } from "@codemirror/state";
 import { javascript } from "@codemirror/lang-javascript";
 import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
 import { HighlightStyle } from "@codemirror/language";
@@ -12,10 +13,11 @@ import { StreamLanguage, LanguageSupport } from "@codemirror/language";
 import { linter, lintGutter } from "@codemirror/lint";
 import { autocompletion, completeAnyWord, snippetCompletion, completionKeymap, acceptCompletion, startCompletion } from "@codemirror/autocomplete";
 
-import * as Blockly from 'blockly/core';
-import { SprauteGenerator, textToBlocks, SprauteTheme, applyBlocklyThemeColors, updateDynamicLists, parseCustomBlocks, getDynamicToolbox, customCategories, clearCustomCategories } from './visual.js';
+import * as Blockly from 'blockly';
+import { SprauteGenerator, generateWorkspaceCode, SprauteTheme, applyBlocklyThemeColors, updateDynamicLists, parseCustomBlocks, getDynamicToolbox, customCategories, clearCustomCategories, registerPluginCategoryOrder, applyPluginCategoryColors, sortPluginBlocks, attachBlocklyContextMenu, attachDynamicBlockReshapeListener, extractNpcCreateIdsFromBlocklyXml, extractNpcIdsFromWorkspace, extractCreateNpcIdsFromSpr, buildNpcDropdownIds, refreshDynamicDropdownFields, syncNpcDropdownsFromWorkspace } from './visual.js';
 
 import { visualBlocksDocs } from './docs.js';
+import { initGuiEditor, setupGuiEditorBridge } from './gui-editor.js';
 
 const sprauteLanguage = StreamLanguage.define({
   token(stream, state) {
@@ -24,8 +26,8 @@ const sprauteLanguage = StreamLanguage.define({
     if (stream.match(/^"[^"]*"/)) return "string";
     if (stream.match(/^"[^"]*$/)) return "error";
     if (stream.match(/^-?\d+(?:\.\d+)?/)) return "number";
-    if (stream.match(/^(val|fun|on|create|npc|ui|if|else|elif|while|for|in|return|break|continue|true|false|null|await|time|say|playFreeze|playOnce|playLoop|stop|alwaysLookAt|lookAt)\b/)) return "keyword";
-    if (stream.match(/^(text|button|pos|anchor|size|color|scale|model|texture|animation|name|hp|show_name|background|slot|image|rect|progress|pitch|yaw|look_x|look_y|look_z)\b/)) return "propertyName";
+    if (stream.match(/^(val|fun|on|create|npc|ui|camera|if|else|elif|while|for|in|return|break|continue|true|false|null|await|time|say|playFreeze|playOnce|playLoop|stop|alwaysLookAt|lookAt)\b/)) return "keyword";
+    if (stream.match(/^(text|button|pos|anchor|size|color|scale|model|texture|animation|name|hp|showName|background|slot|image|rect|progress|pitch|yaw|lookX|lookY|lookZ)\b/)) return "propertyName";
     if (stream.match(/^[a-zA-Z_]\w*(?=\s*\()/)) return "function";
     if (stream.match(/^[a-zA-Z_]\w*/)) return "variableName";
     if (stream.match(/^[+\-*\/=<>!&|]+/)) return "operator";
@@ -48,8 +50,8 @@ const sprauteLanguage = StreamLanguage.define({
 });
 
 const sprauteKeywords = [
-  "val", "fun", "on", "create", "npc", "ui", "if", "else", "elif", "while", "for", "in", 
-  "return", "break", "continue", "true", "false", "null", "await", "time", "say", 
+  "val", "fun", "on", "create", "npc", "ui", "camera", "if", "else", "elif", "while", "for", "in",
+  "return", "break", "continue", "true", "false", "null", "await", "time", "say",
   "playFreeze", "playOnce", "playLoop", "stop", "alwaysLookAt", "lookAt"
 ].map(kw => ({label: kw, type: "keyword"}));
 
@@ -58,7 +60,7 @@ const sprauteProperties = [
   "name", "hp", "speed", "pos", "rotate", "showName", "collision", "model", "texture", "idleAnim", "walkAnim", "head",
   
   // Свойства сущностей
-  "x", "y", "z", "pitch", "yaw", "look_x", "look_y", "look_z", "uuid", "java", "data", "savedData",
+  "x", "y", "z", "pitch", "yaw", "lookX", "lookY", "lookZ", "uuid", "java", "data", "savedData",
   
   // Параметры кастомных блоков
   "texture_up", "texture_down", "texture_north", "texture_south", "texture_west", "texture_east",
@@ -75,6 +77,9 @@ const sprauteProperties = [
   "contentH", "scrollbar",
   "gridType", "cellSize", "thickness", "renderBones",
   
+  // Камера
+  "smooth", "smoothTime", "dimension", "dim", "lookAt", "track", "target",
+
   // Остальное
   "text", "button", "slot", "image", "rect", "progress"
 ].map(prop => ({label: prop, type: "property"}));
@@ -82,6 +87,7 @@ const sprauteProperties = [
 const sprauteFunctionsList = [
   // Базовые функции
   "chat(${1:message})",
+  "chat(${1:player}, ${2:message})",
   "npc(${1:name}, ${2:hp}, ${3:speed}, ${4:x}, ${5:y}, ${6:z}, ${7:yaw}, ${8:pitch})",
   "say(${1:who}, ${2:message})",
   "setNamesColor(${1:color})",
@@ -90,6 +96,29 @@ const sprauteFunctionsList = [
   "hasItem(${1:player}, ${2:item_id})",
   "countItem(${1:player}, ${2:item_id})",
   "getPlayer(${1:name})",
+  "placeStructure(${1:name}, ${2:x}, ${3:y}, ${4:z})",
+  "saveStructure(${1:name}, ${2:x1}, ${3:y1}, ${4:z1}, ${5:x2}, ${6:y2}, ${7:z2})",
+  "spawnBillboard(${1:texture}, ${2:x}, ${3:y}, ${4:z}, ${5:w}, ${6:h}, ${7:seeThrough})",
+  "removeEntity(${1:uuid})",
+  "setBillboardTexture(${1:uuid}, ${2:texture})",
+  "teleportEntity(${1:uuid}, ${2:x}, ${3:y}, ${4:z})",
+  "getEntityPos(${1:uuid})",
+  "createGroup(${1:name})",
+  "getGroup(${1:name})",
+  "groupAdd(${1:group}, ${2:npc})",
+  "groupRemove(${1:group}, ${2:npc})",
+  "groupClear(${1:group})",
+  "groupSize(${1:group})",
+  "getPlayers()",
+  "getFirstPlayer()",
+  "getLastPlayer()",
+  "getPlayerAt(${1:index})",
+  "playerCount()",
+  "addPlayerTag(${1:player}, ${2:tag})",
+  "removePlayerTag(${1:player}, ${2:tag})",
+  "hasPlayerTag(${1:player}, ${2:tag})",
+  "getPlayersByTag(${1:tag})",
+  "getPlayerTags(${1:player})",
   "setBlock(${1:x}, ${2:y}, ${3:z}, ${4:block_id})",
   "heldItem(${1:hand})",
   "heldItemNbt(${1:hand})",
@@ -104,7 +133,7 @@ const sprauteFunctionsList = [
   "dictCreate()",
   "playSound(${1:player}, ${2:sound_id})",
   "stopSound(${1:player})",
-  "npc_chat(${1:player}, ${2:npc}, ${3:message}, ${4:color})",
+  "npcChat(${1:player}, ${2:npc}, ${3:message}, ${4:color})",
 
   // UI
   "uiOpen(${1:player}, ${2:template})",
@@ -174,7 +203,11 @@ const sprauteFunctionsList = [
   "setBlockDisplayBlock(${1:x}, ${2:y}, ${3:z}, ${4:id}, ${5:block_id}, ${6:ox}, ${7:oy}, ${8:oz}, ${9:rx}, ${10:ry}, ${11:rz}, ${12:scale})",
   "removeBlockDisplay(${1:x}, ${2:y}, ${3:z}, ${4:id})",
   "getBlockSlot(${1:x}, ${2:y}, ${3:z}, ${4:slot})",
-  "fadeOut()"
+  "fadeOut()",
+
+  // Камера
+  "stopCamera(${1:player})",
+  "moveCamera(${1:player}, ${2:x}, ${3:y}, ${4:z}, ${5:yaw}, ${6:pitch}, ${7:smoothTime})"
 ];
 
 function smartSnippetCompletion(template, options) {
@@ -214,7 +247,9 @@ const sprauteSnippets = [
   snippetCompletion('create npc ${1:name} {\n  name = "${2:Display Name}"\n  hp = ${3:20}\n  model = "geo/defolt.geo.json"\n  texture = "textures/entity/defolt.png"\n  animation = "animations/npc_classic.animation.json"\n  pos = ${4:0, 64, 0}\n  ${5}\n}', {label: "create npc", detail: "definition", type: "keyword"}),
   snippetCompletion('create block ${1:name} {\n  texture = "textures/block/${1}.png"\n  hardness = ${2:1.5}\n  ${3}\n}', {label: "create block", detail: "definition", type: "keyword"}),
   snippetCompletion('create item ${1:name} {\n  texture = "textures/item/${1}.png"\n  ${2}\n}', {label: "create item", detail: "definition", type: "keyword"}),
-  snippetCompletion('fadeIn {\n  text = "${1:Title}"\n  subtitle = "${2:Subtitle}"\n  time = ${3:1.0}\n  visible_time = ${4:2.0}\n  fadeout = ${5:true}\n  color = ${6:0x111111}\n}', {label: "fadeIn", detail: "block", type: "keyword"}),
+  snippetCompletion('fadeIn {\n  text = "${1:Title}"\n  subtitle = "${2:Subtitle}"\n  time = ${3:1.0}\n  visibleTime = ${4:2.0}\n  fadeout = ${5:true}\n  color = ${6:0x111111}\n}', {label: "fadeIn", detail: "block", type: "keyword"}),
+  snippetCompletion('camera ${1:myCamera} {\n  pos = ${2:0}, ${3:70}, ${4:0}\n  rotate = ${5:0}, ${6:0}\n  time = ${7:0}\n  smooth = ${8:true}\n  smoothTime = ${9:0.5}\n  dimension = "${10:minecraft:overworld}"\n}', {label: "camera", detail: "block", type: "keyword"}),
+  snippetCompletion('camera ${1:myCamera} {\n  pos = ${2:0}, ${3:70}, ${4:0}\n  lookAt = ${5:npcRef}\n  track = ${6:true}\n  time = ${7:0}\n  smooth = ${8:true}\n  dimension = "${9:minecraft:overworld}"\n}', {label: "camera lookAt", detail: "block", type: "keyword"}),
   
   // on События
   snippetCompletion('on interact(${1:target}) -> ${2:handlerId} {\n  ${3}\n}', {label: "on interact", detail: "event", type: "keyword"}),
@@ -286,6 +321,108 @@ const sprauteLanguageSupport = new LanguageSupport(sprauteLanguage, [
     autocomplete: completeAnyWord
   })
 ]);
+
+function getSyntaxHighlightStyles(syntaxThemeName) {
+  if (syntaxThemeName === 'vscode-dark') {
+    return [
+      { tag: t.keyword, color: "#569CD6", fontWeight: "bold" },
+      { tag: t.string, color: "#CE9178" },
+      { tag: t.number, color: "#B5CEA8" },
+      { tag: t.comment, color: "#6A9955", fontStyle: "italic" },
+      { tag: t.function(t.variableName), color: "#DCDCAA" },
+      { tag: t.variableName, color: "#9CDCFE" },
+      { tag: t.propertyName, color: "#9CDCFE" },
+      { tag: t.operator, color: "#D4D4D4" },
+      { tag: t.punctuation, color: "#D4D4D4" },
+      { tag: t.invalid, color: "#F44747", textDecoration: "underline wavy" }
+    ];
+  }
+  if (syntaxThemeName === 'monokai') {
+    return [
+      { tag: t.keyword, color: "#F92672", fontWeight: "bold" },
+      { tag: t.string, color: "#E6DB74" },
+      { tag: t.number, color: "#AE81FF" },
+      { tag: t.comment, color: "#75715E", fontStyle: "italic" },
+      { tag: t.function(t.variableName), color: "#A6E22E" },
+      { tag: t.variableName, color: "#F8F8F2" },
+      { tag: t.propertyName, color: "#A6E22E" },
+      { tag: t.operator, color: "#F92672" },
+      { tag: t.punctuation, color: "#F8F8F2" },
+      { tag: t.invalid, color: "#F8F8F0", backgroundColor: "#F92672" }
+    ];
+  }
+  if (syntaxThemeName === 'github-dark') {
+    return [
+      { tag: t.keyword, color: "#FF7B72", fontWeight: "bold" },
+      { tag: t.string, color: "#A5D6FF" },
+      { tag: t.number, color: "#79C0FF" },
+      { tag: t.comment, color: "#8B949E", fontStyle: "italic" },
+      { tag: t.function(t.variableName), color: "#D2A8FF" },
+      { tag: t.variableName, color: "#E6EDF3" },
+      { tag: t.propertyName, color: "#79C0FF" },
+      { tag: t.operator, color: "#79C0FF" },
+      { tag: t.punctuation, color: "#E6EDF3" },
+      { tag: t.invalid, color: "#FFA198" }
+    ];
+  }
+  return [
+    { tag: t.keyword, color: "var(--color-primary)", fontWeight: "bold" },
+    { tag: t.string, color: "var(--color-tertiary)" },
+    { tag: t.number, color: "var(--color-secondary)" },
+    { tag: t.comment, color: "var(--color-on-variant)", fontStyle: "italic" },
+    { tag: t.function(t.variableName), color: "var(--color-primary)" },
+    { tag: t.variableName, color: "var(--color-on-surface)" },
+    { tag: t.propertyName, color: "var(--color-tertiary)" },
+    { tag: t.operator, color: "var(--color-outline)" },
+    { tag: t.punctuation, color: "var(--color-on-variant)" },
+    { tag: t.invalid, color: "#ff5555" }
+  ];
+}
+
+function buildCodeMirrorEditorTheme(contentPadding = '1rem 0') {
+  return EditorView.theme({
+    "&": {
+      backgroundColor: "transparent",
+      color: "var(--color-on-surface)",
+      height: "100%",
+      fontSize: "var(--editor-font-size, 14px)",
+      fontFamily: "var(--font-mono)",
+    },
+    ".cm-scroller": {
+      fontFamily: "var(--font-mono)",
+      backgroundColor: "transparent !important"
+    },
+    ".cm-content": {
+      fontFamily: "var(--font-mono)",
+      padding: contentPadding,
+      backgroundColor: "transparent !important"
+    },
+    ".cm-gutters": {
+      backgroundColor: "transparent",
+      color: "var(--color-on-variant)",
+      border: "none",
+      borderRight: "1px solid rgba(255, 255, 255, 0.05)",
+      paddingRight: "4px"
+    },
+    ".cm-gutters .cm-lineNumbers .cm-gutterElement": {
+      color: "var(--color-on-variant)"
+    },
+    ".cm-activeLineGutter": {
+      backgroundColor: "rgba(255,255,255,0.05)",
+      color: "var(--color-on-variant)"
+    },
+    ".cm-activeLine": {
+      backgroundColor: "rgba(255,255,255,0.03) !important"
+    },
+    ".cm-cursor": {
+      borderLeftColor: "var(--color-primary)",
+      borderLeftWidth: "2px"
+    },
+    "&.cm-focused .cm-cursor": {
+      borderLeftColor: "var(--color-primary)"
+    }
+  });
+}
 
 const sprauteLinter = linter((view) => {
   let diagnostics = [];
@@ -665,6 +802,13 @@ async function init() {
       }, 500);
     }
   });
+
+  initGuiEditor();
+  setupGuiEditorBridge(() => VisualEngine._cachedTextures || []);
+  window.__sprauteGuiAddedToProject = () => {
+    syncVisualCodePreview();
+    setStatus('GUI добавлен в проект — код обновлён');
+  };
 }
 
 // === Custom Modal System ===
@@ -890,6 +1034,13 @@ function setupDragAndDrop(el, item, wrapper) {
           }
           
           await window.spraute.rename(srcPath, destPath);
+          if (srcName.endsWith('.spr')) {
+            const oldSprv = sprPathToSprvPath(srcPath);
+            const newSprv = sprPathToSprvPath(destPath);
+            if (await window.spraute.exists(oldSprv)) {
+              await window.spraute.rename(oldSprv, newSprv);
+            }
+          }
           await loadDirectory('');
           setStatus(`Перемещено: ${srcName} → ${item.name}/`);
         } catch (err) {
@@ -908,7 +1059,10 @@ async function loadDirectory(relPath, containerEl = null, level = 0, forceExpand
   }
   
   try {
-    const items = await window.spraute.listDir(relPath);
+    const rawItems = await window.spraute.listDir(relPath);
+    const items = rawItems
+      .filter(i => !i.name.endsWith('.sprv'))
+      .filter(i => (relPath || '') !== '' || i.name !== 'plugins');
     if (!containerEl) treeContainer.innerHTML = '';
     
     if (items.length === 0 && !containerEl) {
@@ -932,6 +1086,7 @@ async function loadDirectory(relPath, containerEl = null, level = 0, forceExpand
       let iconColor = 'text-on-variant';
       let isFilled = 0;
       
+      let isVisualInTree = false;
       if (item.isDir) {
         icon = 'folder';
         iconColor = 'text-secondary';
@@ -946,14 +1101,28 @@ async function loadDirectory(relPath, containerEl = null, level = 0, forceExpand
           else if (item.name === 'plugins') { icon = 'extension'; iconColor = 'text-emerald-400'; }
         }
       } else {
-        if (item.name.endsWith('.spr')) { icon = 'description'; iconColor = 'text-primary'; isFilled = 1; }
-        else if (item.name.endsWith('.json')) { icon = 'data_object'; iconColor = 'text-yellow-200'; }
+        if (item.name.endsWith('.spr')) {
+          isVisualInTree = await window.spraute.exists(sprPathToSprvPath(item.rel));
+          if (isVisualInTree) {
+            icon = 'widgets';
+            iconColor = 'text-secondary';
+            isFilled = 1;
+          } else {
+            icon = 'description';
+            iconColor = 'text-primary';
+            isFilled = 1;
+          }
+        } else if (item.name.endsWith('.json')) { icon = 'data_object'; iconColor = 'text-yellow-200'; }
         else if (item.name.endsWith('.png')) { icon = 'image'; iconColor = 'text-purple-300'; }
       }
       
+      const nameClass = isVisualInTree
+        ? 'truncate flex-1 text-secondary font-medium'
+        : 'truncate flex-1';
+      
       el.innerHTML = `
         <span class="material-symbols-outlined text-[16px] ${iconColor} transition-transform ${item.isDir ? 'group-hover:scale-110' : ''}" style="font-variation-settings: 'FILL' ${isFilled}">${icon}</span>
-        <span class="truncate flex-1">${item.name}</span>
+        <span class="${nameClass}">${item.name}</span>
       `;
       
       const childrenContainer = document.createElement('div');
@@ -1041,32 +1210,280 @@ async function openFile(relPath, fileName) {
   let tab = openTabs.find(t => t.path === relPath);
   if (!tab) {
     const isImage = fileName.toLowerCase().endsWith('.png') || fileName.toLowerCase().endsWith('.jpg') || fileName.toLowerCase().endsWith('.jpeg');
+    const isVisualScript = !isImage && relPath.endsWith('.spr') && await isVisualScriptPath(relPath);
     tab = {
       path: relPath,
       name: fileName,
       isImage: isImage,
+      isVisualScript,
       isDirty: false,
-      state: null
+      state: null,
+      visualWorkspaceXml: null
     };
     openTabs.push(tab);
+  } else if (relPath.endsWith('.spr') && tab.isVisualScript === undefined) {
+    tab.isVisualScript = await isVisualScriptPath(relPath);
   }
   await switchToTab(relPath);
 }
 
 // Глобальный экземпляр редактора
 let currentEditor = null;
+let currentVisualCodeEditor = null;
 let currentOpenFile = null;
-let isVisualMode = false;
 let blocklyWorkspace = null;
+let _visualCodeSyncTimer = null;
 let _suppressDirty = false;
+
+const EMPTY_BLOCKLY_XML = '<xml xmlns="https://developers.google.com/blockly/xml"></xml>';
+
+function sprPathToSprvPath(sprPath) {
+  return sprPath.replace(/\.spr$/i, '.sprv');
+}
+
+async function isVisualScriptPath(sprPath) {
+  if (!window.spraute || !sprPath.endsWith('.spr')) return false;
+  return await window.spraute.exists(sprPathToSprvPath(sprPath));
+}
+
+function captureVisualWorkspaceXml() {
+  if (!blocklyWorkspace) return EMPTY_BLOCKLY_XML;
+  return Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(blocklyWorkspace));
+}
+
+function pruneBlocklyXmlFilledSlots(xmlDom) {
+  const blocks = xmlDom.getElementsByTagName('block');
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    const mutation = block.getElementsByTagName('mutation')[0];
+    if (!mutation) continue;
+    const vNames = [];
+    for (let a = 0; a < mutation.attributes.length; a++) {
+      const attr = mutation.attributes[a];
+      if (attr.name.startsWith('v_')) vNames.push(attr.name.slice(2));
+    }
+    if (!vNames.length) continue;
+    vNames.sort((a, b) => {
+      const na = parseInt(String(a).replace(/\D/g, ''), 10);
+      const nb = parseInt(String(b).replace(/\D/g, ''), 10);
+      if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+      return String(a).localeCompare(String(b));
+    });
+    let lastOk = -1;
+    for (let k = 0; k < vNames.length; k++) {
+      const n = vNames[k];
+      const valEl = [...block.getElementsByTagName('value')].find((el) => el.getAttribute('name') === n);
+      const hasChild = valEl && (
+        valEl.getElementsByTagName('block').length > 0
+        || valEl.getElementsByTagName('shadow').length > 0
+      );
+      const flagged = mutation.getAttribute(`v_${n}`) === 'true';
+      if (hasChild || flagged) {
+        lastOk = k;
+        mutation.setAttribute(`v_${n}`, 'true');
+      } else {
+        break;
+      }
+    }
+    for (let k = lastOk + 1; k < vNames.length; k++) {
+      mutation.removeAttribute(`v_${vNames[k]}`);
+    }
+  }
+}
+
+function augmentBlocklyXmlFilledSlots(xmlDom) {
+  const blocks = xmlDom.getElementsByTagName('block');
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    const values = block.getElementsByTagName('value');
+    if (!values.length) continue;
+    let mutation = block.getElementsByTagName('mutation')[0];
+    for (let j = 0; j < values.length; j++) {
+      const valEl = values[j];
+      const name = valEl.getAttribute('name');
+      if (!name) continue;
+      const hasChild = valEl.getElementsByTagName('block').length > 0
+        || valEl.getElementsByTagName('shadow').length > 0;
+      if (!hasChild) continue;
+      if (!mutation) {
+        mutation = xmlDom.ownerDocument
+          ? xmlDom.ownerDocument.createElement('mutation')
+          : Blockly.utils.xml.createElement('mutation');
+        block.insertBefore(mutation, block.firstChild);
+      }
+      if (mutation.getAttribute(`v_${name}`) !== 'true') {
+        mutation.setAttribute(`v_${name}`, 'true');
+      }
+    }
+  }
+  pruneBlocklyXmlFilledSlots(xmlDom);
+}
+
+function restoreVisualWorkspaceFromXml(xmlText) {
+  if (!blocklyWorkspace || !xmlText) return;
+  const prev = _suppressDirty;
+  _suppressDirty = true;
+  try {
+    blocklyWorkspace._sprauteRestoringBlocks = true;
+    blocklyWorkspace.clear();
+    const xml = Blockly.utils.xml.textToDom(xmlText);
+    const preloadNpcIds = extractNpcCreateIdsFromBlocklyXml(xml);
+    const preloadList = buildNpcDropdownIds(null, VisualEngine._cachedImportedNpcs);
+    for (const id of preloadNpcIds) {
+      if (!preloadList.includes(id)) preloadList.push(id);
+    }
+    if (preloadList.length) {
+      updateDynamicLists(
+        preloadList,
+        VisualEngine._cachedAnims,
+        VisualEngine._cachedModels,
+        VisualEngine._cachedTextures,
+        VisualEngine._cachedAnimFiles
+      );
+    }
+    augmentBlocklyXmlFilledSlots(xml);
+    Blockly.Xml.domToWorkspace(xml, blocklyWorkspace);
+    for (const block of blocklyWorkspace.getAllBlocks(false)) {
+      if (typeof block.syncValFromFields_ === 'function') block.syncValFromFields_();
+    }
+    for (const block of blocklyWorkspace.getAllBlocks(false)) {
+      if (typeof block.pruneFilledWatchState_ === 'function') block.pruneFilledWatchState_();
+    }
+    for (const block of blocklyWorkspace.getAllBlocks(false)) {
+      if (typeof block.updateShape_ !== 'function') continue;
+      const filled = block.filledWatchFields_?.length || 0;
+      const conds = block.conditionVars_?.length || 0;
+      // if/while без ветвления по полям: слоты уже созданы в init, пересборка сотрёт cond/DO
+      if (block._sprauteShape_ === 'wrapper' && filled === 0 && conds === 0) continue;
+      // domToMutation уже вызвал updateShape_; повторная пересборка отваливает value «указать»
+      if (filled === 0 && conds > 0 && block._sprauteShape_ !== 'wrapper') continue;
+      const wasCollapsed = typeof block.isCollapsed === 'function' && block.isCollapsed();
+      if (wasCollapsed) {
+        block._sprauteReshapeWhenExpanded_ = false;
+        block.setCollapsed(false);
+      }
+      block.updateShape_();
+      if (wasCollapsed) block.setCollapsed(true);
+    }
+    refreshDynamicDropdownFields(blocklyWorkspace);
+    VisualEngine._cachedNpcs = syncNpcDropdownsFromWorkspace(blocklyWorkspace, {
+      importedNpcIds: VisualEngine._cachedImportedNpcs,
+      anims: VisualEngine._cachedAnims,
+      models: VisualEngine._cachedModels,
+      textures: VisualEngine._cachedTextures,
+      animFiles: VisualEngine._cachedAnimFiles
+    });
+  } finally {
+    if (blocklyWorkspace) {
+      for (const block of blocklyWorkspace.getAllBlocks(false)) {
+        if (block._sprauteForceFilled_) block._sprauteForceFilled_ = null;
+      }
+      blocklyWorkspace._sprauteRestoringBlocks = false;
+    }
+    _suppressDirty = prev;
+  }
+}
+
+async function readSprvFile(sprPath) {
+  const raw = await window.spraute.readFile(sprPathToSprvPath(sprPath), 'utf8');
+  const data = JSON.parse(raw);
+  return data.blocklyXml || EMPTY_BLOCKLY_XML;
+}
+
+async function writeSprvFile(sprPath, xmlText) {
+  const payload = {
+    version: 1,
+    spr: sprPath,
+    blocklyXml: xmlText || EMPTY_BLOCKLY_XML
+  };
+  await window.spraute.writeFile(sprPathToSprvPath(sprPath), JSON.stringify(payload, null, 2));
+}
+
+async function createVisualScriptPair(sprPath, initialCode = '# Визуальный скрипт\n') {
+  await window.spraute.writeFile(sprPath, initialCode);
+  await writeSprvFile(sprPath, EMPTY_BLOCKLY_XML);
+}
+
+function setVisualEditorVisible(visible) {
+  const layout = document.getElementById('visual-editor-layout');
+  const editorMount = document.getElementById('editor-mount');
+  if (visible) {
+    layout?.classList.remove('hidden');
+    if (layout) layout.style.display = 'flex';
+    editorMount?.classList.add('hidden');
+    if (editorMount) editorMount.style.display = 'none';
+    document.body.classList.add('visual-mode-active');
+    document.querySelectorAll('.blocklyToolboxDiv').forEach(el => {
+      if (el) { el.style.display = ''; el.style.width = ''; el.style.height = ''; el.style.overflow = ''; }
+    });
+  } else {
+    layout?.classList.add('hidden');
+    if (layout) layout.style.display = 'none';
+    editorMount?.classList.remove('hidden');
+    if (editorMount) editorMount.style.display = 'block';
+    document.body.classList.remove('visual-mode-active');
+    Blockly.hideChaff();
+    document.querySelectorAll('.blocklyWidgetDiv, .blocklyTooltipDiv, .blocklyDropDownDiv, .blocklyToolboxDiv').forEach(el => {
+      if (el) { el.style.display = 'none'; el.style.left = '0'; el.style.top = '0'; el.style.width = '0'; el.style.height = '0'; el.style.overflow = 'hidden'; }
+    });
+  }
+}
+
+async function syncVisualCodePreview() {
+  if (!blocklyWorkspace || !currentVisualCodeEditor) return;
+  let code = generateWorkspaceCode(blocklyWorkspace);
+  code = await injectPluginGlobals(code);
+  const doc = currentVisualCodeEditor.state.doc;
+  if (doc.toString() === code) return;
+  currentVisualCodeEditor.dispatch({
+    changes: { from: 0, to: doc.length, insert: code },
+    annotations: Transaction.addToHistory.of(false)
+  });
+}
+
+function destroyVisualCodeEditor() {
+  if (currentVisualCodeEditor) {
+    currentVisualCodeEditor.destroy();
+    currentVisualCodeEditor = null;
+  }
+}
+
+async function mountVisualCodeEditor(content) {
+  destroyVisualCodeEditor();
+  const mount = document.getElementById('visual-code-mount');
+  if (!mount) return;
+  mount.innerHTML = '';
+  const wordWrap = await window.spraute?.storeGet('editorWordWrap');
+  const syntaxThemeName = await window.spraute?.storeGet('editorSyntaxTheme') || 'vscode-dark';
+  const themeConfig = buildCodeMirrorEditorTheme('0.75rem 0');
+  const customHighlightStyle = HighlightStyle.define(getSyntaxHighlightStyles(syntaxThemeName));
+  const extensions = [
+    lineNumbers(),
+    highlightActiveLineGutter(),
+    highlightActiveLine(),
+    drawSelection(),
+    themeConfig,
+    EditorState.readOnly.of(true),
+    sprauteLanguageSupport,
+    syntaxHighlighting(customHighlightStyle)
+  ];
+  if (wordWrap !== false) extensions.push(EditorView.lineWrapping);
+  currentVisualCodeEditor = new EditorView({
+    state: EditorState.create({ doc: content || '', extensions }),
+    parent: mount
+  });
+}
 
 // ====== Система быстрого переключения визуального режима ======
 const VisualEngine = {
   _ready: false,
   _blocksCached: false,
   _dynamicDataCached: false,
-  _cachedNpcs: ['_event_npc'],
+  _cachedNpcs: [],
+  _cachedImportedNpcs: [],
   _cachedAnims: [],
+  _cachedModels: [],
+  _cachedTextures: [],
   _scanPromise: null,
   _initPromise: null,
   _lastScanText: '',
@@ -1080,16 +1497,16 @@ const VisualEngine = {
       const blocklyMount = document.getElementById('blockly-mount');
       if (!blocklyMount) { resolve(null); return; }
 
-      // Временно показываем blockly-mount для inject (Blockly требует видимый контейнер)
-      const wasHidden = blocklyMount.classList.contains('hidden');
+      const visualLayout = document.getElementById('visual-editor-layout');
+      const wasHidden = visualLayout && visualLayout.classList.contains('hidden');
       if (wasHidden) {
-        blocklyMount.style.position = 'absolute';
-        blocklyMount.style.left = '-9999px';
-        blocklyMount.style.top = '-9999px';
-        blocklyMount.style.width = '800px';
-        blocklyMount.style.height = '600px';
-        blocklyMount.classList.remove('hidden');
-        blocklyMount.style.display = 'block';
+        visualLayout.style.position = 'absolute';
+        visualLayout.style.left = '-9999px';
+        visualLayout.style.top = '-9999px';
+        visualLayout.style.width = '800px';
+        visualLayout.style.height = '600px';
+        visualLayout.classList.remove('hidden');
+        visualLayout.style.display = 'flex';
       }
 
       blocklyWorkspace = Blockly.inject('blockly-mount', {
@@ -1097,20 +1514,42 @@ const VisualEngine = {
         theme: SprauteTheme,
         grid: { spacing: 20, length: 0, snap: true },
         move: { scrollbars: true, drag: true, wheel: true },
-        sounds: false
+        sounds: false,
+        collapse: true,
+        comments: true,
+        disable: false,
+        trashcan: true,
+        horizontalLayout: false,
+        toolboxPosition: 'start',
+        css: true,
+        zoom: { controls: true, wheel: false, startScale: 1.0, maxScale: 2, minScale: 0.3, scaleSpeed: 1.2 }
       });
 
       blocklyWorkspace.addChangeListener((e) => {
         if (_suppressDirty) return;
         if (e.isUiEvent) return;
+        if (e.type === Blockly.Events.BLOCK_MOVE &&
+            e.newParentId === e.oldParentId &&
+            e.newInputName === e.oldInputName) return;
         const tab = openTabs.find(t => t.path === activeTabPath);
-        if (tab && isVisualMode) {
+        if (!tab || !tab.isVisualScript) return;
+        clearTimeout(_visualCodeSyncTimer);
+        _visualCodeSyncTimer = setTimeout(() => {
+          syncVisualCodePreview();
+          VisualEngine.syncNpcsFromWorkspace();
           if (!tab.isDirty) {
             tab.isDirty = true;
             renderTabs();
           }
-        }
+        }, 150);
       });
+
+      attachDynamicBlockReshapeListener(blocklyWorkspace);
+
+      // Кастомное контекстное меню (position: fixed, не обрезается overflow: hidden)
+      attachBlocklyContextMenu(blocklyWorkspace);
+
+      // Блоки по умолчанию раскрыты (многострочные). Сворачивание — вручную через ПКМ.
 
       // Flyout scrollbar sync
       function syncFlyoutScrollbar() {
@@ -1127,14 +1566,14 @@ const VisualEngine = {
         }
       });
 
-      if (wasHidden) {
-        blocklyMount.classList.add('hidden');
-        blocklyMount.style.display = 'none';
-        blocklyMount.style.position = '';
-        blocklyMount.style.left = '';
-        blocklyMount.style.top = '';
-        blocklyMount.style.width = '';
-        blocklyMount.style.height = '';
+      if (wasHidden && visualLayout) {
+        visualLayout.classList.add('hidden');
+        visualLayout.style.display = 'none';
+        visualLayout.style.position = '';
+        visualLayout.style.left = '';
+        visualLayout.style.top = '';
+        visualLayout.style.width = '';
+        visualLayout.style.height = '';
       }
 
       this._ready = true;
@@ -1153,15 +1592,52 @@ const VisualEngine = {
     try { await this._scanPromise; } finally { this._scanPromise = null; }
   },
 
+  async _collectImportedNpcIds(currentText) {
+    const ids = new Set();
+    if (!window.spraute || !currentText) return [];
+    const importPatterns = [
+      /import\s*\(\s*["']([^"']+)["']\s*\)/g,
+      /import\s+["']([^"']+)["']/g
+    ];
+    const queue = [];
+    for (const re of importPatterns) {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(currentText)) !== null) queue.push(m[1]);
+    }
+    const visited = new Set();
+    while (queue.length > 0) {
+      const f = queue.shift();
+      if (visited.has(f)) continue;
+      visited.add(f);
+      try {
+        const p = f.endsWith('.spr') ? f : `scripts/${f}.spr`;
+        const content = await window.spraute.readFile(p, 'utf8');
+        for (const id of extractCreateNpcIdsFromSpr(content)) ids.add(id);
+        for (const re of importPatterns) {
+          re.lastIndex = 0;
+          let m2;
+          while ((m2 = re.exec(content)) !== null) queue.push(m2[1]);
+        }
+      } catch (e) {}
+    }
+    return [...ids];
+  },
+
   async _doScan(currentText) {
-    let npcs = ['_event_npc'];
     let anims = [];
+    let animFiles = [];
+    let models = [];
+    let textures = [];
 
     try {
       if (window.spraute) {
-        const animFiles = await window.spraute.listDir('animations');
-        for (const f of animFiles) {
+        // Анимации — имена из .animation.json
+        const animFilesList = await window.spraute.listDir('animations');
+        for (const f of animFilesList) {
           if (!f.isDir && f.name.endsWith('.json')) {
+            const animPath = 'animations/' + f.name;
+            if (!animFiles.includes(animPath)) animFiles.push(animPath);
             const content = await window.spraute.readFile(f.rel, 'utf8');
             try {
               const json = JSON.parse(content);
@@ -1173,46 +1649,61 @@ const VisualEngine = {
             } catch(e) {}
           }
         }
+
+        // Модели — .geo.json из geo/
+        try {
+          const geoFiles = await window.spraute.listDir('geo');
+          for (const f of geoFiles) {
+            if (!f.isDir && f.name.endsWith('.geo.json')) {
+              const path = 'geo/' + f.name;
+              if (!models.includes(path)) models.push(path);
+            }
+          }
+        } catch(e) {}
+
+        // Текстуры — .png/.jpg из textures/ (рекурсивно)
+        async function collectTextures(dir) {
+          try {
+            const files = await window.spraute.listDir(dir);
+            for (const f of files) {
+              if (f.isDir) {
+                await collectTextures(dir + '/' + f.name);
+              } else if (/\.(png|jpg|jpeg)$/i.test(f.name)) {
+                const path = dir + '/' + f.name;
+                if (!textures.includes(path)) textures.push(path);
+              }
+            }
+          } catch(e) {}
+        }
+        await collectTextures('textures');
       }
     } catch(e) {}
 
-    let fullText = currentText + "\n" + importedScriptsText;
-
-    if (window.spraute) {
-      const importRegex = /import\s+["']([^"']+)["']/g;
-      let match;
-      let queue = [];
-      while ((match = importRegex.exec(currentText)) !== null) {
-        queue.push(match[1]);
-      }
-      let visited = new Set();
-      while (queue.length > 0) {
-        let f = queue.shift();
-        if (visited.has(f)) continue;
-        visited.add(f);
-        try {
-          let p = f.endsWith('.spr') ? f : `scripts/${f}.spr`;
-          let content = await window.spraute.readFile(p, 'utf8');
-          fullText += "\n" + content;
-          let m2;
-          while ((m2 = importRegex.exec(content)) !== null) {
-            queue.push(m2[1]);
-          }
-        } catch(e) {}
-      }
+    let importedNpcIds = await this._collectImportedNpcIds(currentText);
+    const localNpcIds = new Set(extractCreateNpcIdsFromSpr(currentText));
+    if (blocklyWorkspace) {
+      for (const id of extractNpcIdsFromWorkspace(blocklyWorkspace)) localNpcIds.add(id);
+      try {
+        for (const id of extractCreateNpcIdsFromSpr(generateWorkspaceCode(blocklyWorkspace))) localNpcIds.add(id);
+      } catch (e) {}
     }
+    const npcs = [...new Set([...importedNpcIds, ...localNpcIds])];
 
-    const matches = fullText.matchAll(/create\s+npc\s+(\w+)/g);
-    for (const match of matches) {
-      if (!npcs.includes(match[1])) npcs.push(match[1]);
-    }
     if (anims.length === 0) anims.push("(нет анимаций)");
+    if (animFiles.length === 0) animFiles.push("animations/npc_classic.animation.json");
+    if (models.length === 0) models.push("geo/defolt.geo.json");
+    if (textures.length === 0) textures.push("textures/entity/defolt.png");
 
+    this._cachedImportedNpcs = importedNpcIds;
     this._cachedNpcs = npcs;
     this._cachedAnims = anims;
+    this._cachedAnimFiles = animFiles;
+    this._cachedModels = models;
+    this._cachedTextures = textures;
     this._dynamicDataCached = true;
-    updateDynamicLists(npcs, anims);
+    updateDynamicLists(npcs, anims, models, textures, animFiles);
     this._lastScanText = currentText;
+    if (blocklyWorkspace) refreshDynamicDropdownFields(blocklyWorkspace);
   },
 
   // Предзагрузка блоков плагинов — вызывается при старте и при включении/выключении плагина
@@ -1236,14 +1727,41 @@ const VisualEngine = {
         const bPath = `plugins/${p.name}/blocks`;
         const bExists = await window.spraute.exists(bPath);
         if (!bExists) continue;
-        
+
+        const ns = p.name.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+        let catData = null;
+        try {
+          const catPath = `plugins/${p.name}/categories.json`;
+          if (await window.spraute.exists(catPath)) {
+            catData = JSON.parse(await window.spraute.readFile(catPath, 'utf8'));
+            registerPluginCategoryOrder(Object.keys(catData));
+            for (const [catName, catColor] of Object.entries(catData)) {
+              if (!customCategories[catName]) {
+                customCategories[catName] = { color: catColor, blocks: [] };
+              } else {
+                customCategories[catName].color = catColor;
+              }
+            }
+          }
+        } catch (e) {}
+
         const files = await window.spraute.listDir(bPath);
         for (const f of files) {
           if (!f.isDir && f.name.endsWith('.spr')) {
             const bText = await window.spraute.readFile(f.rel, 'utf8');
-            parseCustomBlocks(bText, p.name.toLowerCase().replace(/[^a-z0-9_]/g, '_'));
+            parseCustomBlocks(bText, ns);
           }
         }
+
+        if (catData) applyPluginCategoryColors(catData);
+
+        try {
+          const orderPath = `plugins/${p.name}/blocks_order.json`;
+          if (await window.spraute.exists(orderPath)) {
+            const orderData = JSON.parse(await window.spraute.readFile(orderPath, 'utf8'));
+            sortPluginBlocks(ns, orderData);
+          }
+        } catch (e) {}
       }
       this._blocksCached = true;
 
@@ -1276,7 +1794,10 @@ const VisualEngine = {
 
   applyCache() {
     if (this._dynamicDataCached) {
-      updateDynamicLists(this._cachedNpcs, this._cachedAnims);
+      updateDynamicLists(this._cachedNpcs, this._cachedAnims, this._cachedModels, this._cachedTextures, this._cachedAnimFiles);
+    }
+    if (blocklyWorkspace) {
+      this.syncNpcsFromWorkspace();
     }
     if (blocklyWorkspace) {
       const toolbox = getDynamicToolbox();
@@ -1288,68 +1809,9 @@ const VisualEngine = {
     }
   },
 
-  // === Per-file block cache ===
-  _fileBlocksCache: new Map(), // path → { xml: string, textHash: string }
-
-  _hashText(text) {
-    let h = 0;
-    for (let i = 0; i < text.length; i++) {
-      h = ((h << 5) - h + text.charCodeAt(i)) | 0;
-    }
-    return h + '_' + text.length;
-  },
-
-  saveFileBlocks(filePath, sourceText) {
-    if (!blocklyWorkspace || !filePath) return;
-    try {
-      const xml = Blockly.Xml.workspaceToDom(blocklyWorkspace);
-      const hash = sourceText ? this._hashText(sourceText) : null;
-      this._fileBlocksCache.set(filePath, {
-        xml: Blockly.Xml.domToText(xml),
-        textHash: hash
-      });
-    } catch(e) {}
-  },
-
-  restoreFileBlocks(filePath) {
-    if (!blocklyWorkspace || !filePath) return false;
-    const cached = this._fileBlocksCache.get(filePath);
-    if (!cached) return false;
-    const prev = _suppressDirty;
-    _suppressDirty = true;
-    try {
-      blocklyWorkspace.clear();
-      const xml = Blockly.utils.xml.textToDom(cached.xml);
-      Blockly.Xml.domToWorkspace(xml, blocklyWorkspace);
-      return true;
-    } catch(e) {
-      return false;
-    } finally {
-      _suppressDirty = prev;
-    }
-  },
-
-  isCacheValidForText(filePath, text) {
-    const cached = this._fileBlocksCache.get(filePath);
-    if (!cached || !cached.textHash) return false;
-    return cached.textHash === this._hashText(text);
-  },
-
-  clearFileCache(filePath) {
-    if (filePath) this._fileBlocksCache.delete(filePath);
-  },
-
-  // === Live sync — debounced сканирование при редактировании ===
   _liveSyncTimer: null,
 
-  scheduleLiveSync(text, filePath) {
-    // Text changed — cached blocks for this file are stale
-    if (filePath) {
-      const cached = this._fileBlocksCache.get(filePath);
-      if (cached && cached.textHash !== this._hashText(text)) {
-        this._fileBlocksCache.delete(filePath);
-      }
-    }
+  scheduleLiveSync(text) {
     if (this._liveSyncTimer) clearTimeout(this._liveSyncTimer);
     this._liveSyncTimer = setTimeout(() => {
       this._liveSyncTimer = null;
@@ -1357,6 +1819,24 @@ const VisualEngine = {
         this.scanInBackground(text);
       }
     }, 2000);
+  },
+
+  syncNpcsFromWorkspace() {
+    if (!blocklyWorkspace) return;
+    const run = async () => {
+      try {
+        const code = generateWorkspaceCode(blocklyWorkspace);
+        this._cachedImportedNpcs = await this._collectImportedNpcIds(code);
+      } catch (e) {}
+      this._cachedNpcs = syncNpcDropdownsFromWorkspace(blocklyWorkspace, {
+        importedNpcIds: this._cachedImportedNpcs,
+        anims: this._cachedAnims,
+        models: this._cachedModels,
+        textures: this._cachedTextures,
+        animFiles: this._cachedAnimFiles
+      });
+    };
+    run();
   }
 };
 
@@ -1373,11 +1853,13 @@ function renderTabs() {
     document.getElementById('editor-mount').classList.add('hidden');
     document.getElementById('editor-mount').style.display = 'none';
     
-    const blocklyMount = document.getElementById('blockly-mount');
-    if (blocklyMount) {
-      blocklyMount.classList.add('hidden');
-      blocklyMount.style.display = 'none';
+    const visualLayout = document.getElementById('visual-editor-layout');
+    if (visualLayout) {
+      visualLayout.classList.add('hidden');
+      visualLayout.style.display = 'none';
     }
+    
+    destroyVisualCodeEditor();
     
     document.querySelectorAll('.blocklyWidgetDiv, .blocklyTooltipDiv, .blocklyDropDownDiv, .blocklyToolboxDiv').forEach(el => {
       if (el) {
@@ -1396,28 +1878,12 @@ function renderTabs() {
     }
     currentOpenFile = null;
     activeTabPath = null;
-    
-    isVisualMode = false; // Сбрасываем визуальный режим при закрытии всех вкладок
-    const btnToggleVisual = document.getElementById('btn-toggle-visual');
-    if (btnToggleVisual) {
-      btnToggleVisual.classList.add('hidden');
-      btnToggleVisual.innerHTML = '<span class="material-symbols-outlined text-[16px]">extension</span> Визуальный код';
-      btnToggleVisual.classList.remove('bg-primary/20', 'text-primary');
-    }
+    document.body.classList.remove('visual-mode-active');
     return;
   }
   
   container.classList.remove('hidden');
   document.getElementById('empty-state').classList.add('hidden');
-  
-  if (activeTabPath && activeTabPath.endsWith('.spr')) {
-    const btnToggleVisual = document.getElementById('btn-toggle-visual');
-    if (btnToggleVisual) btnToggleVisual.classList.remove('hidden');
-  } else {
-    const btnToggleVisual = document.getElementById('btn-toggle-visual');
-    if (btnToggleVisual) btnToggleVisual.classList.add('hidden');
-    if (isVisualMode) toggleVisualMode();
-  }
   
   container.innerHTML = '';
   openTabs.forEach(tab => {
@@ -1425,11 +1891,16 @@ function renderTabs() {
     const isActive = tab.path === activeTabPath;
     
     tabEl.className = `h-full flex items-center px-4 gap-2 cursor-pointer border-r border-white/5 transition-colors max-w-[200px] shrink-0
-      ${isActive ? 'bg-background text-primary border-t-2 border-t-primary' : 'bg-surface-container text-on-variant hover:bg-surface-bright border-t-2 border-t-transparent'}`;
+      ${isActive ? 'bg-background text-primary border-t-2 border-t-primary' : 'bg-surface-container text-on-variant hover:bg-surface-bright border-t-2 border-t-transparent'}
+      ${tab.isVisualScript && !isActive ? 'text-secondary' : ''}`;
     
     // Иконка
     let icon = 'description';
     let isFilled = isActive ? 1 : 0;
+    if (tab.isVisualScript) {
+      icon = 'widgets';
+      isFilled = 1;
+    }
     if (tab.name.endsWith('.png') || tab.name.endsWith('.jpg') || tab.name.endsWith('.jpeg')) icon = 'image';
     else if (tab.name.endsWith('.json')) icon = 'data_object';
     
@@ -1449,17 +1920,7 @@ function renderTabs() {
     tabEl.addEventListener('click', (e) => {
       if (e.target.closest('.tab-close-btn')) return;
       if (tab.path !== activeTabPath) {
-        // Если у нас включен визуальный режим для всех файлов, и мы переключаемся на скрипт - сохраняем его визуальным
-        switchToTab(tab.path).then(async () => {
-          if (tab.path.endsWith('.spr')) {
-            const visualPref = await window.spraute.storeGet('visualModeEnabled');
-            if (visualPref && !isVisualMode) {
-              toggleVisualMode();
-            } else if (!visualPref && isVisualMode) {
-               toggleVisualMode();
-            }
-          }
-        });
+        switchToTab(tab.path);
       }
     });
     
@@ -1479,22 +1940,12 @@ async function closeTab(path) {
   if (tabIndex === -1) return;
   const tab = openTabs[tabIndex];
 
-  // Если закрываем активный таб в визуальном режиме — синхронизируем блоки → код
-  if (path === activeTabPath && isVisualMode && blocklyWorkspace && currentEditor) {
-    const code = SprauteGenerator.workspaceToCode(blocklyWorkspace);
-    // Защита: если генератор вернул пустоту, а в редакторе есть текст — не затираем
-    if (code && code.trim().length > 0) {
-      VisualEngine.saveFileBlocks(path, code);
-      currentEditor.dispatch({
-        changes: { from: 0, to: currentEditor.state.doc.length, insert: code }
-      });
+  if (path === activeTabPath) {
+    if (tab.isVisualScript && blocklyWorkspace) {
+      tab.visualWorkspaceXml = captureVisualWorkspaceXml();
+    } else if (currentEditor) {
+      tab.state = currentEditor.state;
     }
-    tab.state = currentEditor.state;
-    if (!tab.isDirty) {
-      tab.isDirty = true;
-    }
-  } else if (path === activeTabPath && currentEditor) {
-    tab.state = currentEditor.state;
   }
 
   if (tab.isDirty) {
@@ -1505,7 +1956,6 @@ async function closeTab(path) {
   }
 
   openTabs.splice(tabIndex, 1);
-  VisualEngine.clearFileCache(path);
 
   if (activeTabPath === path) {
     if (openTabs.length > 0) {
@@ -1525,30 +1975,33 @@ async function saveTab(path) {
   if (!tab || tab.isImage || !tab.isDirty) return;
   
   try {
-    let contentToSave;
-    if (path === activeTabPath && isVisualMode && blocklyWorkspace) {
-      contentToSave = SprauteGenerator.workspaceToCode(blocklyWorkspace);
-      contentToSave = await injectPluginGlobals(contentToSave);
-      
-      if (currentEditor) {
-        currentEditor.dispatch({
-          changes: {
-            from: 0,
-            to: currentEditor.state.doc.length,
-            insert: contentToSave
-          }
-        });
+    if (tab.isVisualScript) {
+      let code;
+      let xml;
+      if (path === activeTabPath && blocklyWorkspace) {
+        code = generateWorkspaceCode(blocklyWorkspace);
+        xml = captureVisualWorkspaceXml();
+      } else if (tab.visualWorkspaceXml) {
+        code = await window.spraute.readFile(path, 'utf8');
+        xml = tab.visualWorkspaceXml;
+      } else {
+        return;
       }
-    } else if (path === activeTabPath && currentEditor) {
-      contentToSave = currentEditor.state.doc.toString();
-      // contentToSave = await injectPluginGlobals(contentToSave); // Можно добавлять и в коде, но лучше только при визуальном
-    } else if (tab.state) {
-      contentToSave = tab.state.doc.toString();
+      code = await injectPluginGlobals(code);
+      await window.spraute.writeFile(path, code);
+      await writeSprvFile(path, xml);
+      tab.visualWorkspaceXml = xml;
     } else {
-      return; // Нет состояния для сохранения
+      let contentToSave;
+      if (path === activeTabPath && currentEditor) {
+        contentToSave = currentEditor.state.doc.toString();
+      } else if (tab.state) {
+        contentToSave = tab.state.doc.toString();
+      } else {
+        return;
+      }
+      await window.spraute.writeFile(path, contentToSave);
     }
-    
-    await window.spraute.writeFile(path, contentToSave);
     tab.isDirty = false;
     renderTabs();
     setStatus(`Сохранено: ${tab.name}`);
@@ -1607,17 +2060,14 @@ async function switchToTab(path) {
   _switchTabLock = new Promise(r => { _resolve = r; });
 
   try {
-  if (currentEditor && activeTabPath) {
-    const activeTab = openTabs.find(t => t.path === activeTabPath);
-    if (activeTab && !activeTab.isImage) {
-      if (isVisualMode && blocklyWorkspace) {
-        const code = SprauteGenerator.workspaceToCode(blocklyWorkspace);
-        VisualEngine.saveFileBlocks(activeTabPath, code);
-        currentEditor.dispatch({
-          changes: { from: 0, to: currentEditor.state.doc.length, insert: code }
-        });
+  if (activeTabPath) {
+    const prevTab = openTabs.find(t => t.path === activeTabPath);
+    if (prevTab && !prevTab.isImage) {
+      if (prevTab.isVisualScript && blocklyWorkspace) {
+        prevTab.visualWorkspaceXml = captureVisualWorkspaceXml();
+      } else if (currentEditor) {
+        prevTab.state = currentEditor.state;
       }
-      activeTab.state = currentEditor.state;
     }
   }
 
@@ -1634,8 +2084,12 @@ async function switchToTab(path) {
     currentEditor.destroy();
     currentEditor = null;
   }
+  destroyVisualCodeEditor();
   
   if (tab.isImage) {
+    setVisualEditorVisible(false);
+    editorMount.classList.remove('hidden');
+    editorMount.style.display = 'block';
     try {
       const contentBase64 = await window.spraute.readFile(tab.path, 'base64');
       const ext = tab.name.split('.').pop().toLowerCase();
@@ -1687,9 +2141,44 @@ async function switchToTab(path) {
     } catch (e) {
       editorMount.innerHTML = `<div class="p-4 text-red-400">Ошибка чтения изображения: ${e.message}</div>`;
     }
+  } else if (tab.isVisualScript) {
+    try {
+      setVisualEditorVisible(true);
+      currentOpenFile = path;
+      window.__sprauteCurrentScriptPath = path;
+      showVisualTransition(true, 'Загрузка визуального скрипта...');
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await VisualEngine.ensureWorkspace();
+      await VisualEngine.preloadPluginBlocks();
+      const sprContent = await window.spraute.readFile(path, 'utf8');
+      await VisualEngine.scanInBackground(sprContent);
+      VisualEngine.applyCache();
+      const xml = tab.visualWorkspaceXml || await readSprvFile(path);
+      restoreVisualWorkspaceFromXml(xml);
+      VisualEngine.syncNpcsFromWorkspace();
+      await mountVisualCodeEditor(sprContent);
+      syncVisualCodePreview();
+      if (blocklyWorkspace) Blockly.svgResize(blocklyWorkspace);
+      const codeForScan = blocklyWorkspace ? generateWorkspaceCode(blocklyWorkspace) : sprContent;
+      if (codeForScan !== sprContent) {
+        await VisualEngine.scanInBackground(codeForScan);
+        VisualEngine.applyCache();
+        refreshDynamicDropdownFields(blocklyWorkspace);
+      }
+      showVisualTransition(false);
+    } catch (e) {
+      setVisualEditorVisible(false);
+      editorMount.innerHTML = `<div class="p-4 text-red-400">Ошибка чтения визуального скрипта: ${e.message}</div>`;
+      editorMount.classList.remove('hidden');
+      editorMount.style.display = 'block';
+    }
   } else {
     try {
-      editorMount.innerHTML = ''; // Очищаем контейнер
+      setVisualEditorVisible(false);
+      window.__sprauteCurrentScriptPath = '';
+      editorMount.classList.remove('hidden');
+      editorMount.style.display = 'block';
+      editorMount.innerHTML = '';
       currentOpenFile = path;
       
       const content = await window.spraute.readFile(path, 'utf8');
@@ -1719,8 +2208,12 @@ async function switchToTab(path) {
           borderRight: "1px solid rgba(255, 255, 255, 0.05)",
           paddingRight: "4px"
         },
+        ".cm-gutters .cm-lineNumbers .cm-gutterElement": {
+          color: "var(--color-on-variant)"
+        },
         ".cm-activeLineGutter": {
-          backgroundColor: "rgba(255,255,255,0.05)"
+          backgroundColor: "rgba(255,255,255,0.05)",
+          color: "var(--color-on-variant)"
         },
         ".cm-activeLine": {
           backgroundColor: "rgba(255,255,255,0.03) !important"
@@ -1884,64 +2377,7 @@ async function switchToTab(path) {
       
       let wordWrap = await window.spraute.storeGet('editorWordWrap');
       let syntaxThemeName = await window.spraute.storeGet('editorSyntaxTheme') || 'vscode-dark';
-      console.log('[Spraute] Syntax theme loaded:', syntaxThemeName);
-      
-      let highlightStyles;
-      if (syntaxThemeName === 'vscode-dark') {
-        highlightStyles = [
-          { tag: t.keyword, color: "#569CD6", fontWeight: "bold" },
-          { tag: t.string, color: "#CE9178" },
-          { tag: t.number, color: "#B5CEA8" },
-          { tag: t.comment, color: "#6A9955", fontStyle: "italic" },
-          { tag: t.function(t.variableName), color: "#DCDCAA" },
-          { tag: t.variableName, color: "#9CDCFE" },
-          { tag: t.propertyName, color: "#9CDCFE" },
-          { tag: t.operator, color: "#D4D4D4" },
-          { tag: t.punctuation, color: "#D4D4D4" },
-          { tag: t.invalid, color: "#F44747", textDecoration: "underline wavy" }
-        ];
-      } else if (syntaxThemeName === 'monokai') {
-        highlightStyles = [
-          { tag: t.keyword, color: "#F92672", fontWeight: "bold" },
-          { tag: t.string, color: "#E6DB74" },
-          { tag: t.number, color: "#AE81FF" },
-          { tag: t.comment, color: "#75715E", fontStyle: "italic" },
-          { tag: t.function(t.variableName), color: "#A6E22E" },
-          { tag: t.variableName, color: "#F8F8F2" },
-          { tag: t.propertyName, color: "#A6E22E" },
-          { tag: t.operator, color: "#F92672" },
-          { tag: t.punctuation, color: "#F8F8F2" },
-          { tag: t.invalid, color: "#F8F8F0", backgroundColor: "#F92672" }
-        ];
-      } else if (syntaxThemeName === 'github-dark') {
-        highlightStyles = [
-          { tag: t.keyword, color: "#FF7B72", fontWeight: "bold" },
-          { tag: t.string, color: "#A5D6FF" },
-          { tag: t.number, color: "#79C0FF" },
-          { tag: t.comment, color: "#8B949E", fontStyle: "italic" },
-          { tag: t.function(t.variableName), color: "#D2A8FF" },
-          { tag: t.variableName, color: "#E6EDF3" },
-          { tag: t.propertyName, color: "#79C0FF" },
-          { tag: t.operator, color: "#79C0FF" },
-          { tag: t.punctuation, color: "#E6EDF3" },
-          { tag: t.invalid, color: "#FFA198" }
-        ];
-      } else {
-        highlightStyles = [
-          { tag: t.keyword, color: "var(--color-primary)", fontWeight: "bold" },
-          { tag: t.string, color: "var(--color-tertiary)" },
-          { tag: t.number, color: "var(--color-secondary)" },
-          { tag: t.comment, color: "var(--color-on-variant)", fontStyle: "italic" },
-          { tag: t.function(t.variableName), color: "var(--color-primary)" },
-          { tag: t.variableName, color: "var(--color-on-surface)" },
-          { tag: t.propertyName, color: "var(--color-tertiary)" },
-          { tag: t.operator, color: "var(--color-outline)" },
-          { tag: t.punctuation, color: "var(--color-on-variant)" },
-          { tag: t.invalid, color: "#ff5555" }
-        ];
-      }
-      
-      const customHighlightStyle = HighlightStyle.define(highlightStyles);
+      const customHighlightStyle = HighlightStyle.define(getSyntaxHighlightStyles(syntaxThemeName));
 
       let extensions = [
         basicSetup,
@@ -1962,8 +2398,8 @@ async function switchToTab(path) {
               renderTabs();
             }
             // Live sync — фоновый ресканинг при редактировании .spr
-            if (path.endsWith('.spr')) {
-              VisualEngine.scheduleLiveSync(update.state.doc.toString(), path);
+            if (path.endsWith('.spr') && !tab.isVisualScript) {
+              VisualEngine.scheduleLiveSync(update.state.doc.toString());
             }
           }
         })
@@ -2004,36 +2440,7 @@ async function switchToTab(path) {
       state: stateToUse,
       parent: editorMount
     });
-    
-    // Если визуальный режим включен, загружаем блоки
-    if (isVisualMode) {
-      const hasCachedBlocks = VisualEngine.isCacheValidForText(path, stateToUse.doc.toString());
-      if (!hasCachedBlocks) {
-        showVisualTransition(true, 'Загрузка блоков...');
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-      }
-      await VisualEngine.ensureWorkspace();
-      if (blocklyWorkspace) {
-        const text = stateToUse.doc.toString();
-        _suppressDirty = true;
-        try {
-          if (hasCachedBlocks) {
-            VisualEngine.restoreFileBlocks(path);
-          } else {
-            try {
-              textToBlocks(text, blocklyWorkspace);
-            } catch (e) {
-              console.error("Parse error", e);
-            }
-            VisualEngine.saveFileBlocks(path, text);
-          }
-        } finally { _suppressDirty = false; }
-        Blockly.svgResize(blocklyWorkspace);
-      }
-      if (!hasCachedBlocks) showVisualTransition(false);
-    }
 
-    // Фоновый ресканинг для подготовки визуального режима
     if (path.endsWith('.spr')) {
       VisualEngine.scanInBackground(stateToUse.doc.toString());
     }
@@ -2058,6 +2465,7 @@ function showContextMenu(x, y, relPath, isDir, node) {
   
   // Если клик по файлу, скрываем "Создать файл/папку"
   document.getElementById('ctx-new-file').style.display = isDir || relPath === '' ? 'flex' : 'none';
+  document.getElementById('ctx-new-visual-script').style.display = isDir || relPath === '' ? 'flex' : 'none';
   document.getElementById('ctx-new-folder').style.display = isDir || relPath === '' ? 'flex' : 'none';
 }
 
@@ -2082,6 +2490,29 @@ document.getElementById('ctx-new-file').addEventListener('click', async () => {
   try {
     await window.spraute.writeFile(newPath, '# Новый скрипт\n');
     loadDirectory(''); // Перезагружаем корень
+  } catch(e) {
+    appAlert('Ошибка: ' + e.message);
+  }
+});
+
+document.getElementById('ctx-new-visual-script').addEventListener('click', async () => {
+  const name = await appPrompt('Имя визуального скрипта:');
+  if (!name) return;
+  const baseName = name.replace(/\.sprv?$/i, '');
+  const finalName = baseName.includes('.') ? baseName : `${baseName}.spr`;
+  const dirPath = currentCtxIsDir ? currentCtxRelPath : '';
+  const newPath = dirPath ? `${dirPath}/${finalName}` : finalName;
+  
+  const exists = await window.spraute.exists(newPath);
+  if (exists) {
+    appAlert('Файл с таким именем уже существует!');
+    return;
+  }
+
+  try {
+    await createVisualScriptPair(newPath);
+    await loadDirectory('');
+    await openFile(newPath, finalName.split('/').pop());
   } catch(e) {
     appAlert('Ошибка: ' + e.message);
   }
@@ -2121,6 +2552,19 @@ document.getElementById('ctx-rename').addEventListener('click', async () => {
   
   try {
     await window.spraute.rename(currentCtxRelPath, newPath);
+    if (currentCtxRelPath.endsWith('.spr')) {
+      const oldSprv = sprPathToSprvPath(currentCtxRelPath);
+      if (await window.spraute.exists(oldSprv)) {
+        await window.spraute.rename(oldSprv, sprPathToSprvPath(newPath));
+      }
+    }
+    for (const t of openTabs) {
+      if (t.path === currentCtxRelPath) {
+        t.path = newPath;
+        t.name = newName;
+      }
+    }
+    if (activeTabPath === currentCtxRelPath) activeTabPath = newPath;
     loadDirectory('');
   } catch(e) {
     appAlert('Ошибка: ' + e.message);
@@ -2137,9 +2581,18 @@ document.getElementById('ctx-delete').addEventListener('click', async () => {
       await window.spraute.rmdir(currentCtxRelPath);
     } else {
       await window.spraute.unlink(currentCtxRelPath);
+      if (currentCtxRelPath.endsWith('.spr')) {
+        const sprv = sprPathToSprvPath(currentCtxRelPath);
+        if (await window.spraute.exists(sprv)) await window.spraute.unlink(sprv);
+      }
     }
-    document.getElementById('empty-state').classList.remove('hidden');
-    document.getElementById('editor-mount').innerHTML = '';
+    const closedIdx = openTabs.findIndex(t => t.path === currentCtxRelPath);
+    if (closedIdx !== -1) openTabs.splice(closedIdx, 1);
+    if (activeTabPath === currentCtxRelPath) {
+      activeTabPath = null;
+      if (openTabs.length > 0) await switchToTab(openTabs[Math.max(0, closedIdx - 1)].path);
+      else renderTabs();
+    }
     loadDirectory('');
   } catch(e) {
     appAlert('Ошибка: ' + e.message);
@@ -2155,62 +2608,81 @@ document.getElementById('ctx-show-explorer').addEventListener('click', () => {
 let clipboardPath = null;
 let clipboardIsDir = false;
 
-document.addEventListener('keydown', async (e) => {
-  // Отмена обработки если фокус в инпуте или редакторе
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.closest('.cm-editor')) {
+function _ignoreEditorKeyTarget(e) {
+  const t = e.target;
+  if (!t) return false;
+  if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') return true;
+  if (t.closest('.cm-editor') || t.closest('#visual-code-mount')) return true;
+  return false;
+}
+
+function _stopKeyEvent(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+}
+
+/** Blockly + русская раскладка; capture-фаза, чтобы не дублировать встроенные shortcuts. */
+document.addEventListener('keydown', (e) => {
+  if (_ignoreEditorKeyTarget(e)) return;
+  if (e.target.closest('#file-tree')) return;
+  const activeTab = openTabs.find(t => t.path === activeTabPath);
+  if (!activeTab?.isVisualScript || !blocklyWorkspace) return;
+
+  const inVisual = e.target.closest('#visual-editor-layout') ||
+    e.target.closest('#blockly-mount') ||
+    e.target.closest('.blocklyWidgetDiv');
+  if (!inVisual && !Blockly.common.getSelected()) return;
+
+  const selected = Blockly.common.getSelected();
+  const mod = e.ctrlKey || e.metaKey;
+
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selected && selected.isDeletable()) {
+      selected.dispose();
+      _stopKeyEvent(e);
+    }
     return;
   }
-  
-  // Если визуальный режим активен, перехватываем горячие клавиши для блоков
-  if (isVisualMode && blocklyWorkspace && (e.target.closest('#blockly-mount') || e.target.closest('.blocklyWidgetDiv'))) {
-    const selected = Blockly.common.getSelected();
-    
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (selected && selected.isDeletable()) {
-        selected.dispose();
-        e.preventDefault();
-      }
-      return;
-    }
-    
-    if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'c' || e.key === 'с' || e.code === 'KeyC')) {
-      if (selected && selected.isDeletable()) {
-        Blockly.clipboard.copy(selected);
-        e.preventDefault();
-      }
-      return;
-    }
-    
-    if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'x' || e.key === 'ч' || e.code === 'KeyX')) {
-      if (selected && selected.isDeletable()) {
-        Blockly.clipboard.copy(selected);
-        selected.dispose();
-        e.preventDefault();
-      }
-      return;
-    }
-    
-    if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'v' || e.key === 'м' || e.code === 'KeyV')) {
-      const pasted = Blockly.clipboard.paste();
-      if (pasted) {
-        e.preventDefault();
-      }
-      return;
-    }
-    
-    if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'z' || e.key === 'я' || e.code === 'KeyZ')) {
-      blocklyWorkspace.undo(e.shiftKey);
-      e.preventDefault();
-      return;
-    }
-    
-    if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || e.key === 'н' || e.code === 'KeyY')) {
-      blocklyWorkspace.undo(true);
-      e.preventDefault();
-      return;
-    }
-  }
 
+  if (!mod) return;
+
+  const k = e.key.toLowerCase();
+  if (e.code === 'KeyC' || k === 'c' || e.key === 'с') {
+    if (selected && selected.isDeletable()) {
+      Blockly.clipboard.copy(selected);
+      _stopKeyEvent(e);
+    }
+    return;
+  }
+  if (e.code === 'KeyX' || k === 'x' || e.key === 'ч') {
+    if (selected && selected.isDeletable()) {
+      Blockly.clipboard.copy(selected);
+      selected.dispose();
+      _stopKeyEvent(e);
+    }
+    return;
+  }
+  if (e.code === 'KeyV' || k === 'v' || e.key === 'м') {
+    Blockly.clipboard.paste();
+    _stopKeyEvent(e);
+    return;
+  }
+  if (e.code === 'KeyZ' || k === 'z' || e.key === 'я') {
+    blocklyWorkspace.undo(e.shiftKey);
+    _stopKeyEvent(e);
+    return;
+  }
+  if (e.code === 'KeyY' || k === 'y' || e.key === 'н') {
+    blocklyWorkspace.undo(true);
+    _stopKeyEvent(e);
+    return;
+  }
+}, true);
+
+document.addEventListener('keydown', async (e) => {
+  if (_ignoreEditorKeyTarget(e)) return;
+  
   if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'с' || e.code === 'KeyC')) {
     if (selectedItemPath) {
       clipboardPath = selectedItemPath;
@@ -2406,7 +2878,6 @@ const settingsModal = document.getElementById('settings-modal');
 const settingsBox = document.getElementById('settings-modal-box');
 
 // Элементы настроек
-const cbAutoUpdate = document.getElementById('setting-auto-update');
 const btnChangeMcPath = document.getElementById('btn-change-mc-path');
 const inputMcPath = document.getElementById('setting-mc-path');
 const inputBgImage = document.getElementById('setting-bg-image');
@@ -2492,9 +2963,6 @@ btnSettings.addEventListener('click', async () => {
   const mcPath = await window.spraute.storeGet('minecraftPath');
   inputMcPath.value = mcPath || '';
   
-  const autoUpdate = await window.spraute.storeGet('autoUpdate');
-  cbAutoUpdate.checked = autoUpdate !== false; // По умолчанию включено
-
   const bgImg = await window.spraute.storeGet('bgImage');
   inputBgImage.value = bgImg || '';
 
@@ -2603,7 +3071,7 @@ if (selectSyntaxTheme) {
       }
     }
     
-    showStatus('Тема синтаксиса изменена');
+    setStatus('Тема синтаксиса изменена');
   });
 }
 
@@ -2614,9 +3082,6 @@ btnCloseSettings.addEventListener('click', () => {
   }, 200);
 });
 
-cbAutoUpdate.addEventListener('change', async (e) => {
-  await window.spraute.storeSet('autoUpdate', e.target.checked);
-});
 
 btnChangeMcPath.addEventListener('click', async () => {
   const path = await window.spraute.selectMinecraftFolder();
@@ -2626,6 +3091,7 @@ btnChangeMcPath.addEventListener('click', async () => {
     // Требуется перезагрузка директории
     document.getElementById('studio-path-display').innerText = path + '\\spraute_engine';
     loadDirectory('');
+    loadPluginsList();
   }
 });
 
@@ -2723,284 +3189,6 @@ document.getElementById('menu-autocomplete')?.addEventListener('click', () => {
   }
 });
 
-// Логика обновления Spraute Studio
-const studioUpdateModal = document.getElementById('studio-update-modal');
-const studioUpdateBox = document.getElementById('studio-update-box');
-const btnStudioUpdateSkip = document.getElementById('btn-studio-update-skip');
-const btnStudioUpdateDownload = document.getElementById('btn-studio-update-download');
-const btnStudioUpdateInstall = document.getElementById('btn-studio-update-install');
-const studioUpdateProgressContainer = document.getElementById('studio-update-progress-container');
-const studioUpdatePercent = document.getElementById('studio-update-percent');
-const studioUpdateBar = document.getElementById('studio-update-bar');
-const studioUpdateActions = document.getElementById('studio-update-actions');
-const studioUpdateInstallActions = document.getElementById('studio-update-install-actions');
-
-let pendingStudioUpdate = null;
-
-if (window.spraute) {
-  window.spraute.onStudioUpdateAvailable((info) => {
-    document.getElementById('studio-update-version').innerText = `Версия: ${info.version}`;
-    document.getElementById('studio-update-notes').innerHTML = info.releaseNotes || 'Улучшения стабильности и новые функции.';
-    
-    if (info.isStartupCheck) {
-      // Крупное окно при старте
-      studioUpdateModal.classList.remove('hidden');
-      setTimeout(() => {
-        studioUpdateBox.classList.remove('scale-95', 'opacity-0');
-      }, 10);
-    } else {
-      // Небольшое окно (toast) во время работы
-      pendingStudioUpdate = () => {
-        studioUpdateModal.classList.remove('hidden');
-        setTimeout(() => {
-          studioUpdateBox.classList.remove('scale-95', 'opacity-0');
-        }, 10);
-      };
-      
-      document.getElementById('update-toast-title').innerText = 'Обновление Студии';
-      document.getElementById('update-toast-desc').innerText = `Доступна версия ${info.version}`;
-      const toast = document.getElementById('update-toast');
-      toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
-    }
-  });
-}
-
-// Обработка кликов по toast
-const btnUpdateToastIgnore = document.getElementById('btn-update-toast-ignore');
-if (btnUpdateToastIgnore) {
-  btnUpdateToastIgnore.addEventListener('click', () => {
-    const toast = document.getElementById('update-toast');
-    if (toast) toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
-  });
-}
-
-const btnUpdateToastShowMain = document.getElementById('btn-update-toast-show-main');
-if (btnUpdateToastShowMain) {
-  btnUpdateToastShowMain.addEventListener('click', () => {
-    const toast = document.getElementById('update-toast');
-    if (toast) toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
-    if (pendingStudioUpdate) pendingStudioUpdate();
-    if (typeof pendingModUpdate === 'function') pendingModUpdate();
-  });
-}
-
-// Логика обновления мода
-let pendingModUpdate = null;
-let currentModVersionToDownload = null;
-
-if (window.spraute) {
-  window.spraute.onModUpdateAvailable((info) => {
-    const modUpdateVersion = document.getElementById('mod-update-version');
-    if (modUpdateVersion) modUpdateVersion.innerText = `Версия: ${info.version}`;
-    
-    const modUpdateNotes = document.getElementById('mod-update-notes');
-    if (modUpdateNotes) modUpdateNotes.innerHTML = info.notes || 'Описание недоступно.';
-    
-    currentModVersionToDownload = info.version;
-    
-    const modUpdateModal = document.getElementById('mod-update-modal');
-    const modUpdateBox = document.getElementById('mod-update-box');
-    if (modUpdateModal && modUpdateBox) {
-      modUpdateModal.classList.remove('hidden');
-      setTimeout(() => {
-        modUpdateBox.classList.remove('scale-95', 'opacity-0');
-      }, 10);
-    }
-  });
-}
-
-const modUpdateModal = document.getElementById('mod-update-modal');
-const modUpdateBox = document.getElementById('mod-update-box');
-const btnModUpdateSkip = document.getElementById('btn-mod-update-skip');
-const btnModUpdateDownload = document.getElementById('btn-mod-update-download');
-
-if (btnModUpdateSkip) {
-  btnModUpdateSkip.addEventListener('click', () => {
-    modUpdateBox.classList.add('scale-95', 'opacity-0');
-    setTimeout(() => {
-      modUpdateModal.classList.add('hidden');
-    }, 300);
-  });
-}
-
-if (btnModUpdateDownload) {
-  btnModUpdateDownload.addEventListener('click', async () => {
-    btnModUpdateDownload.innerText = 'Загрузка...';
-    btnModUpdateDownload.classList.add('opacity-50', 'pointer-events-none');
-    btnModUpdateSkip.classList.add('hidden');
-    
-    try {
-      const res = await window.spraute.downloadModUpdate(currentModVersionToDownload);
-      if (res.success) {
-        btnModUpdateDownload.innerText = `Мод обновлен до версии ${currentModVersionToDownload}!`;
-        btnModUpdateDownload.classList.remove('bg-secondary');
-        btnModUpdateDownload.classList.add('bg-green-600');
-        
-        setTimeout(() => {
-          modUpdateBox.classList.add('scale-95', 'opacity-0');
-          setTimeout(() => {
-            modUpdateModal.classList.add('hidden');
-            // Восстанавливаем кнопки
-            btnModUpdateDownload.innerText = 'Обновить мод';
-            btnModUpdateDownload.classList.add('bg-secondary');
-            btnModUpdateDownload.classList.remove('bg-green-600', 'opacity-50', 'pointer-events-none');
-            btnModUpdateSkip.classList.remove('hidden');
-          }, 300);
-        }, 2000);
-      } else {
-        appAlert('Ошибка при скачивании мода: ' + res.error);
-        btnModUpdateDownload.innerText = 'Ошибка';
-        setTimeout(() => {
-          btnModUpdateDownload.innerText = 'Повторить';
-          btnModUpdateDownload.classList.remove('opacity-50', 'pointer-events-none');
-          btnModUpdateSkip.classList.remove('hidden');
-        }, 2000);
-      }
-    } catch (err) {
-      appAlert(err.message);
-    }
-  });
-}
-
-if (btnStudioUpdateSkip) {
-  btnStudioUpdateSkip.addEventListener('click', () => {
-    studioUpdateBox.classList.add('scale-95', 'opacity-0');
-    setTimeout(() => {
-      studioUpdateModal.classList.add('hidden');
-    }, 300);
-  });
-}
-
-if (btnStudioUpdateDownload) {
-  btnStudioUpdateDownload.addEventListener('click', () => {
-    window.spraute.downloadStudioUpdate();
-    btnStudioUpdateSkip.style.display = 'none';
-    btnStudioUpdateDownload.style.display = 'none';
-    studioUpdateProgressContainer.classList.remove('hidden');
-    studioUpdateProgressContainer.classList.add('flex');
-  });
-}
-
-if (window.spraute) {
-  window.spraute.onStudioUpdateProgress((progressObj) => {
-    const percent = Math.round(progressObj.percent);
-    studioUpdatePercent.innerText = `${percent}%`;
-    studioUpdateBar.style.width = `${percent}%`;
-  });
-
-  window.spraute.onStudioUpdateDownloaded(() => {
-    studioUpdateProgressContainer.classList.add('hidden');
-    studioUpdateProgressContainer.classList.remove('flex');
-    studioUpdateActions.classList.add('hidden');
-    studioUpdateInstallActions.classList.remove('hidden');
-  });
-}
-
-if (btnStudioUpdateInstall) {
-  btnStudioUpdateInstall.addEventListener('click', () => {
-    window.spraute.installStudioUpdate();
-  });
-}
-
-async function toggleVisualMode() {
-  const btn = document.getElementById('btn-toggle-visual');
-  if (!btn) return;
-  const editorMount = document.getElementById('editor-mount');
-  const blocklyMount = document.getElementById('blockly-mount');
-  btn.disabled = true;
-
-  if (!isVisualMode) {
-    // === КОД → ВИЗУАЛ ===
-    showVisualTransition(true, 'Подготовка визуального режима...');
-
-    isVisualMode = true;
-    btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">code</span> Обычный код';
-    btn.classList.add('bg-primary/20', 'text-primary');
-
-    // Даём браузеру отрисовать оверлей
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-    await VisualEngine.ensureWorkspace();
-    VisualEngine.applyCache();
-
-    editorMount.classList.add('hidden');
-    editorMount.style.display = 'none';
-    blocklyMount.classList.remove('hidden');
-    blocklyMount.style.display = 'block';
-    blocklyMount.style.width = '';
-    blocklyMount.style.height = '';
-    document.body.classList.add('visual-mode-active');
-
-    document.querySelectorAll('.blocklyToolboxDiv').forEach(el => {
-      if (el) { el.style.display = ''; el.style.width = ''; el.style.height = ''; el.style.overflow = ''; }
-    });
-
-    if (currentEditor && blocklyWorkspace) {
-      const text = currentEditor.state.doc.toString();
-      _suppressDirty = true;
-      try {
-        if (activeTabPath && VisualEngine.isCacheValidForText(activeTabPath, text)) {
-          VisualEngine.restoreFileBlocks(activeTabPath);
-        } else {
-          try { textToBlocks(text, blocklyWorkspace); } catch (e) { console.error("Parse error", e); }
-          if (activeTabPath) VisualEngine.saveFileBlocks(activeTabPath, text);
-        }
-      } finally { _suppressDirty = false; }
-
-      if (text !== VisualEngine._lastScanText) {
-        VisualEngine.scanInBackground(text).then(() => { VisualEngine.applyCache(); });
-      }
-    }
-
-    if (blocklyWorkspace) Blockly.svgResize(blocklyWorkspace);
-    if (window.spraute) window.spraute.storeSet('visualModeEnabled', true);
-
-    showVisualTransition(false);
-
-  } else {
-    // === ВИЗУАЛ → КОД ===
-    showVisualTransition(true, 'Генерация кода...');
-
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-    isVisualMode = false;
-    btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">extension</span> Визуальный код';
-    btn.classList.remove('bg-primary/20', 'text-primary');
-
-    if (blocklyWorkspace && currentEditor) {
-      const code = SprauteGenerator.workspaceToCode(blocklyWorkspace);
-      if (activeTabPath) VisualEngine.saveFileBlocks(activeTabPath, code);
-      currentEditor.dispatch({
-        changes: { from: 0, to: currentEditor.state.doc.length, insert: code }
-      });
-    }
-
-    blocklyMount.classList.add('hidden');
-    blocklyMount.style.display = 'none';
-    blocklyMount.style.width = '0';
-    blocklyMount.style.height = '0';
-    editorMount.classList.remove('hidden');
-    editorMount.style.display = 'block';
-    document.body.classList.remove('visual-mode-active');
-
-    Blockly.hideChaff();
-    document.querySelectorAll('.blocklyWidgetDiv, .blocklyTooltipDiv, .blocklyDropDownDiv, .blocklyToolboxDiv').forEach(el => {
-      if (el) { el.style.display = 'none'; el.style.left = '0'; el.style.top = '0'; el.style.width = '0'; el.style.height = '0'; el.style.overflow = 'hidden'; }
-    });
-
-    if (window.spraute) window.spraute.storeSet('visualModeEnabled', false);
-
-    showVisualTransition(false);
-  }
-
-  btn.disabled = false;
-}
-
-const btnToggleVisual = document.getElementById('btn-toggle-visual');
-if (btnToggleVisual) {
-  btnToggleVisual.addEventListener('click', toggleVisualMode);
-}
-
 // ====== Drag and Drop для корневого каталога (вытащить из папки) ======
 const fileTree = document.getElementById('file-tree');
 
@@ -3061,7 +3249,6 @@ const pluginsSearch = document.getElementById('plugins-search');
 const pluginsPagination = document.getElementById('plugins-pagination');
 
 let allPluginsData = [];
-let marketPluginsData = [];
 let currentPluginsTab = 'my';
 let currentPluginsPage = 1;
 const PLUGINS_PER_PAGE = 7;
@@ -3134,6 +3321,164 @@ if (btnClosePlugins) {
     document.getElementById('plugins-modal-box').classList.add('scale-95', 'opacity-0');
     setTimeout(() => pluginsModal.classList.add('hidden'), 200);
   });
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function syncImportedPluginScripts(pluginName) {
+  const srcScripts = `plugins/${pluginName}/scripts`;
+  if (!(await window.spraute.exists(srcScripts))) return;
+  const mcPath = await window.spraute.storeGet('minecraftPath');
+  if (!mcPath) return;
+  if (!(await window.spraute.exists('scripts/plugins'))) {
+    await window.spraute.mkdir('scripts/plugins');
+  }
+  const destScripts = `scripts/plugins/${pluginName}`;
+  if (await window.spraute.exists(destScripts)) {
+    await window.spraute.rmdir(destScripts);
+  }
+  await window.spraute.mkdir(destScripts);
+  await window.spraute.copy(srcScripts, destScripts);
+}
+
+async function syncAllEnabledPluginScripts() {
+  for (const p of allPluginsData) {
+    if (p.isEnabled) {
+      try {
+        await syncImportedPluginScripts(p.name);
+      } catch (e) {
+        console.warn(`Не удалось синхронизировать скрипты плагина ${p.name}:`, e);
+      }
+    }
+  }
+}
+
+async function finishPluginInstall(pluginName) {
+  try {
+    const content = await window.spraute.readFile(`plugins/${pluginName}/plugin.json`, 'utf8');
+    const data = JSON.parse(content);
+    if (data.enabled !== false) {
+      await syncImportedPluginScripts(pluginName);
+    }
+  } catch (e) {
+    console.warn('Не удалось синхронизировать скрипты плагина:', e);
+  }
+  await VisualEngine.preloadPluginBlocks();
+  loadPluginsList();
+  setStatus(`Плагин «${pluginName}» установлен`);
+}
+
+async function installPluginArchive(file, overwrite = false) {
+  if (!window.spraute.importPluginZip) {
+    appAlert('Импорт плагинов не поддерживается. Перезапустите Студию.');
+    return false;
+  }
+  const base64 = await readFileAsBase64(file);
+  let res = await window.spraute.importPluginZip(base64, file.name, overwrite);
+  if (!res.success && res.error === 'exists') {
+    if (!(await appConfirm(`Плагин «${res.name}» уже установлен. Заменить?`))) return false;
+    res = await window.spraute.importPluginZip(base64, file.name, true);
+  }
+  if (!res.success) {
+    appAlert('Ошибка импорта: ' + (res.error || 'неизвестная ошибка'));
+    return false;
+  }
+  await finishPluginInstall(res.name);
+  return true;
+}
+
+async function importSingleSprPlugin(file) {
+  const baseName = file.name.replace(/\.spr$/i, '');
+  const pPath = `plugins/${baseName}`;
+
+  if (await window.spraute.exists(pPath)) {
+    if (!(await appConfirm(`Плагин «${baseName}» уже существует. Заменить?`))) return;
+    await window.spraute.rmdir(pPath);
+  }
+
+  await window.spraute.mkdir(pPath);
+  await window.spraute.mkdir(`${pPath}/blocks`);
+
+  const content = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+
+  await window.spraute.writeFile(`${pPath}/blocks/${file.name}`, content);
+  const pluginJson = {
+    name: baseName,
+    author: 'Unknown',
+    version: '1.0.0',
+    mc_version: 'any',
+    description: 'Импортированная библиотека блоков'
+  };
+  await window.spraute.writeFile(`${pPath}/plugin.json`, JSON.stringify(pluginJson, null, 2));
+  await finishPluginInstall(baseName);
+}
+
+function openPluginFilePicker() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.splugin,.zip,.spr';
+
+  input.onchange = async (ev) => {
+    const file = ev.target.files[0];
+    if (!file) return;
+
+    try {
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith('.spr')) {
+        await importSingleSprPlugin(file);
+      } else if (lower.endsWith('.zip') || lower.endsWith('.splugin')) {
+        await installPluginArchive(file);
+      } else {
+        appAlert('Поддерживаются файлы .splugin, .zip и .spr');
+      }
+    } catch (err) {
+      appAlert('Ошибка при установке плагина: ' + err.message);
+    }
+  };
+
+  input.click();
+}
+
+async function importPluginFromUser() {
+  const existsPlugins = await window.spraute.exists('plugins');
+  if (!existsPlugins) await window.spraute.mkdir('plugins');
+
+  if (window.spraute.importPluginDialog) {
+    try {
+      const res = await window.spraute.importPluginDialog();
+      if (res.fallback) {
+        openPluginFilePicker();
+        return;
+      }
+      if (res.cancelled) return;
+      if (!res.success) {
+        if (res.error) appAlert('Ошибка импорта: ' + res.error);
+        return;
+      }
+      await finishPluginInstall(res.name);
+      return;
+    } catch (err) {
+      const msg = String(err?.message || err);
+      if (!msg.includes('No handler registered')) {
+        appAlert('Ошибка при установке плагина: ' + msg);
+        return;
+      }
+    }
+  }
+
+  openPluginFilePicker();
 }
 
 async function loadPluginsList() {
@@ -3215,6 +3560,8 @@ async function loadPluginsList() {
     });
     
     renderPluginsList();
+    await syncAllEnabledPluginScripts();
+    await VisualEngine.preloadPluginBlocks();
   } catch (e) {
     pluginsList.innerHTML = `<div class="text-center text-red-400 py-8 text-xs">Ошибка: ${e.message}</div>`;
   }
@@ -3229,19 +3576,9 @@ async function savePluginsOrder() {
   }
 }
 
-async function loadMarketPlugins() {
-  pluginsList.innerHTML = '<div class="text-center text-on-variant py-8 text-xs">Загрузка из сети...</div>';
-  pluginsPagination.innerHTML = '';
-  try {
-    marketPluginsData = await window.spraute.marketList();
-    renderPluginsList();
-  } catch (e) {
-    pluginsList.innerHTML = `<div class="text-center text-red-400 py-8 text-xs">Ошибка загрузки магазина: ${e.message}</div>`;
-  }
-}
 
 async function renderPluginsList() {
-  let sourceData = currentPluginsTab === 'market' ? marketPluginsData : allPluginsData;
+  let sourceData = allPluginsData;
   let filtered = sourceData;
   const q = pluginsSearch ? pluginsSearch.value.toLowerCase().trim() : "";
   if (q) {
@@ -3264,42 +3601,7 @@ async function renderPluginsList() {
   for (const p of paginated) {
     let iconHtml = `<span class="material-symbols-outlined text-[18px]">extension</span>`;
     
-    if (currentPluginsTab === 'market') {
-      const isInstalled = allPluginsData.find(localP => localP.name === p.name);
-      let btnHtml = '';
-      if (isInstalled) {
-         if (p.version && isInstalled.version && p.version !== isInstalled.version) {
-           btnHtml = `<button class="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/40 rounded-lg text-xs text-green-400 font-medium btn-plugin-market-download" data-plugin="${p.name}" data-file="${p.fileName}"><span class="material-symbols-outlined text-[14px] align-middle mr-1">update</span>Обновить</button>`;
-         } else {
-           btnHtml = `<span class="text-xs text-on-variant px-3 py-1.5"><span class="material-symbols-outlined text-[14px] align-middle mr-1">check</span>Установлен</span>`;
-         }
-      } else {
-         btnHtml = `<button class="px-3 py-1.5 bg-primary/20 hover:bg-primary/40 rounded-lg text-xs text-primary font-medium btn-plugin-market-download" data-plugin="${p.name}" data-file="${p.fileName}"><span class="material-symbols-outlined text-[14px] align-middle mr-1">download</span>Скачать</button>`;
-      }
-      
-      html += `
-      <div class="flex items-center justify-between p-3 rounded-xl bg-black/20 border border-white/5 hover:border-white/10 transition-colors group">
-        <div class="flex items-center gap-3 flex-1 overflow-hidden">
-          <div class="w-10 h-10 rounded-lg bg-primary/20 text-primary flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
-            ${iconHtml}
-          </div>
-          <div class="flex-1 overflow-hidden pr-4">
-            <div class="font-medium text-white flex items-center gap-2 truncate">
-              ${p.name} 
-              ${p.version ? `<span class="px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-white shrink-0">v${p.version}</span>` : ''}
-              ${p.mcVersion ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-[10px] text-emerald-400 shrink-0 border border-emerald-500/20">MC ${p.mcVersion}</span>` : ''}
-              ${p.author ? `<span class="px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-white shrink-0">by ${p.author}</span>` : ''}
-            </div>
-            <div class="text-xs text-on-variant mt-0.5 truncate">${p.desc || ''}</div>
-          </div>
-        </div>
-        <div class="flex gap-2 shrink-0">
-          ${btnHtml}
-        </div>
-      </div>
-      `;
-    } else {
-      if (p.hasIcon) {
+    if (p.hasIcon) {
         try {
           if (window.spraute.readFile) {
             const b64 = await window.spraute.readFile(`${p.path}/icon.png`, 'base64');
@@ -3352,7 +3654,6 @@ async function renderPluginsList() {
         </div>
       </div>
       `;
-    }
   }
   
   pluginsList.innerHTML = html;
@@ -3388,56 +3689,6 @@ document.addEventListener('click', async (e) => {
   if (target.nodeType === 3) target = target.parentNode;
   if (!target || !target.closest) return;
   
-  if (target.closest('#tab-my-plugins')) {
-    currentPluginsTab = 'my';
-    document.getElementById('tab-my-plugins').classList.replace('border-transparent', 'border-primary');
-    document.getElementById('tab-my-plugins').classList.replace('text-on-variant', 'text-white');
-    document.getElementById('tab-market-plugins').classList.replace('border-primary', 'border-transparent');
-    document.getElementById('tab-market-plugins').classList.replace('text-white', 'text-on-variant');
-    document.getElementById('plugins-header-actions').classList.remove('hidden');
-    document.getElementById('plugins-header-buttons').classList.remove('hidden');
-    document.getElementById('plugins-header-text').textContent = 'Здесь вы можете управлять пользовательскими библиотеками блоков и расширениями.';
-    currentPluginsPage = 1;
-    renderPluginsList();
-  }
-
-  if (target.closest('#tab-market-plugins')) {
-    currentPluginsTab = 'market';
-    document.getElementById('tab-market-plugins').classList.replace('border-transparent', 'border-primary');
-    document.getElementById('tab-market-plugins').classList.replace('text-on-variant', 'text-white');
-    document.getElementById('tab-my-plugins').classList.replace('border-primary', 'border-transparent');
-    document.getElementById('tab-my-plugins').classList.replace('text-white', 'text-on-variant');
-    document.getElementById('plugins-header-actions').classList.remove('hidden');
-    document.getElementById('plugins-header-text').innerHTML = `Лучшие плагины сообщества. Загружаются напрямую с сервера обновлений.<br/><a href="#" onclick="window.spraute.openExternal('https://t.me/spraute_community/83357'); return false;" class="text-primary hover:underline mt-1 inline-block text-xs">Как добавить сюда свой плагин?</a>`;
-    document.getElementById('plugins-header-buttons').classList.add('hidden');
-    currentPluginsPage = 1;
-    loadMarketPlugins();
-  }
-  
-  if (target.closest('.btn-plugin-market-download')) {
-     const btn = target.closest('.btn-plugin-market-download');
-     const pName = btn.dataset.plugin;
-     const fName = btn.dataset.file;
-     btn.innerHTML = '<span class="material-symbols-outlined text-[14px] animate-spin">sync</span>Скачивание...';
-     btn.disabled = true;
-     try {
-        const res = await window.spraute.marketDownload(pName, fName);
-        if (res.success) {
-           setStatus(`Плагин ${pName} успешно загружен!`);
-           await loadPluginsList(); // Refresh local plugins so we know it's installed
-           renderPluginsList();
-        } else {
-           appAlert(`Ошибка скачивания: ${res.error}`);
-           btn.innerHTML = '<span class="material-symbols-outlined text-[14px]">download</span>Скачать';
-           btn.disabled = false;
-        }
-     } catch(e) {
-        appAlert(`Ошибка: ${e.message}`);
-        btn.innerHTML = '<span class="material-symbols-outlined text-[14px]">download</span>Скачать';
-        btn.disabled = false;
-     }
-  }
-
   if (target.closest('.btn-plugin-move-up')) {
     const pluginName = target.closest('.btn-plugin-move-up').dataset.plugin;
     const idx = allPluginsData.findIndex(p => p.name === pluginName);
@@ -3720,58 +3971,11 @@ document.addEventListener('click', async (e) => {
   }
 
   if (target.closest('#btn-load-plugin')) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.zip,.spr';
-    
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      
-      try {
-        const existsPlugins = await window.spraute.exists('plugins');
-        if (!existsPlugins) await window.spraute.mkdir('plugins');
-
-        // Если это отдельный .spr файл
-        if (file.name.endsWith('.spr')) {
-          const baseName = file.name.replace('.spr', '');
-          const pPath = `plugins/${baseName}`;
-          
-          if (await window.spraute.exists(pPath)) {
-             appAlert('Плагин с таким именем уже существует!');
-             return;
-          }
-          
-          await window.spraute.mkdir(pPath);
-          await window.spraute.mkdir(`${pPath}/blocks`);
-          
-          const reader = new FileReader();
-          reader.onload = async (e) => {
-             const content = e.target.result;
-             await window.spraute.writeFile(`${pPath}/blocks/${file.name}`, content);
-             
-             const pluginJson = {
-               name: baseName,
-               author: "Unknown",
-               version: "1.0.0",
-               mc_version: "any",
-               description: "Импортированная библиотека блоков"
-             };
-             await window.spraute.writeFile(`${pPath}/plugin.json`, JSON.stringify(pluginJson, null, 2));
-             
-             setStatus(`Плагин ${baseName} успешно установлен`);
-             loadPluginsList();
-          };
-          reader.readAsText(file);
-        } else {
-          appAlert('Функция распаковки .zip плагинов находится в разработке.');
-        }
-      } catch(err) {
-        appAlert('Ошибка при установке плагина: ' + err.message);
-      }
-    };
-    
-    input.click();
+    try {
+      await importPluginFromUser();
+    } catch (err) {
+      appAlert('Ошибка при установке плагина: ' + err.message);
+    }
   }
 });
 
@@ -3846,10 +4050,20 @@ const inputBuilderShape = document.getElementById('builder-shape');
 const inputBuilderColor = document.getElementById('builder-color');
 const inputBuilderColorPicker = document.getElementById('builder-color-picker');
 const inputBuilderUi = document.getElementById('builder-ui');
+const inputBuilderWriteStart = document.getElementById('builder-write-start');
 const inputBuilderCode = document.getElementById('builder-code');
 const inputBuilderParse = document.getElementById('builder-parse');
 const btnBuilderPreview = document.getElementById('btn-builder-preview');
 let previewWorkspace = null;
+
+function builderWriteStartMetaLines() {
+  if (!inputBuilderWriteStart) return [];
+  return inputBuilderWriteStart.value
+    .split('\n')
+    .map(l => l.trim())
+    .filter(Boolean)
+    .map(l => `#\\ write_start: ${l}`);
+}
 
 function updateBlockPreview() {
     const rawId = inputBuilderId.value.trim();
@@ -3867,6 +4081,7 @@ function updateBlockPreview() {
           `#\\ category: Preview`,
           `#\\ color: ${inputBuilderColor.value}`,
           `#\\ shape: ${inputBuilderShape.value}`,
+          ...builderWriteStartMetaLines(),
           `#\\`,
           bodyContent
        ].filter(Boolean).join('\n') + '\n';
@@ -3889,6 +4104,7 @@ function updateBlockPreview() {
           `#\\ category: Preview`,
           `#\\ color: ${inputBuilderColor.value}`,
           `#\\ shape: ${inputBuilderShape.value}`,
+          ...builderWriteStartMetaLines(),
           `#\\`,
           `#\\ [UI]`,
           uiContent,
@@ -4017,6 +4233,7 @@ document.addEventListener('click', async (e) => {
       const mCat = text.match(/^#\\?\s*category:\s*(.+)/m);
       const mColor = text.match(/^#\\?\s*color:\s*(.+)/m);
       const mShape = text.match(/^#\\?\s*shape:\s*(.+)/m);
+      const writeStartMatches = [...text.matchAll(/^#\\?\s*write_start:\s*(.+)$/gm)];
       
       // Извлекаем UI секцию
       const uiMatch = text.match(/\[UI\]([\s\S]*?)(?:\[DYNAMIC_UI\]|\[CODE_GEN\]|\[CODE_PARSE\]|$)/);
@@ -4050,6 +4267,9 @@ document.addEventListener('click', async (e) => {
       const col = mColor ? mColor[1].trim() : '#38bdf8';
       inputBuilderColor.value = col;
       inputBuilderColorPicker.value = col;
+      if (inputBuilderWriteStart) {
+        inputBuilderWriteStart.value = writeStartMatches.map(m => m[1].trim()).join('\n');
+      }
       
       // Объединяем UI и DYNAMIC_UI в одно поле для легаси совместимости
       let uiVal = extractSection(uiMatch);
@@ -4063,7 +4283,7 @@ document.addEventListener('click', async (e) => {
         let inBody = false;
         let body = [];
         for (const l of lines) {
-           if (l.match(/^#\\?\s*block:/) || l.match(/^#\\?\s*category:/) || l.match(/^#\\?\s*color:/) || l.match(/^#\\?\s*shape:/)) continue;
+           if (l.match(/^#\\?\s*block:/) || l.match(/^#\\?\s*category:/) || l.match(/^#\\?\s*color:/) || l.match(/^#\\?\s*shape:/) || l.match(/^#\\?\s*write_start:/)) continue;
            if (!inBody && l.trim() !== '') inBody = true;
            if (inBody) {
               const m = l.match(/^#\\?\s?(.*)/);
@@ -4125,6 +4345,7 @@ document.addEventListener('click', async (e) => {
     const firstCatColor = Object.values(pluginCategories)[0] || '#38bdf8';
     inputBuilderColor.value = firstCatColor;
     inputBuilderColorPicker.value = firstCatColor;
+    if (inputBuilderWriteStart) inputBuilderWriteStart.value = '';
     
     // Делаем пример более сложным (наведение)
     inputBuilderUi.value = `row: [npc: dropdown_npc] "Смотреть" [mode: dropdown(один раз: lookat, всегда: alwayslookat, перестать: stoplookat)] "на" [target_type: dropdown(НИПа: npc, игрока: player, моба: mob)]
@@ -4206,6 +4427,7 @@ if mode == "lookat" or mode == "alwayslookat":
           `#\\ category: ${inputBuilderCategory.value}`,
           `#\\ color: ${inputBuilderColor.value}`,
           `#\\ shape: ${inputBuilderShape.value}`,
+          ...builderWriteStartMetaLines(),
           `#\\`,
           bodyContent
        ].filter(Boolean).join('\n') + '\n';
@@ -4228,6 +4450,7 @@ if mode == "lookat" or mode == "alwayslookat":
           `#\\ category: ${inputBuilderCategory.value}`,
           `#\\ color: ${inputBuilderColor.value}`,
           `#\\ shape: ${inputBuilderShape.value}`,
+          ...builderWriteStartMetaLines(),
           `#\\`,
           `#\\ [UI]`,
           uiContent,
@@ -4363,9 +4586,8 @@ async function loadPluginBlocks(pluginName) {
   }
 }
 
-// --- Импорт Визуальных Блоков и Сбор Данных ---
+// --- Импорт скрипта для справки (не влияет на список НИПов — только import() в скрипте) ---
 const btnImportScript = document.getElementById('btn-import-script');
-let importedScriptsText = ""; 
 
 if (btnImportScript) {
   btnImportScript.addEventListener('click', async () => {
@@ -4373,14 +4595,11 @@ if (btnImportScript) {
     if (!name || !name.trim()) return;
     
     try {
-      const content = await window.spraute.readFile(name.trim(), 'utf8');
-      importedScriptsText += "\n" + content;
-      
-      // Фоновый ресканинг
+      await window.spraute.readFile(name.trim(), 'utf8');
       VisualEngine.scanInBackground(currentEditor ? currentEditor.state.doc.toString() : '').then(() => {
         VisualEngine.applyCache();
       });
-      setStatus(`Скрипт ${name} импортирован для визуальных блоков`);
+      setStatus(`Скрипт ${name} прочитан. Для НИПов в dropdown используйте import("...") в скрипте.`);
     } catch(e) {
       appAlert(`Ошибка при импорте ${name}: ` + e.message);
     }

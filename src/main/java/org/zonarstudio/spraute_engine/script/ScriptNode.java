@@ -144,6 +144,28 @@ package org.zonarstudio.spraute_engine.script;
     }
 
     /**
+     * A camera block: camera myCamera { pos = 100, 70, 200 ... }
+     */
+    class CameraBlockNode implements ScriptNode {
+        private int line = -1;
+        private int column = -1;
+        @Override public int getLine() { return line; }
+        @Override public void setLine(int line) { this.line = line; }
+        @Override public int getColumn() { return column; }
+        @Override public void setColumn(int col) { this.column = col; }
+        private final String cameraId;
+        private final java.util.Map<String, java.util.List<ScriptNode>> properties;
+
+        public CameraBlockNode(String cameraId, java.util.Map<String, java.util.List<ScriptNode>> properties) {
+            this.cameraId = cameraId;
+            this.properties = properties;
+        }
+
+        public String getCameraId() { return cameraId; }
+        public java.util.Map<String, java.util.List<ScriptNode>> getProperties() { return properties; }
+    }
+
+    /**
      * Set a property on an object: id.property = expression
      */
     class PropertyAssignmentNode implements ScriptNode {

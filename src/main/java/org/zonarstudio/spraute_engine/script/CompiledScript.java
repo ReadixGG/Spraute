@@ -37,6 +37,8 @@ public class CompiledScript {
         AWAIT_DEATH,  // Wait for entity death. Args: [ScriptNode entityId/type]
         AWAIT_PICKUP, // Wait for NPC to pick up item. Args: [ScriptNode npcId, ScriptNode amount, ScriptNode itemId, ScriptNode nbt?]
         AWAIT_ORB_PICKUP, // Wait for player to pick up orb. Args: [ScriptNode player, ScriptNode amount, ScriptNode texture]
+        AWAIT_TRADE_BUY,  // Wait for trade buy. Args: [ScriptNode player, ScriptNode itemId?]
+        AWAIT_TRADE_SELL, // Wait for trade sell. Args: [ScriptNode player, ScriptNode itemId?]
         ASYNC_START,  // Start async block. Args: [String taskId?, List<Instruction> bodyInstructions]
         AWAIT_TASK,   // Wait for named task to finish. Args: [ScriptNode taskId]
         STOP_TASK,    // Interrupt a named task. Args: [ScriptNode taskId]
@@ -53,6 +55,7 @@ public class CompiledScript {
         AWAIT_PLAYER_ACTION,
         UI_WIDGET, // Emit a widget into the current UI builder context. Args: [String kind, List<ScriptNode> args, Map<String,ScriptNode> props, Map<String,List<Instruction>> eventHandlers, List<Instruction> childBody (nullable)]
         FADE_IN,   // Show fade-in screen. Args: [Map<String,ScriptNode> props]
+        CAMERA,    // Camera block. Args: [String cameraId, Map<String,List<ScriptNode>> props]
         INCLUDE,   // Include another script's functions/handlers. Args: [String scriptName]
         SET_INDEX, // Set array/map element. Args: [ScriptNode object, ScriptNode index, ScriptNode value]
         TRY_START, // Start try block. Args: [Integer catchTarget, String catchVar]

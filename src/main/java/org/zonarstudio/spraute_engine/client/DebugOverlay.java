@@ -1,11 +1,17 @@
 package org.zonarstudio.spraute_engine.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.blaze3d.vertex.PoseStack;
+//? if <1.20.1 {
+/*import com.mojang.blaze3d.vertex.PoseStack;
+*///?}
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.resources.language.I18n;
-import net.minecraft.client.gui.GuiComponent;
+//? if >=1.20.1 {
+import net.minecraft.client.gui.GuiGraphics;
+//?} else {
+/*import net.minecraft.client.gui.GuiComponent;
+*///?}
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
@@ -97,7 +103,11 @@ public class DebugOverlay {
         if (!isDebugActive() || !(event.getScreen() instanceof net.minecraft.client.gui.screens.PauseScreen)) return;
         
         Minecraft mc = Minecraft.getInstance();
-        PoseStack poseStack = event.getPoseStack();
+        //? if >=1.20.1 {
+        GuiGraphics guiGraphics = event.getGuiGraphics();
+        //?} else {
+        /*PoseStack poseStack = event.getPoseStack();
+        *///?}
         Font font = mc.font;
         int mouseX = event.getMouseX();
         int mouseY = event.getMouseY();
@@ -108,14 +118,26 @@ public class DebugOverlay {
         int panelY = 20;
         
         // Draw main background
-        GuiComponent.fill(poseStack, panelX, panelY, panelX + panelWidth, panelY + panelHeight, 0xD0000000);
+        //? if >=1.20.1 {
+        guiGraphics.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight, 0xD0000000);
+        guiGraphics.fill(panelX, panelY, panelX + panelWidth, panelY + 1, 0xFF44AAFF); // Top border
+        guiGraphics.fill(panelX, panelY + panelHeight - 1, panelX + panelWidth, panelY + panelHeight, 0xFF44AAFF); // Bottom border
+        guiGraphics.fill(panelX, panelY, panelX + 1, panelY + panelHeight, 0xFF44AAFF); // Left border
+        guiGraphics.fill(panelX + panelWidth - 1, panelY, panelX + panelWidth, panelY + panelHeight, 0xFF44AAFF); // Right border
+        //?} else {
+        /*GuiComponent.fill(poseStack, panelX, panelY, panelX + panelWidth, panelY + panelHeight, 0xD0000000);
         GuiComponent.fill(poseStack, panelX, panelY, panelX + panelWidth, panelY + 1, 0xFF44AAFF); // Top border
         GuiComponent.fill(poseStack, panelX, panelY + panelHeight - 1, panelX + panelWidth, panelY + panelHeight, 0xFF44AAFF); // Bottom border
         GuiComponent.fill(poseStack, panelX, panelY, panelX + 1, panelY + panelHeight, 0xFF44AAFF); // Left border
         GuiComponent.fill(poseStack, panelX + panelWidth - 1, panelY, panelX + panelWidth, panelY + panelHeight, 0xFF44AAFF); // Right border
+        *///?}
 
         // Title
-        font.drawShadow(poseStack, "§l" + I18n.get("spraute_engine.debug.title") + "§r", panelX + 10, panelY + 10, 0xFFFFFF);
+        //? if >=1.20.1 {
+        guiGraphics.drawString(font, "§l" + I18n.get("spraute_engine.debug.title") + "§r", panelX + 10, panelY + 10, 0xFFFFFF, true);
+        //?} else {
+        /*font.drawShadow(poseStack, "§l" + I18n.get("spraute_engine.debug.title") + "§r", panelX + 10, panelY + 10, 0xFFFFFF);
+        *///?}
 
         // Reload all button (two lines, localized via en_us / ru_ru)
         int reloadBtnX = panelX + 10;
@@ -123,11 +145,20 @@ public class DebugOverlay {
         int reloadBtnW = panelWidth - 20;
         int reloadBtnH = reloadButtonHeight(font);
         boolean reloadHovered = mouseX >= reloadBtnX && mouseX < reloadBtnX + reloadBtnW && mouseY >= reloadBtnY && mouseY < reloadBtnY + reloadBtnH;
-        GuiComponent.fill(poseStack, reloadBtnX, reloadBtnY, reloadBtnX + reloadBtnW, reloadBtnY + reloadBtnH, reloadHovered ? 0xFF666666 : 0xFF444444);
+        //? if >=1.20.1 {
+        guiGraphics.fill(reloadBtnX, reloadBtnY, reloadBtnX + reloadBtnW, reloadBtnY + reloadBtnH, reloadHovered ? 0xFF666666 : 0xFF444444);
+        //?} else {
+        /*GuiComponent.fill(poseStack, reloadBtnX, reloadBtnY, reloadBtnX + reloadBtnW, reloadBtnY + reloadBtnH, reloadHovered ? 0xFF666666 : 0xFF444444);
+        *///?}
         int reloadTextBlockH = font.lineHeight * 2;
         int reloadTextY = reloadBtnY + (reloadBtnH - reloadTextBlockH) / 2;
-        GuiComponent.drawCenteredString(poseStack, font, "§e" + I18n.get("spraute_engine.debug.reload.1"), reloadBtnX + reloadBtnW / 2, reloadTextY, 0xFFFFFF);
+        //? if >=1.20.1 {
+        guiGraphics.drawCenteredString(font, "§e" + I18n.get("spraute_engine.debug.reload.1"), reloadBtnX + reloadBtnW / 2, reloadTextY, 0xFFFFFF);
+        guiGraphics.drawCenteredString(font, "§e" + I18n.get("spraute_engine.debug.reload.2"), reloadBtnX + reloadBtnW / 2, reloadTextY + font.lineHeight, 0xFFFFFF);
+        //?} else {
+        /*GuiComponent.drawCenteredString(poseStack, font, "§e" + I18n.get("spraute_engine.debug.reload.1"), reloadBtnX + reloadBtnW / 2, reloadTextY, 0xFFFFFF);
         GuiComponent.drawCenteredString(poseStack, font, "§e" + I18n.get("spraute_engine.debug.reload.2"), reloadBtnX + reloadBtnW / 2, reloadTextY + font.lineHeight, 0xFFFFFF);
+        *///?}
 
         int listY = reloadBtnY + reloadBtnH + 10;
         int listHeight = panelHeight - (listY - panelY) - 10;
@@ -141,11 +172,19 @@ public class DebugOverlay {
         int scrollWidth = 4;
         int scrollX = panelX + panelWidth - 6;
         if (needsScrollbar) {
-            GuiComponent.fill(poseStack, scrollX, listY, scrollX + scrollWidth, listY + listHeight, 0xFF222222);
+            //? if >=1.20.1 {
+            guiGraphics.fill(scrollX, listY, scrollX + scrollWidth, listY + listHeight, 0xFF222222);
+            //?} else {
+            /*GuiComponent.fill(poseStack, scrollX, listY, scrollX + scrollWidth, listY + listHeight, 0xFF222222);
+            *///?}
             int scrollBarHeight = Math.max(20, (int)((listHeight / (float)totalContentHeight) * listHeight));
             int scrollBarY = listY + (int)((scrollOffset / maxScroll) * (listHeight - scrollBarHeight));
             boolean scrollHovered = mouseX >= scrollX && mouseX < scrollX + scrollWidth && mouseY >= listY && mouseY < listY + listHeight;
-            GuiComponent.fill(poseStack, scrollX, scrollBarY, scrollX + scrollWidth, scrollBarY + scrollBarHeight, scrollHovered || isDraggingScroll ? 0xFFAAAAAA : 0xFF666666);
+            //? if >=1.20.1 {
+            guiGraphics.fill(scrollX, scrollBarY, scrollX + scrollWidth, scrollBarY + scrollBarHeight, scrollHovered || isDraggingScroll ? 0xFFAAAAAA : 0xFF666666);
+            //?} else {
+            /*GuiComponent.fill(poseStack, scrollX, scrollBarY, scrollX + scrollWidth, scrollBarY + scrollBarHeight, scrollHovered || isDraggingScroll ? 0xFFAAAAAA : 0xFF666666);
+            *///?}
         }
 
         // List rendering (with scissors)
@@ -155,7 +194,11 @@ public class DebugOverlay {
         int scissorW = (int)((panelWidth - (needsScrollbar ? 8 : 0)) * scale);
         int scissorH = (int)(listHeight * scale);
         
-        com.mojang.blaze3d.systems.RenderSystem.enableScissor(scissorX, scissorY, scissorW, scissorH);
+        //? if >=1.20.1 {
+        guiGraphics.enableScissor(scissorX, scissorY, scissorX + scissorW, scissorY + scissorH);
+        //?} else {
+        /*com.mojang.blaze3d.systems.RenderSystem.enableScissor(scissorX, scissorY, scissorW, scissorH);
+        *///?}
 
         int y = listY - (int)scrollOffset;
         for (String script : allScripts) {
@@ -164,10 +207,18 @@ public class DebugOverlay {
                 
                 // Item background
                 boolean itemHovered = mouseX >= panelX + 5 && mouseX < scrollX - 2 && mouseY >= y && mouseY < y + ITEM_HEIGHT;
-                GuiComponent.fill(poseStack, panelX + 5, y, scrollX - 2, y + ITEM_HEIGHT - 2, itemHovered ? 0x40FFFFFF : 0x20FFFFFF);
+                //? if >=1.20.1 {
+                guiGraphics.fill(panelX + 5, y, scrollX - 2, y + ITEM_HEIGHT - 2, itemHovered ? 0x40FFFFFF : 0x20FFFFFF);
+                //?} else {
+                /*GuiComponent.fill(poseStack, panelX + 5, y, scrollX - 2, y + ITEM_HEIGHT - 2, itemHovered ? 0x40FFFFFF : 0x20FFFFFF);
+                *///?}
                 
                 // Status Indicator
-                font.drawShadow(poseStack, running ? "§a●" : "§7●", panelX + 8, y + 6, 0xFFFFFF);
+                //? if >=1.20.1 {
+                guiGraphics.drawString(font, running ? "§a●" : "§7●", panelX + 8, y + 6, 0xFFFFFF, true);
+                //?} else {
+                /*font.drawShadow(poseStack, running ? "§a●" : "§7●", panelX + 8, y + 6, 0xFFFFFF);
+                *///?}
 
                 // Script Name
                 int btnW = 32;
@@ -176,7 +227,11 @@ public class DebugOverlay {
                 if (font.width(displayScript) > maxNameW) {
                     displayScript = font.plainSubstrByWidth(displayScript, maxNameW - font.width("...")) + "...";
                 }
-                font.drawShadow(poseStack, displayScript, panelX + 20, y + 6, 0xFFFFFF);
+                //? if >=1.20.1 {
+                guiGraphics.drawString(font, displayScript, panelX + 20, y + 6, 0xFFFFFF, true);
+                //?} else {
+                /*font.drawShadow(poseStack, displayScript, panelX + 20, y + 6, 0xFFFFFF);
+                *///?}
                 
                 // Start/Stop Button
                 int btnH = 14;
@@ -189,13 +244,22 @@ public class DebugOverlay {
                 btnHovered = btnHovered && listHovered;
                 
                 int btnColor = running ? (btnHovered ? 0xFFFF5555 : 0xFFAA0000) : (btnHovered ? 0xFF55FF55 : 0xFF00AA00);
-                GuiComponent.fill(poseStack, btnX, btnY, btnX + btnW, btnY + btnH, btnColor);
+                //? if >=1.20.1 {
+                guiGraphics.fill(btnX, btnY, btnX + btnW, btnY + btnH, btnColor);
+                guiGraphics.drawCenteredString(font, I18n.get(running ? "spraute_engine.debug.stop" : "spraute_engine.debug.start"), btnX + btnW / 2, btnY + 3, 0xFFFFFF);
+                //?} else {
+                /*GuiComponent.fill(poseStack, btnX, btnY, btnX + btnW, btnY + btnH, btnColor);
                 GuiComponent.drawCenteredString(poseStack, font, I18n.get(running ? "spraute_engine.debug.stop" : "spraute_engine.debug.start"), btnX + btnW / 2, btnY + 3, 0xFFFFFF);
+                *///?}
             }
             y += ITEM_HEIGHT;
         }
 
-        com.mojang.blaze3d.systems.RenderSystem.disableScissor();
+        //? if >=1.20.1 {
+        guiGraphics.disableScissor();
+        //?} else {
+        /*com.mojang.blaze3d.systems.RenderSystem.disableScissor();
+        *///?}
     }
 
     @SubscribeEvent
@@ -340,7 +404,11 @@ public class DebugOverlay {
 
         Minecraft mc = Minecraft.getInstance();
         Font font = mc.font;
-        PoseStack poseStack = event.getPoseStack();
+        //? if >=1.20.1 {
+        GuiGraphics guiGraphics = event.getGuiGraphics();
+        //?} else {
+        /*PoseStack poseStack = event.getPoseStack();
+        *///?}
 
         SyncDebugStatePacket.ScriptDebugData currentScript = debugData.get(currentIndex);
 
@@ -374,10 +442,18 @@ public class DebugOverlay {
         int startY = 10;
 
         // Draw background
-        GuiComponent.fill(poseStack, startX - 5, startY - 5, startX + width + 5, startY + (lines.size() * font.lineHeight) + 5, 0x80000000);
+        //? if >=1.20.1 {
+        guiGraphics.fill(startX - 5, startY - 5, startX + width + 5, startY + (lines.size() * font.lineHeight) + 5, 0x80000000);
+        //?} else {
+        /*GuiComponent.fill(poseStack, startX - 5, startY - 5, startX + width + 5, startY + (lines.size() * font.lineHeight) + 5, 0x80000000);
+        *///?}
 
         for (int i = 0; i < lines.size(); i++) {
-            font.drawShadow(poseStack, lines.get(i), startX, startY + (i * font.lineHeight), 0xFFFFFF);
+            //? if >=1.20.1 {
+            guiGraphics.drawString(font, lines.get(i), startX, startY + (i * font.lineHeight), 0xFFFFFF, true);
+            //?} else {
+            /*font.drawShadow(poseStack, lines.get(i), startX, startY + (i * font.lineHeight), 0xFFFFFF);
+            *///?}
         }
     }
 }

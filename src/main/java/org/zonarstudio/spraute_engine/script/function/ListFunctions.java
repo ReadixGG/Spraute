@@ -20,10 +20,10 @@ public class ListFunctions {
     /** Алиас для скриптов: {@code list()} то же, что {@code list_create()}. */
     public static class ListAlias implements ScriptFunction {
         @Override public String getName() { return "list"; }
-        @Override public int getArgCount() { return 0; }
+        @Override public int getArgCount() { return -1; }
         @Override public Class<?>[] getArgTypes() { return new Class<?>[0]; }
         @Override public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
-            return new ArrayList<>();
+            return new ArrayList<>(args);
         }
     }
 

@@ -14,7 +14,7 @@ create npc clicker_npc {
     name = "§e§lХранитель Блока"
     hp = 20
     pos = block_x + 2, block_y, block_z
-    show_name = true
+    showName = true
     model = "geo/defolt.geo.json"
     texture = "textures/entity/knight.png"
     animation = "animations/npc_classic.animation.json"
@@ -171,7 +171,7 @@ fun updateHud(p) {
 create ui shop_ui {
     size = ["200", "160"]
     background = "#DD222222"
-    can_close = true
+    canClose = true
     text("title", "Магазин Улучшений") {
         pos = ["10", "10"]
         color = "#FFAA00"
@@ -267,7 +267,7 @@ fun updateShopUi(p) {
 create ui rebirth_ui {
     size = ["200", "160"]
     background = "#DD222222"
-    can_close = true
+    canClose = true
     text("title", "Меню Перерождений") {
         pos = ["10", "10"]
         color = "#FF55FF"
@@ -333,8 +333,8 @@ fun updateRebirthUi(p) {
 }
 
 on uiClick() -> uiClickHandler {
-    val p = _event_player
-    val btn = _event_widget
+    val p = _eventPlayer
+    val btn = _eventWidget
     if (p != null) {
         chat("§8[Debug] btn clicked: " + btn)
         initPlayerData(p)
@@ -436,25 +436,25 @@ on uiClick() -> uiClickHandler {
 }
 
 on keybind("G") -> shopBind {
-    val p = _event_player
+    val p = _eventPlayer
     initPlayerData(p)
     uiOpen(p, shop_ui)
     updateShopUi(p)
 }
 
 on orbPickup() -> clickerOrb {
-    val p = _event_player
-    val tex = _event_texture
+    val p = _eventPlayer
+    val tex = _eventTexture
     if (tex == "minecraft:textures/item/gold_nugget.png") {
         initPlayerData(p)
         val data = p.savedData
-        data["money"] = data["money"] + _event_amount
+        data["money"] = data["money"] + _eventAmount
         updateHud(p)
     }
 }
 
 on clickBlock(block_x, block_y, block_z) -> blockClick {
-    val p = _event_player
+    val p = _eventPlayer
     initPlayerData(p)
     overlayOpen(p, main_hud)
     val data = p.savedData
@@ -497,24 +497,24 @@ on clickBlock(block_x, block_y, block_z) -> blockClick {
         if (r < 0.2) {
             anim_name = "happy"
             my_npc.playFreeze(anim_name)
-            npc_chat(p, my_npc, "Ого, растешь на глазах!", "#FFFFFF")
+            npcChat(p, my_npc, "Ого, растешь на глазах!", "#FFFFFF")
         } else if (r < 0.4) {
             anim_name = "Sweat"
             my_npc.playOnce(anim_name)
-            npc_chat(p, my_npc, "Фух... Не устал еще кликать?", "#FFFFFF")
+            npcChat(p, my_npc, "Фух... Не устал еще кликать?", "#FFFFFF")
         } else if (r < 0.6) {
             anim_name = "crossArm"
             my_npc.playOnce(anim_name)
-            npc_chat(p, my_npc, "Хм, неплохо, неплохо...", "#FFFFFF")
+            npcChat(p, my_npc, "Хм, неплохо, неплохо...", "#FFFFFF")
         } else if (r < 0.8) {
             anim_name = "Hands"
             my_npc.playOnce(anim_name)
-            npc_chat(p, my_npc, "Давай, жми сильнее!", "#FFFFFF")
+            npcChat(p, my_npc, "Давай, жми сильнее!", "#FFFFFF")
         } else {
             anim_name = "disgust"
             is_loop = true
             my_npc.playLoop(anim_name)
-            npc_chat(p, my_npc, "Опять новый уровень... Как же ты задолбал.", "#FFFFFF")
+            npcChat(p, my_npc, "Опять новый уровень... Как же ты задолбал.", "#FFFFFF")
         }
         
         async {
@@ -535,6 +535,6 @@ async {
         initPlayerData(start_player)
         overlayOpen(start_player, main_hud)
         updateHud(start_player)
-        npc_chat(start_player, "clicker_npc", "Добро пожаловать! Кликай по золотому блоку!", "§e")
+        npcChat(start_player, "clicker_npc", "Добро пожаловать! Кликай по золотому блоку!", "§e")
     }
 }

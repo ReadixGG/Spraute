@@ -53,7 +53,11 @@ public class NpcFunction implements ScriptFunction {
                 
                 level.addFreshEntity(npc);
                 NpcManager.track(name, npc.getUUID());
-                source.sendSuccess(Component.literal("§a[Spraute]§r NPC '" + name + "' spawned at " + x + " " + y + " " + z), false);
+                //? if >=1.20.1 {
+                source.sendSuccess(() -> Component.literal("§a[Spraute]§r NPC '" + name + "' spawned at " + x + " " + y + " " + z), false);
+                //?} else {
+                /*source.sendSuccess(Component.literal("§a[Spraute]§r NPC '" + name + "' spawned at " + x + " " + y + " " + z), false);
+                *///?}
             }
         }
         return null;

@@ -70,5 +70,9 @@ public class ModNetwork {
                 SprauteUiOverlapActionPacket::encode,
                 SprauteUiOverlapActionPacket::decode,
                 SprauteUiOverlapActionPacket::handle);
+        CHANNEL.registerMessage(id++, CameraPacket.class,
+                CameraPacket::encode,
+                CameraPacket::decode,
+                CameraPacket::handle);
     }
 }

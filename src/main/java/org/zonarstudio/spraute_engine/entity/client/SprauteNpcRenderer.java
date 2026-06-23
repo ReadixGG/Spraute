@@ -3,7 +3,7 @@ package org.zonarstudio.spraute_engine.entity.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.logging.LogUtils;
-import com.mojang.math.Vector3f;
+import org.zonarstudio.spraute_engine.compat.SprauteRenderCompat;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRenderer;
@@ -46,9 +46,40 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
         this.shadowRadius = 0.5f;
     }
 
+    private static boolean hasPlayerSkinOverlay(SprauteNpcEntity entity) {
+        String overlay = entity.getPlayerSkinOverlayUuid();
+        if (overlay != null && !overlay.isEmpty()) return true;
+        String tex = entity.getTexture();
+        return tex != null && tex.startsWith("player_skin:");
+    }
+
+    /** MC skins paint the face on the NORTH unwrap slot; Bedrock geo faces +Z (SOUTH). Flip head so the face looks at camera. */
+    private static void applyPlayerSkinHeadFacing(SprauteNpcEntity entity, SpModelInstance instance) {
+        if (!hasPlayerSkinOverlay(entity)) return;
+        for (var entry : instance.boneAnimRotation.entrySet()) {
+            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase("head")) {
+                entry.getValue().y += 180f;
+                return;
+            }
+        }
+    }
+
     @Override
     public ResourceLocation getTextureLocation(SprauteNpcEntity entity) {
+        String overlay = entity.getPlayerSkinOverlayUuid();
+        if (overlay != null && !overlay.isEmpty()) {
+            try {
+                java.util.UUID u = java.util.UUID.fromString(overlay);
+                ResourceLocation skin = org.zonarstudio.spraute_engine.client.PlayerSkinTextures.resolve(u);
+                if (skin != null) return skin;
+            } catch (Exception ignored) {
+            }
+        }
         String tex = entity.getTexture();
+        if (tex != null && tex.startsWith("player_skin:")) {
+            ResourceLocation skin = org.zonarstudio.spraute_engine.client.PlayerSkinTextures.resolveFromTextureKey(tex);
+            if (skin != null) return skin;
+        }
         return tex.contains(":") ? new ResourceLocation(tex) : new ResourceLocation(Spraute_engine.MODID, tex);
     }
 
@@ -80,6 +111,7 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
             instance.resetAnims();
             applyOverlayAnimations(entity, partialTick, instance, entry);
             applyHeadBoneLook(entity, partialTick, instance, entry);
+            applyPlayerSkinHeadFacing(entity, instance);
             instance.computeTransforms();
 
             poseStack.pushPose();
@@ -99,13 +131,13 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
             // The X-negate (Bedrock→MC mirror) is handled per-vertex inside SpGeoRenderer,
             // so PoseStack stays clean — no scale(-1,1,1) that would break normals/winding.
             float bodyYaw = Mth.rotLerp(partialTick, entity.yBodyRotO, entity.yBodyRot);
-            poseStack.mulPose(Vector3f.YP.rotationDegrees(180.0F - bodyYaw));
+            SprauteRenderCompat.rotateY(poseStack, 180.0F - bodyYaw);
 
             if (entity.deathTime > 0 && !hasCustomDeathAnim) {
                 float f = ((float)entity.deathTime + partialTick - 1.0F) / 20.0F * 1.6F;
                 f = Mth.sqrt(f);
                 if (f > 1.0F) f = 1.0F;
-                poseStack.mulPose(Vector3f.ZP.rotationDegrees(f * 90.0F));
+                SprauteRenderCompat.rotateZ(poseStack, f * 90.0F);
             }
 
             ResourceLocation textureLoc = getTextureLocation(entity);

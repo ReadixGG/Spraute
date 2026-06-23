@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.zonarstudio.spraute_engine.command.SprauteCommands;
 import org.zonarstudio.spraute_engine.script.ScriptManager;
 
+import org.zonarstudio.spraute_engine.compat.SprauteEntityCompat;
 import org.zonarstudio.spraute_engine.entity.ModEntities;
 
 /**
@@ -45,10 +46,10 @@ public class Spraute_engine {
 
     @SubscribeEvent
     public static void onPlayerLoggedIn(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
-        if (!event.getEntity().level.isClientSide && event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-            org.zonarstudio.spraute_engine.script.ScriptWorldData data = org.zonarstudio.spraute_engine.script.ScriptWorldData.get(serverPlayer.getLevel());
+        if (!SprauteEntityCompat.level(event.getEntity()).isClientSide && event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+            org.zonarstudio.spraute_engine.script.ScriptWorldData data = org.zonarstudio.spraute_engine.script.ScriptWorldData.get(SprauteEntityCompat.serverLevel(serverPlayer));
             boolean showScreen = true;
-            Object val = data.get("_sys_load_screen_off", serverPlayer.getServer(), serverPlayer.getLevel());
+            Object val = data.get("_sys_load_screen_off", serverPlayer.getServer(), SprauteEntityCompat.serverLevel(serverPlayer));
             if (val instanceof Boolean b && b) {
                 showScreen = false;
             }
@@ -68,21 +69,28 @@ public class Spraute_engine {
 
     @SubscribeEvent
     public static void onEntityInteract(net.minecraftforge.event.entity.player.PlayerInteractEvent.EntityInteract event) {
-        if (!event.getLevel().isClientSide) {
+        if (!event.getLevel().isClientSide && !(event.getTarget() instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity)) {
+            org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onInteract(event.getTarget(), event.getEntity());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onEntityInteractSpecific(net.minecraftforge.event.entity.player.PlayerInteractEvent.EntityInteractSpecific event) {
+        if (!event.getLevel().isClientSide && !(event.getTarget() instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity)) {
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onInteract(event.getTarget(), event.getEntity());
         }
     }
 
     @SubscribeEvent
     public static void onItemUseFinish(net.minecraftforge.event.entity.living.LivingEntityUseItemEvent.Finish event) {
-        if (!event.getEntity().level.isClientSide && event.getEntity() instanceof net.minecraft.world.entity.player.Player player) {
+        if (!SprauteEntityCompat.level(event.getEntity()).isClientSide && event.getEntity() instanceof net.minecraft.world.entity.player.Player player) {
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerAction(player, "eat", event.getItem().getItem());
         }
     }
 
     @SubscribeEvent
     public static void onItemFished(net.minecraftforge.event.entity.player.ItemFishedEvent event) {
-        if (!event.getEntity().level.isClientSide) {
+        if (!SprauteEntityCompat.level(event.getEntity()).isClientSide) {
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerAction(event.getEntity(), "fish", null);
         }
     }
@@ -98,35 +106,35 @@ public class Spraute_engine {
 
     @SubscribeEvent
     public static void onLivingJump(net.minecraftforge.event.entity.living.LivingEvent.LivingJumpEvent event) {
-        if (!event.getEntity().level.isClientSide && event.getEntity() instanceof net.minecraft.world.entity.player.Player player) {
+        if (!SprauteEntityCompat.level(event.getEntity()).isClientSide && event.getEntity() instanceof net.minecraft.world.entity.player.Player player) {
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerAction(player, "jump", null);
         }
     }
 
     @SubscribeEvent
     public static void onPlayerSleep(net.minecraftforge.event.entity.player.PlayerSleepInBedEvent event) {
-        if (!event.getEntity().level.isClientSide) {
+        if (!SprauteEntityCompat.level(event.getEntity()).isClientSide) {
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerAction(event.getEntity(), "sleep", null);
         }
     }
 
     @SubscribeEvent
     public static void onItemCrafted(net.minecraftforge.event.entity.player.PlayerEvent.ItemCraftedEvent event) {
-        if (!event.getEntity().level.isClientSide) {
+        if (!SprauteEntityCompat.level(event.getEntity()).isClientSide) {
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerAction(event.getEntity(), "craft", event.getCrafting().getItem());
         }
     }
 
     @SubscribeEvent
     public static void onItemTossed(net.minecraftforge.event.entity.item.ItemTossEvent event) {
-        if (!event.getPlayer().level.isClientSide) {
+        if (!SprauteEntityCompat.level(event.getPlayer()).isClientSide) {
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerAction(event.getPlayer(), "drop", event.getEntity().getItem().getItem());
         }
     }
 
     @SubscribeEvent
     public static void onLivingDeath(net.minecraftforge.event.entity.living.LivingDeathEvent event) {
-        if (!event.getEntity().level.isClientSide) {
+        if (!SprauteEntityCompat.level(event.getEntity()).isClientSide) {
             net.minecraft.world.entity.Entity killer = event.getSource().getEntity();
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onDeath(event.getEntity(), killer);
         }
@@ -134,7 +142,7 @@ public class Spraute_engine {
 
     @SubscribeEvent
     public static void onLivingDrops(net.minecraftforge.event.entity.living.LivingDropsEvent event) {
-        if (!event.getEntity().level.isClientSide) {
+        if (!SprauteEntityCompat.level(event.getEntity()).isClientSide) {
             String mobId = net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES.getKey(event.getEntity().getType()).toString();
             java.util.List<org.zonarstudio.spraute_engine.registry.CustomDropRegistry.DropRule> drops = org.zonarstudio.spraute_engine.registry.CustomDropRegistry.MOB_DROPS.get(mobId);
             if (drops != null) {
@@ -144,8 +152,9 @@ public class Spraute_engine {
                         event.getDrops().clear();
                         replaced = true;
                     }
-                    if (event.getEntity().level.random.nextInt(100) < rule.chance) {
-                        int count = rule.min + event.getEntity().level.random.nextInt(Math.max(1, rule.max - rule.min + 1));
+                    net.minecraft.world.level.Level entityLevel = SprauteEntityCompat.level(event.getEntity());
+                    if (entityLevel.random.nextInt(100) < rule.chance) {
+                        int count = rule.min + entityLevel.random.nextInt(Math.max(1, rule.max - rule.min + 1));
                         net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(
                             new net.minecraft.resources.ResourceLocation(rule.itemId.contains(":") ? rule.itemId : "minecraft:" + rule.itemId)
                         );
@@ -157,7 +166,7 @@ public class Spraute_engine {
                                 } catch (Exception e) {}
                             }
                             net.minecraft.world.entity.item.ItemEntity itemEntity = new net.minecraft.world.entity.item.ItemEntity(
-                                event.getEntity().level,
+                                entityLevel,
                                 event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(),
                                 stack
                             );
@@ -285,6 +294,7 @@ public class Spraute_engine {
     public void onServerStarting(ServerStartingEvent event) {
         LOGGER.info("[Spraute Engine] Initializing script manager...");
         java.nio.file.Path gameDir = event.getServer().getServerDirectory().toPath();
+        org.zonarstudio.spraute_engine.resource.WorkspaceInitializer.ensureWorkspace(gameDir);
         org.zonarstudio.spraute_engine.config.SprauteConfig.load(gameDir);
         org.zonarstudio.spraute_engine.config.ScriptTriggersConfig.load(gameDir);
         ScriptManager.init(gameDir);
@@ -293,9 +303,9 @@ public class Spraute_engine {
 
     @SubscribeEvent
     public static void onPlayerLogin(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
-        if (event.getEntity().level.isClientSide) return;
+        if (SprauteEntityCompat.level(event.getEntity()).isClientSide) return;
         net.minecraft.server.level.ServerPlayer player = (net.minecraft.server.level.ServerPlayer) event.getEntity();
-        net.minecraft.server.level.ServerLevel level = player.getLevel();
+        net.minecraft.server.level.ServerLevel level = SprauteEntityCompat.serverLevel(player);
         net.minecraft.commands.CommandSourceStack source = player.createCommandSourceStack();
 
         var triggers = org.zonarstudio.spraute_engine.config.ScriptTriggersConfig.get();
@@ -329,6 +339,7 @@ public class Spraute_engine {
         public static void registerRenderers(net.minecraftforge.client.event.EntityRenderersEvent.RegisterRenderers event) {
             event.registerEntityRenderer(ModEntities.SPRAUTE_NPC.get(), org.zonarstudio.spraute_engine.entity.client.SprauteNpcRenderer::new);
             event.registerEntityRenderer(ModEntities.SPRAUTE_ORB.get(), org.zonarstudio.spraute_engine.entity.client.SprauteOrbRenderer::new);
+            event.registerEntityRenderer(ModEntities.SPRAUTE_BILLBOARD.get(), org.zonarstudio.spraute_engine.entity.client.SprauteBillboardRenderer::new);
             
             // Only register if we actually have custom blocks that need it
             if (org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CUSTOM_GEO_BLOCK_ENTITY != null) {
@@ -345,7 +356,8 @@ public class Spraute_engine {
             for (org.zonarstudio.spraute_engine.registry.CustomParticleRegistry.CustomParticleDef def : org.zonarstudio.spraute_engine.registry.CustomParticleRegistry.PARTICLES.values()) {
                 net.minecraft.core.particles.SimpleParticleType type = (net.minecraft.core.particles.SimpleParticleType) net.minecraftforge.registries.ForgeRegistries.PARTICLE_TYPES.getValue(new net.minecraft.resources.ResourceLocation(MODID, def.id));
                 if (type != null) {
-                    event.register(type, spriteSet -> new net.minecraft.client.particle.ParticleProvider<net.minecraft.core.particles.SimpleParticleType>() {
+                    //? if >=1.20.1 {
+                    event.registerSpriteSet(type, spriteSet -> new net.minecraft.client.particle.ParticleProvider<net.minecraft.core.particles.SimpleParticleType>() {
                         @Override
                         public net.minecraft.client.particle.Particle createParticle(net.minecraft.core.particles.SimpleParticleType t, net.minecraft.client.multiplayer.ClientLevel l, double x, double y, double z, double vx, double vy, double vz) {
                             org.zonarstudio.spraute_engine.client.SprauteCustomParticle particle = new org.zonarstudio.spraute_engine.client.SprauteCustomParticle(l, x, y, z, vx, vy, vz);
@@ -353,6 +365,16 @@ public class Spraute_engine {
                             return particle;
                         }
                     });
+                    //?} else {
+                    /*event.register(type, spriteSet -> new net.minecraft.client.particle.ParticleProvider<net.minecraft.core.particles.SimpleParticleType>() {
+                        @Override
+                        public net.minecraft.client.particle.Particle createParticle(net.minecraft.core.particles.SimpleParticleType t, net.minecraft.client.multiplayer.ClientLevel l, double x, double y, double z, double vx, double vy, double vz) {
+                            org.zonarstudio.spraute_engine.client.SprauteCustomParticle particle = new org.zonarstudio.spraute_engine.client.SprauteCustomParticle(l, x, y, z, vx, vy, vz);
+                            particle.pickSprite(spriteSet);
+                            return particle;
+                        }
+                    });
+                    *///?}
                 }
             }
         }
@@ -369,25 +391,36 @@ public class Spraute_engine {
         }
 
         @SubscribeEvent
+        public static void onConstruct(net.minecraftforge.fml.event.lifecycle.FMLConstructModEvent event) {
+            org.zonarstudio.spraute_engine.resource.WorkspaceInitializer.ensureWorkspace(
+                    net.minecraftforge.fml.loading.FMLPaths.GAMEDIR.get());
+        }
+
+        @SubscribeEvent
         public static void onAddPackFinders(net.minecraftforge.event.AddPackFindersEvent event) {
             if (event.getPackType() == net.minecraft.server.packs.PackType.CLIENT_RESOURCES || event.getPackType() == net.minecraft.server.packs.PackType.SERVER_DATA) {
-                // Register the run/spraute_engine/ directory as a resource/data pack
                 java.nio.file.Path gameDir = net.minecraftforge.fml.loading.FMLPaths.GAMEDIR.get();
+                org.zonarstudio.spraute_engine.resource.WorkspaceInitializer.ensureWorkspace(gameDir);
                 java.nio.file.Path assetsDir = gameDir.resolve("spraute_engine");
-                
-                if (java.nio.file.Files.isDirectory(assetsDir)) {
-                    // Create dummy pack.mcmeta so Pack.create can read metadata
-                    java.nio.file.Path mcmeta = assetsDir.resolve("pack.mcmeta");
-                    if (!java.nio.file.Files.exists(mcmeta)) {
-                        try {
-                            java.nio.file.Files.writeString(mcmeta, "{\n  \"pack\": {\n    \"pack_format\": 9,\n    \"description\": \"Spraute Engine External Assets\"\n  }\n}");
-                        } catch (java.io.IOException e) {
-                            LOGGER.error("Failed to generate pack.mcmeta", e);
-                        }
-                    }
 
-                    LOGGER.info("[Spraute Engine] Registering external " + event.getPackType().name() + " from: {}", assetsDir);
-                    event.addRepositorySource((consumer, constructor) -> {
+                LOGGER.info("[Spraute Engine] Registering external " + event.getPackType().name() + " from: {}", assetsDir);
+                    //? if >=1.20.1 {
+                    event.addRepositorySource(packConsumer -> {
+                        var pack = net.minecraft.server.packs.repository.Pack.readMetaAndCreate(
+                                "spraute_engine_external_" + event.getPackType().name().toLowerCase(),
+                                net.minecraft.network.chat.Component.literal("Spraute Engine External Assets"),
+                                true,
+                                packId -> new org.zonarstudio.spraute_engine.resource.ExternalAssetPack(assetsDir),
+                                event.getPackType(),
+                                net.minecraft.server.packs.repository.Pack.Position.TOP,
+                                net.minecraft.server.packs.repository.PackSource.BUILT_IN
+                        );
+                        if (pack != null) {
+                            packConsumer.accept(pack);
+                        }
+                    });
+                    //?} else {
+                    /*event.addRepositorySource((consumer, constructor) -> {
                         var pack = net.minecraft.server.packs.repository.Pack.create(
                                 "spraute_engine_external_" + event.getPackType().name().toLowerCase(),
                                 true, // required
@@ -400,11 +433,7 @@ public class Spraute_engine {
                             consumer.accept(pack);
                         }
                     });
-                } else {
-                    if (event.getPackType() == net.minecraft.server.packs.PackType.CLIENT_RESOURCES) {
-                        LOGGER.warn("[Spraute Engine] External assets directory not found: {}", assetsDir);
-                    }
-                }
+                    *///?}
             }
         }
     }

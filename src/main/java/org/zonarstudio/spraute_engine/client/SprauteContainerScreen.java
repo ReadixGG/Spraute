@@ -3,6 +3,9 @@ package org.zonarstudio.spraute_engine.client;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.vertex.PoseStack;
+//? if >=1.20.1 {
+import net.minecraft.client.gui.GuiGraphics;
+//?}
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -18,7 +21,9 @@ public class SprauteContainerScreen extends AbstractContainerScreen<SprauteConta
         this.bgScreen = new SprauteScriptScreen(root);
         
         // Disable generic background tint since we have items
-        this.passEvents = true; 
+        //? if <1.20.1 {
+        /*this.passEvents = true;
+        *///?}
         
         if (root.has("size")) {
             if (root.get("size").isJsonArray()) {
@@ -39,26 +44,53 @@ public class SprauteContainerScreen extends AbstractContainerScreen<SprauteConta
         }
     }
 
+    //? if >=1.20.1 {
     @Override
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(g);
+
+        // Draw the scripted UI underneath the slots
+        bgScreen.render(g, mouseX, mouseY, partialTick);
+
+        super.render(g, mouseX, mouseY, partialTick);
+        this.renderTooltip(g, mouseX, mouseY);
+    }
+    //?} else {
+    /*@Override
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(poseStack);
-        
+
         // Draw the scripted UI underneath the slots
         bgScreen.render(poseStack, mouseX, mouseY, partialTick);
-        
+
         super.render(poseStack, mouseX, mouseY, partialTick);
         this.renderTooltip(poseStack, mouseX, mouseY);
     }
+    *///?}
 
+    //? if >=1.20.1 {
     @Override
+    protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
+        // bgScreen already renders everything, no need to do anything here
+    }
+    //?} else {
+    /*@Override
     protected void renderBg(PoseStack poseStack, float partialTick, int mouseX, int mouseY) {
         // bgScreen already renders everything, no need to do anything here
     }
+    *///?}
 
+    //? if >=1.20.1 {
     @Override
+    protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
+        // Disable default labels like "Inventory" unless we want them
+    }
+    //?} else {
+    /*@Override
     protected void renderLabels(PoseStack poseStack, int mouseX, int mouseY) {
         // Disable default labels like "Inventory" unless we want them
     }
+    *///?}
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {

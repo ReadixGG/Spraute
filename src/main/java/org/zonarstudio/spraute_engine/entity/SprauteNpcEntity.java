@@ -9,6 +9,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
+import org.zonarstudio.spraute_engine.compat.SprauteEntityCompat;
 
 public class SprauteNpcEntity extends PathfinderMob {
 
@@ -18,6 +19,9 @@ public class SprauteNpcEntity extends PathfinderMob {
     private static final net.minecraft.network.syncher.EntityDataAccessor<String> TEXTURE_RES =
         net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.STRING);
     private static final net.minecraft.network.syncher.EntityDataAccessor<String> ANIMATION_RES =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.STRING);
+    /** UUID игрока, чей скин накладывается на geo-модель (клиент). */
+    private static final net.minecraft.network.syncher.EntityDataAccessor<String> PLAYER_SKIN_OVERLAY =
         net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.STRING);
 
     // ========== Synced data (head bone) ==========
@@ -131,6 +135,14 @@ public class SprauteNpcEntity extends PathfinderMob {
 
     public String[] uiRenderBones = null;
 
+    /** Имя группы, к которой принадлежит этот НПС (null если не в группе). */
+    private String groupName = null;
+    public String getGroupName() { return groupName; }
+    public void setGroupName(String name) { this.groupName = name; }
+
+    private static final double SEPARATION_RADIUS = 1.1;
+    private static final double SEPARATION_STRENGTH = 0.12;
+
     public SprauteNpcEntity(EntityType<? extends PathfinderMob> type, Level level) {
         super(type, level);
         this.setCanPickUpLoot(true);
@@ -142,6 +154,7 @@ public class SprauteNpcEntity extends PathfinderMob {
         this.entityData.define(MODEL_RES, "geo/defender.geo.json");
         this.entityData.define(TEXTURE_RES, "textures/entity/npc/npc_default.png");
         this.entityData.define(ANIMATION_RES, "animations/npc_classic.animation.json");
+        this.entityData.define(PLAYER_SKIN_OVERLAY, "");
         this.entityData.define(HEAD_LOOK_ACTIVE, false);
         this.entityData.define(HEAD_LOOK_YAW, 0f);
         this.entityData.define(HEAD_LOOK_PITCH, 0f);
@@ -175,6 +188,15 @@ public class SprauteNpcEntity extends PathfinderMob {
     public String getModel() { return this.entityData.get(MODEL_RES); }
     public void setTexture(String v) { this.entityData.set(TEXTURE_RES, v); }
     public String getTexture() { return this.entityData.get(TEXTURE_RES); }
+    public void setPlayerSkinOverlay(java.util.UUID playerUuid) {
+        this.entityData.set(PLAYER_SKIN_OVERLAY, playerUuid != null ? playerUuid.toString() : "");
+    }
+    public void clearPlayerSkinOverlay() {
+        this.entityData.set(PLAYER_SKIN_OVERLAY, "");
+    }
+    public String getPlayerSkinOverlayUuid() {
+        return this.entityData.get(PLAYER_SKIN_OVERLAY);
+    }
     public void setAnimation(String v) { this.entityData.set(ANIMATION_RES, v); }
     public String getAnimation() { return this.entityData.get(ANIMATION_RES); }
 
@@ -267,10 +289,10 @@ public class SprauteNpcEntity extends PathfinderMob {
         this.setNoGravity(flying);
         if (flying) {
             this.moveControl = new net.minecraft.world.entity.ai.control.FlyingMoveControl(this, 20, true);
-            this.navigation = new net.minecraft.world.entity.ai.navigation.FlyingPathNavigation(this, this.level);
+            this.navigation = new net.minecraft.world.entity.ai.navigation.FlyingPathNavigation(this, SprauteEntityCompat.level(this));
         } else {
             this.moveControl = new net.minecraft.world.entity.ai.control.MoveControl(this);
-            this.navigation = new net.minecraft.world.entity.ai.navigation.GroundPathNavigation(this, this.level);
+            this.navigation = new net.minecraft.world.entity.ai.navigation.GroundPathNavigation(this, SprauteEntityCompat.level(this));
         }
     }
 
@@ -285,10 +307,10 @@ public class SprauteNpcEntity extends PathfinderMob {
         this.entityData.set(IS_SWIMMING_SCRIPT, swimming);
         if (swimming) {
             this.moveControl = new net.minecraft.world.entity.ai.control.SmoothSwimmingMoveControl(this, 85, 10, 0.02F, 0.1F, true);
-            this.navigation = new net.minecraft.world.entity.ai.navigation.AmphibiousPathNavigation(this, this.level);
+            this.navigation = new net.minecraft.world.entity.ai.navigation.AmphibiousPathNavigation(this, SprauteEntityCompat.level(this));
         } else if (!isFlying()) {
             this.moveControl = new net.minecraft.world.entity.ai.control.MoveControl(this);
-            this.navigation = new net.minecraft.world.entity.ai.navigation.GroundPathNavigation(this, this.level);
+            this.navigation = new net.minecraft.world.entity.ai.navigation.GroundPathNavigation(this, SprauteEntityCompat.level(this));
         }
     }
 
@@ -347,7 +369,7 @@ public class SprauteNpcEntity extends PathfinderMob {
      * watchers never get a new {@link #HEAD_LOOK_TARGET_GEN} with stale {@link #HEAD_LOOK_YAW} for a full tick.
      */
     private void refreshSyncedHeadLookNow() {
-        if (this.level.isClientSide) return;
+        if (SprauteEntityCompat.level(this).isClientSide) return;
         Vec3 target = resolveLookTarget();
         if (target != null) {
             applySyncedHeadLookClamped(
@@ -485,8 +507,16 @@ public class SprauteNpcEntity extends PathfinderMob {
     public void clearPickupMaxCount() { pickupMaxItemId = null; pickupMaxTag = null; pickupMaxCount = -1; }
 
     public int countItem(String itemId) { return countItem(itemId, null); }
+    private static net.minecraft.resources.ResourceLocation parseItemResourceId(String itemId) {
+        //? if >=1.20.1 {
+        return new net.minecraft.resources.ResourceLocation(itemId);
+        //?} else {
+        /*return new net.minecraft.resources.ResourceLocation(itemId);
+        *///?}
+    }
+
     public int countItem(String itemId, String nbtTag) {
-        net.minecraft.resources.ResourceLocation target = net.minecraft.resources.ResourceLocation.parse(itemId);
+        net.minecraft.resources.ResourceLocation target = parseItemResourceId(itemId);
         int total = 0;
         for (int i = 0; i < pickupContainer.getContainerSize(); i++) {
             net.minecraft.world.item.ItemStack stack = pickupContainer.getItem(i);
@@ -515,7 +545,7 @@ public class SprauteNpcEntity extends PathfinderMob {
         if (!super.wantsToPickUp(stack)) return false;
         if (pickupMaxItemId == null) return false;
         if (pickupMaxCount >= 0) {
-            if (!net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem()).equals(net.minecraft.resources.ResourceLocation.parse(pickupMaxItemId))) return false;
+            if (!net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem()).equals(parseItemResourceId(pickupMaxItemId))) return false;
             if (pickupMaxTag != null && !pickupMaxTag.isEmpty()) {
                 if (!stack.hasTag()) return false;
                 try {
@@ -532,13 +562,13 @@ public class SprauteNpcEntity extends PathfinderMob {
 
     @Override
     protected void pickUpItem(ItemEntity itemEntity) {
-        java.util.UUID thrower = itemEntity.getThrower();
+        java.util.UUID thrower = org.zonarstudio.spraute_engine.compat.SprauteEntityCompat.getItemThrower(itemEntity);
         if (pickupDropperFilter != null && (thrower == null || !thrower.equals(pickupDropperFilter))) return;
         lastPickupThrower = thrower;
         net.minecraft.world.item.ItemStack stack = itemEntity.getItem();
         int toTake = stack.getCount();
         if (pickupMaxItemId != null && pickupMaxCount >= 0) {
-            if (!net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem()).equals(net.minecraft.resources.ResourceLocation.parse(pickupMaxItemId))) return;
+            if (!net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem()).equals(parseItemResourceId(pickupMaxItemId))) return;
             if (pickupMaxTag != null && !pickupMaxTag.isEmpty() && (!stack.hasTag() || !java.util.Objects.equals(stack.getTag().get("tag"), pickupMaxTag))) return;
             int have = countItem(pickupMaxItemId, pickupMaxTag);
             if (have >= pickupMaxCount) return;
@@ -594,7 +624,7 @@ public class SprauteNpcEntity extends PathfinderMob {
     }
 
     private void tickAlwaysMove() {
-        if (this.level.isClientSide) return;
+        if (SprauteEntityCompat.level(this).isClientSide) return;
         if (alwaysMoveEntity != null) {
             if (alwaysMoveEntity.isAlive()) {
                 if (this.tickCount % 10 == 0) {
@@ -610,11 +640,40 @@ public class SprauteNpcEntity extends PathfinderMob {
         }
     }
 
+    /** Separation steering — мягко расталкивает НПС друг от друга при сближении. */
+    private void tickSeparation() {
+        if (SprauteEntityCompat.level(this).isClientSide) return;
+        // Применяем только если НПС активно движется
+        boolean isMoving = !this.getNavigation().isDone() || alwaysMovePoint != null || alwaysMoveEntity != null;
+        if (!isMoving) return;
+        if (this.tickCount % 3 != 0) return; // проверяем каждые 3 тика
+
+        double dx = 0, dz = 0;
+        java.util.List<SprauteNpcEntity> nearby = SprauteEntityCompat.level(this)
+            .getEntitiesOfClass(SprauteNpcEntity.class,
+                this.getBoundingBox().inflate(SEPARATION_RADIUS + 0.1));
+        for (SprauteNpcEntity other : nearby) {
+            if (other == this) continue;
+            double diffX = this.getX() - other.getX();
+            double diffZ = this.getZ() - other.getZ();
+            double dist = Math.sqrt(diffX * diffX + diffZ * diffZ);
+            if (dist > 0 && dist < SEPARATION_RADIUS) {
+                double strength = SEPARATION_STRENGTH * (SEPARATION_RADIUS - dist) / SEPARATION_RADIUS;
+                dx += (diffX / dist) * strength;
+                dz += (diffZ / dist) * strength;
+            }
+        }
+        if (dx != 0 || dz != 0) {
+            Vec3 current = this.getDeltaMovement();
+            this.setDeltaMovement(current.x + dx, current.y, current.z + dz);
+        }
+    }
+
     @Override
     public void tick() {
         float bodyStart = this.sprauteBodyYawHasEndOfTick ? this.sprauteBodyYawEndOfTick : this.yBodyRot;
         super.tick();
-        if (this.level.isClientSide) {
+        if (SprauteEntityCompat.level(this).isClientSide) {
             float targetBody = this.entityData.get(SYNCED_BODY_YAW);
             this.yBodyRot = net.minecraft.util.Mth.approachDegrees(bodyStart, targetBody, BODY_TURN_SPEED);
             this.yHeadRot = this.yBodyRot;
@@ -627,6 +686,7 @@ public class SprauteNpcEntity extends PathfinderMob {
         this.yHeadRot = bodyStart;
         this.setYRot(bodyStart);
         tickAlwaysMove();
+        tickSeparation();
         isMoving();
         tickLookSystem();
         fixBodyYawSamplingContinuity();
@@ -844,7 +904,7 @@ public class SprauteNpcEntity extends PathfinderMob {
 
     /** @return true if this NPC is currently walking (with debounce to avoid flicker). */
     public boolean isMoving() {
-        if (this.level.isClientSide) {
+        if (SprauteEntityCompat.level(this).isClientSide) {
             return this.entityData.get(IS_MOVING_SYNCED);
         }
         boolean rawMoving = this.getNavigation().isInProgress();
@@ -853,5 +913,14 @@ public class SprauteNpcEntity extends PathfinderMob {
         boolean moving = movingStateTicks > 0;
         this.entityData.set(IS_MOVING_SYNCED, moving);
         return moving;
+    }
+
+    @Override
+    protected net.minecraft.world.InteractionResult mobInteract(net.minecraft.world.entity.player.Player player, net.minecraft.world.InteractionHand hand) {
+        if (!SprauteEntityCompat.level(this).isClientSide && hand == net.minecraft.world.InteractionHand.MAIN_HAND) {
+            org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onInteract(this, player);
+            return net.minecraft.world.InteractionResult.sidedSuccess(SprauteEntityCompat.level(this).isClientSide);
+        }
+        return super.mobInteract(player, hand);
     }
 }

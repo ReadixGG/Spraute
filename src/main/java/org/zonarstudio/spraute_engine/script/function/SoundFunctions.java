@@ -52,7 +52,11 @@ public class SoundFunctions {
 
             // Using reflection to bypass Registry requirements in 1.19.2 for custom sounds,
             // or we just construct a new SoundEvent (in 1.19.2 SoundEvent(ResourceLocation) is public)
-            SoundEvent event = new SoundEvent(rl);
+            //? if >=1.20.1 {
+            SoundEvent event = SoundEvent.createVariableRangeEvent(rl);
+            //?} else {
+            /*SoundEvent event = new SoundEvent(rl);
+            *///?}
             
             // Sending directly using network packet or player method
             // In 1.19.2, playNotifySound works well

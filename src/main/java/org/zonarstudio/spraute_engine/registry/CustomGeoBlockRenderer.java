@@ -2,7 +2,7 @@ package org.zonarstudio.spraute_engine.registry;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Vector3f;
+import org.zonarstudio.spraute_engine.compat.SprauteRenderCompat;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
@@ -72,10 +72,10 @@ public class CustomGeoBlockRenderer implements BlockEntityRenderer<CustomGeoBloc
             net.minecraft.core.Direction blockDir = net.minecraft.core.Direction.NORTH;
             if (blockEntity.getBlockState().hasProperty(CustomGeoBlock.FACING)) {
                 blockDir = blockEntity.getBlockState().getValue(CustomGeoBlock.FACING);
-                poseStack.mulPose(Vector3f.YP.rotationDegrees(-blockDir.toYRot()));
+                SprauteRenderCompat.rotateY(poseStack, -blockDir.toYRot());
             }
             
-            poseStack.mulPose(Vector3f.ZP.rotationDegrees(180.0F));
+            SprauteRenderCompat.rotateZ(poseStack, 180.0F);
             poseStack.translate(0, -1.5, 0);
 
             ResourceLocation textureLoc = texturePath.contains(":") ? new ResourceLocation(texturePath) : new ResourceLocation(Spraute_engine.MODID, texturePath);
@@ -94,7 +94,7 @@ public class CustomGeoBlockRenderer implements BlockEntityRenderer<CustomGeoBloc
             poseStack.translate(0.5, 0.0, 0.5);
             if (blockEntity.getBlockState().hasProperty(CustomGeoBlock.FACING)) {
                 net.minecraft.core.Direction blockDir = blockEntity.getBlockState().getValue(CustomGeoBlock.FACING);
-                poseStack.mulPose(Vector3f.YP.rotationDegrees(-blockDir.toYRot()));
+                SprauteRenderCompat.rotateY(poseStack, -blockDir.toYRot());
             }
             poseStack.translate(-0.5, 0.0, -0.5);
             
@@ -112,15 +112,15 @@ public class CustomGeoBlockRenderer implements BlockEntityRenderer<CustomGeoBloc
                     
                     poseStack.pushPose();
                     poseStack.translate(d.ox, d.oy, d.oz);
-                    poseStack.mulPose(Vector3f.XP.rotationDegrees(d.rx));
-                    poseStack.mulPose(Vector3f.YP.rotationDegrees(d.ry));
-                    poseStack.mulPose(Vector3f.ZP.rotationDegrees(d.rz));
+                    SprauteRenderCompat.rotateX(poseStack, d.rx);
+                    SprauteRenderCompat.rotateY(poseStack, d.ry);
+                    SprauteRenderCompat.rotateZ(poseStack, d.rz);
                     poseStack.scale(d.scale, d.scale, d.scale);
                     
-                    net.minecraft.client.Minecraft.getInstance().getItemRenderer().renderStatic(
+                    SprauteRenderCompat.renderFixedItem(
+                        net.minecraft.client.Minecraft.getInstance().getItemRenderer(),
                         new net.minecraft.world.item.ItemStack(mcItem),
-                        net.minecraft.client.renderer.block.model.ItemTransforms.TransformType.FIXED,
-                        packedLight, packedOverlay, poseStack, bufferSource, 0
+                        poseStack, bufferSource, packedLight, 0
                     );
                     
                     poseStack.popPose();
@@ -140,13 +140,13 @@ public class CustomGeoBlockRenderer implements BlockEntityRenderer<CustomGeoBloc
                             
                             poseStack.pushPose();
                             poseStack.translate(d.ox, d.oy, d.oz);
-                            poseStack.mulPose(Vector3f.XP.rotationDegrees(d.rx));
-                            poseStack.mulPose(Vector3f.YP.rotationDegrees(d.ry));
-                            poseStack.mulPose(Vector3f.ZP.rotationDegrees(d.rz));
+                            SprauteRenderCompat.rotateX(poseStack, d.rx);
+                            SprauteRenderCompat.rotateY(poseStack, d.ry);
+                            SprauteRenderCompat.rotateZ(poseStack, d.rz);
                             poseStack.scale(d.scale, d.scale, d.scale);
 
                             poseStack.translate(0.5, 0, 0.5);
-                            poseStack.mulPose(Vector3f.ZP.rotationDegrees(180.0F));
+                            SprauteRenderCompat.rotateZ(poseStack, 180.0F);
                             poseStack.translate(0, -1.5, 0);
 
                             ResourceLocation texLoc = d.texture.contains(":") ? new ResourceLocation(d.texture) : new ResourceLocation(Spraute_engine.MODID, d.texture);
@@ -165,9 +165,9 @@ public class CustomGeoBlockRenderer implements BlockEntityRenderer<CustomGeoBloc
                     
                     poseStack.pushPose();
                     poseStack.translate(d.ox, d.oy, d.oz);
-                    poseStack.mulPose(Vector3f.XP.rotationDegrees(d.rx));
-                    poseStack.mulPose(Vector3f.YP.rotationDegrees(d.ry));
-                    poseStack.mulPose(Vector3f.ZP.rotationDegrees(d.rz));
+                    SprauteRenderCompat.rotateX(poseStack, d.rx);
+                    SprauteRenderCompat.rotateY(poseStack, d.ry);
+                    SprauteRenderCompat.rotateZ(poseStack, d.rz);
                     poseStack.scale(d.scale, d.scale, d.scale);
                     
                     net.minecraft.client.Minecraft.getInstance().getBlockRenderer().renderSingleBlock(

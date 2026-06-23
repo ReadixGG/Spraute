@@ -1,6 +1,9 @@
 package org.zonarstudio.spraute_engine.client.gui;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+//? if >=1.20.1 {
+import net.minecraft.client.gui.GuiGraphics;
+//?}
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -8,6 +11,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import org.zonarstudio.spraute_engine.config.SprauteConfig;
+import org.zonarstudio.spraute_engine.client.SprauteGuiDraw;
 
 import java.awt.Color;
 
@@ -47,9 +51,15 @@ public class SprauteSettingsScreen extends Screen {
         int center = this.width / 2;
 
         // Name Format
-        this.addRenderableWidget(new Button(center - 100, y, 200, 20, Component.literal("Format: " + config.nameFormat), button -> {
+        //? if >=1.20.1 {
+        this.addRenderableWidget(Button.builder(Component.literal("Format: " + config.nameFormat), button -> {
+            // Placeholder for label, actually we want an EditBox below
+        }).bounds(center - 100, y, 200, 20).build()).active = false; // Just a label workaround or use drawString
+        //?} else {
+        /*this.addRenderableWidget(new Button(center - 100, y, 200, 20, Component.literal("Format: " + config.nameFormat), button -> {
             // Placeholder for label, actually we want an EditBox below
         })).active = false; // Just a label workaround or use drawString
+        *///?}
 
         y += 25;
         formatBox = new EditBox(this.font, center - 100, y, 200, 20, Component.literal("Name Format"));
@@ -79,16 +89,45 @@ public class SprauteSettingsScreen extends Screen {
         this.addRenderableWidget(hexBox);
 
         // Save Button
-        this.addRenderableWidget(new Button(center - 50, this.height - 40, 100, 20, Component.literal("Save & Close"), button -> {
+        //? if >=1.20.1 {
+        this.addRenderableWidget(Button.builder(Component.literal("Save & Close"), button -> {
+            onClose();
+        }).bounds(center - 50, this.height - 40, 100, 20).build());
+        //?} else {
+        /*this.addRenderableWidget(new Button(center - 50, this.height - 40, 100, 20, Component.literal("Save & Close"), button -> {
             onClose();
         }));
+        *///?}
     }
 
+    //? if >=1.20.1 {
     @Override
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(guiGraphics);
+        SprauteGuiDraw.drawCenteredString(guiGraphics, this.font, this.title.getString(), this.width / 2, 15, 0xFFFFFF);
+
+        // Draw labels
+        SprauteGuiDraw.drawCenteredString(guiGraphics, this.font, "Name Format (use $Name)", this.width / 2, formatBox.getY() - 12, 0xAAAAAA);
+        SprauteGuiDraw.drawCenteredString(guiGraphics, this.font, "Name Color", this.width / 2, redSlider.getY() - 12, 0xAAAAAA);
+
+        // Update colors from sliders if they were dragged
+        updateColorFromSliders();
+
+        // Preview Box
+        int previewSize = 40;
+        int previewX = this.width / 2 + 110;
+        int previewY = redSlider.getY();
+        SprauteGuiDraw.fill(guiGraphics, previewX, previewY, previewX + previewSize, previewY + previewSize + 50, (0xFF << 24) | (r << 16) | (g << 8) | b);
+        SprauteGuiDraw.drawCenteredString(guiGraphics, this.font, "Preview", previewX + 20, previewY - 12, 0xFFFFFF);
+
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
+    }
+    //?} else {
+    /*@Override
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(poseStack);
         drawCenteredString(poseStack, this.font, this.title, this.width / 2, 15, 0xFFFFFF);
-        
+
         // Draw labels
         drawCenteredString(poseStack, this.font, "Name Format (use $Name)", this.width / 2, formatBox.y - 12, 0xAAAAAA);
         drawCenteredString(poseStack, this.font, "Name Color", this.width / 2, redSlider.y - 12, 0xAAAAAA);
@@ -105,6 +144,7 @@ public class SprauteSettingsScreen extends Screen {
 
         super.render(poseStack, mouseX, mouseY, partialTick);
     }
+    *///?}
 
     private void updateColorFromSliders() {
         if (redSlider == null) return;

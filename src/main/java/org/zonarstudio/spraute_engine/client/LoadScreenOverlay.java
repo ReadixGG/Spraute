@@ -1,9 +1,15 @@
 package org.zonarstudio.spraute_engine.client;
 
-import com.mojang.blaze3d.vertex.PoseStack;
+//? if <1.20.1 {
+/*import com.mojang.blaze3d.vertex.PoseStack;
+*///?}
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiComponent;
+//? if >=1.20.1 {
+import net.minecraft.client.gui.GuiGraphics;
+//?} else {
+/*import net.minecraft.client.gui.GuiComponent;
+*///?}
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -54,7 +60,8 @@ public class LoadScreenOverlay {
         }
         
         timeIn = props.containsKey("time") && props.get("time") instanceof Number n ? n.floatValue() : 1.0f;
-        visibleTime = props.containsKey("visible_time") && props.get("visible_time") instanceof Number n ? n.floatValue() : 2.0f;
+        visibleTime = props.containsKey("visibleTime") && props.get("visibleTime") instanceof Number n ? n.floatValue()
+                : props.containsKey("visible_time") && props.get("visible_time") instanceof Number n2 ? n2.floatValue() : 2.0f;
         
         autoFadeOut = true;
         if (props.containsKey("fadeout") && props.get("fadeout") instanceof Boolean b) {
@@ -97,7 +104,11 @@ public class LoadScreenOverlay {
         Minecraft mc = Minecraft.getInstance();
         int width = event.getWindow().getGuiScaledWidth();
         int height = event.getWindow().getGuiScaledHeight();
-        PoseStack poseStack = event.getPoseStack();
+        //? if >=1.20.1 {
+        GuiGraphics guiGraphics = event.getGuiGraphics();
+        //?} else {
+        /*PoseStack poseStack = event.getPoseStack();
+        *///?}
 
         float darkAlpha = 1.0f;
         if (elapsed > 4000) {
@@ -114,15 +125,13 @@ public class LoadScreenOverlay {
         }
 
         int darkColor = ((int) (darkAlpha * 255) << 24) | 0x111111;
-        GuiComponent.fill(poseStack, 0, 0, width, height, darkColor);
+        //? if >=1.20.1 {
+        guiGraphics.fill(0, 0, width, height, darkColor);
+        //?} else {
+        /*GuiComponent.fill(poseStack, 0, 0, width, height, darkColor);
+        *///?}
 
         if (logoAlpha > 0) {
-            com.mojang.blaze3d.systems.RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionTexShader);
-            com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, logoAlpha);
-            com.mojang.blaze3d.systems.RenderSystem.setShaderTexture(0, new net.minecraft.resources.ResourceLocation(Spraute_engine.MODID, "textures/gui/logo.png"));
-            com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-            com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-
             int texWidth = 1356;
             int texHeight = 470;
             
@@ -133,12 +142,25 @@ public class LoadScreenOverlay {
             int x = (width - logoWidth) / 2;
             int y = (height - logoHeight) / 2;
 
+            //? if >=1.20.1 {
+            net.minecraft.resources.ResourceLocation texLoc = new net.minecraft.resources.ResourceLocation(Spraute_engine.MODID, "textures/gui/logo.png");
+            guiGraphics.setColor(1.0F, 1.0F, 1.0F, logoAlpha);
+            guiGraphics.blit(texLoc, x, y, logoWidth, logoHeight, 0.0F, 0.0F, texWidth, texHeight, texWidth, texHeight);
+            guiGraphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
+            //?} else {
+            /*com.mojang.blaze3d.systems.RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionTexShader);
+            com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, logoAlpha);
+            com.mojang.blaze3d.systems.RenderSystem.setShaderTexture(0, new net.minecraft.resources.ResourceLocation(Spraute_engine.MODID, "textures/gui/logo.png"));
+            com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+            com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
+
             poseStack.pushPose();
             GuiComponent.blit(poseStack, x, y, logoWidth, logoHeight, 0, 0, texWidth, texHeight, texWidth, texHeight);
             poseStack.popPose();
             
             com.mojang.blaze3d.systems.RenderSystem.disableBlend();
             com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+            *///?}
         }
     }
     
@@ -185,15 +207,33 @@ public class LoadScreenOverlay {
         
         int width = event.getWindow().getGuiScaledWidth();
         int height = event.getWindow().getGuiScaledHeight();
-        PoseStack poseStack = event.getPoseStack();
+        //? if >=1.20.1 {
+        GuiGraphics guiGraphics = event.getGuiGraphics();
+        //?} else {
+        /*PoseStack poseStack = event.getPoseStack();
+        *///?}
         Minecraft mc = Minecraft.getInstance();
         
         int bgColor = ((int) (alpha * 255) << 24) | (color & 0xFFFFFF);
-        GuiComponent.fill(poseStack, 0, 0, width, height, bgColor);
+        //? if >=1.20.1 {
+        guiGraphics.fill(0, 0, width, height, bgColor);
+        //?} else {
+        /*GuiComponent.fill(poseStack, 0, 0, width, height, bgColor);
+        *///?}
         
         if (alpha > 0) {
             if (texture != null && !texture.isEmpty()) {
-                com.mojang.blaze3d.systems.RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionTexShader);
+                //? if >=1.20.1 {
+                net.minecraft.resources.ResourceLocation texLoc = new net.minecraft.resources.ResourceLocation(texture.contains(":") ? texture : "minecraft:" + texture);
+                guiGraphics.setColor(1.0F, 1.0F, 1.0F, alpha);
+                int tw = 256;
+                int th = 256;
+                int tx = (width - tw) / 2;
+                int ty = (height - th) / 2;
+                guiGraphics.blit(texLoc, tx, ty, 0, 0, tw, th, tw, th);
+                guiGraphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
+                //?} else {
+                /*com.mojang.blaze3d.systems.RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionTexShader);
                 com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
                 net.minecraft.resources.ResourceLocation texLoc = new net.minecraft.resources.ResourceLocation(texture.contains(":") ? texture : "minecraft:" + texture);
                 com.mojang.blaze3d.systems.RenderSystem.setShaderTexture(0, texLoc);
@@ -213,29 +253,50 @@ public class LoadScreenOverlay {
                 
                 com.mojang.blaze3d.systems.RenderSystem.disableBlend();
                 com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+                *///?}
             }
 
             int fontColor = ((int) (alpha * 255) << 24) | 0xFFFFFF;
             Font font = mc.font;
             
             if (text != null && !text.isEmpty()) {
-                poseStack.pushPose();
+                //? if >=1.20.1 {
+                guiGraphics.pose().pushPose();
+                float scale = 3.0f;
+                int textWidth = font.width(text);
+                guiGraphics.pose().translate(width / 2.0f, height / 2.0f - (subtitle != null ? 20 : 0), 0);
+                guiGraphics.pose().scale(scale, scale, 1.0f);
+                guiGraphics.drawString(font, text, -textWidth / 2.0f, -font.lineHeight / 2.0f, fontColor, true);
+                guiGraphics.pose().popPose();
+                //?} else {
+                /*poseStack.pushPose();
                 float scale = 3.0f;
                 int textWidth = font.width(text);
                 poseStack.translate(width / 2.0f, height / 2.0f - (subtitle != null ? 20 : 0), 0);
                 poseStack.scale(scale, scale, 1.0f);
                 font.drawShadow(poseStack, text, -textWidth / 2.0f, -font.lineHeight / 2.0f, fontColor);
                 poseStack.popPose();
+                *///?}
             }
             
             if (subtitle != null && !subtitle.isEmpty()) {
-                poseStack.pushPose();
+                //? if >=1.20.1 {
+                guiGraphics.pose().pushPose();
+                float scale = 1.5f;
+                int textWidth = font.width(subtitle);
+                guiGraphics.pose().translate(width / 2.0f, height / 2.0f + (text != null ? 20 : 0), 0);
+                guiGraphics.pose().scale(scale, scale, 1.0f);
+                guiGraphics.drawString(font, subtitle, -textWidth / 2.0f, -font.lineHeight / 2.0f, fontColor, true);
+                guiGraphics.pose().popPose();
+                //?} else {
+                /*poseStack.pushPose();
                 float scale = 1.5f;
                 int textWidth = font.width(subtitle);
                 poseStack.translate(width / 2.0f, height / 2.0f + (text != null ? 20 : 0), 0);
                 poseStack.scale(scale, scale, 1.0f);
                 font.drawShadow(poseStack, subtitle, -textWidth / 2.0f, -font.lineHeight / 2.0f, fontColor);
                 poseStack.popPose();
+                *///?}
             }
         }
     }

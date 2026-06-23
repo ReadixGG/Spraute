@@ -52,12 +52,13 @@ public class UiOpenFunction implements ScriptFunction {
         }
         try {
             String prepared = SprauteUiJson.prepareAndSerialize(source.getLevel(), source, json);
+            LOGGER.info("[Script] uiOpen sending to {}, json length={}", sp.getName().getString(), prepared.length());
             ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> sp), new OpenSprauteUiPacket(prepared));
             if (args.get(1) instanceof UiTemplate ut) {
                 context.notifyUiOpened(player, ut);
             }
         } catch (Exception e) {
-            LOGGER.warn("[Script] ui_open failed: {}", e.getMessage());
+            LOGGER.warn("[Script] ui_open failed: {} ({})", e.getMessage(), e.getClass().getSimpleName(), e);
         }
         return null;
     }

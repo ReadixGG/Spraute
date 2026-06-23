@@ -23,6 +23,7 @@ public class FunctionRegistry {
         register(new IntStrFunction("wholeStr"));
         register(new RandomFunction());
         register(new ParticleFunctions.Spawn());
+        registerAlias("spawnParticle", new ParticleFunctions.Spawn());
         register(new ParticleFunctions.Line());
         register(new ParticleFunctions.Circle());
         register(new ParticleFunctions.Spiral());
@@ -47,7 +48,9 @@ public class FunctionRegistry {
         register(new DictFunctions.FromPairs());
         register(new DictFunctions.Set());
         register(new DictFunctions.Get());
+        register(new DictFunctions.GetOr());
         register(new DictFunctions.Remove());
+        register(new SpawnBillboardFunction());
         register(new StrLenFunction());
         register(new StrWidthFunction());
         register(new StrNewlineCountFunction());
@@ -57,8 +60,12 @@ public class FunctionRegistry {
         register(new SetBlockFunction());
         register(new SnapshotFunctions.SaveSnapshot());
         register(new SnapshotFunctions.LoadSnapshot());
+        registerAlias("save_snapshot", new SnapshotFunctions.SaveSnapshot());
+        registerAlias("load_snapshot", new SnapshotFunctions.LoadSnapshot());
         register(new JavaFunctions.JavaClassFunction());
         register(new JavaFunctions.JavaNewFunction());
+        registerAlias("java_class", new JavaFunctions.JavaClassFunction());
+        registerAlias("java_new", new JavaFunctions.JavaNewFunction());
         register(new JavaFunctions.SendPacketFunction());
         register(new SpawnOrbFunction());
         register(new RemoveOrbsFunction());
@@ -74,10 +81,48 @@ public class FunctionRegistry {
         register(new ScriptManagementFunctions.StartScriptFunction());
         register(new ScriptManagementFunctions.StopScriptFunction());
         register(new FadeOutFunction());
+        register(new StopCameraFunction());
+        register(new MoveCameraFunction());
+        register(new FindSafeBlockFunction());
+        register(new PlaceStructureFunction());
+        register(new SaveStructureFunction());
+        // Entity utilities
+        register(new EntityUtilFunctions.RemoveEntity());
+        register(new EntityUtilFunctions.SetBillboardTexture());
+        register(new EntityUtilFunctions.TeleportEntity());
+        register(new EntityUtilFunctions.GetEntityPos());
+        // NPC groups
+        register(new NpcGroupFunctions.CreateGroup());
+        register(new NpcGroupFunctions.GetGroup());
+        register(new NpcGroupFunctions.GroupAdd());
+        register(new NpcGroupFunctions.GroupRemove());
+        register(new NpcGroupFunctions.GroupClear());
+        register(new NpcGroupFunctions.GroupSize());
+        // Player list & tags
+        register(new PlayerListFunctions.GetPlayers());
+        register(new PlayerListFunctions.PlayerCount());
+        register(new PlayerListFunctions.GetFirstPlayer());
+        register(new PlayerListFunctions.GetLastPlayer());
+        register(new PlayerListFunctions.GetPlayerAt());
+        register(new PlayerTagFunctions.AddTag());
+        register(new PlayerTagFunctions.RemoveTag());
+        register(new PlayerTagFunctions.HasTag());
+        register(new PlayerTagFunctions.GetByTag());
+        register(new PlayerTagFunctions.GetTags());
+        register(new TradeEventFunctions.FireTradeBuy());
+        register(new TradeEventFunctions.FireTradeSell());
+        register(new PlayerSkinFunctions.GetPlayerSkinUrl());
+        register(new PlayerSkinFunctions.GetPlayerSkinTexture());
+        register(new PlayerSkinFunctions.NpcSetPlayerSkin());
+        register(new PlayerSkinFunctions.NpcClearPlayerSkin());
     }
 
     public static void register(ScriptFunction function) {
         FUNCTIONS.put(function.getName().toLowerCase(), function);
+    }
+
+    public static void registerAlias(String alias, ScriptFunction function) {
+        FUNCTIONS.put(alias.toLowerCase(), function);
     }
 
     public static ScriptFunction get(String name) {

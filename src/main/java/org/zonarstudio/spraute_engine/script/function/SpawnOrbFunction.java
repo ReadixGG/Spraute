@@ -40,7 +40,11 @@ public class SpawnOrbFunction implements ScriptFunction {
 
         ServerLevel level = source.getLevel();
         if (dimensionId != null && level != null) {
-            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> resKey = net.minecraft.resources.ResourceKey.create(net.minecraft.core.Registry.DIMENSION_REGISTRY, new net.minecraft.resources.ResourceLocation(dimensionId.contains(":") ? dimensionId : "minecraft:" + dimensionId));
+            //? if >=1.20.1 {
+            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> resKey = net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, new net.minecraft.resources.ResourceLocation(dimensionId.contains(":") ? dimensionId : "minecraft:" + dimensionId));
+            //?} else {
+            /*net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> resKey = net.minecraft.resources.ResourceKey.create(net.minecraft.core.Registry.DIMENSION_REGISTRY, new net.minecraft.resources.ResourceLocation(dimensionId.contains(":") ? dimensionId : "minecraft:" + dimensionId));
+            *///?}
             ServerLevel dim = level.getServer().getLevel(resKey);
             if (dim != null) level = dim;
         }

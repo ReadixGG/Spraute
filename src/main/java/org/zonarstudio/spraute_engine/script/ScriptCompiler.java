@@ -49,6 +49,10 @@ public class ScriptCompiler {
             instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.NPC_BLOCK,
                     blockNode.getEntityId(), blockNode.getProperties()
             ));
+        } else if (node instanceof ScriptNode.CameraBlockNode camBlock) {
+            instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.CAMERA,
+                    camBlock.getCameraId(), camBlock.getProperties()
+            ));
         } else if (node instanceof ScriptNode.UiBlockNode uiBlock) {
             List<CompiledScript.Instruction> bodyInstructions = new ArrayList<>();
             for (ScriptNode stmt : uiBlock.getBodyStatements()) {
@@ -93,6 +97,14 @@ public class ScriptCompiler {
                 if (args.size() < 2) throw new ScriptException("await orbPickup(player, amount, texture?) requires at least player and amount");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_ORB_PICKUP,
                         args.get(0), args.get(1), args.size() >= 3 ? args.get(2) : null));
+            } else if (func.equals("tradeBuy") || func.equals("trade_buy")) {
+                if (args.isEmpty()) throw new ScriptException("await tradeBuy(player, [item_id]) requires player");
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_TRADE_BUY,
+                        args.get(0), args.size() > 1 ? args.get(1) : null));
+            } else if (func.equals("tradeSell") || func.equals("trade_sell")) {
+                if (args.isEmpty()) throw new ScriptException("await tradeSell(player, [item_id]) requires player");
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_TRADE_SELL,
+                        args.get(0), args.size() > 1 ? args.get(1) : null));
             } else if (func.equals("task")) {
                 if (args.isEmpty()) throw new ScriptException("await task() requires task id");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_TASK, args.get(0)));

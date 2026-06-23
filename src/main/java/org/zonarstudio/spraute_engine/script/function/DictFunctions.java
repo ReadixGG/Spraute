@@ -61,6 +61,24 @@ public class DictFunctions {
         }
     }
 
+    /** dictGetOr(dict, key, fallback) — значение или запасной вариант, если ключа нет */
+    public static class GetOr implements ScriptFunction {
+        @Override public String getName() { return "dictGetOr"; }
+        @Override public int getArgCount() { return 3; }
+        @Override public Class<?>[] getArgTypes() { return new Class<?>[]{Object.class, Object.class, Object.class}; }
+        @SuppressWarnings("unchecked")
+        @Override public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
+            if (args.get(0) instanceof Map map) {
+                String key = String.valueOf(args.get(1));
+                if (map.containsKey(key)) {
+                    Object v = map.get(key);
+                    if (v != null) return v;
+                }
+            }
+            return args.size() > 2 ? args.get(2) : null;
+        }
+    }
+
     public static class Remove implements ScriptFunction {
         @Override public String getName() { return "dictRemove"; }
         @Override public int getArgCount() { return 2; }

@@ -37,6 +37,7 @@ public class ScriptToken {
         INCLUDE,      // include / import keyword
         TRY,          // try keyword
         CATCH,        // catch keyword
+        CAMERA,       // camera keyword
         ARROW,        // -> operator
         STRING,       // string literals "..."
         NUMBER,       // 123, 123.45
@@ -47,6 +48,7 @@ public class ScriptToken {
         STAR,         // *
         SLASH,        // /
         SLASH_SLASH,  // // целочисленное деление (floor)
+        PERCENT,      // % остаток от деления
         STAR_STAR,    // **
         EQ,           // ==
         NEQ,          // !=

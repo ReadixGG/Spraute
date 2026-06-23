@@ -9,10 +9,19 @@ contextBridge.exposeInMainWorld('spraute', {
   readFile: (relPath, encoding) => ipcRenderer.invoke('fs:read', relPath, encoding),
   writeFile: (relPath, content) => ipcRenderer.invoke('fs:write', relPath, content),
   writeBase64: (relPath, base64) => ipcRenderer.invoke('fs:writeBase64', relPath, base64),
+  getPluginsStoragePath: () => ipcRenderer.invoke('plugin:getStoragePath'),
   exportPluginZip: (pluginName) => ipcRenderer.invoke('plugin:export', pluginName),
-  importPluginZip: (base64Data, filename) => ipcRenderer.invoke('plugin:import', base64Data, filename),
-  marketList: () => ipcRenderer.invoke('plugin:market-list'),
-  marketDownload: (pluginName, fileName) => ipcRenderer.invoke('plugin:market-download', pluginName, fileName),
+  importPluginZip: (base64Data, filename, overwrite) => ipcRenderer.invoke('plugin:import', base64Data, filename, overwrite),
+  importPluginDialog: async () => {
+    try {
+      return await ipcRenderer.invoke('plugin:importDialog');
+    } catch (err) {
+      if (String(err?.message || err).includes('No handler registered')) {
+        return { success: false, fallback: true };
+      }
+      throw err;
+    }
+  },
   mkdir: (relPath) => ipcRenderer.invoke('fs:mkdir', relPath),
   unlink: (relPath) => ipcRenderer.invoke('fs:unlink', relPath),
   rmdir: (relPath) => ipcRenderer.invoke('fs:rmdir', relPath),
@@ -26,27 +35,7 @@ contextBridge.exposeInMainWorld('spraute', {
     ipcRenderer.removeAllListeners('update-progress');
     ipcRenderer.on('update-progress', (_e, msg) => callback(msg));
   },
-  onStudioUpdateAvailable: (callback) => {
-    ipcRenderer.removeAllListeners('studio-update-available');
-    ipcRenderer.on('studio-update-available', (_e, info) => callback(info));
-  },
-  onStudioUpdateDownloaded: (callback) => {
-    ipcRenderer.removeAllListeners('studio-update-downloaded');
-    ipcRenderer.on('studio-update-downloaded', (_e) => callback());
-  },
-  onStudioUpdateProgress: (callback) => {
-    ipcRenderer.removeAllListeners('studio-update-dl-progress');
-    ipcRenderer.on('studio-update-dl-progress', (_e, progressObj) => callback(progressObj));
-  },
-  downloadStudioUpdate: () => ipcRenderer.invoke('studio-update:download'),
-  installStudioUpdate: () => ipcRenderer.invoke('studio-update:install'),
-  
-  onModUpdateAvailable: (callback) => {
-    ipcRenderer.removeAllListeners('mod-update-available');
-    ipcRenderer.on('mod-update-available', (_e, info) => callback(info));
-  },
-  downloadModUpdate: (version) => ipcRenderer.invoke('mod-update:download', version),
-  
+
   openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
 
   setTitleBarColors: (color, symbolColor) => ipcRenderer.invoke('app:set-titlebar', color, symbolColor)

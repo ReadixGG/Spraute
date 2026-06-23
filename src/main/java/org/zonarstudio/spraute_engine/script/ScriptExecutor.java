@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
+import org.zonarstudio.spraute_engine.compat.SprauteEntityCompat;
 import org.zonarstudio.spraute_engine.script.function.ScriptFunction;
 
 import java.util.*;
@@ -14,6 +15,32 @@ import java.util.*;
 public class ScriptExecutor {
 
     private static final Logger LOGGER = LogUtils.getLogger();
+
+    /** Legacy snake_case keys → camelCase. */
+    private static String normPropKey(String key) {
+        if (key == null) return "";
+        return switch (key) {
+            case "show_name" -> "showName";
+            case "idle_anim" -> "idleAnim";
+            case "walk_anim" -> "walkAnim";
+            case "max_hp" -> "maxHp";
+            case "drop_item" -> "dropItem";
+            case "drop_min" -> "dropMin";
+            case "drop_max" -> "dropMax";
+            case "drop_chance" -> "dropChance";
+            case "look_x" -> "lookX";
+            case "look_y" -> "lookY";
+            case "look_z" -> "lookZ";
+            case "held_item_nbt" -> "heldItemNbt";
+            case "smooth_time" -> "smoothTime";
+            case "look_at" -> "lookAt";
+            case "can_close" -> "canClose";
+            case "content_h" -> "contentH";
+            case "trigger_fade_out" -> "triggerFadeOut";
+            case "visible_time" -> "visibleTime";
+            default -> key;
+        };
+    }
 
     /** Global variables — shared across all scripts, cleared on server stop */
     private static final Map<String, Object> globalVariables = new HashMap<>();
@@ -26,6 +53,10 @@ public class ScriptExecutor {
     }
 
     public void start(CompiledScript script, CommandSourceStack source, Map<String, Object> initialVariables) {
+        if (findRunningScript(script.getName()) != null) {
+            LOGGER.debug("Skipping duplicate start for script '{}'", script.getName());
+            return;
+        }
         LOGGER.info("Starting script: {}", script.getName());
         ActiveScript active = new ActiveScript(script, source, initialVariables);
         scriptsToAdd.add(active);
@@ -35,17 +66,22 @@ public class ScriptExecutor {
         activeScripts.addAll(scriptsToAdd);
         scriptsToAdd.clear();
 
-        Iterator<ActiveScript> it = activeScripts.iterator();
-        while (it.hasNext()) {
-            ActiveScript script = it.next();
+        Iterator<ActiveScript> cleanup = activeScripts.iterator();
+        while (cleanup.hasNext()) {
+            ActiveScript script = cleanup.next();
             if (script.isFinished()) {
                 String finishedName = script.getScriptName();
                 net.minecraft.commands.CommandSourceStack source = script.getSource();
                 script.cleanup();
-                it.remove();
+                cleanup.remove();
                 triggerAfterScript(finishedName, source);
-                continue;
             }
+        }
+
+        // Snapshot: bootstrap import() may start more scripts mid-tick
+        List<ActiveScript> snapshot = new ArrayList<>(activeScripts);
+        for (ActiveScript script : snapshot) {
+            if (script.isFinished()) continue;
             script.tick();
         }
     }
@@ -93,31 +129,59 @@ public class ScriptExecutor {
         }
     }
 
+    /** Разрешить ServerLevel по строке вида "overworld" / "minecraft:the_nether" / "the_end". */
+    public static net.minecraft.server.level.ServerLevel resolveLevel(net.minecraft.server.MinecraftServer server, String dimId) {
+        if (server == null || dimId == null || dimId.isBlank()) return null;
+        String full = dimId.contains(":") ? dimId : "minecraft:" + dimId;
+        //? if >=1.20.1 {
+        net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> key =
+            net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,
+                new net.minecraft.resources.ResourceLocation(full));
+        //?} else {
+        /*net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> key =
+            net.minecraft.resources.ResourceKey.create(net.minecraft.core.Registry.DIMENSION_REGISTRY,
+                new net.minecraft.resources.ResourceLocation(full));
+        *///?}
+        return server.getLevel(key);
+    }
+
     public void onClickBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, boolean isLeft) {
+        onClickBlock(player, pos, block, isLeft, null);
+    }
+    public void onClickBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, boolean isLeft, net.minecraft.world.level.Level level) {
+        String dimId = level != null ? level.dimension().location().toString() : null;
         for (ActiveScript script : activeScripts) {
-            script.onClickBlock(player, pos, block, isLeft);
+            script.onClickBlock(player, pos, block, isLeft, dimId);
         }
         for (ActiveScript script : scriptsToAdd) {
-            script.onClickBlock(player, pos, block, isLeft);
+            script.onClickBlock(player, pos, block, isLeft, dimId);
         }
     }
 
     public void onBreakBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block) {
+        onBreakBlock(player, pos, block, null);
+    }
+    public void onBreakBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, net.minecraft.world.level.Level level) {
+        String dimId = level != null ? level.dimension().location().toString() : null;
         for (ActiveScript script : activeScripts) {
-            script.onBreakBlock(player, pos, block);
+            script.onBreakBlock(player, pos, block, dimId);
         }
         for (ActiveScript script : scriptsToAdd) {
-            script.onBreakBlock(player, pos, block);
+            script.onBreakBlock(player, pos, block, dimId);
         }
     }
 
     public boolean onPlaceBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block) {
+        return onPlaceBlock(player, pos, block, null);
+    }
+    public boolean onPlaceBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, net.minecraft.world.level.Level level) {
+        String dimId = level != null ? level.dimension().location().toString() : null;
         boolean canceled = false;
         for (ActiveScript script : activeScripts) {
-            if (script.onPlaceBlock(player, pos, block)) canceled = true;
+            if (script.onPlaceBlock(player, pos, block, dimId)) canceled = true;
         }
         for (ActiveScript script : scriptsToAdd) {
-            if (script.onPlaceBlock(player, pos, block)) canceled = true;
+            if (script.onPlaceBlock(player, pos, block, dimId)) canceled = true;
         }
         return canceled;
     }
@@ -137,6 +201,24 @@ public class ScriptExecutor {
         }
         for (ActiveScript script : scriptsToAdd) {
             script.onOrbPickup(player, texture, amount);
+        }
+    }
+
+    public void onTradeBuy(net.minecraft.server.level.ServerPlayer player, String itemId, int price) {
+        for (ActiveScript script : activeScripts) {
+            script.onTradeBuy(player, itemId, price);
+        }
+        for (ActiveScript script : scriptsToAdd) {
+            script.onTradeBuy(player, itemId, price);
+        }
+    }
+
+    public void onTradeSell(net.minecraft.server.level.ServerPlayer player, String itemId, int price) {
+        for (ActiveScript script : activeScripts) {
+            script.onTradeSell(player, itemId, price);
+        }
+        for (ActiveScript script : scriptsToAdd) {
+            script.onTradeSell(player, itemId, price);
         }
     }
 
@@ -190,6 +272,77 @@ public class ScriptExecutor {
             if (s.getScriptName().equals(name) && !s.isFinished()) return s;
         }
         return null;
+    }
+
+    /**
+     * Pick the best running instance for import()/function resolution.
+     * When several copies of the same script exist, prefer one that already registered fun.
+     */
+    private ActiveScript findBestDonorScript(String name, String functionName) {
+        ActiveScript best = null;
+        for (ActiveScript s : activeScripts) {
+            if (!s.getScriptName().equals(name) || s.isFinished()) continue;
+            best = preferDonor(best, s, functionName);
+        }
+        for (ActiveScript s : scriptsToAdd) {
+            if (!s.getScriptName().equals(name) || s.isFinished()) continue;
+            best = preferDonor(best, s, functionName);
+        }
+        return best;
+    }
+
+    private static ActiveScript preferDonor(ActiveScript current, ActiveScript candidate, String functionName) {
+        if (current == null) return candidate;
+        if (functionName != null && !functionName.isEmpty()) {
+            boolean cHas = candidate.userFunctions.containsKey(functionName);
+            boolean curHas = current.userFunctions.containsKey(functionName);
+            if (cHas && !curHas) return candidate;
+            if (curHas && !cHas) return current;
+        }
+        int cSize = candidate.userFunctions.size();
+        int curSize = current.userFunctions.size();
+        if (cSize != curSize) return cSize > curSize ? candidate : current;
+        if (candidate.ip != current.ip) return candidate.ip > current.ip ? candidate : current;
+        return current;
+    }
+
+    private static boolean needsBootstrap(ActiveScript script) {
+        return !script.isFinished() && script.userFunctions.isEmpty();
+    }
+
+    private void bootstrapUntilReady(ActiveScript target) {
+        if (target == null || !needsBootstrap(target)) return;
+        int guard = 0;
+        while (!target.isFinished() && guard++ < 1000) {
+            target.tick();
+            if (!target.userFunctions.isEmpty()) return;
+        }
+    }
+
+    /** import() also starts the library script if it is not already running. */
+    private void ensureImportedScriptRunning(String includeName, CommandSourceStack source, String callerScriptName) {
+        if (includeName == null || includeName.isEmpty()) return;
+        if (includeName.equals(callerScriptName)) return;
+        ActiveScript existing = findBestDonorScript(includeName, null);
+        if (existing != null) {
+            bootstrapUntilReady(existing);
+            return;
+        }
+        ScriptManager.getInstance().run(includeName, source);
+        bootstrapImportedScript(includeName);
+    }
+
+    /** Синхронно выполнить импортированный скрипт до регистрации fun/on (в том же тике, что и import). */
+    private void bootstrapImportedScript(String includeName) {
+        ActiveScript imported = findBestDonorScript(includeName, null);
+        if (imported == null) return;
+        bootstrapUntilReady(imported);
+        if (needsBootstrap(imported)) {
+            int guard = 0;
+            while (!imported.isFinished() && guard++ < 1000) {
+                imported.tick();
+            }
+        }
     }
 
     /** Очистить все глобальные переменные скриптов (до перезапуска сервера). */
@@ -314,6 +467,9 @@ public class ScriptExecutor {
         private int waitOrbPickupTargetCount = 0;
         private int waitOrbPickupCurrentCount = 0;
 
+        private UUID waitTradePlayerUuid = null;
+        private String waitTradeItemId = null;
+
         /** Target for MOVE_TO wait — completion is distance-based; navigation alone is unreliable (path null = isDone). */
         private double waitMoveTargetX;
         private double waitMoveTargetY;
@@ -329,6 +485,7 @@ public class ScriptExecutor {
         private UUID waitBlockPlayerUuid = null;
         private String waitBlockId = null;
         private net.minecraft.core.BlockPos waitBlockPos = null;
+        private String waitBlockDim = null;
         private boolean blockEventMet = false;
         private String uiInputWidgetId = "";
         private String uiInputText = "";
@@ -445,6 +602,8 @@ public class ScriptExecutor {
                 case FOLLOW -> "follow (" + followTarget + ")";
                 case PICKUP -> "pickup";
                 case ORB_PICKUP -> "orbPickup";
+                case TRADE_BUY -> "tradeBuy";
+                case TRADE_SELL -> "tradeSell";
                 case WAIT_TASK -> "task";
                 case POSITION -> "position";
                 case INVENTORY -> "inventory";
@@ -546,14 +705,14 @@ public class ScriptExecutor {
                             }
                         }
                         
-                        Object prevNpc = variables.get("_event_npc");
-                        Object prevItem = variables.get("_event_item");
-                        Object prevDropper = variables.get("_event_dropper");
+                        Object prevNpc = variables.get("_eventNpc");
+                        Object prevItem = variables.get("_eventItem");
+                        Object prevDropper = variables.get("_eventDropper");
                         Object prevCount = variables.get("count");
                         
-                        variables.put("_event_npc", entity);
-                        variables.put("_event_item", foundStack);
-                        variables.put("_event_dropper", eventDropper);
+                        variables.put("_eventNpc", entity);
+                        variables.put("_eventItem", foundStack);
+                        variables.put("_eventDropper", eventDropper);
                         variables.put("count", pickupHandlerLastCount.getOrDefault(entry.getKey(), 0));
                         try {
                             executeInstructionBlock(handler.bodyInstructions);
@@ -562,12 +721,12 @@ public class ScriptExecutor {
                         } catch (Exception e) {
                             LOGGER.error("[Script: {}] Pickup handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
                         }
-                        if (prevNpc != null) variables.put("_event_npc", prevNpc);
-                        else variables.remove("_event_npc");
-                        if (prevItem != null) variables.put("_event_item", prevItem);
-                        else variables.remove("_event_item");
-                        if (prevDropper != null) variables.put("_event_dropper", prevDropper);
-                        else variables.remove("_event_dropper");
+                        if (prevNpc != null) variables.put("_eventNpc", prevNpc);
+                        else variables.remove("_eventNpc");
+                        if (prevItem != null) variables.put("_eventItem", prevItem);
+                        else variables.remove("_eventItem");
+                        if (prevDropper != null) variables.put("_eventDropper", prevDropper);
+                        else variables.remove("_eventDropper");
                         if (prevCount != null) variables.put("count", prevCount);
                         else variables.remove("count");
                     }
@@ -594,8 +753,8 @@ public class ScriptExecutor {
                     
                     if (inRange && !wasInRange) {
                         positionHandlerMet.put(entry.getKey(), true);
-                        Object prevPlayer = variables.get("_event_player");
-                        variables.put("_event_player", sp);
+                        Object prevPlayer = variables.get("_eventPlayer");
+                        variables.put("_eventPlayer", sp);
                         try {
                             executeInstructionBlock(handler.bodyInstructions);
                         } catch (ReturnException e) {
@@ -603,8 +762,8 @@ public class ScriptExecutor {
                         } catch (Exception e) {
                             LOGGER.error("[Script: {}] Position handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
                         }
-                        if (prevPlayer != null) variables.put("_event_player", prevPlayer);
-                        else variables.remove("_event_player");
+                        if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer);
+                        else variables.remove("_eventPlayer");
                     } else if (!inRange) {
                         positionHandlerMet.put(entry.getKey(), false);
                     }
@@ -629,8 +788,8 @@ public class ScriptExecutor {
                     
                     if (hasItems && !didHaveItems) {
                         inventoryHandlerMet.put(entry.getKey(), true);
-                        Object prevPlayer = variables.get("_event_player");
-                        variables.put("_event_player", sp);
+                        Object prevPlayer = variables.get("_eventPlayer");
+                        variables.put("_eventPlayer", sp);
                         try {
                             executeInstructionBlock(handler.bodyInstructions);
                         } catch (ReturnException e) {
@@ -638,8 +797,8 @@ public class ScriptExecutor {
                         } catch (Exception e) {
                             LOGGER.error("[Script: {}] Inventory handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
                         }
-                        if (prevPlayer != null) variables.put("_event_player", prevPlayer);
-                        else variables.remove("_event_player");
+                        if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer);
+                        else variables.remove("_eventPlayer");
                     } else if (!hasItems) {
                         inventoryHandlerMet.put(entry.getKey(), false);
                     }
@@ -736,6 +895,8 @@ public class ScriptExecutor {
                     } else {
                         return;
                     }
+                } else if (waitType == WaitType.TRADE_BUY || waitType == WaitType.TRADE_SELL) {
+                    return;
                 } else if (waitType == WaitType.CHAT) {
                     if (chatEventMet) {
                         waitType = WaitType.NONE;
@@ -983,12 +1144,14 @@ public class ScriptExecutor {
         }
 
         private void tickAsyncTasks() {
-            Iterator<Map.Entry<String, AsyncTask>> it = asyncTasks.entrySet().iterator();
+            List<Map.Entry<String, AsyncTask>> snapshot = new java.util.ArrayList<>(asyncTasks.entrySet());
+            Iterator<Map.Entry<String, AsyncTask>> it = snapshot.iterator();
             while (it.hasNext()) {
                 Map.Entry<String, AsyncTask> entry = it.next();
+                if (!asyncTasks.containsKey(entry.getKey())) continue;
                 AsyncTask task = entry.getValue();
                 if (task.cancelled || task.finished) {
-                    it.remove();
+                    asyncTasks.remove(entry.getKey());
                     continue;
                 }
                 this.currentTaskScope = task;
@@ -1097,6 +1260,8 @@ public class ScriptExecutor {
                     } else {
                         continue;
                     }
+                } else if (task.waitType == WaitType.TRADE_BUY || task.waitType == WaitType.TRADE_SELL) {
+                    continue;
                 } else if (task.waitType == WaitType.CHAT) {
                     if (task.chatEventMet) {
                         task.waitType = WaitType.NONE;
@@ -1220,7 +1385,9 @@ public class ScriptExecutor {
                                 return true;
                             }
                         } else if ("uiClick".equals(fn) && !call.getArgs().isEmpty()) {
-                            net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                            Object playerArg = evaluateExpression(call.getArgs().get(0));
+                            net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(playerArg);
+                            LOGGER.info("[Script: {}] await uiClick: playerArg={} ({}), sp={}", script.getName(), playerArg, playerArg != null ? playerArg.getClass().getSimpleName() : "null", sp);
                             if (sp != null) {
                                 task.waitUiPlayerUuid = sp.getUUID();
                                 task.waitType = WaitType.UI_CLICK;
@@ -1240,6 +1407,7 @@ public class ScriptExecutor {
                 case UI_BLOCK -> executeUiBlock(instr);
                 case COMMAND_BLOCK -> executeCommandBlock(instr);
                 case FADE_IN -> executeFadeIn(instr);
+                case CAMERA -> executeCamera(instr);
                 case UI_WIDGET -> executeUiWidget(instr);
                 case SET_PROPERTY -> executeSetProperty(instr);
                 case AWAIT_TIME -> {
@@ -1277,6 +1445,28 @@ public class ScriptExecutor {
                         task.waitUiPlayerUuid = sp.getUUID();
                         task.uiInputWidgetId = wNode != null ? String.valueOf(evaluateExpression(wNode)) : null;
                         task.waitType = WaitType.UI_INPUT;
+                        return true;
+                    }
+                }
+                case AWAIT_TRADE_BUY -> {
+                    ScriptNode pNode = (ScriptNode) instr.getArg(0);
+                    ScriptNode itemNode = instr.getArgCount() >= 2 && instr.getArg(1) != null ? (ScriptNode) instr.getArg(1) : null;
+                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
+                    if (sp != null) {
+                        task.waitTradePlayerUuid = sp.getUUID();
+                        task.waitTradeItemId = itemNode != null ? String.valueOf(evaluateExpression(itemNode)) : null;
+                        task.waitType = WaitType.TRADE_BUY;
+                        return true;
+                    }
+                }
+                case AWAIT_TRADE_SELL -> {
+                    ScriptNode pNode = (ScriptNode) instr.getArg(0);
+                    ScriptNode itemNode = instr.getArgCount() >= 2 && instr.getArg(1) != null ? (ScriptNode) instr.getArg(1) : null;
+                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
+                    if (sp != null) {
+                        task.waitTradePlayerUuid = sp.getUUID();
+                        task.waitTradeItemId = itemNode != null ? String.valueOf(evaluateExpression(itemNode)) : null;
+                        task.waitType = WaitType.TRADE_SELL;
                         return true;
                     }
                 }
@@ -1373,13 +1563,12 @@ public class ScriptExecutor {
                 if (!handler.active || !handler.eventName.equals("interact")) continue;
 
                 if (!handler.eventArgs.isEmpty()) {
-                    net.minecraft.world.entity.Entity targetEntity = resolveEntity(handler.eventArgs.get(0));
-                    if (targetEntity == null || !target.getUUID().equals(targetEntity.getUUID())) continue;
+                    if (!matchesInteractTarget(handler.eventArgs.get(0), target)) continue;
                 }
 
-                // Save interactor as _event_player for the handler body
-                Object prevPlayer = variables.get("_event_player");
-                variables.put("_event_player", interactor);
+                // Save interactor as _eventPlayer for the handler body
+                Object prevPlayer = variables.get("_eventPlayer");
+                variables.put("_eventPlayer", interactor);
                 try {
                     executeInstructionBlock(handler.bodyInstructions);
                 } catch (ReturnException e) {
@@ -1387,9 +1576,23 @@ public class ScriptExecutor {
                 } catch (Exception e) {
                     LOGGER.error("[Script: {}] Event handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
                 }
-                if (prevPlayer != null) variables.put("_event_player", prevPlayer);
-                else variables.remove("_event_player");
+                if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer);
+                else variables.remove("_eventPlayer");
             }
+        }
+
+        private boolean matchesInteractTarget(Object handlerArg, net.minecraft.world.entity.Entity clicked) {
+            if (handlerArg == null) return false;
+            if (handlerArg instanceof net.minecraft.world.entity.Entity stored) {
+                if (clicked.getUUID().equals(stored.getUUID())) return true;
+            }
+            net.minecraft.world.entity.Entity resolved = resolveEntity(handlerArg);
+            if (resolved != null && clicked.getUUID().equals(resolved.getUUID())) return true;
+            if (handlerArg instanceof String id) {
+                java.util.UUID uid = org.zonarstudio.spraute_engine.entity.NpcManager.get(id);
+                if (uid != null && clicked.getUUID().equals(uid)) return true;
+            }
+            return false;
         }
 
         public void onKeybind(String key, net.minecraft.world.entity.player.Player player) {
@@ -1407,8 +1610,8 @@ public class ScriptExecutor {
                     if (!expectedKey.equalsIgnoreCase(key)) continue;
                 }
 
-                Object prevPlayer = variables.get("_event_player");
-                variables.put("_event_player", player);
+                Object prevPlayer = variables.get("_eventPlayer");
+                variables.put("_eventPlayer", player);
                 try {
                     executeInstructionBlock(handler.bodyInstructions);
                 } catch (ReturnException e) {
@@ -1420,8 +1623,8 @@ public class ScriptExecutor {
                                 "§c[Spraute] Keybind handler '" + entry.getKey() + "' error: " + e.getMessage()));
                     }
                 }
-                if (prevPlayer != null) variables.put("_event_player", prevPlayer);
-                else variables.remove("_event_player");
+                if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer);
+                else variables.remove("_eventPlayer");
             }
         }
 
@@ -1445,10 +1648,10 @@ public class ScriptExecutor {
                     if (!matchesDeathTarget(entity, targetFilter)) continue;
                 }
 
-                Object prevEntity = variables.get("_event_entity");
-                Object prevKiller = variables.get("_event_killer");
-                variables.put("_event_entity", entity);
-                variables.put("_event_killer", killer);
+                Object prevEntity = variables.get("_eventEntity");
+                Object prevKiller = variables.get("_eventKiller");
+                variables.put("_eventEntity", entity);
+                variables.put("_eventKiller", killer);
                 try {
                     executeInstructionBlock(handler.bodyInstructions);
                 } catch (ReturnException e) {
@@ -1456,10 +1659,10 @@ public class ScriptExecutor {
                 } catch (Exception e) {
                     LOGGER.error("[Script: {}] Death handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
                 }
-                if (prevEntity != null) variables.put("_event_entity", prevEntity);
-                else variables.remove("_event_entity");
-                if (prevKiller != null) variables.put("_event_killer", prevKiller);
-                else variables.remove("_event_killer");
+                if (prevEntity != null) variables.put("_eventEntity", prevEntity);
+                else variables.remove("_eventEntity");
+                if (prevKiller != null) variables.put("_eventKiller", prevKiller);
+                else variables.remove("_eventKiller");
             }
         }
 
@@ -1506,8 +1709,8 @@ public class ScriptExecutor {
                     String expId2 = String.valueOf(handler.eventArgs.get(2));
 
                     if ((expId1.equals(id1) && expId2.equals(id2)) || (expId1.equals(id2) && expId2.equals(id1))) {
-                        Object prevPlayer = variables.get("_event_player");
-                        variables.put("_event_player", player);
+                        Object prevPlayer = variables.get("_eventPlayer");
+                        variables.put("_eventPlayer", player);
                         try {
                             executeInstructionBlock(handler.bodyInstructions);
                         } catch (ReturnException e) {
@@ -1515,8 +1718,8 @@ public class ScriptExecutor {
                         } catch (Exception e) {
                             LOGGER.error("[Script: {}] uiTouch handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
                         }
-                        if (prevPlayer != null) variables.put("_event_player", prevPlayer);
-                        else variables.remove("_event_player");
+                        if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer);
+                        else variables.remove("_eventPlayer");
                     }
                 }
             }
@@ -1577,16 +1780,16 @@ public class ScriptExecutor {
                     if (!wid.startsWith("input:" + reqWid + ":")) continue;
                 }
 
-                Object prevPlayer = variables.get("_event_player");
-                Object prevWidget = variables.get("_event_widget");
-                Object prevInput = variables.get("_event_input");
-                variables.put("_event_player", player);
+                Object prevPlayer = variables.get("_eventPlayer");
+                Object prevWidget = variables.get("_eventWidget");
+                Object prevInput = variables.get("_eventInput");
+                variables.put("_eventPlayer", player);
                 if (isUiInput) {
                     String[] parts = wid.split(":", 3);
-                    variables.put("_event_widget", parts.length > 1 ? parts[1] : "");
-                    variables.put("_event_input", parts.length > 2 ? parts[2] : "");
+                    variables.put("_eventWidget", parts.length > 1 ? parts[1] : "");
+                    variables.put("_eventInput", parts.length > 2 ? parts[2] : "");
                 } else {
-                    variables.put("_event_widget", wid);
+                    variables.put("_eventWidget", wid);
                 }
                 
                 try {
@@ -1597,12 +1800,12 @@ public class ScriptExecutor {
                     LOGGER.error("[Script: {}] Event handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
                 }
                 
-                if (prevPlayer != null) variables.put("_event_player", prevPlayer);
-                else variables.remove("_event_player");
-                if (prevWidget != null) variables.put("_event_widget", prevWidget);
-                else variables.remove("_event_widget");
-                if (prevInput != null) variables.put("_event_input", prevInput);
-                else variables.remove("_event_input");
+                if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer);
+                else variables.remove("_eventPlayer");
+                if (prevWidget != null) variables.put("_eventWidget", prevWidget);
+                else variables.remove("_eventWidget");
+                if (prevInput != null) variables.put("_eventInput", prevInput);
+                else variables.remove("_eventInput");
             }
 
             if (boundUiTemplate != null && boundUiPlayerUuid != null && boundUiPlayerUuid.equals(player.getUUID())) {
@@ -1623,12 +1826,23 @@ public class ScriptExecutor {
             }
         }
 
+        private boolean dimMatches(String waitDim, String eventDim) {
+            if (waitDim == null) return true;
+            if (eventDim == null) return true;
+            String w = waitDim.contains(":") ? waitDim : "minecraft:" + waitDim;
+            return w.equals(eventDim);
+        }
+
         public void onClickBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, boolean isLeft) {
+            onClickBlock(player, pos, block, isLeft, null);
+        }
+        public void onClickBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, boolean isLeft, String dimId) {
             String blockStr = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(block).toString();
             if (waitType == WaitType.CLICK_BLOCK && waitBlockPlayerUuid != null && waitBlockPlayerUuid.equals(player.getUUID())) {
                 boolean idMatch = waitBlockId == null || waitBlockId.equals(blockStr) || waitBlockId.equals(blockStr.replace("minecraft:", ""));
                 boolean posMatch = waitBlockPos == null || waitBlockPos.equals(pos);
-                if (idMatch && posMatch) {
+                boolean dimMatch = dimMatches(waitBlockDim, dimId);
+                if (idMatch && posMatch && dimMatch) {
                     blockEventMet = true;
                     asyncResult = isLeft ? "left" : "right";
                 }
@@ -1637,7 +1851,8 @@ public class ScriptExecutor {
                 if (task.waitType == WaitType.CLICK_BLOCK && task.waitBlockPlayerUuid != null && task.waitBlockPlayerUuid.equals(player.getUUID())) {
                     boolean idMatch = task.waitBlockId == null || task.waitBlockId.equals(blockStr) || task.waitBlockId.equals(blockStr.replace("minecraft:", ""));
                     boolean posMatch = task.waitBlockPos == null || task.waitBlockPos.equals(pos);
-                    if (idMatch && posMatch) {
+                    boolean dimMatch = dimMatches(task.waitBlockDim, dimId);
+                    if (idMatch && posMatch && dimMatch) {
                         task.blockEventMet = true;
                         asyncResult = isLeft ? "left" : "right";
                     }
@@ -1647,11 +1862,15 @@ public class ScriptExecutor {
         }
 
         public void onBreakBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block) {
+            onBreakBlock(player, pos, block, null);
+        }
+        public void onBreakBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, String dimId) {
             String blockStr = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(block).toString();
             if (waitType == WaitType.BREAK_BLOCK && waitBlockPlayerUuid != null && waitBlockPlayerUuid.equals(player.getUUID())) {
                 boolean idMatch = waitBlockId == null || waitBlockId.equals(blockStr) || waitBlockId.equals(blockStr.replace("minecraft:", ""));
                 boolean posMatch = waitBlockPos == null || waitBlockPos.equals(pos);
-                if (idMatch && posMatch) {
+                boolean dimMatch = dimMatches(waitBlockDim, dimId);
+                if (idMatch && posMatch && dimMatch) {
                     blockEventMet = true;
                     asyncResult = blockStr;
                 }
@@ -1660,7 +1879,8 @@ public class ScriptExecutor {
                 if (task.waitType == WaitType.BREAK_BLOCK && task.waitBlockPlayerUuid != null && task.waitBlockPlayerUuid.equals(player.getUUID())) {
                     boolean idMatch = task.waitBlockId == null || task.waitBlockId.equals(blockStr) || task.waitBlockId.equals(blockStr.replace("minecraft:", ""));
                     boolean posMatch = task.waitBlockPos == null || task.waitBlockPos.equals(pos);
-                    if (idMatch && posMatch) {
+                    boolean dimMatch = dimMatches(task.waitBlockDim, dimId);
+                    if (idMatch && posMatch && dimMatch) {
                         task.blockEventMet = true;
                         asyncResult = blockStr;
                     }
@@ -1670,11 +1890,15 @@ public class ScriptExecutor {
         }
 
         public boolean onPlaceBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block) {
+            return onPlaceBlock(player, pos, block, null);
+        }
+        public boolean onPlaceBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, String dimId) {
             String blockStr = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(block).toString();
             if (waitType == WaitType.PLACE_BLOCK && waitBlockPlayerUuid != null && waitBlockPlayerUuid.equals(player.getUUID())) {
                 boolean idMatch = waitBlockId == null || waitBlockId.equals(blockStr) || waitBlockId.equals(blockStr.replace("minecraft:", ""));
                 boolean posMatch = waitBlockPos == null || waitBlockPos.equals(pos);
-                if (idMatch && posMatch) {
+                boolean dimMatch = dimMatches(waitBlockDim, dimId);
+                if (idMatch && posMatch && dimMatch) {
                     blockEventMet = true;
                     asyncResult = blockStr;
                 }
@@ -1683,7 +1907,8 @@ public class ScriptExecutor {
                 if (task.waitType == WaitType.PLACE_BLOCK && task.waitBlockPlayerUuid != null && task.waitBlockPlayerUuid.equals(player.getUUID())) {
                     boolean idMatch = task.waitBlockId == null || task.waitBlockId.equals(blockStr) || task.waitBlockId.equals(blockStr.replace("minecraft:", ""));
                     boolean posMatch = task.waitBlockPos == null || task.waitBlockPos.equals(pos);
-                    if (idMatch && posMatch) {
+                    boolean dimMatch = dimMatches(task.waitBlockDim, dimId);
+                    if (idMatch && posMatch && dimMatch) {
                         task.blockEventMet = true;
                         asyncResult = blockStr;
                     }
@@ -1718,22 +1943,22 @@ public class ScriptExecutor {
                 }
                 
                 if (idMatch && posMatch) {
-                    Object prevPlayer = variables.get("_event_player");
-                    Object prevX = variables.get("_event_x");
-                    Object prevY = variables.get("_event_y");
-                    Object prevZ = variables.get("_event_z");
-                    Object prevBlock = variables.get("_event_block");
-                    Object prevAction = variables.get("_event_action");
+                    Object prevPlayer = variables.get("_eventPlayer");
+                    Object prevX = variables.get("_eventX");
+                    Object prevY = variables.get("_eventY");
+                    Object prevZ = variables.get("_eventZ");
+                    Object prevBlock = variables.get("_eventBlock");
+                    Object prevAction = variables.get("_eventAction");
                     boolean prevCanceled = context.isEventCanceled();
                     
-                    variables.put("_event_player", player);
-                    variables.put("_event_x", pos.getX());
-                    variables.put("_event_y", pos.getY());
-                    variables.put("_event_z", pos.getZ());
-                    variables.put("_event_block", blockStr);
+                    variables.put("_eventPlayer", player);
+                    variables.put("_eventX", pos.getX());
+                    variables.put("_eventY", pos.getY());
+                    variables.put("_eventZ", pos.getZ());
+                    variables.put("_eventBlock", blockStr);
                     context.setEventCanceled(false);
 
-                    if (extraAction != null) variables.put("_event_action", extraAction);
+                    if (extraAction != null) variables.put("_eventAction", extraAction);
                     
                     try {
                         executeInstructionBlock(handler.bodyInstructions);
@@ -1743,17 +1968,17 @@ public class ScriptExecutor {
                         LOGGER.error("[Script: {}] Event handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
                     }
                     
-                    if (context.isEventCanceled() || Boolean.TRUE.equals(variables.get("_event_canceled"))) {
+                    if (context.isEventCanceled() || Boolean.TRUE.equals(variables.get("_eventCanceled"))) {
                         canceled = true;
                     }
                     
-                    if (prevPlayer != null) variables.put("_event_player", prevPlayer); else variables.remove("_event_player");
-                    if (prevX != null) variables.put("_event_x", prevX); else variables.remove("_event_x");
-                    if (prevY != null) variables.put("_event_y", prevY); else variables.remove("_event_y");
-                    if (prevZ != null) variables.put("_event_z", prevZ); else variables.remove("_event_z");
-                    if (prevBlock != null) variables.put("_event_block", prevBlock); else variables.remove("_event_block");
+                    if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer); else variables.remove("_eventPlayer");
+                    if (prevX != null) variables.put("_eventX", prevX); else variables.remove("_eventX");
+                    if (prevY != null) variables.put("_eventY", prevY); else variables.remove("_eventY");
+                    if (prevZ != null) variables.put("_eventZ", prevZ); else variables.remove("_eventZ");
+                    if (prevBlock != null) variables.put("_eventBlock", prevBlock); else variables.remove("_eventBlock");
                     if (extraAction != null) {
-                        if (prevAction != null) variables.put("_event_action", prevAction); else variables.remove("_event_action");
+                        if (prevAction != null) variables.put("_eventAction", prevAction); else variables.remove("_eventAction");
                     }
                     context.setEventCanceled(prevCanceled);
                 }
@@ -1815,11 +2040,11 @@ public class ScriptExecutor {
                     if (!options.isEmpty() && !chatMatches(message, options, ignoreCase, ignorePunct)) continue;
                 }
 
-                Object prevPlayer = variables.get("_event_player");
-                Object prevMsg = variables.get("_event_message");
+                Object prevPlayer = variables.get("_eventPlayer");
+                Object prevMsg = variables.get("_eventMessage");
 
-                variables.put("_event_player", player);
-                variables.put("_event_message", message);
+                variables.put("_eventPlayer", player);
+                variables.put("_eventMessage", message);
 
                 try {
                     executeInstructionBlock(handler.bodyInstructions);
@@ -1829,10 +2054,10 @@ public class ScriptExecutor {
                     LOGGER.error("[Script: {}] Event handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
                 }
 
-                if (prevPlayer != null) variables.put("_event_player", prevPlayer);
-                else variables.remove("_event_player");
-                if (prevMsg != null) variables.put("_event_message", prevMsg);
-                else variables.remove("_event_message");
+                if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer);
+                else variables.remove("_eventPlayer");
+                if (prevMsg != null) variables.put("_eventMessage", prevMsg);
+                else variables.remove("_eventMessage");
             }
         }
 
@@ -1871,13 +2096,13 @@ public class ScriptExecutor {
                     if (texArg instanceof String s && !s.equals(texture)) continue;
                 }
 
-                Object prevPlayer = variables.get("_event_player");
-                Object prevTexture = variables.get("_event_texture");
-                Object prevAmount = variables.get("_event_amount");
+                Object prevPlayer = variables.get("_eventPlayer");
+                Object prevTexture = variables.get("_eventTexture");
+                Object prevAmount = variables.get("_eventAmount");
 
-                variables.put("_event_player", player);
-                variables.put("_event_texture", texture);
-                variables.put("_event_amount", amount);
+                variables.put("_eventPlayer", player);
+                variables.put("_eventTexture", texture);
+                variables.put("_eventAmount", amount);
 
                 try {
                     executeInstructionBlock(handler.bodyInstructions);
@@ -1887,9 +2112,87 @@ public class ScriptExecutor {
                     LOGGER.error("[Script: {}] Event handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
                 }
 
-                if (prevPlayer != null) variables.put("_event_player", prevPlayer); else variables.remove("_event_player");
-                if (prevTexture != null) variables.put("_event_texture", prevTexture); else variables.remove("_event_texture");
-                if (prevAmount != null) variables.put("_event_amount", prevAmount); else variables.remove("_event_amount");
+                if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer); else variables.remove("_eventPlayer");
+                if (prevTexture != null) variables.put("_eventTexture", prevTexture); else variables.remove("_eventTexture");
+                if (prevAmount != null) variables.put("_eventAmount", prevAmount); else variables.remove("_eventAmount");
+            }
+        }
+
+        public void onTradeBuy(net.minecraft.server.level.ServerPlayer player, String itemId, int price) {
+            handleTradeAwait(player, itemId, price, true);
+            fireTradeEventHandlers(player, itemId, price, "tradeBuy");
+        }
+
+        public void onTradeSell(net.minecraft.server.level.ServerPlayer player, String itemId, int price) {
+            handleTradeAwait(player, itemId, price, false);
+            fireTradeEventHandlers(player, itemId, price, "tradeSell");
+        }
+
+        private void handleTradeAwait(net.minecraft.server.level.ServerPlayer player, String itemId, int price, boolean buy) {
+            WaitType expected = buy ? WaitType.TRADE_BUY : WaitType.TRADE_SELL;
+            if (waitType == expected && waitTradePlayerUuid != null && waitTradePlayerUuid.equals(player.getUUID())) {
+                if (waitTradeItemId == null || waitTradeItemId.isEmpty() || waitTradeItemId.equals(itemId)) {
+                    if (pendingVarName != null) {
+                        variables.put(pendingVarName, itemId);
+                    }
+                    variables.put("_eventItemId", itemId);
+                    variables.put("_eventPrice", price);
+                    waitType = WaitType.NONE;
+                    waitTradePlayerUuid = null;
+                    waitTradeItemId = null;
+                    pendingVarName = null;
+                }
+            }
+            for (AsyncTask task : asyncTasks.values()) {
+                if (task.waitType != expected || task.waitTradePlayerUuid == null
+                        || !task.waitTradePlayerUuid.equals(player.getUUID())) continue;
+                if (task.waitTradeItemId != null && !task.waitTradeItemId.isEmpty() && !task.waitTradeItemId.equals(itemId)) continue;
+                if (task.pendingUiClickVarName != null) {
+                    putVariable(task.pendingUiClickVarName, itemId);
+                }
+                variables.put("_eventItemId", itemId);
+                variables.put("_eventPrice", price);
+                task.waitType = WaitType.NONE;
+                task.waitTradePlayerUuid = null;
+                task.waitTradeItemId = null;
+                task.pendingUiClickVarName = null;
+                task.ip++;
+            }
+        }
+
+        private void fireTradeEventHandlers(net.minecraft.server.level.ServerPlayer player, String itemId, int price, String eventName) {
+            for (var entry : eventHandlers.entrySet()) {
+                EventHandler handler = entry.getValue();
+                if (!handler.active || !handler.eventName.equals(eventName)) continue;
+
+                if (!handler.eventArgs.isEmpty()) {
+                    net.minecraft.world.entity.Entity targetEntity = resolveEntity(handler.eventArgs.get(0));
+                    if (targetEntity == null || !player.getUUID().equals(targetEntity.getUUID())) continue;
+                }
+                if (handler.eventArgs.size() >= 2) {
+                    String expectedItem = String.valueOf(handler.eventArgs.get(1));
+                    if (!expectedItem.equals(itemId)) continue;
+                }
+
+                Object prevPlayer = variables.get("_eventPlayer");
+                Object prevItem = variables.get("_eventItemId");
+                Object prevPrice = variables.get("_eventPrice");
+
+                variables.put("_eventPlayer", player);
+                variables.put("_eventItemId", itemId);
+                variables.put("_eventPrice", price);
+
+                try {
+                    executeInstructionBlock(handler.bodyInstructions);
+                } catch (ReturnException e) {
+                    handler.active = false;
+                } catch (Exception e) {
+                    LOGGER.error("[Script: {}] Event handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
+                }
+
+                if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer); else variables.remove("_eventPlayer");
+                if (prevItem != null) variables.put("_eventItemId", prevItem); else variables.remove("_eventItemId");
+                if (prevPrice != null) variables.put("_eventPrice", prevPrice); else variables.remove("_eventPrice");
             }
         }
 
@@ -1919,10 +2222,10 @@ public class ScriptExecutor {
                     if (!matchesActionTarget(target, expectedTarget)) continue;
                 }
                 
-                Object prevPlayer = variables.get("_event_player");
-                Object prevTarget = variables.get("_event_target");
-                variables.put("_event_player", player);
-                variables.put("_event_target", target);
+                Object prevPlayer = variables.get("_eventPlayer");
+                Object prevTarget = variables.get("_eventTarget");
+                variables.put("_eventPlayer", player);
+                variables.put("_eventTarget", target);
                 
                 try {
                     executeInstructionBlock(handler.bodyInstructions);
@@ -1932,10 +2235,10 @@ public class ScriptExecutor {
                     LOGGER.error("[Script: {}] Action handler error: {}", script.getName(), e.getMessage());
                 }
                 
-                if (prevPlayer != null) variables.put("_event_player", prevPlayer);
-                else variables.remove("_event_player");
-                if (prevTarget != null) variables.put("_event_target", prevTarget);
-                else variables.remove("_event_target");
+                if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer);
+                else variables.remove("_eventPlayer");
+                if (prevTarget != null) variables.put("_eventTarget", prevTarget);
+                else variables.remove("_eventTarget");
             }
             
             for (AsyncTask task : asyncTasks.values()) {
@@ -1993,7 +2296,7 @@ public class ScriptExecutor {
             UserFunction f = userFunctions.get(name);
             if (f != null) return f;
             for (String importName : importedScripts) {
-                ActiveScript donor = findRunningScript(importName);
+                ActiveScript donor = ScriptExecutor.this.findBestDonorScript(importName, name);
                 if (donor != null) {
                     f = donor.userFunctions.get(name);
                     if (f != null) return f;
@@ -2119,6 +2422,12 @@ public class ScriptExecutor {
                     String name = (String) instruction.getArg(0);
                     ScriptNode initializer = (ScriptNode) instruction.getArg(1);
                     String scope = instruction.getArgCount() >= 3 ? String.valueOf(instruction.getArg(2)) : "local";
+                    if (initializer instanceof ScriptNode.AwaitNode) {
+                        LOGGER.error("[Script: {}] await in event handler/timer runs synchronously and will not wait (line {}). Wrap the body in async {{ ... }}.",
+                                script.getName(), instruction.getLine());
+                        putVariable(name, null, scope);
+                        break;
+                    }
                     if ("global".equals(scope) && globalVariables.containsKey(name)) {
                         // skip — global already initialized
                     } else if ("world".equals(scope)) {
@@ -2134,6 +2443,7 @@ public class ScriptExecutor {
                 case CALL -> executeCall(instruction);
                 case CALL_METHOD -> executeCallMethod(instruction, false, null);
                 case NPC_BLOCK -> executeNpcBlock(instruction);
+                case CAMERA -> executeCamera(instruction);
                 case UI_BLOCK -> executeUiBlock(instruction);
                 case COMMAND_BLOCK -> executeCommandBlock(instruction);
                 case SET_PROPERTY -> executeSetProperty(instruction);
@@ -2148,6 +2458,7 @@ public class ScriptExecutor {
                     String includeName = (String) instruction.getArg(0);
                     if (!importedScripts.contains(includeName)) {
                         importedScripts.add(includeName);
+                        ScriptExecutor.this.ensureImportedScriptRunning(includeName, source, script.getName());
                         LOGGER.info("[Script: {}] import '{}' registered (functions resolved lazily)", script.getName(), includeName);
                     }
                 }
@@ -2159,7 +2470,12 @@ public class ScriptExecutor {
 
                     List<Object> evaluatedArgs = new ArrayList<>();
                     for (ScriptNode node : eventArgNodes) {
-                        evaluatedArgs.add(evaluateExpression(node));
+                        Object val = evaluateExpression(node);
+                        if ("interact".equals(eventName) && val == null && node instanceof ScriptNode.IdentifierNode idNode) {
+                            evaluatedArgs.add(idNode.getName());
+                        } else {
+                            evaluatedArgs.add(val);
+                        }
                     }
                     eventHandlers.put(handlerId, new EventHandler(eventName, evaluatedArgs, bodyInstr));
                 }
@@ -2294,6 +2610,28 @@ public class ScriptExecutor {
                                  waitOrbPickupTexture = call.getArgs().size() >= 3 && call.getArgs().get(2) != null ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
                                  waitOrbPickupCurrentCount = 0;
                                  waitType = WaitType.ORB_PICKUP;
+                                 pendingVarName = name;
+                                 return true;
+                             }
+                         } else if (call.getFunctionName().equals("tradeBuy") || call.getFunctionName().equals("trade_buy")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                             if (sp != null) {
+                                 waitTradePlayerUuid = sp.getUUID();
+                                 waitTradeItemId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                                         ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                                 waitType = WaitType.TRADE_BUY;
+                                 pendingVarName = name;
+                                 return true;
+                             }
+                         } else if (call.getFunctionName().equals("tradeSell") || call.getFunctionName().equals("trade_sell")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                             if (sp != null) {
+                                 waitTradePlayerUuid = sp.getUUID();
+                                 waitTradeItemId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                                         ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                                 waitType = WaitType.TRADE_SELL;
                                  pendingVarName = name;
                                  return true;
                              }
@@ -2469,6 +2807,28 @@ public class ScriptExecutor {
                                  pendingVarName = name;
                                  return true;
                              }
+                         } else if (call.getFunctionName().equals("tradeBuy") || call.getFunctionName().equals("trade_buy")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                             if (sp != null) {
+                                 waitTradePlayerUuid = sp.getUUID();
+                                 waitTradeItemId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                                         ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                                 waitType = WaitType.TRADE_BUY;
+                                 pendingVarName = name;
+                                 return true;
+                             }
+                         } else if (call.getFunctionName().equals("tradeSell") || call.getFunctionName().equals("trade_sell")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                             if (sp != null) {
+                                 waitTradePlayerUuid = sp.getUUID();
+                                 waitTradeItemId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                                         ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                                 waitType = WaitType.TRADE_SELL;
+                                 pendingVarName = name;
+                                 return true;
+                             }
                          } else if (call.getFunctionName().equals("uiClick") || call.getFunctionName().equals("uiclick")) {
                              if (call.getArgs().isEmpty()) return false;
                              net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
@@ -2579,6 +2939,7 @@ public class ScriptExecutor {
                 case UI_BLOCK -> executeUiBlock(instruction);
                 case COMMAND_BLOCK -> executeCommandBlock(instruction);
                 case FADE_IN -> executeFadeIn(instruction);
+                case CAMERA -> executeCamera(instruction);
                 case UI_WIDGET -> executeUiWidget(instruction);
                 case SET_PROPERTY -> executeSetProperty(instruction);
                 case SET_INDEX -> executeSetIndex(instruction);
@@ -2665,6 +3026,30 @@ public class ScriptExecutor {
                         waitType = WaitType.ORB_PICKUP;
                         return true;
                     }
+                }
+                case AWAIT_TRADE_BUY -> {
+                    ScriptNode pNode = (ScriptNode) instruction.getArg(0);
+                    ScriptNode itemNode = instruction.getArgCount() >= 2 && instruction.getArg(1) != null ? (ScriptNode) instruction.getArg(1) : null;
+                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
+                    if (sp != null) {
+                        waitTradePlayerUuid = sp.getUUID();
+                        waitTradeItemId = itemNode != null ? String.valueOf(evaluateExpression(itemNode)) : null;
+                        waitType = WaitType.TRADE_BUY;
+                        return true;
+                    }
+                    LOGGER.warn("[Script: {}] await tradeBuy: unknown player", script.getName());
+                }
+                case AWAIT_TRADE_SELL -> {
+                    ScriptNode pNode = (ScriptNode) instruction.getArg(0);
+                    ScriptNode itemNode = instruction.getArgCount() >= 2 && instruction.getArg(1) != null ? (ScriptNode) instruction.getArg(1) : null;
+                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
+                    if (sp != null) {
+                        waitTradePlayerUuid = sp.getUUID();
+                        waitTradeItemId = itemNode != null ? String.valueOf(evaluateExpression(itemNode)) : null;
+                        waitType = WaitType.TRADE_SELL;
+                        return true;
+                    }
+                    LOGGER.warn("[Script: {}] await tradeSell: unknown player", script.getName());
                 }
                 case ASYNC_START -> {
                     String taskId = (String) instruction.getArg(0);
@@ -2775,16 +3160,27 @@ public class ScriptExecutor {
                         waitBlockPlayerUuid = sp.getUUID();
                         waitBlockId = null;
                         waitBlockPos = null;
-                        if (args.size() == 2) {
-                            waitBlockId = String.valueOf(evaluateExpression(args.get(1)));
-                        } else if (args.size() >= 4) {
-                            int x = ((Number) evaluateExpression(args.get(1))).intValue();
-                            int y = ((Number) evaluateExpression(args.get(2))).intValue();
-                            int z = ((Number) evaluateExpression(args.get(3))).intValue();
-                            waitBlockPos = new net.minecraft.core.BlockPos(x, y, z);
-                            if (args.size() >= 5) {
-                                waitBlockId = String.valueOf(evaluateExpression(args.get(4)));
+                        waitBlockDim = null;
+                        // Args: player [, blockId] [, x, y, z [, blockId]] [, dimension]
+                        // Ищем строковый аргумент с ':' или стандартное имя как dimension в конце
+                        List<Object> evaled = new ArrayList<>();
+                        for (int _i = 1; _i < args.size(); _i++) evaled.add(evaluateExpression(args.get(_i)));
+                        // Check last arg for dimension keyword
+                        if (!evaled.isEmpty()) {
+                            Object last = evaled.get(evaled.size()-1);
+                            if (last instanceof String s && (s.contains(":") || s.equals("overworld") || s.equals("nether") || s.equals("the_end"))) {
+                                waitBlockDim = s;
+                                evaled = evaled.subList(0, evaled.size()-1);
                             }
+                        }
+                        if (evaled.size() == 1) {
+                            waitBlockId = String.valueOf(evaled.get(0));
+                        } else if (evaled.size() >= 3) {
+                            int x = ((Number) evaled.get(0)).intValue();
+                            int y = ((Number) evaled.get(1)).intValue();
+                            int z = ((Number) evaled.get(2)).intValue();
+                            waitBlockPos = new net.minecraft.core.BlockPos(x, y, z);
+                            if (evaled.size() >= 4) waitBlockId = String.valueOf(evaled.get(3));
                         }
                         if (instruction.getOpcode() == CompiledScript.Opcode.AWAIT_CLICK_BLOCK) waitType = WaitType.CLICK_BLOCK;
                         else if (instruction.getOpcode() == CompiledScript.Opcode.AWAIT_BREAK_BLOCK) waitType = WaitType.BREAK_BLOCK;
@@ -2832,6 +3228,7 @@ public class ScriptExecutor {
                     String includeName = (String) instruction.getArg(0);
                     if (!importedScripts.contains(includeName)) {
                         importedScripts.add(includeName);
+                        ScriptExecutor.this.ensureImportedScriptRunning(includeName, source, script.getName());
                         LOGGER.info("[Script: {}] import '{}' registered (functions resolved lazily)", script.getName(), includeName);
                     }
                 }
@@ -2848,7 +3245,12 @@ public class ScriptExecutor {
 
                     List<Object> evaluatedArgs = new ArrayList<>();
                     for (ScriptNode node : eventArgNodes) {
-                        evaluatedArgs.add(evaluateExpression(node));
+                        Object val = evaluateExpression(node);
+                        if ("interact".equals(eventName) && val == null && node instanceof ScriptNode.IdentifierNode idNode) {
+                            evaluatedArgs.add(idNode.getName());
+                        } else {
+                            evaluatedArgs.add(val);
+                        }
                     }
                     eventHandlers.put(handlerId, new EventHandler(eventName, evaluatedArgs, bodyInstr));
                 }
@@ -2933,6 +3335,18 @@ public class ScriptExecutor {
                     net.minecraft.world.entity.Entity resolved = source.getLevel().getEntity(uuid);
                     if (resolved != null) obj = resolved;
                 }
+            }
+
+            // ===== NpcGroup method dispatch =====
+            if (obj instanceof org.zonarstudio.spraute_engine.entity.NpcGroup group
+                    && source.getLevel() != null && !source.getLevel().isClientSide) {
+                net.minecraft.server.level.ServerLevel sl = (net.minecraft.server.level.ServerLevel) source.getLevel();
+                String method = methodName != null ? methodName.toLowerCase() : "";
+                java.util.List<org.zonarstudio.spraute_engine.entity.SprauteNpcEntity> members = group.resolveNpcs(sl);
+                for (org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc : members) {
+                    executeNpcGroupMethod(npc, method, args, blocking, null);
+                }
+                return false;
             }
 
             if (obj instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc) {
@@ -3059,7 +3473,7 @@ public class ScriptExecutor {
                         if (!args.isEmpty()) npc.setWalkAnim(String.valueOf(args.get(0)));
                         else npc.setWalkAnim("");
                     }
-                    case "setItem" -> {
+                    case "setitem" -> {
                         // setItem("right", "minecraft:diamond_sword") or setItem("right", "minecraft:diamond_sword", "{Enchantments:[...]}")
                         if (args.size() >= 2) {
                             String hand = String.valueOf(args.get(0));
@@ -3069,7 +3483,7 @@ public class ScriptExecutor {
                             npc.setHandItem(hand, stack);
                         }
                     }
-                    case "removeItem" -> {
+                    case "removeitem" -> {
                         // removeItem("right") or removeItem("left")
                         if (!args.isEmpty()) {
                             npc.clearHandItem(String.valueOf(args.get(0)));
@@ -3185,6 +3599,17 @@ public class ScriptExecutor {
                         }
                     }
                     case "stoplookat" -> npc.stopLook();
+                    case "setplayerskin" -> {
+                        if (!args.isEmpty()) {
+                            Object target = args.get(0);
+                            if (target instanceof net.minecraft.server.level.ServerPlayer sp) {
+                                npc.setPlayerSkinOverlay(sp.getUUID());
+                            } else if (target instanceof net.minecraft.world.entity.Entity e) {
+                                npc.setPlayerSkinOverlay(e.getUUID());
+                            }
+                        }
+                    }
+                    case "clearplayerskin" -> npc.clearPlayerSkinOverlay();
                     case "setheadbone" -> {
                         if (!args.isEmpty()) npc.setHeadBone(String.valueOf(args.get(0)));
                         else npc.setHeadBone("head");
@@ -3246,9 +3671,21 @@ public class ScriptExecutor {
                             }
                             
                             if (sourceEntity != null) {
-                                living.hurt(new net.minecraft.world.damagesource.EntityDamageSource("generic", sourceEntity), amount);
+                                //? if >=1.20.1 {
+                                living.hurt(new net.minecraft.world.damagesource.DamageSource(
+                                        SprauteEntityCompat.level(living).registryAccess()
+                                                .registryOrThrow(net.minecraft.core.registries.Registries.DAMAGE_TYPE)
+                                                .getHolderOrThrow(net.minecraft.world.damagesource.DamageTypes.GENERIC),
+                                        sourceEntity), amount);
+                                //?} else {
+                                /*living.hurt(new net.minecraft.world.damagesource.EntityDamageSource("generic", sourceEntity), amount);
+                                *///?}
                             } else {
-                                living.hurt(net.minecraft.world.damagesource.DamageSource.GENERIC, amount);
+                                //? if >=1.20.1 {
+                                living.hurt(SprauteEntityCompat.level(living).damageSources().generic(), amount);
+                                //?} else {
+                                /*living.hurt(net.minecraft.world.damagesource.DamageSource.GENERIC, amount);
+                                *///?}
                             }
                         }
                         return false;
@@ -3259,7 +3696,7 @@ public class ScriptExecutor {
                             double ty = ((Number) args.get(1)).doubleValue();
                             double tz = ((Number) args.get(2)).doubleValue();
                             if (entity instanceof net.minecraft.server.level.ServerPlayer sp) {
-                                sp.teleportTo((net.minecraft.server.level.ServerLevel) entity.level, tx, ty, tz, sp.getYRot(), sp.getXRot());
+                                sp.teleportTo((net.minecraft.server.level.ServerLevel) SprauteEntityCompat.level(entity), tx, ty, tz, sp.getYRot(), sp.getXRot());
                             } else {
                                 entity.teleportTo(tx, ty, tz);
                             }
@@ -3273,7 +3710,7 @@ public class ScriptExecutor {
         }
 
         private Map<String, Object> performRaycast(net.minecraft.world.entity.LivingEntity entity, double maxDistance) {
-            net.minecraft.world.level.Level level = entity.level;
+            net.minecraft.world.level.Level level = SprauteEntityCompat.level(entity);
             net.minecraft.world.phys.Vec3 eyePos = entity.getEyePosition();
             net.minecraft.world.phys.Vec3 viewVec = entity.getViewVector(1.0f);
             net.minecraft.world.phys.Vec3 endPos = eyePos.add(viewVec.scale(maxDistance));
@@ -3331,13 +3768,23 @@ public class ScriptExecutor {
 
         /**
          * Call a user-defined function, returning its result (or null).
+         * Функции из import() выполняются в контексте скрипта-библиотеки (их переменные и UI).
          */
         private Object callUserFunction(String name, List<Object> args) {
-            UserFunction func = resolveFunction(name);
-            if (func == null) {
-                throw new RuntimeException("Unknown function: " + name);
+            UserFunction func = userFunctions.get(name);
+            if (func != null) {
+                return executeUserFunctionBody(func, args);
             }
+            for (String importName : importedScripts) {
+                ActiveScript donor = ScriptExecutor.this.findBestDonorScript(importName, name);
+                if (donor != null && donor.userFunctions.containsKey(name)) {
+                    return donor.executeUserFunctionBody(donor.userFunctions.get(name), args);
+                }
+            }
+            throw new RuntimeException("Unknown function: " + name);
+        }
 
+        private Object executeUserFunctionBody(UserFunction func, List<Object> args) {
             // Save existing variables and set params
             Map<String, Object> savedVars = new HashMap<>();
             for (int i = 0; i < func.params.size(); i++) {
@@ -3395,7 +3842,7 @@ public class ScriptExecutor {
 
         private void executeSetProperty(CompiledScript.Instruction instruction) {
             ScriptNode objectNode = (ScriptNode) instruction.getArg(0);
-            String propName = (String) instruction.getArg(1);
+            String propName = normPropKey((String) instruction.getArg(1));
             ScriptNode valueNode = (ScriptNode) instruction.getArg(2);
             Object value = evaluateExpression(valueNode);
 
@@ -3485,19 +3932,20 @@ public class ScriptExecutor {
                                 case "texture" -> npc.setTexture(String.valueOf(value));
                                 case "idleAnim" -> npc.setIdleAnim(String.valueOf(value));
                                 case "walkAnim" -> npc.setWalkAnim(String.valueOf(value));
-                                case "drop_item" -> {
+                                case "animation" -> npc.setAnimation(String.valueOf(value));
+                                case "dropItem" -> {
                                     if (npc.customDrops.isEmpty()) npc.customDrops.add(new org.zonarstudio.spraute_engine.registry.CustomDropRegistry.DropRule(String.valueOf(value), 1, 1, 100, false, null));
                                     else npc.customDrops.get(0).itemId = String.valueOf(value);
                                 }
-                                case "drop_min" -> {
+                                case "dropMin" -> {
                                     if (npc.customDrops.isEmpty()) npc.customDrops.add(new org.zonarstudio.spraute_engine.registry.CustomDropRegistry.DropRule("minecraft:air", value instanceof Number n ? n.intValue() : 1, 1, 100, false, null));
                                     else npc.customDrops.get(0).min = value instanceof Number n ? n.intValue() : 1;
                                 }
-                                case "drop_max" -> {
+                                case "dropMax" -> {
                                     if (npc.customDrops.isEmpty()) npc.customDrops.add(new org.zonarstudio.spraute_engine.registry.CustomDropRegistry.DropRule("minecraft:air", 1, value instanceof Number n ? n.intValue() : 1, 100, false, null));
                                     else npc.customDrops.get(0).max = value instanceof Number n ? n.intValue() : 1;
                                 }
-                                case "drop_chance" -> {
+                                case "dropChance" -> {
                                     if (npc.customDrops.isEmpty()) npc.customDrops.add(new org.zonarstudio.spraute_engine.registry.CustomDropRegistry.DropRule("minecraft:air", 1, 1, value instanceof Number n ? n.intValue() : 100, false, null));
                                     else npc.customDrops.get(0).chance = value instanceof Number n ? n.intValue() : 100;
                                 }
@@ -3540,7 +3988,7 @@ public class ScriptExecutor {
                 throw re;
             } catch (Exception e) {
                 uiWidgetStack.poll();
-                LOGGER.error("[Script] create ui failed: {}", e.getMessage());
+                LOGGER.error("[Script] create ui '{}' failed: {} ({})", varName, e.getMessage(), e.getClass().getSimpleName(), e);
             }
         }
 
@@ -3561,7 +4009,7 @@ public class ScriptExecutor {
                     if (p != null) {
                         String taskId = "cmd_" + cmdName + "_" + java.util.UUID.randomUUID().toString().substring(0, 8);
                         AsyncTask task = new AsyncTask(taskId, bodyInstructions);
-                        task.taskLocals.put("_event_player", p);
+                        task.taskLocals.put("_eventPlayer", p);
                         
                         java.util.List<Object> argsList = new java.util.ArrayList<>();
                         try {
@@ -3583,7 +4031,7 @@ public class ScriptExecutor {
                             // Argument not provided, argsList stays empty
                         }
                         
-                        task.taskLocals.put("_event_args", argsList);
+                        task.taskLocals.put("_eventArgs", argsList);
                         asyncTasks.put(taskId, task);
                     }
                     return 1;
@@ -3620,6 +4068,108 @@ public class ScriptExecutor {
                         new org.zonarstudio.spraute_engine.network.SyncLoadScreenPacket(props)
                 );
             }
+        }
+
+        @SuppressWarnings("unchecked")
+        private void executeCamera(CompiledScript.Instruction instruction) {
+            String cameraId = (String) instruction.getArg(0);
+            Map<String, List<ScriptNode>> propsNodes = (Map<String, List<ScriptNode>>) instruction.getArg(1);
+
+            Map<String, List<Object>> props = new HashMap<>();
+            for (var entry : propsNodes.entrySet()) {
+                List<Object> values = new ArrayList<>();
+                for (ScriptNode node : entry.getValue()) {
+                    values.add(evaluateExpression(node));
+                }
+                props.put(normPropKey(entry.getKey()), values);
+            }
+
+            net.minecraft.server.level.ServerPlayer player = null;
+            if (props.containsKey("target")) {
+                Object targetObj = props.get("target").get(0);
+                player = resolveServerPlayer(targetObj);
+            }
+            if (player == null) {
+                player = (source.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) ? sp : null;
+            }
+            if (player == null) return;
+
+            List<Object> posArgs = props.get("pos");
+            double x = player.getX(), y = player.getEyeY(), z = player.getZ();
+            if (posArgs != null && !posArgs.isEmpty()) {
+                Object first = posArgs.get(0);
+                if (first instanceof java.util.List<?> l && l.size() >= 3) {
+                    x = ((Number) l.get(0)).doubleValue();
+                    y = ((Number) l.get(1)).doubleValue();
+                    z = ((Number) l.get(2)).doubleValue();
+                } else if (posArgs.size() >= 3) {
+                    x = ((Number) posArgs.get(0)).doubleValue();
+                    y = ((Number) posArgs.get(1)).doubleValue();
+                    z = ((Number) posArgs.get(2)).doubleValue();
+                }
+            }
+
+            List<Object> rotArgs = props.get("rotate");
+            float yaw = player.getYRot(), pitch = player.getXRot();
+            if (rotArgs != null && !rotArgs.isEmpty()) {
+                Object first = rotArgs.get(0);
+                if (first instanceof java.util.List<?> l && l.size() >= 2) {
+                    yaw = ((Number) l.get(0)).floatValue();
+                    pitch = ((Number) l.get(1)).floatValue();
+                } else if (rotArgs.size() >= 2) {
+                    yaw = ((Number) rotArgs.get(0)).floatValue();
+                    pitch = ((Number) rotArgs.get(1)).floatValue();
+                }
+            }
+
+            float time = props.containsKey("time") ? ((Number) props.get("time").get(0)).floatValue() : 0f;
+            boolean smooth = !props.containsKey("smooth") || Boolean.TRUE.equals(props.get("smooth").get(0));
+            float smoothTime = props.containsKey("smoothTime") ? ((Number) props.get("smoothTime").get(0)).floatValue() : 0.5f;
+
+            String dimension;
+            if (props.containsKey("dimension")) {
+                dimension = String.valueOf(props.get("dimension").get(0));
+            } else if (props.containsKey("dim")) {
+                dimension = String.valueOf(props.get("dim").get(0));
+            } else {
+                dimension = SprauteEntityCompat.level(player).dimension().location().toString();
+            }
+
+            byte lookAtMode = org.zonarstudio.spraute_engine.network.CameraPacket.LOOK_NONE;
+            int lookAtEntityId = -1;
+            double lookAtX = 0, lookAtY = 0, lookAtZ = 0;
+
+            List<Object> lookAtArgs = props.get("lookAt");
+
+            if (lookAtArgs != null && !lookAtArgs.isEmpty()) {
+                boolean track = props.containsKey("track") && Boolean.TRUE.equals(props.get("track").get(0));
+                lookAtMode = track
+                        ? org.zonarstudio.spraute_engine.network.CameraPacket.LOOK_TRACK
+                        : org.zonarstudio.spraute_engine.network.CameraPacket.LOOK_ONCE;
+
+                Object lookTarget = lookAtArgs.get(0);
+                net.minecraft.world.entity.Entity lookEntity = resolveEntity(lookTarget);
+                if (lookEntity != null) {
+                    lookAtEntityId = lookEntity.getId();
+                    lookAtX = lookEntity.getX();
+                    lookAtY = lookEntity.getEyeY();
+                    lookAtZ = lookEntity.getZ();
+                } else if (lookAtArgs.size() >= 3) {
+                    lookAtX = ((Number) lookAtArgs.get(0)).doubleValue();
+                    lookAtY = ((Number) lookAtArgs.get(1)).doubleValue();
+                    lookAtZ = ((Number) lookAtArgs.get(2)).doubleValue();
+                    lookAtEntityId = -1;
+                }
+            }
+
+            final net.minecraft.server.level.ServerPlayer target = player;
+            org.zonarstudio.spraute_engine.network.ModNetwork.CHANNEL.send(
+                    net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> target),
+                    org.zonarstudio.spraute_engine.network.CameraPacket.start(x, y, z, yaw, pitch, time, smooth, smoothTime, dimension,
+                            lookAtMode, lookAtEntityId, lookAtX, lookAtY, lookAtZ)
+            );
+
+            variables.put(cameraId, cameraId);
         }
 
         @SuppressWarnings("unchecked")
@@ -3673,7 +4223,7 @@ public class ScriptExecutor {
                 for (ScriptNode node : entry.getValue()) {
                     values.add(evaluateExpression(node));
                 }
-                props.put(entry.getKey(), values);
+                props.put(normPropKey(entry.getKey()), values);
             }
 
             try {
@@ -3719,7 +4269,11 @@ public class ScriptExecutor {
 
                 net.minecraft.server.level.ServerLevel level = source.getLevel();
                 if (dimensionId != null) {
-                    net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> resKey = net.minecraft.resources.ResourceKey.create(net.minecraft.core.Registry.DIMENSION_REGISTRY, new net.minecraft.resources.ResourceLocation(dimensionId.contains(":") ? dimensionId : "minecraft:" + dimensionId));
+                    //? if >=1.20.1 {
+                    net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> resKey = net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, new net.minecraft.resources.ResourceLocation(dimensionId.contains(":") ? dimensionId : "minecraft:" + dimensionId));
+                    //?} else {
+                    /*net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> resKey = net.minecraft.resources.ResourceKey.create(net.minecraft.core.Registry.DIMENSION_REGISTRY, new net.minecraft.resources.ResourceLocation(dimensionId.contains(":") ? dimensionId : "minecraft:" + dimensionId));
+                    *///?}
                     net.minecraft.server.level.ServerLevel dim = source.getLevel().getServer().getLevel(resKey);
                     if (dim != null) level = dim;
                 }
@@ -3752,18 +4306,21 @@ public class ScriptExecutor {
                         if (props.containsKey("texture")) {
                             npc.setTexture(String.valueOf(props.get("texture").get(0)));
                         }
+                        if (props.containsKey("animation")) {
+                            npc.setAnimation(String.valueOf(props.get("animation").get(0)));
+                        }
                         if (props.containsKey("idleAnim")) {
                             npc.setIdleAnim(String.valueOf(props.get("idleAnim").get(0)));
                         }
                         if (props.containsKey("walkAnim")) {
                             npc.setWalkAnim(String.valueOf(props.get("walkAnim").get(0)));
                         }
-                        if (props.containsKey("drop_item") || props.containsKey("drop_min") || props.containsKey("drop_max") || props.containsKey("drop_chance")) {
+                        if (props.containsKey("dropItem") || props.containsKey("dropMin") || props.containsKey("dropMax") || props.containsKey("dropChance")) {
                             npc.customDrops.clear();
-                            String dItem = props.containsKey("drop_item") ? String.valueOf(props.get("drop_item").get(0)) : "minecraft:air";
-                            int dMin = props.containsKey("drop_min") ? ((Number)props.get("drop_min").get(0)).intValue() : 1;
-                            int dMax = props.containsKey("drop_max") ? ((Number)props.get("drop_max").get(0)).intValue() : 1;
-                            int dChance = props.containsKey("drop_chance") ? ((Number)props.get("drop_chance").get(0)).intValue() : 100;
+                            String dItem = props.containsKey("dropItem") ? String.valueOf(props.get("dropItem").get(0)) : "minecraft:air";
+                            int dMin = props.containsKey("dropMin") ? ((Number)props.get("dropMin").get(0)).intValue() : 1;
+                            int dMax = props.containsKey("dropMax") ? ((Number)props.get("dropMax").get(0)).intValue() : 1;
+                            int dChance = props.containsKey("dropChance") ? ((Number)props.get("dropChance").get(0)).intValue() : 100;
                             npc.customDrops.add(new org.zonarstudio.spraute_engine.registry.CustomDropRegistry.DropRule(dItem, dMin, dMax, dChance, false, null));
                         }
                         if (existing != npc) level.addFreshEntity(npc);
@@ -3840,7 +4397,7 @@ public class ScriptExecutor {
                 }
                 
                 // Built-in variable checks
-                if ("hasVar".equals(call.getFunctionName()) && !call.getArgs().isEmpty()) {
+                if (("hasVar".equals(call.getFunctionName()) || "has_var".equals(call.getFunctionName())) && !call.getArgs().isEmpty()) {
                     Object arg = evaluateExpression(call.getArgs().get(0));
                     String name = String.valueOf(arg);
                     if (variables.containsKey(name) || globalVariables.containsKey(name)) return true;
@@ -3862,11 +4419,12 @@ public class ScriptExecutor {
                 }
                 
                 if (obj instanceof java.util.Map map) {
-                    return map.get(prop.getPropertyName());
+                    return map.get(normPropKey(prop.getPropertyName()));
                 }
 
                 if (obj instanceof net.minecraft.world.entity.player.Player player) {
-                    return switch (prop.getPropertyName()) {
+                    String playerProp = normPropKey(prop.getPropertyName());
+                    return switch (playerProp) {
                         case "name" -> player.getName().getString();
                         case "hp" -> player.getHealth();
                         case "x" -> player.getX();
@@ -3874,9 +4432,9 @@ public class ScriptExecutor {
                         case "z" -> player.getZ();
                         case "pitch" -> player.getXRot();
                         case "yaw" -> player.getYRot();
-                        case "look_x" -> player.getLookAngle().x;
-                        case "look_y" -> player.getLookAngle().y;
-                        case "look_z" -> player.getLookAngle().z;
+                        case "lookX" -> player.getLookAngle().x;
+                        case "lookY" -> player.getLookAngle().y;
+                        case "lookZ" -> player.getLookAngle().z;
                         case "uuid" -> player.getUUID().toString();
                         case "java" -> player;
                         case "data" -> org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().getPlayerSessionData(player.getUUID());
@@ -3886,14 +4444,17 @@ public class ScriptExecutor {
                 }
                 
                 net.minecraft.world.entity.Entity npcEntity = null;
-                if (obj instanceof String npcId) {
+                if (obj instanceof net.minecraft.world.entity.Entity directEntity) {
+                    npcEntity = directEntity;
+                } else if (obj instanceof String npcId) {
                     npcEntity = org.zonarstudio.spraute_engine.entity.NpcManager.getEntity(npcId, source.getLevel());
                 } else if (obj == null && !objName.isEmpty()) {
                     npcEntity = org.zonarstudio.spraute_engine.entity.NpcManager.getEntity(objName, source.getLevel());
                 }
                 
                 if (npcEntity != null) {
-                    return switch (prop.getPropertyName()) {
+                    String npcProp = normPropKey(prop.getPropertyName());
+                    return switch (npcProp) {
                         case "name" -> npcEntity.getCustomName() != null ? npcEntity.getCustomName().getString() : "";
                         case "showName" -> npcEntity.isCustomNameVisible();
                         case "hp" -> npcEntity instanceof net.minecraft.world.entity.LivingEntity living ? living.getHealth() : 0;
@@ -3910,10 +4471,10 @@ public class ScriptExecutor {
                         case "java" -> npcEntity;
                         case "model" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? npc.getModel() : "";
                         case "texture" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? npc.getTexture() : "";
-                        case "drop_item" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? (!npc.customDrops.isEmpty() ? npc.customDrops.get(0).itemId : "") : "";
-                        case "drop_min" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? (!npc.customDrops.isEmpty() ? npc.customDrops.get(0).min : 0) : 0;
-                        case "drop_max" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? (!npc.customDrops.isEmpty() ? npc.customDrops.get(0).max : 0) : 0;
-                        case "drop_chance" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? (!npc.customDrops.isEmpty() ? npc.customDrops.get(0).chance : 0) : 0;
+                        case "dropItem" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? (!npc.customDrops.isEmpty() ? npc.customDrops.get(0).itemId : "") : "";
+                        case "dropMin" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? (!npc.customDrops.isEmpty() ? npc.customDrops.get(0).min : 0) : 0;
+                        case "dropMax" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? (!npc.customDrops.isEmpty() ? npc.customDrops.get(0).max : 0) : 0;
+                        case "dropChance" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? (!npc.customDrops.isEmpty() ? npc.customDrops.get(0).chance : 0) : 0;
                         default -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? npc.customData.get(prop.getPropertyName()) : null;
                     };
                 }
@@ -4064,7 +4625,7 @@ public class ScriptExecutor {
                             net.minecraft.world.item.ItemStack stack = (hand.equals("left") || hand.equals("offhand")) ? player.getOffhandItem() : player.getMainHandItem();
                             yield stack.isEmpty() ? "" : net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem()).toString();
                         }
-                        case "held_item_nbt" -> {
+                        case "heldItemNbt" -> {
                             String hand = methodArgs.isEmpty() ? "right" : String.valueOf(methodArgs.get(0)).toLowerCase();
                             net.minecraft.world.item.ItemStack stack = (hand.equals("left") || hand.equals("offhand")) ? player.getOffhandItem() : player.getMainHandItem();
                             yield stack.hasTag() ? stack.getTag().toString() : "";
@@ -4190,6 +4751,15 @@ public class ScriptExecutor {
                                 yield Math.floorDiv(li, ri);
                             }
                             yield Math.floor(dl / dr);
+                        }
+                        case PERCENT -> {
+                            if (l instanceof Integer li && r instanceof Integer ri) {
+                                yield Math.floorMod(li, ri);
+                            }
+                            if (l instanceof Long li && r instanceof Long ri) {
+                                yield Math.floorMod(li, ri);
+                            }
+                            yield dl % dr;
                         }
                         case STAR_STAR -> Math.pow(dl, dr);
                         case EQ -> dl == dr;
@@ -4390,6 +4960,78 @@ public class ScriptExecutor {
             return nearest;
         }
 
+        /**
+         * Применяет команду одного НПС в контексте группы.
+         * Аналог части switch внутри executeCallMethod, но без блокирующих wait'ов.
+         */
+        private void executeNpcGroupMethod(org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc,
+                                           String method, java.util.List<Object> args,
+                                           boolean blocking, AsyncTask taskScope) {
+            switch (method) {
+                case "moveto" -> {
+                    if (args.size() >= 3) {
+                        double x = ((Number) args.get(0)).doubleValue();
+                        double y = ((Number) args.get(1)).doubleValue();
+                        double z = ((Number) args.get(2)).doubleValue();
+                        double speed = args.size() >= 4 ? ((Number) args.get(3)).doubleValue() : 1.0;
+                        npc.moveTo(x, y, z, speed);
+                    }
+                }
+                case "alwaysmoveto", "always_move_to" -> {
+                    double speed = args.size() >= 2 && args.get(args.size()-1) instanceof Number n2 ? n2.doubleValue() : 1.0;
+                    if (args.size() >= 3 && args.get(0) instanceof Number) {
+                        double x = ((Number) args.get(0)).doubleValue();
+                        double y = ((Number) args.get(1)).doubleValue();
+                        double z = ((Number) args.get(2)).doubleValue();
+                        if (args.size() >= 4) speed = ((Number) args.get(3)).doubleValue();
+                        npc.alwaysMoveTo(x, y, z, speed);
+                    } else if (!args.isEmpty()) {
+                        net.minecraft.world.entity.Entity target = resolveEntity(args.get(0));
+                        if (target != null) npc.alwaysMoveToEntity(target, speed);
+                    }
+                }
+                case "stopmove" -> npc.stopMove();
+                case "playonce" -> { if (!args.isEmpty()) npc.playOnce(String.valueOf(args.get(0)), args.size() < 2 || isAdditiveAnimationArg(args.get(1))); }
+                case "playloop" -> { if (!args.isEmpty()) npc.playLoop(String.valueOf(args.get(0)), args.size() < 2 || isAdditiveAnimationArg(args.get(1))); }
+                case "playfreeze" -> { if (!args.isEmpty()) npc.playFreeze(String.valueOf(args.get(0)), args.size() < 2 || isAdditiveAnimationArg(args.get(1))); }
+                case "stopoverlay" -> npc.stopOverlayAnimation();
+                case "stop" -> { if (!args.isEmpty()) npc.stopOverlayAnimation(String.valueOf(args.get(0))); }
+                case "setitem" -> {
+                    if (args.size() >= 2) {
+                        String hand = String.valueOf(args.get(0));
+                        String itemId = String.valueOf(args.get(1));
+                        String nbt = args.size() >= 3 ? String.valueOf(args.get(2)) : null;
+                        npc.setHandItem(hand, resolveItemStack(itemId, nbt));
+                    }
+                }
+                case "removeitem" -> {
+                    if (!args.isEmpty()) npc.clearHandItem(String.valueOf(args.get(0)));
+                    else { npc.clearHandItem("right"); npc.clearHandItem("left"); }
+                }
+                case "setflying" -> {
+                    if (!args.isEmpty()) npc.setFlying(args.get(0) instanceof Boolean b ? b : Boolean.parseBoolean(String.valueOf(args.get(0))));
+                }
+                case "teleport" -> {
+                    if (args.size() >= 3) {
+                        double tx = ((Number) args.get(0)).doubleValue();
+                        double ty = ((Number) args.get(1)).doubleValue();
+                        double tz = ((Number) args.get(2)).doubleValue();
+                        npc.teleportTo(tx, ty, tz);
+                    }
+                }
+                case "remove" -> npc.remove(net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+                case "setidleanim" -> { if (!args.isEmpty()) npc.setIdleAnim(String.valueOf(args.get(0))); else npc.setIdleAnim(""); }
+                case "setwalkanim" -> { if (!args.isEmpty()) npc.setWalkAnim(String.valueOf(args.get(0))); else npc.setWalkAnim(""); }
+                case "lookat" -> {
+                    if (!args.isEmpty()) {
+                        net.minecraft.world.entity.Entity target = resolveEntity(args.get(0));
+                        if (target != null) npc.lookAtEntity(target);
+                    }
+                }
+                case "stoplookat" -> npc.stopLook();
+            }
+        }
+
         private boolean isAdditiveAnimationArg(Object arg) {
             if (arg instanceof Boolean b) return b;
             if (arg == null) return false;
@@ -4509,6 +5151,7 @@ public class ScriptExecutor {
             UUID waitBlockPlayerUuid;
             String waitBlockId;
             net.minecraft.core.BlockPos waitBlockPos;
+            String waitBlockDim;
             boolean blockEventMet;
             String uiInputWidgetId = "";
             String uiInputText = "";
@@ -4530,6 +5173,9 @@ public class ScriptExecutor {
             int waitOrbPickupTargetCount = 0;
             int waitOrbPickupCurrentCount = 0;
 
+            UUID waitTradePlayerUuid = null;
+            String waitTradeItemId = null;
+
             UUID waitPlayerActionPlayerUuid = null;
             String waitPlayerActionType = "";
             String waitPlayerActionTarget = null;
@@ -4549,7 +5195,8 @@ public class ScriptExecutor {
     }
 
         private enum WaitType {
-        NONE, TIME, INTERACT, NEXT, KEYBIND, DEATH, UI_CLICK, UI_CLOSE, MOVE_TO, FOLLOW, PICKUP, ORB_PICKUP, WAIT_TASK,
+        NONE, TIME, INTERACT, NEXT, KEYBIND, DEATH, UI_CLICK, UI_CLOSE, MOVE_TO, FOLLOW, PICKUP, ORB_PICKUP,
+        TRADE_BUY, TRADE_SELL, WAIT_TASK,
         POSITION, INVENTORY, CLICK_BLOCK, BREAK_BLOCK, PLACE_BLOCK, UI_INPUT, CHAT, UI_OVERLAP,
         PLAYER_ACTION
     }

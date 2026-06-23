@@ -1,0 +1,342 @@
+# Библиотека экономики (монеты, HUD, трейд, орбы)
+# Запуск: startScript("economy") — регистрирует on orbPickup / on uiClick
+# Функции: import("economy")
+# Опционально: startScript("economy", dict("ECO_COIN_TEXTURE", "...", "ECO_COIN_KEY", "coins"))
+
+import("spraute_chat")
+
+var ECO_COIN_TEXTURE = "minecraft:textures/item/gold_nugget.png"
+var ECO_COIN_KEY = "coins"
+
+var eco_trade_selected = 0
+var eco_active_trade_items = null
+var eco_active_trade_title = ""
+var eco_active_npc = ""
+
+val ECO_HUD_BX = 5
+val ECO_HUD_BY = 38
+val ECO_HUD_BW = 100
+val ECO_HUD_BH = 20
+val ECO_HUD_CY = ECO_HUD_BY + ECO_HUD_BH / 2
+val ECO_HUD_ICON_SIZE = 16
+val ECO_HUD_ICON_Y = ECO_HUD_BY + (ECO_HUD_BH - ECO_HUD_ICON_SIZE) / 2
+
+create ui eco_coins_hud {
+    id = "eco_coins_hud"
+    size = ["100%", "100%"]
+    background = "#00000000"
+
+    rect("coin_bg") {
+        pos = [ECO_HUD_BX, ECO_HUD_BY]
+        size = [ECO_HUD_BW, ECO_HUD_BH]
+        color = "#BB000000"
+    }
+    image("coin_icon", ECO_COIN_TEXTURE) {
+        pos = [ECO_HUD_BX + 4, ECO_HUD_ICON_Y]
+        size = [ECO_HUD_ICON_SIZE, ECO_HUD_ICON_SIZE]
+        layer = 1
+    }
+    text("coin_text", "0 монет") {
+        pos = [ECO_HUD_BX + 22, ECO_HUD_CY]
+        anchor = ["0", "0.5"]
+        color = "#FFD700"
+        scale = 1.0
+        layer = 1
+    }
+}
+
+fun ecoInit(p) {
+    if (p == null) { return }
+    val d = p.savedData
+    if (d == null) { return }
+    if (d[ECO_COIN_KEY] == null) { d[ECO_COIN_KEY] = 0 }
+}
+
+fun ecoUpdateCoinsHud(p) {
+    if (p == null) { return }
+    ecoInit(p)
+    var c = p.savedData[ECO_COIN_KEY]
+    if (c == null) { c = 0 }
+    uiUpdate(p, "coin_text", "text", c + " монет")
+}
+
+fun ecoShowCoinsHud(p, texOverride) {
+    if (p == null) { return }
+    ecoInit(p)
+    overlayOpen(p, eco_coins_hud)
+    var tex = ECO_COIN_TEXTURE
+    if (texOverride != null) {
+        if (texOverride != "") { tex = texOverride }
+    }
+    uiUpdate(p, "coin_icon", "texture", tex)
+    ecoUpdateCoinsHud(p)
+}
+
+fun ecoAddCoins(p, amount) {
+    if (p == null) { return }
+    ecoInit(p)
+    var c = p.savedData[ECO_COIN_KEY]
+    if (c == null) { c = 0 }
+    p.savedData[ECO_COIN_KEY] = c + amount
+    ecoUpdateCoinsHud(p)
+}
+
+fun ecoSetCoinTexture(tex) {
+    if (tex != null) {
+        if (tex != "") { ECO_COIN_TEXTURE = tex }
+    }
+}
+
+fun ecoConfigure(tex, key) {
+    ecoSetCoinTexture(tex)
+    if (key != null) {
+        if (key != "") { ECO_COIN_KEY = key }
+    }
+}
+
+fun ecoItemCanBuy(item) {
+    var v = item["canBuy"]
+    if (v == null) { return true }
+    if (v == false) { return false }
+    return true
+}
+
+fun ecoItemCanSell(item) {
+    var v = item["canSell"]
+    if (v == null) { return true }
+    if (v == false) { return false }
+    return true
+}
+
+fun ecoOpenTrade(p, items, title, npcId) {
+    if (p == null) { return }
+    if (items == null) { return }
+    ecoInit(p)
+    eco_active_trade_items = items
+    if (title == null) { eco_active_trade_title = "Торговля" }
+    else { eco_active_trade_title = title }
+    if (npcId == null) { eco_active_npc = "" }
+    else { eco_active_npc = npcId }
+    eco_trade_selected = 0
+    ecoBuildTradeUi(p)
+}
+
+fun ecoBuildTradeUi(p) {
+    val items = eco_active_trade_items
+    val count = listSize(items)
+    if (count < 1) { return }
+
+    var coins = p.savedData[ECO_COIN_KEY]
+    if (coins == null) { coins = 0 }
+
+    if (eco_trade_selected >= count) { eco_trade_selected = 0 }
+    if (eco_trade_selected < 0) { eco_trade_selected = 0 }
+
+    val sel = items[eco_trade_selected]
+    val sel_id = sel["id"]
+    val sel_name = sel["name"]
+    val sel_buy = sel["buy"]
+    val sel_sell = sel["sell"]
+    val sel_can_buy = ecoItemCanBuy(sel)
+    val sel_can_sell = ecoItemCanSell(sel)
+
+    var grid_rows = count // 3
+    if ((count % 3) > 0) { grid_rows = grid_rows + 1 }
+    val grid_h = grid_rows * 46
+    val ECO_TRADE_TOP = 28
+    val ECO_TRADE_DETAIL_H = 132
+    var panel_h = grid_h
+    if (panel_h < ECO_TRADE_DETAIL_H) { panel_h = ECO_TRADE_DETAIL_H }
+    val ui_h = ECO_TRADE_TOP + panel_h + 12
+    val btn_y = ECO_TRADE_TOP + panel_h - 18
+    val price_y = btn_y - 22
+    val price_lbl_y = price_y - 9
+
+    create ui eco_trade_ui {
+        size = [310, ui_h]
+        background = "#EE111120"
+        can_close = true
+
+        text("t_title", "§l§6" + eco_active_trade_title) {
+            pos = [10, 8]
+            color = "#FFAA00"
+            scale = 1.1
+        }
+        text("t_coins", "§6" + coins + " монет") {
+            pos = [220, 10]
+            color = "#FFD700"
+            scale = 0.88
+        }
+        divider("t_div") {
+            pos = [4, 24]
+            size = [302, 1]
+            color = "#44FFFFFF"
+        }
+
+        var gi = 0
+        while (gi < count) {
+            val gitem = items[gi]
+            val col = gi - (gi // 3) * 3
+            val row = gi // 3
+            var gcol = "#33FFFFFF"
+            if (gi == eco_trade_selected) { gcol = "#8855AAFF" }
+            button("g_btn_" + gi, "") {
+                pos = [8 + col * 46, 32 + row * 46]
+                size = [40, 40]
+                color = gcol
+                hover = "#5588CCFF"
+            }
+            item("g_item_" + gi) {
+                pos = [12 + col * 46, 36 + row * 46]
+                size = 32
+                item = gitem["id"]
+            }
+            gi = gi + 1
+        }
+
+        rect("d_bg") {
+            pos = [152, ECO_TRADE_TOP]
+            size = [150, panel_h]
+            color = "#33000000"
+        }
+        item("d_item") {
+            pos = [190, ECO_TRADE_TOP + 8]
+            size = 48
+            item = sel_id
+        }
+        text("d_name", sel_name) {
+            pos = [158, ECO_TRADE_TOP + 64]
+            color = "#FFFFFF"
+            scale = 0.88
+            wrap = 138
+        }
+        divider("d_div1") {
+            pos = [156, ECO_TRADE_TOP + 79]
+            size = [142, 1]
+            color = "#33FFFFFF"
+        }
+
+        if (sel_can_buy) {
+            text("d_buy_lbl", "Купить:") {
+                pos = [158, price_lbl_y]
+                color = "#AAAAAA"
+                scale = 0.72
+            }
+            text("d_buy_price", "§6" + sel_buy + " монет") {
+                pos = [158, price_y]
+                color = "#FFD700"
+                scale = 0.82
+            }
+            button("btn_buy", "Купить") {
+                pos = [158, btn_y]
+                size = [60, 15]
+                color = "#336633"
+                hover = "#55AA55"
+            }
+        }
+
+        if (sel_can_sell) {
+            text("d_sell_lbl", "Продать:") {
+                pos = [232, price_lbl_y]
+                color = "#AAAAAA"
+                scale = 0.72
+            }
+            text("d_sell_price", "§6" + sel_sell + " монет") {
+                pos = [232, price_y]
+                color = "#FFD700"
+                scale = 0.82
+            }
+            button("btn_sell", "Продать") {
+                pos = [232, btn_y]
+                size = [64, 15]
+                color = "#663333"
+                hover = "#AA5555"
+            }
+        }
+    }
+
+    uiOpen(p, eco_trade_ui)
+}
+
+on uiClick() -> ecoTradeClick {
+    val p = _eventPlayer
+    val btn = _eventWidget
+    if (p == null) { return null }
+    if (eco_active_trade_items == null) { return null }
+
+    ecoInit(p)
+    val d = p.savedData
+    val items = eco_active_trade_items
+    val count = listSize(items)
+
+    var gi2 = 0
+    while (gi2 < count) {
+        if (btn == "g_btn_" + gi2) {
+            eco_trade_selected = gi2
+            playSound(p, "minecraft:ui.button.click", 1.0, 1.0)
+            ecoBuildTradeUi(p)
+        }
+        gi2 = gi2 + 1
+    }
+
+    if (btn == "btn_buy") {
+        val sel = items[eco_trade_selected]
+        if (ecoItemCanBuy(sel)) {
+            val cost = sel["buy"]
+            var coins = d[ECO_COIN_KEY]
+            if (coins == null) { coins = 0 }
+            if (coins >= cost) {
+                d[ECO_COIN_KEY] = coins - cost
+                giveItem(p, sel["id"], 1)
+                playSound(p, "minecraft:entity.experience_orb.pickup", 1.0, 1.5)
+                fireTradeBuy(p, sel["id"], cost)
+                if (eco_active_npc != "") {
+                    npcChat(p, eco_active_npc, "Держи, пригодится в пути!", "#FFD700")
+                }
+                ecoBuildTradeUi(p)
+                ecoUpdateCoinsHud(p)
+            } else {
+                playSound(p, "minecraft:block.note_block.bass", 1.0, 0.5)
+                if (eco_active_npc != "") {
+                    npcChat(p, eco_active_npc, "Монет не хватает!", "#FF5555")
+                }
+            }
+        }
+    }
+
+    if (btn == "btn_sell") {
+        val sel = items[eco_trade_selected]
+        if (ecoItemCanSell(sel)) {
+            val price = sel["sell"]
+            if (hasItem(p, sel["id"])) {
+                execute("clear @s " + sel["id"] + " 1", p)
+                var coins = d[ECO_COIN_KEY]
+                if (coins == null) { coins = 0 }
+                d[ECO_COIN_KEY] = coins + price
+                playSound(p, "minecraft:entity.experience_orb.pickup", 1.0, 1.2)
+                fireTradeSell(p, sel["id"], price)
+                if (eco_active_npc != "") {
+                    npcChat(p, eco_active_npc, "Добро, возьму!", "#FFD700")
+                }
+                ecoBuildTradeUi(p)
+                ecoUpdateCoinsHud(p)
+            } else {
+                playSound(p, "minecraft:block.note_block.bass", 1.0, 0.5)
+                if (eco_active_npc != "") {
+                    npcChat(p, eco_active_npc, "У тебя нет этого предмета.", "#FF5555")
+                }
+            }
+        }
+    }
+}
+
+on orbPickup() -> ecoOrbPickup {
+    val p = _eventPlayer
+    val tex = _eventTexture
+    if (tex == ECO_COIN_TEXTURE) {
+        ecoInit(p)
+        ecoAddCoins(p, _eventAmount)
+        ecoShowCoinsHud(p, "")
+        playSound(p, "minecraft:entity.experience_orb.pickup", 0.5, 1.8)
+    }
+}

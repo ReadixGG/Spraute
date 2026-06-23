@@ -124,7 +124,7 @@ public final class UiTemplate {
             case "block" -> buildBlock(rw, pw, ph, order);
             case "item" -> buildItem(rw, pw, ph, order);
             case "slot" -> buildSlot(rw, pw, ph, order);
-            case "player_inventory" -> buildPlayerInventory(rw, pw, ph, order);
+            case "playerInventory", "player_inventory" -> buildPlayerInventory(rw, pw, ph, order);
             default -> null;
         };
     }
@@ -270,7 +270,23 @@ public final class UiTemplate {
                 for (Object item : list) arr.add(String.valueOf(item));
                 o.add("renderBones", arr);
             } else {
-                o.addProperty("renderBones", String.valueOf(rbVal));
+                String rb = String.valueOf(rbVal);
+                if (!rb.isEmpty() && !"null".equalsIgnoreCase(rb)) {
+                    o.addProperty("renderBones", rb);
+                }
+            }
+        }
+        if (rw.evaluatedProps.containsKey("skinPlayer")) {
+            Object spVal = rw.evaluatedProps.get("skinPlayer");
+            if (spVal instanceof net.minecraft.server.level.ServerPlayer sp) {
+                o.addProperty("skinPlayerUuid", sp.getUUID().toString());
+            } else if (spVal instanceof net.minecraft.world.entity.Entity ent) {
+                o.addProperty("skinPlayerUuid", ent.getUUID().toString());
+            } else if (spVal != null) {
+                String s = String.valueOf(spVal);
+                if (!s.isEmpty() && !"null".equalsIgnoreCase(s)) {
+                    o.addProperty("skinPlayer", s);
+                }
             }
         }
         o.addProperty("layer", propInt(rw.evaluatedProps, "layer", 0));
@@ -371,6 +387,14 @@ public final class UiTemplate {
         if (rw.evaluatedProps.containsKey("slice_scale")) {
             o.addProperty("slice_scale", propInt(rw.evaluatedProps, "slice_scale", 1));
         }
+        if (rw.evaluatedProps.containsKey("src")) {
+            Object v = rw.evaluatedProps.get("src");
+            if (v instanceof List<?> list && list.size() >= 4) {
+                JsonArray arr = new JsonArray();
+                for (Object el : list) arr.add(new JsonPrimitive(el instanceof Number n ? n.floatValue() : Float.parseFloat(String.valueOf(el))));
+                o.add("src", arr);
+            }
+        }
         
         return o;
     }
@@ -429,7 +453,7 @@ public final class UiTemplate {
                     case "block" -> buildBlock(child, sw, sh, childOrder);
                     case "item" -> buildItem(child, sw, sh, childOrder);
                     case "slot" -> buildSlot(child, sw, sh, childOrder);
-                    case "player_inventory" -> buildPlayerInventory(child, sw, sh, childOrder);
+                    case "playerInventory", "player_inventory" -> buildPlayerInventory(child, sw, sh, childOrder);
                     default -> null;
                 };
                 if (co != null) {
@@ -492,7 +516,7 @@ public final class UiTemplate {
                     case "block" -> buildBlock(child, sw, sh, childOrder);
                     case "item" -> buildItem(child, sw, sh, childOrder);
                     case "slot" -> buildSlot(child, sw, sh, childOrder);
-                    case "player_inventory" -> buildPlayerInventory(child, sw, sh, childOrder);
+                    case "playerInventory", "player_inventory" -> buildPlayerInventory(child, sw, sh, childOrder);
                     default -> null;
                 };
                 if (co != null) {
@@ -585,7 +609,7 @@ public final class UiTemplate {
     private static JsonObject buildPlayerInventory(RuntimeWidget rw, int pw, int ph, int order) {
         String id = rw.evaluatedArgs.isEmpty() ? "inv_" + order : String.valueOf(rw.evaluatedArgs.get(0));
         JsonObject o = new JsonObject();
-        o.addProperty("type", "player_inventory");
+        o.addProperty("type", "playerInventory");
         o.addProperty("id", propStr(rw.evaluatedProps, "id", id));
         putXY(o, rw.evaluatedProps, "pos", pw, ph);
         o.addProperty("order", order);

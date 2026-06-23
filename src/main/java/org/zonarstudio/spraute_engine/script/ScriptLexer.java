@@ -7,6 +7,7 @@ import java.util.List;
  * Lexer that tokenizes .spr script files into a list of ScriptTokens.
  * <p>Строковые комментарии только через {@code #} до конца строки.
  * Оператор {@code //} — целочисленное деление (floor), не комментарий.
+ * Оператор {@code %} — остаток от деления.
  */
 public class ScriptLexer {
 
@@ -176,6 +177,11 @@ public class ScriptLexer {
                     tokens.add(new ScriptToken(ScriptToken.TokenType.STAR, "*", line, pos - lineStart));
                     pos++;
                 }
+                continue;
+            }
+            if (c == '%') {
+                tokens.add(new ScriptToken(ScriptToken.TokenType.PERCENT, "%", line, pos - lineStart));
+                pos++;
                 continue;
             }
             if (c == '/') {
@@ -358,6 +364,9 @@ public class ScriptLexer {
         }
         if (value.equals("catch")) {
             return new ScriptToken(ScriptToken.TokenType.CATCH, value, line, start - lineStart);
+        }
+        if (value.equals("camera")) {
+            return new ScriptToken(ScriptToken.TokenType.CAMERA, value, line, start - lineStart);
         }
         
         return new ScriptToken(ScriptToken.TokenType.IDENTIFIER, value, line, start - lineStart);

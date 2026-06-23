@@ -1,13 +1,11 @@
 package org.zonarstudio.spraute_engine.entity.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Vector3f;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.block.model.ItemTransforms;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
+import org.zonarstudio.spraute_engine.compat.SprauteRenderCompat;
 import org.zonarstudio.spraute_engine.core.math.SpMatrix4;
 import org.zonarstudio.spraute_engine.core.model.SpModelInstance;
 import org.zonarstudio.spraute_engine.entity.SprauteNpcEntity;
@@ -46,15 +44,11 @@ public final class SprauteNpcItemLayer {
         var pos = boneMatrix.getTranslation();
         poseStack.translate(pos.x / 16f, pos.y / 16f, pos.z / 16f);
         poseStack.scale(0.5f, 0.5f, 0.5f);
-        poseStack.mulPose(Vector3f.XP.rotationDegrees(-90f));
+        SprauteRenderCompat.rotateX(poseStack, -90f);
 
-        Minecraft.getInstance().getItemRenderer().renderStatic(
-                item,
-                leftHand ? ItemTransforms.TransformType.THIRD_PERSON_LEFT_HAND
-                         : ItemTransforms.TransformType.THIRD_PERSON_RIGHT_HAND,
-                packedLight, OverlayTexture.NO_OVERLAY,
-                poseStack, bufferSource, entity.getId()
-        );
+        SprauteRenderCompat.renderItemInHand(
+                Minecraft.getInstance().getItemRenderer(), item, leftHand,
+                poseStack, bufferSource, packedLight, entity.getId());
 
         poseStack.popPose();
     }

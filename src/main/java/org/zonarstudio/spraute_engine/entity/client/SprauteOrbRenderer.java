@@ -8,9 +8,14 @@ import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
-import com.mojang.math.Matrix3f;
+//? if >=1.20.1 {
+import org.joml.Matrix3f;
+import org.joml.Matrix4f;
+//?} else {
+/*import com.mojang.math.Matrix3f;
 import com.mojang.math.Matrix4f;
-import com.mojang.math.Quaternion;
+*///?}
+import org.zonarstudio.spraute_engine.compat.SprauteRenderCompat;
 import org.zonarstudio.spraute_engine.entity.SprauteOrbEntity;
 
 public class SprauteOrbRenderer extends EntityRenderer<SprauteOrbEntity> {
@@ -30,7 +35,7 @@ public class SprauteOrbRenderer extends EntityRenderer<SprauteOrbEntity> {
         ResourceLocation texture = texStr.contains(":") ? new ResourceLocation(texStr) : new ResourceLocation("minecraft", texStr);
 
         pMatrixStack.mulPose(this.entityRenderDispatcher.cameraOrientation());
-        pMatrixStack.mulPose(com.mojang.math.Vector3f.YP.rotationDegrees(180.0F));
+        SprauteRenderCompat.rotateY(pMatrixStack, 180.0F);
         
         float scale = 0.3F;
         pMatrixStack.scale(scale, scale, scale);

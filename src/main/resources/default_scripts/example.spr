@@ -20,7 +20,7 @@ create npc readix_avatar {
     texture = "textures/entity/defolt.png"
     pos = 8, -60, 8
     rotate = 90, 0
-    show_name = true
+    showName = true
 }
 
 chat("§aМой NPC успешно появился в мире! Дай мне 3 секунды...")
@@ -35,9 +35,9 @@ chat("§cЯ готов! Сейчас попробую найти тебя.")
 
 # --- 5. Найти ближайшего игрока и посмотреть на него ---
 # --- меняю цвет ника в скобках ---
-set_names_color("#46a04dff")
+setNamesColor("#46a04dff")
 
-val player = get_nearest_player(readix_avatar)
+val player = getNearestPlayer(readix_avatar)
 say(readix_avatar, "Ага, вот ты где, " + player.name + "! Добро пожаловать в мой движок.")
 
 # Фокусируем взгляд аватара на игроке
@@ -64,7 +64,7 @@ readix_avatar.alwaysLookAt(player)
 # Поддерживает частичный сбор: кинули 15 — подобрал 15, кинули ещё 15 — подобрал 15
 
 # on pickup(npc_id, item_id, tag?) -> handler_id { body } — срабатывает при подборе предмета NPC
-# В теле доступны: _event_npc (entity), _event_item (ItemStack), _event_dropper (кто кинул, или null если обычный дроп)
+# В теле доступны: _eventNpc (entity), _eventItem (ItemStack), _eventDropper (кто кинул, или null если обычный дроп)
 # on pickup(readix_avatar, "minecraft:diamond") -> diamond_handler {
 #     say(readix_avatar, "Подобрал алмаз!")
 #     stop(diamond_handler)
@@ -87,7 +87,7 @@ val interactor = await interact(readix_avatar)
 
 # --- 7. Реакция на взаимодействие ---
 say(readix_avatar, "Отлично сработано, " + interactor.name + "! Надеюсь, тебе понравится писать здесь скрипты.")
-readix_avatar.show_name = false
+readix_avatar.showName = false
 readix_avatar.stopLookAt()
 
 # --- 8. Условия (if / else if / else) ---
@@ -159,14 +159,14 @@ chat("§7Состояние НПС: " + classify_hp(readix_avatar.hp))
 
 # --- 10.5 Асинхронность ---
 # async { body } — запуск в фоне без имени (нельзя прервать/ждать)
-# async "id" { body } — именованная задача: await task("id"), stop_task("id"), task_done("id")
+# async "id" { body } — именованная задача: await task("id"), stopTask("id"), taskDone("id")
 # async "bg" {
 #     await time(5)
 #     chat("Прошло 5 сек в фоне!")
 # }
 # await task("bg")  # дождаться окончания
-# stop_task("bg")  # прервать
-# if (task_done("bg")) { chat("Готово!") }
+# stopTask("bg")  # прервать
+# if (taskDone("bg")) { chat("Готово!") }
 
 # --- 11. Фоновый обработчик событий (on) ---
 # Реагирует на каждое ПКМ по НПС, пока не остановлен
@@ -232,7 +232,7 @@ val stack_size = player.slot_count(0)
 chat("§7Количество: " + stack_size)
 
 # Проверка наличия предмета в инвентаре
-if (player.has_item("minecraft:diamond")) {
+if (player.hasItem("minecraft:diamond")) {
     chat("§bУ тебя есть алмаз!")
 } else {
     chat("§7Алмазов нет...")
@@ -243,8 +243,8 @@ val diamond_count = player.countItem("minecraft:diamond")
 chat("§7Всего алмазов: " + diamond_count)
 
 # То же самое через встроенные функции (работает с любым игроком)
-val item_id = get_slot(player, 0)
-val has_sword = has_item(player, "minecraft:diamond_sword")
+val item_id = getSlot(player, 0)
+val has_sword = hasItem(player, "minecraft:diamond_sword")
 val sword_count = countItem(player, "minecraft:diamond_sword")
 chat("§7Мечей: " + sword_count + ", есть: " + has_sword)
 
@@ -254,8 +254,8 @@ chat("§7Мечей: " + sword_count + ", есть: " + has_sword)
 # Фоновый обработчик — срабатывает при смерти любого игрока
 on death("player") -> player_death_handler {
     chat("§cИгрок погиб!")
-    # _event_entity — кто умер, _event_killer — кто убил (может быть null)
-    if (_event_killer != null) {
+    # _eventEntity — кто умер, _eventKiller — кто убил (может быть null)
+    if (_eventKiller != null) {
         chat("§7Убийца неизвестен... или это был моб")
     }
 }

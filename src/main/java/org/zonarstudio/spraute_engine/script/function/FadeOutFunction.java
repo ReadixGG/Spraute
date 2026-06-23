@@ -33,7 +33,7 @@ public class FadeOutFunction implements ScriptFunction {
         ServerPlayer player = (source.getEntity() instanceof ServerPlayer sp) ? sp : null;
         if (player != null) {
             Map<String, Object> props = new HashMap<>();
-            props.put("trigger_fade_out", true);
+            props.put("triggerFadeOut", true);
             ModNetwork.CHANNEL.send(
                     PacketDistributor.PLAYER.with(() -> player),
                     new SyncLoadScreenPacket(props)

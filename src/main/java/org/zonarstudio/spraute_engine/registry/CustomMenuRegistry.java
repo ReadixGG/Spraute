@@ -1,7 +1,11 @@
 package org.zonarstudio.spraute_engine.registry;
 
 import net.minecraft.client.gui.screens.MenuScreens;
-import net.minecraft.core.Registry;
+//? if >=1.20.1 {
+import net.minecraft.core.registries.Registries;
+//?} else {
+/*import net.minecraft.core.Registry;
+*///?}
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraftforge.api.distmarker.Dist;
@@ -20,9 +24,21 @@ public class CustomMenuRegistry {
 
     @SubscribeEvent
     public static void onRegister(RegisterEvent event) {
-        if (event.getRegistryKey().equals(Registry.MENU_REGISTRY)) {
+        if (event.getRegistryKey().equals(
+                //? if >=1.20.1 {
+                Registries.MENU
+                //?} else {
+                /*Registry.MENU_REGISTRY*/
+                //?}
+        )) {
             SPRAUTE_CONTAINER = IForgeMenuType.create((windowId, inv, data) -> new SprauteContainerMenu(windowId, inv, data.readUtf()));
-            event.register(Registry.MENU_REGISTRY, new ResourceLocation(Spraute_engine.MODID, "container"), () -> SPRAUTE_CONTAINER);
+            event.register(
+                    //? if >=1.20.1 {
+                    Registries.MENU
+                    //?} else {
+                    /*Registry.MENU_REGISTRY*/
+                    //?}
+            , new ResourceLocation(Spraute_engine.MODID, "container"), () -> SPRAUTE_CONTAINER);
         }
     }
 

@@ -6,16 +6,23 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import com.mojang.blaze3d.platform.Lighting;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.Screen;
+//? if >=1.20.1 {
+import net.minecraft.client.gui.GuiGraphics;
+import org.joml.Quaternionf;
+//?} else {
+/*import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.math.Quaternion;
 import com.mojang.math.Vector3f;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiComponent;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.renderer.GameRenderer;
+*///?}
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
+import org.zonarstudio.spraute_engine.compat.SprauteRenderCompat;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -32,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -40,6 +48,7 @@ import net.minecraftforge.fml.common.Mod;
 import org.zonarstudio.spraute_engine.Spraute_engine;
 
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
+import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 
 /**
@@ -50,8 +59,12 @@ import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 public class SprauteScriptScreen extends Screen {
 
     private static final java.util.Map<String, SprauteScriptScreen> activeOverlays = new java.util.LinkedHashMap<>();
+    /** Patches received before overlay widgets exist (race with overlayOpen packet). */
+    private static final java.util.List<PendingWidgetPatch> pendingWidgetPatches = new java.util.concurrent.CopyOnWriteArrayList<>();
     /** Legacy accessor — returns first overlay or null. */
     public static SprauteScriptScreen activeOverlay = null;
+
+    private record PendingWidgetPatch(String widgetId, String field, String value) {}
 
     private final JsonObject root;
     private final int panelW;
@@ -67,6 +80,10 @@ public class SprauteScriptScreen extends Screen {
     private boolean suppressClosePacket;
     private boolean canClose = true;
     public float currentAlpha = 1.0f;
+
+    //? if >=1.20.1 {
+    private static GuiGraphics scissorGuiGraphics;
+    //?}
 
     public static int applyAlpha(int color, float alpha) {
         if (alpha >= 1.0f) return color;
@@ -188,17 +205,32 @@ public class SprauteScriptScreen extends Screen {
 
     /** S2C: {@link org.zonarstudio.spraute_engine.network.UpdateSprauteUiWidgetPacket} */
     public static void applyWidgetPatchFromServer(String widgetId, String field, String value) {
+        boolean applied = false;
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen instanceof SprauteScriptScreen screen) {
-            screen.applyWidgetPatch(widgetId, field, value);
+            applied = screen.applyWidgetPatch(widgetId, field, value) || applied;
         }
         for (SprauteScriptScreen overlay : activeOverlays.values()) {
-            overlay.applyWidgetPatch(widgetId, field, value);
+            applied = overlay.applyWidgetPatch(widgetId, field, value) || applied;
+        }
+        if (!applied) {
+            pendingWidgetPatches.add(new PendingWidgetPatch(widgetId, field, value));
         }
     }
 
-    private void applyWidgetPatch(String widgetId, String field, String value) {
-        if (widgetId == null || widgetId.isEmpty()) return;
+    private static void flushPendingWidgetPatches(SprauteScriptScreen target) {
+        if (pendingWidgetPatches.isEmpty()) return;
+        java.util.Iterator<PendingWidgetPatch> it = pendingWidgetPatches.iterator();
+        while (it.hasNext()) {
+            PendingWidgetPatch p = it.next();
+            if (target.applyWidgetPatch(p.widgetId, p.field, p.value)) {
+                it.remove();
+            }
+        }
+    }
+
+    private boolean applyWidgetPatch(String widgetId, String field, String value) {
+        if (widgetId == null || widgetId.isEmpty()) return false;
         String f = field != null ? field.trim().toLowerCase() : "";
         String v = value != null ? value : "";
 
@@ -213,10 +245,11 @@ public class SprauteScriptScreen extends Screen {
                     float startVal = getWidgetFieldAsFloat(targetWidget, f);
                     animations.computeIfAbsent(widgetId, k -> new java.util.concurrent.CopyOnWriteArrayList<>())
                             .add(new AnimState(f, startVal, endVal, (long) (durationSec * 1000L), easing));
+                    return true;
                 }
             } catch (Exception e) {
             }
-            return;
+            return false;
         }
 
         for (int i = 0; i < widgets.size(); i++) {
@@ -226,7 +259,7 @@ public class SprauteScriptScreen extends Screen {
                 if (patched != w) {
                     widgets.set(i, patched);
                 }
-                return;
+                return true;
             }
             if (w instanceof ScrollW sw) {
                 for (int j = 0; j < sw.children.size(); j++) {
@@ -236,7 +269,7 @@ public class SprauteScriptScreen extends Screen {
                         if (patched != child) {
                             sw.children.set(j, patched);
                         }
-                        return;
+                        return true;
                     }
                 }
             }
@@ -248,12 +281,110 @@ public class SprauteScriptScreen extends Screen {
                         if (patched != child) {
                             cw.children.set(j, patched);
                         }
-                        return;
+                        return true;
                     }
                 }
             }
         }
+        return false;
     }
+
+    private static int[] texturePixelSize(ResourceLocation rl) {
+        try {
+            var opt = Minecraft.getInstance().getResourceManager().getResource(rl);
+            if (opt.isPresent()) {
+                try (var stream = opt.get().open();
+                     com.mojang.blaze3d.platform.NativeImage img = com.mojang.blaze3d.platform.NativeImage.read(stream)) {
+                    return new int[]{img.getWidth(), img.getHeight()};
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return new int[]{256, 256};
+    }
+
+    static String stripImageTextureRegion(String path) {
+        if (path != null && path.startsWith("player_skin:")) {
+            int slash = path.indexOf('/', "player_skin:".length());
+            if (slash > 0) return path.substring(0, slash);
+        }
+        return path;
+    }
+
+    /** Resolves UI texture paths: minecraft:/mod paths, and client keys like player_skin:uuid. */
+    static ResourceLocation resolveWidgetTexture(String path) {
+        String key = stripImageTextureRegion(path);
+        if (key != null && key.startsWith("player_skin:")) {
+            ResourceLocation skin = PlayerSkinTextures.resolveFromTextureKey(key);
+            if (skin != null) return skin;
+        }
+        return SprauteUiJson.textureRl(key);
+    }
+
+    /** MC skin coords are in 64×64 space; scales to actual texture size (64, 128, …). */
+    static int[] resolveImageSrcRect(String texturePath, int jsonSrcU, int jsonSrcV, int jsonSrcW, int jsonSrcH) {
+        if (jsonSrcW > 0) return new int[]{jsonSrcU, jsonSrcV, jsonSrcW, jsonSrcH};
+        if (texturePath != null && texturePath.startsWith("player_skin:")) {
+            int slash = texturePath.indexOf('/', "player_skin:".length());
+            if (slash > 0) {
+                String region = texturePath.substring(slash + 1).toLowerCase(Locale.ROOT);
+                return switch (region) {
+                    case "head" -> new int[]{8, 8, 8, 8};
+                    case "hat", "overlay", "head_overlay" -> new int[]{40, 8, 8, 8};
+                    default -> new int[]{-1, -1, -1, -1};
+                };
+            }
+        }
+        return new int[]{-1, -1, -1, -1};
+    }
+
+    private static int[] parseImageSrc(JsonObject w) {
+        int[] r = {-1, -1, -1, -1};
+        if (w.has("src")) {
+            JsonArray a = w.getAsJsonArray("src");
+            if (a.size() >= 4) {
+                r[0] = a.get(0).getAsInt();
+                r[1] = a.get(1).getAsInt();
+                r[2] = a.get(2).getAsInt();
+                r[3] = a.get(3).getAsInt();
+            }
+        }
+        return r;
+    }
+
+    //? if >=1.20.1 {
+    private static void blitImageTexture(GuiGraphics guiGraphics, ResourceLocation rl,
+                                         int dx, int dy, int dw, int dh,
+                                         int srcU, int srcV, int srcW, int srcH) {
+        int[] texSize = texturePixelSize(rl);
+        if (srcW > 0) {
+            float scale = texSize[0] / 64f;
+            int su = Math.round(srcU * scale);
+            int sv = Math.round(srcV * scale);
+            int sw = Math.max(1, Math.round(srcW * scale));
+            int sh = Math.max(1, Math.round(srcH * scale));
+            SprauteGuiDraw.blitRegion(guiGraphics, rl, dx, dy, dw, dh, su, sv, sw, sh, texSize[0], texSize[1]);
+        } else {
+            SprauteGuiDraw.blit(guiGraphics, rl, dx, dy, 0f, 0f, dw, dh, texSize[0], texSize[1]);
+        }
+    }
+    //?} else {
+    /*private static void blitImageTexture(PoseStack poseStack, ResourceLocation rl,
+                                         int dx, int dy, int dw, int dh,
+                                         int srcU, int srcV, int srcW, int srcH) {
+        int[] texSize = texturePixelSize(rl);
+        if (srcW > 0) {
+            float scale = texSize[0] / 64f;
+            int su = Math.round(srcU * scale);
+            int sv = Math.round(srcV * scale);
+            int sw = Math.max(1, Math.round(srcW * scale));
+            int sh = Math.max(1, Math.round(srcH * scale));
+            SprauteGuiDraw.blitRegion(poseStack, dx, dy, dw, dh, su, sv, sw, sh, texSize[0], texSize[1]);
+        } else {
+            SprauteGuiDraw.blit(poseStack, dx, dy, 0, 0, dw, dh, texSize[0], texSize[1]);
+        }
+    }*/
+    //?}
 
     private static String widgetIdOf(Widget w) {
         if (w instanceof TextW tw) return tw.id != null ? tw.id : "";
@@ -296,10 +427,10 @@ public class SprauteScriptScreen extends Screen {
 
         private float applyEasing(float t, String easing) {
             return switch (easing.toLowerCase()) {
-                case "ease_in" -> t * t;
-                case "ease_out" -> t * (2 - t);
-                case "ease_in_out" -> t < 0.5f ? 2 * t * t : -1 + (4 - 2 * t) * t;
-                case "bounce_out" -> {
+                case "easein", "ease_in" -> t * t;
+                case "easeout", "ease_out" -> t * (2 - t);
+                case "easeinout", "ease_in_out" -> t < 0.5f ? 2 * t * t : -1 + (4 - 2 * t) * t;
+                case "bounceout", "bounce_out" -> {
                     float n1 = 7.5625f;
                     float d1 = 2.75f;
                     if (t < 1 / d1) {
@@ -315,7 +446,7 @@ public class SprauteScriptScreen extends Screen {
                         yield n1 * t * t + 0.984375f;
                     }
                 }
-                case "elastic_out" -> {
+                case "elasticout", "elastic_out" -> {
                     float c4 = (float) (2 * Math.PI) / 3;
                     yield t == 0 ? 0 : t == 1 ? 1 : (float) (Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75f) * c4) + 1);
                 }
@@ -457,11 +588,11 @@ public class SprauteScriptScreen extends Screen {
             }
             if (w instanceof ImageW iw) {
                 return switch (field) {
-                    case "x" -> new ImageW((int)Float.parseFloat(value.trim()), iw.y, iw.w, iw.h, iw.texture, iw.tooltip, iw.id, iw.sliceBorders, iw.sliceScale);
-                    case "y" -> new ImageW(iw.x, (int)Float.parseFloat(value.trim()), iw.w, iw.h, iw.texture, iw.tooltip, iw.id, iw.sliceBorders, iw.sliceScale);
-                    case "w" -> new ImageW(iw.x, iw.y, (int)Float.parseFloat(value.trim()), iw.h, iw.texture, iw.tooltip, iw.id, iw.sliceBorders, iw.sliceScale);
-                    case "h" -> new ImageW(iw.x, iw.y, iw.w, (int)Float.parseFloat(value.trim()), iw.texture, iw.tooltip, iw.id, iw.sliceBorders, iw.sliceScale);
-                    case "texture" -> new ImageW(iw.x, iw.y, iw.w, iw.h, value, iw.tooltip, iw.id, iw.sliceBorders, iw.sliceScale);
+                    case "x" -> new ImageW((int)Float.parseFloat(value.trim()), iw.y, iw.w, iw.h, iw.texture, iw.tooltip, iw.id, iw.sliceBorders, iw.sliceScale, iw.srcU, iw.srcV, iw.srcW, iw.srcH);
+                    case "y" -> new ImageW(iw.x, (int)Float.parseFloat(value.trim()), iw.w, iw.h, iw.texture, iw.tooltip, iw.id, iw.sliceBorders, iw.sliceScale, iw.srcU, iw.srcV, iw.srcW, iw.srcH);
+                    case "w" -> new ImageW(iw.x, iw.y, (int)Float.parseFloat(value.trim()), iw.h, iw.texture, iw.tooltip, iw.id, iw.sliceBorders, iw.sliceScale, iw.srcU, iw.srcV, iw.srcW, iw.srcH);
+                    case "h" -> new ImageW(iw.x, iw.y, iw.w, (int)Float.parseFloat(value.trim()), iw.texture, iw.tooltip, iw.id, iw.sliceBorders, iw.sliceScale, iw.srcU, iw.srcV, iw.srcW, iw.srcH);
+                    case "texture" -> new ImageW(iw.x, iw.y, iw.w, iw.h, value, iw.tooltip, iw.id, iw.sliceBorders, iw.sliceScale, iw.srcU, iw.srcV, iw.srcW, iw.srcH);
                     default -> w;
                 };
             }
@@ -476,23 +607,23 @@ public class SprauteScriptScreen extends Screen {
             }
             if (w instanceof EntityW ew) {
                 return switch (field) {
-                    case "x" -> new EntityW((int)Float.parseFloat(value.trim()), ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones);
-                    case "y" -> new EntityW(ew.x, (int)Float.parseFloat(value.trim()), ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones);
-                    case "w" -> new EntityW(ew.x, ew.y, (int)Float.parseFloat(value.trim()), ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones);
-                    case "h" -> new EntityW(ew.x, ew.y, ew.w, (int)Float.parseFloat(value.trim()), ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones);
-                    case "scale" -> new EntityW(ew.x, ew.y, ew.w, ew.h, Float.parseFloat(value.trim()), ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones);
-                    case "feetCrop" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, Float.parseFloat(value.trim()), ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones);
-                    case "anchorX" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, clamp01(Float.parseFloat(value.trim())), ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones);
-                    case "anchorY" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, parseAnchorYPatch(value), ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones);
+                    case "x" -> new EntityW((int)Float.parseFloat(value.trim()), ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
+                    case "y" -> new EntityW(ew.x, (int)Float.parseFloat(value.trim()), ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
+                    case "w" -> new EntityW(ew.x, ew.y, (int)Float.parseFloat(value.trim()), ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
+                    case "h" -> new EntityW(ew.x, ew.y, ew.w, (int)Float.parseFloat(value.trim()), ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
+                    case "scale" -> new EntityW(ew.x, ew.y, ew.w, ew.h, Float.parseFloat(value.trim()), ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
+                    case "feetCrop" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, Float.parseFloat(value.trim()), ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
+                    case "anchorX" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, clamp01(Float.parseFloat(value.trim())), ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
+                    case "anchorY" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, parseAnchorYPatch(value), ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
                     case "crop" -> {
                         float[] c = parseCropPatch(value);
-                        yield c != null ? new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, c[0], c[1], c[2], c[3], ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones) : w;
+                        yield c != null ? new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, c[0], c[1], c[2], c[3], ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid) : w;
                     }
                     case "viewport" -> {
                         float[] vp = parseViewportPatch(value);
                         if (vp != null) {
                             float[] c = viewportCornersToCrop(vp);
-                            yield new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, c[0], c[1], c[2], c[3], ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones);
+                            yield new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, c[0], c[1], c[2], c[3], ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
                         }
                         yield w;
                     }
@@ -636,7 +767,8 @@ public class SprauteScriptScreen extends Screen {
             case "image" -> {
                 int sliceBorders = w.has("slice_borders") ? w.get("slice_borders").getAsInt() : 0;
                 int sliceScale = w.has("slice_scale") ? w.get("slice_scale").getAsInt() : 1;
-                yield new ImageW(x, y, ww, hh, w.has("texture") ? w.get("texture").getAsString() : "minecraft:textures/misc/unknown_pack.png", tooltip, wid, sliceBorders, sliceScale);
+                int[] src = parseImageSrc(w);
+                yield new ImageW(x, y, ww, hh, w.has("texture") ? w.get("texture").getAsString() : "minecraft:textures/misc/unknown_pack.png", tooltip, wid, sliceBorders, sliceScale, src[0], src[1], src[2], src[3]);
             }
             case "text" -> {
                 float[] anchors = parseAnchor(w);
@@ -731,7 +863,13 @@ public class SprauteScriptScreen extends Screen {
                         renderBones = new String[]{rbEl.getAsString()};
                     }
                 }
-                yield new EntityW(x, y, ww, hh, scale, uuid, feetCrop, tooltip, wid, crop[0], crop[1], crop[2], crop[3], anchorX, anchorY, disableAnim, hideNameTag, noLookAt, noFollowCursor, noHurtAnim, renderBones);
+                UUID skinPlayerUuid = null;
+                if (w.has("skinPlayerUuid")) {
+                    try {
+                        skinPlayerUuid = UUID.fromString(w.get("skinPlayerUuid").getAsString());
+                    } catch (IllegalArgumentException ignored) {}
+                }
+                yield new EntityW(x, y, ww, hh, scale, uuid, feetCrop, tooltip, wid, crop[0], crop[1], crop[2], crop[3], anchorX, anchorY, disableAnim, hideNameTag, noLookAt, noFollowCursor, noHurtAnim, renderBones, skinPlayerUuid);
             }
             case "scroll" -> {
                 int contentH = readCoord(w, "contentH", ph);
@@ -804,7 +942,27 @@ public class SprauteScriptScreen extends Screen {
     }
 
     private record RotatedW(Widget child, float rotation, float pivotX, float pivotY, float ow, float oh, String id) implements Widget {
+        //? if >=1.20.1 {
         @Override
+        public void render(SprauteScriptScreen screen, GuiGraphics guiGraphics, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
+            float px = ax0 + child.getX() + ow * pivotX;
+            float py = ay0 + child.getY() + oh * pivotY;
+            guiGraphics.pose().pushPose();
+            guiGraphics.pose().translate(px, py, 0);
+            SprauteRenderCompat.rotateZ(guiGraphics.pose(), rotation);
+            guiGraphics.pose().translate(-px, -py, 0);
+
+            double angle = Math.toRadians(-rotation);
+            float dx = mouseX - px;
+            float dy = mouseY - py;
+            int localMouseX = (int) (px + dx * Math.cos(angle) - dy * Math.sin(angle));
+            int localMouseY = (int) (py + dx * Math.sin(angle) + dy * Math.cos(angle));
+
+            child.render(screen, guiGraphics, ax0, ay0, localMouseX, localMouseY, partialTick);
+            guiGraphics.pose().popPose();
+        }
+        //?} else {
+        /*@Override
         public void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
             float px = ax0 + child.getX() + ow * pivotX;
             float py = ay0 + child.getY() + oh * pivotY;
@@ -812,16 +970,17 @@ public class SprauteScriptScreen extends Screen {
             poseStack.translate(px, py, 0);
             poseStack.mulPose(com.mojang.math.Vector3f.ZP.rotationDegrees(rotation));
             poseStack.translate(-px, -py, 0);
-            
+
             double angle = Math.toRadians(-rotation);
             float dx = mouseX - px;
             float dy = mouseY - py;
             int localMouseX = (int) (px + dx * Math.cos(angle) - dy * Math.sin(angle));
             int localMouseY = (int) (py + dx * Math.sin(angle) + dy * Math.cos(angle));
-            
+
             child.render(screen, poseStack, ax0, ay0, localMouseX, localMouseY, partialTick);
             poseStack.popPose();
         }
+        *///?}
 
         @Override
         public String tooltip() {
@@ -1034,25 +1193,27 @@ public class SprauteScriptScreen extends Screen {
         return true;
     }
 
+    //? if >=1.20.1 {
     @Override
-    public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        scissorGuiGraphics = guiGraphics;
         processAnimations();
-        renderBackground(poseStack);
+        renderBackground(guiGraphics);
         int ax0 = left;
         int ay0 = top;
-        GuiComponent.fill(poseStack, ax0, ay0, ax0 + panelW, ay0 + panelH, bgArgb);
+        SprauteGuiDraw.fill(guiGraphics, ax0, ay0, ax0 + panelW, ay0 + panelH, bgArgb);
         for (Widget w : widgets) {
-            w.render(this, poseStack, ax0, ay0, mouseX, mouseY, partialTick);
+            w.render(this, guiGraphics, ax0, ay0, mouseX, mouseY, partialTick);
         }
         for (int i = widgets.size() - 1; i >= 0; i--) {
             Widget w = widgets.get(i);
             String tip = w.tooltip();
             if (tip != null && !tip.isEmpty() && w.contains(this, ax0, ay0, mouseX, mouseY)) {
-                renderTooltip(poseStack, Component.literal(tip), mouseX, mouseY);
+                guiGraphics.renderTooltip(this.font, Component.literal(tip), mouseX, mouseY);
                 break;
             }
         }
-        
+
         // Process monitored overlaps
         if (!monitorOverlaps.isEmpty()) {
             for (String pair : monitorOverlaps) {
@@ -1072,9 +1233,52 @@ public class SprauteScriptScreen extends Screen {
                 }
             }
         }
-        
+
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
+    }
+    //?} else {
+    /*@Override
+    public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        processAnimations();
+        renderBackground(poseStack);
+        int ax0 = left;
+        int ay0 = top;
+        GuiComponent.fill(poseStack, ax0, ay0, ax0 + panelW, ay0 + panelH, bgArgb);
+        for (Widget w : widgets) {
+            w.render(this, poseStack, ax0, ay0, mouseX, mouseY, partialTick);
+        }
+        for (int i = widgets.size() - 1; i >= 0; i--) {
+            Widget w = widgets.get(i);
+            String tip = w.tooltip();
+            if (tip != null && !tip.isEmpty() && w.contains(this, ax0, ay0, mouseX, mouseY)) {
+                renderTooltip(poseStack, Component.literal(tip), mouseX, mouseY);
+                break;
+            }
+        }
+
+        // Process monitored overlaps
+        if (!monitorOverlaps.isEmpty()) {
+            for (String pair : monitorOverlaps) {
+                String[] split = pair.split(":");
+                if (split.length == 2) {
+                    Widget w1 = findWidgetById(split[0]);
+                    Widget w2 = findWidgetById(split[1]);
+                    boolean overlaps = false;
+                    if (w1 != null && w2 != null) {
+                        overlaps = checkOverlap(w1, w2, ax0, ay0);
+                    }
+                    boolean prev = overlapState.getOrDefault(pair, false);
+                    if (overlaps != prev) {
+                        overlapState.put(pair, overlaps);
+                        ModNetwork.CHANNEL.sendToServer(new org.zonarstudio.spraute_engine.network.SprauteUiOverlapActionPacket(split[0], split[1], overlaps));
+                    }
+                }
+            }
+        }
+
         super.render(poseStack, mouseX, mouseY, partialTick);
     }
+    *///?}
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -1215,7 +1419,11 @@ public class SprauteScriptScreen extends Screen {
     }
 
     private interface Widget {
-        void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick);
+        //? if >=1.20.1 {
+        void render(SprauteScriptScreen screen, GuiGraphics guiGraphics, int ax0, int ay0, int mouseX, int mouseY, float partialTick);
+        //?} else {
+        /*void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick);
+        *///?}
 
         default String tooltip() {
             return null;
@@ -1251,10 +1459,17 @@ public class SprauteScriptScreen extends Screen {
             return mx >= lx && mx < lx + w && my >= ly && my < ly + h;
         }
 
+        //? if >=1.20.1 {
         @Override
+        public void render(SprauteScriptScreen screen, GuiGraphics guiGraphics, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
+            SprauteGuiDraw.fill(guiGraphics, ax0 + x, ay0 + y, ax0 + x + w, ay0 + y + h, applyAlpha(color, screen.currentAlpha));
+        }
+        //?} else {
+        /*@Override
         public void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
             GuiComponent.fill(poseStack, ax0 + x, ay0 + y, ax0 + x + w, ay0 + y + h, applyAlpha(color, screen.currentAlpha));
         }
+        *///?}
     }
 
     private record GridBgW(int x, int y, int w, int h, String gridType, int cellSize, int thickness, int color, String tooltip, String id) implements Widget {
@@ -1271,13 +1486,33 @@ public class SprauteScriptScreen extends Screen {
             return mx >= lx && mx < lx + w && my >= ly && my < ly + h;
         }
 
+        //? if >=1.20.1 {
         @Override
+        public void render(SprauteScriptScreen screen, GuiGraphics guiGraphics, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
+            int drawColor = applyAlpha(color, screen.currentAlpha);
+            if ((drawColor & 0xFF000000) == 0) return;
+            int sx = ax0 + x;
+            int sy = ay0 + y;
+
+            if (gridType.contains("h")) {
+                for (int i = 0; i <= h; i += cellSize) {
+                    SprauteGuiDraw.fill(guiGraphics, sx, sy + i, sx + w, sy + i + thickness, drawColor);
+                }
+            }
+            if (gridType.contains("v")) {
+                for (int i = 0; i <= w; i += cellSize) {
+                    SprauteGuiDraw.fill(guiGraphics, sx + i, sy, sx + i + thickness, sy + h, drawColor);
+                }
+            }
+        }
+        //?} else {
+        /*@Override
         public void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
             int drawColor = applyAlpha(color, screen.currentAlpha);
             if ((drawColor & 0xFF000000) == 0) return;
             int sx = ax0 + x;
             int sy = ay0 + y;
-            
+
             // Draw horizontal lines
             if (gridType.contains("h")) {
                 for (int i = 0; i <= h; i += cellSize) {
@@ -1291,9 +1526,11 @@ public class SprauteScriptScreen extends Screen {
                 }
             }
         }
+        *///?}
     }
 
-    private record ImageW(int x, int y, int w, int h, String texture, String tooltip, String id, int sliceBorders, int sliceScale) implements Widget {
+    private record ImageW(int x, int y, int w, int h, String texture, String tooltip, String id,
+                          int sliceBorders, int sliceScale, int srcU, int srcV, int srcW, int srcH) implements Widget {
         @Override public int getX() { return x; }
         @Override public int getY() { return y; }
         @Override public String getId() { return id; }
@@ -1310,27 +1547,69 @@ public class SprauteScriptScreen extends Screen {
             return mx >= lx && mx < lx + w && my >= ly && my < ly + h;
         }
 
+        //? if >=1.20.1 {
         @Override
-        public void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
-            ResourceLocation rl = SprauteUiJson.textureRl(texture);
-            RenderSystem.setShader(GameRenderer::getPositionTexShader);
-            RenderSystem.setShaderColor(1f, 1f, 1f, screen.currentAlpha);
-            RenderSystem.setShaderTexture(0, rl);
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-            
+        public void render(SprauteScriptScreen screen, GuiGraphics guiGraphics, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
+            ResourceLocation rl = SprauteScriptScreen.resolveWidgetTexture(texture);
+            if (screen.currentAlpha < 1.0f) {
+                guiGraphics.setColor(1f, 1f, 1f, screen.currentAlpha);
+            }
+
             if (sliceBorders > 0) {
                 int b = sliceBorders;
                 int bs = b * sliceScale;
                 int ix = ax0 + x;
                 int iy = ay0 + y;
-                
+
+                SprauteGuiDraw.blit(guiGraphics, rl, ix, iy, 0, 0, bs, bs, 256, 256);
+                SprauteGuiDraw.blit(guiGraphics, rl, ix + w - bs, iy, 256 - b, 0, bs, bs, 256, 256);
+                SprauteGuiDraw.blit(guiGraphics, rl, ix, iy + h - bs, 0, 256 - b, bs, bs, 256, 256);
+                SprauteGuiDraw.blit(guiGraphics, rl, ix + w - bs, iy + h - bs, 256 - b, 256 - b, bs, bs, 256, 256);
+
+                if (w - bs * 2 > 0) {
+                    blitScaled(guiGraphics, rl, ix + bs, iy, w - bs * 2, bs, b, 0, 256 - b * 2, b);
+                    blitScaled(guiGraphics, rl, ix + bs, iy + h - bs, w - bs * 2, bs, b, 256 - b, 256 - b * 2, b);
+                }
+                if (h - bs * 2 > 0) {
+                    blitScaled(guiGraphics, rl, ix, iy + bs, bs, h - bs * 2, 0, b, b, 256 - b * 2);
+                    blitScaled(guiGraphics, rl, ix + w - bs, iy + bs, bs, h - bs * 2, 256 - b, b, b, 256 - b * 2);
+                }
+                if (w - bs * 2 > 0 && h - bs * 2 > 0) {
+                    blitScaled(guiGraphics, rl, ix + bs, iy + bs, w - bs * 2, h - bs * 2, b, b, 256 - b * 2, 256 - b * 2);
+                }
+            } else {
+                int[] src = resolveImageSrcRect(texture, srcU, srcV, srcW, srcH);
+                blitImageTexture(guiGraphics, rl, ax0 + x, ay0 + y, w, h, src[0], src[1], src[2], src[3]);
+            }
+
+            guiGraphics.setColor(1f, 1f, 1f, 1f);
+        }
+
+        private void blitScaled(GuiGraphics guiGraphics, ResourceLocation rl, int x, int y, int width, int height, float uOffset, float vOffset, int uWidth, int vHeight) {
+            guiGraphics.blit(rl, x, y, width, height, uOffset, vOffset, uWidth, vHeight, 256, 256);
+        }
+        //?} else {
+        /*@Override
+        public void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
+            ResourceLocation rl = SprauteScriptScreen.resolveWidgetTexture(texture);
+            RenderSystem.setShader(GameRenderer::getPositionTexShader);
+            RenderSystem.setShaderColor(1f, 1f, 1f, screen.currentAlpha);
+            RenderSystem.setShaderTexture(0, rl);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+
+            if (sliceBorders > 0) {
+                int b = sliceBorders;
+                int bs = b * sliceScale;
+                int ix = ax0 + x;
+                int iy = ay0 + y;
+
                 // Draw corners
                 GuiComponent.blit(poseStack, ix, iy, 0, 0, bs, bs, 256, 256); // Top-Left
                 GuiComponent.blit(poseStack, ix + w - bs, iy, 256 - b, 0, bs, bs, 256, 256); // Top-Right
                 GuiComponent.blit(poseStack, ix, iy + h - bs, 0, 256 - b, bs, bs, 256, 256); // Bottom-Left
                 GuiComponent.blit(poseStack, ix + w - bs, iy + h - bs, 256 - b, 256 - b, bs, bs, 256, 256); // Bottom-Right
-                
+
                 // Draw edges (scaled appropriately)
                 if (w - bs * 2 > 0) {
                     blitScaled(poseStack, ix + bs, iy, w - bs * 2, bs, b, 0, 256 - b * 2, b); // Top
@@ -1340,19 +1619,20 @@ public class SprauteScriptScreen extends Screen {
                     blitScaled(poseStack, ix, iy + bs, bs, h - bs * 2, 0, b, b, 256 - b * 2); // Left
                     blitScaled(poseStack, ix + w - bs, iy + bs, bs, h - bs * 2, 256 - b, b, b, 256 - b * 2); // Right
                 }
-                
+
                 // Draw center
                 if (w - bs * 2 > 0 && h - bs * 2 > 0) {
                     blitScaled(poseStack, ix + bs, iy + bs, w - bs * 2, h - bs * 2, b, b, 256 - b * 2, 256 - b * 2); // Center
                 }
             } else {
-                GuiComponent.blit(poseStack, ax0 + x, ay0 + y, 0f, 0f, w, h, 256, 256);
+                int[] src = resolveImageSrcRect(texture, srcU, srcV, srcW, srcH);
+                blitImageTexture(poseStack, rl, ax0 + x, ay0 + y, w, h, src[0], src[1], src[2], src[3]);
             }
-            
+
             RenderSystem.disableBlend();
             RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
         }
-        
+
         private void blitScaled(PoseStack poseStack, int x, int y, int width, int height, float uOffset, float vOffset, int uWidth, int vHeight) {
             com.mojang.blaze3d.vertex.BufferBuilder bufferbuilder = com.mojang.blaze3d.vertex.Tesselator.getInstance().getBuilder();
             com.mojang.math.Matrix4f matrix4f = poseStack.last().pose();
@@ -1363,6 +1643,7 @@ public class SprauteScriptScreen extends Screen {
             bufferbuilder.vertex(matrix4f, (float)x, (float)y, 0.0F).uv(uOffset / 256.0F, vOffset / 256.0F).endVertex();
             com.mojang.blaze3d.vertex.Tesselator.getInstance().end();
         }
+        *///?}
     }
 
     private record TextW(int x, int y, String text, int color, float scale, String tooltip, String id, int wrapWidth, String align, int maxLines, int maxChars, float anchorX, float anchorY) implements Widget {
@@ -1420,7 +1701,47 @@ public class SprauteScriptScreen extends Screen {
             return mx >= lx && mx < lx + tw && my >= ly && my < ly + th;
         }
 
+        //? if >=1.20.1 {
         @Override
+        public void render(SprauteScriptScreen screen, GuiGraphics guiGraphics, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
+            String renderText = text != null ? text.replace("&", "§") : "";
+            if (maxChars > 0 && renderText.length() > maxChars) {
+                renderText = renderText.substring(0, maxChars) + "...";
+            }
+
+            float[] bounds = getBounds(screen);
+            float offsetX = -bounds[0] * anchorX / scale;
+            float offsetY = -bounds[1] * anchorY / scale;
+
+            guiGraphics.pose().pushPose();
+            guiGraphics.pose().translate(ax0 + x + offsetX * scale, ay0 + y + offsetY * scale, 0);
+            guiGraphics.pose().scale(scale, scale, 1f);
+            int drawColor = applyAlpha(color & 0xFFFFFF | (color & 0xFF000000), screen.currentAlpha);
+
+            if (wrapWidth > 0) {
+                int effWrap = (int) (wrapWidth / scale);
+                List<net.minecraft.util.FormattedCharSequence> lines = screen.font.split(net.minecraft.network.chat.Component.literal(renderText), effWrap);
+                int lineY = 0;
+                int linesDrawn = 0;
+                for (net.minecraft.util.FormattedCharSequence line : lines) {
+                    if (maxLines > 0 && linesDrawn >= maxLines) break;
+                    float drawX = 0;
+                    if ("center".equals(align)) {
+                        drawX = (effWrap - screen.font.width(line)) / 2f;
+                    } else if ("right".equals(align)) {
+                        drawX = effWrap - screen.font.width(line);
+                    }
+                    guiGraphics.drawString(screen.font, line, (int) drawX, lineY, drawColor);
+                    lineY += screen.font.lineHeight;
+                    linesDrawn++;
+                }
+            } else {
+                guiGraphics.drawString(screen.font, renderText, 0, 0, drawColor);
+            }
+            guiGraphics.pose().popPose();
+        }
+        //?} else {
+        /*@Override
         public void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
             String renderText = text != null ? text.replace("&", "§") : "";
             if (maxChars > 0 && renderText.length() > maxChars) {
@@ -1458,6 +1779,7 @@ public class SprauteScriptScreen extends Screen {
             }
             poseStack.popPose();
         }
+        *///?}
     }
 
     private record InputW(String id, int x, int y, int w, int h, String text, String placeholder, int color, int bgColor, int outlineColor, float scale, String tooltip, int maxChars, String type) implements Widget {
@@ -1477,28 +1799,59 @@ public class SprauteScriptScreen extends Screen {
             return mx >= lx && mx < lx + w && my >= ly && my < ly + h;
         }
 
+        //? if >=1.20.1 {
         @Override
-        public void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
+        public void render(SprauteScriptScreen screen, GuiGraphics guiGraphics, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
             int bx = ax0 + x;
             int by = ay0 + y;
-            
-            GuiComponent.fill(poseStack, bx, by, bx + w, by + h, outlineColor);
-            GuiComponent.fill(poseStack, bx + 1, by + 1, bx + w - 1, by + h - 1, bgColor);
-            
-            poseStack.pushPose();
-            poseStack.translate(bx + 4, by + (h - screen.font.lineHeight * scale) / 2f, 0);
-            poseStack.scale(scale, scale, 1f);
-            
+
+            SprauteGuiDraw.fill(guiGraphics, bx, by, bx + w, by + h, outlineColor);
+            SprauteGuiDraw.fill(guiGraphics, bx + 1, by + 1, bx + w - 1, by + h - 1, bgColor);
+
+            guiGraphics.pose().pushPose();
+            guiGraphics.pose().translate(bx + 4, by + (h - screen.font.lineHeight * scale) / 2f, 0);
+            guiGraphics.pose().scale(scale, scale, 1f);
+
             String displayText = text;
             if ("password".equals(type)) {
                 displayText = "*".repeat(text.length());
             }
-            
+
             boolean active = screen.activeInputId != null && screen.activeInputId.equals(id);
             if (active && (System.currentTimeMillis() / 500) % 2 == 0) {
                 displayText += "_";
             }
-            
+
+            if (displayText.isEmpty() && placeholder != null && !placeholder.isEmpty() && !active) {
+                guiGraphics.drawString(screen.font, placeholder, 0, 0, color & 0x77FFFFFF);
+            } else {
+                guiGraphics.drawString(screen.font, displayText, 0, 0, color);
+            }
+            guiGraphics.pose().popPose();
+        }
+        //?} else {
+        /*@Override
+        public void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
+            int bx = ax0 + x;
+            int by = ay0 + y;
+
+            GuiComponent.fill(poseStack, bx, by, bx + w, by + h, outlineColor);
+            GuiComponent.fill(poseStack, bx + 1, by + 1, bx + w - 1, by + h - 1, bgColor);
+
+            poseStack.pushPose();
+            poseStack.translate(bx + 4, by + (h - screen.font.lineHeight * scale) / 2f, 0);
+            poseStack.scale(scale, scale, 1f);
+
+            String displayText = text;
+            if ("password".equals(type)) {
+                displayText = "*".repeat(text.length());
+            }
+
+            boolean active = screen.activeInputId != null && screen.activeInputId.equals(id);
+            if (active && (System.currentTimeMillis() / 500) % 2 == 0) {
+                displayText += "_";
+            }
+
             if (displayText.isEmpty() && placeholder != null && !placeholder.isEmpty() && !active) {
                 screen.font.draw(poseStack, placeholder, 0, 0, color & 0x77FFFFFF);
             } else {
@@ -1506,6 +1859,7 @@ public class SprauteScriptScreen extends Screen {
             }
             poseStack.popPose();
         }
+        *///?}
     }
 
     private record ButtonW(String id, int x, int y, int w, int h, String label, String subLabel, int color, int hoverColor, String texture, String tooltip,
@@ -1526,13 +1880,64 @@ public class SprauteScriptScreen extends Screen {
             return mx >= lx && mx < lx + w && my >= ly && my < ly + h;
         }
 
+        //? if >=1.20.1 {
         @Override
+        public void render(SprauteScriptScreen screen, GuiGraphics guiGraphics, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
+            int bx = ax0 + x;
+            int by = ay0 + y;
+            boolean over = mouseX >= bx && mouseX < bx + w && mouseY >= by && mouseY < by + h;
+            if (texture != null && !texture.isEmpty()) {
+                ResourceLocation rl = SprauteScriptScreen.resolveWidgetTexture(texture);
+                if (over) {
+                    guiGraphics.setColor(1.1f, 1.1f, 1.1f, 1f);
+                }
+                SprauteGuiDraw.blit(guiGraphics, rl, bx, by, 0f, 0f, w, h, 256, 256);
+                guiGraphics.setColor(1f, 1f, 1f, 1f);
+            } else {
+                SprauteGuiDraw.fill(guiGraphics, bx, by, bx + w, by + h, over ? hoverColor : color);
+            }
+            int pad = 3;
+            if (labelWrap > 0 && label != null && !label.isEmpty()) {
+                String renderLabel = label.replace("&", "§");
+                String renderSubLabel = subLabel != null ? subLabel.replace("&", "§") : null;
+                float ls = labelScale > 0.05f ? labelScale : 1f;
+                float ss = subScale > 0.05f ? subScale : 0.65f;
+                boolean hasSub = renderSubLabel != null && !renderSubLabel.isEmpty();
+                int effWrap = Math.max(4, (int) (labelWrap / ls));
+                java.util.List<net.minecraft.util.FormattedCharSequence> lines =
+                        screen.font.split(net.minecraft.network.chat.Component.literal(renderLabel), effWrap);
+                int nLines = lines.size();
+                float titleBlockPx = nLines * screen.font.lineHeight * ls;
+                guiGraphics.pose().pushPose();
+                guiGraphics.pose().translate(bx + pad, by + pad, 0);
+                guiGraphics.pose().scale(ls, ls, 1f);
+                int lineY = 0;
+                for (net.minecraft.util.FormattedCharSequence line : lines) {
+                    guiGraphics.drawString(screen.font, line, 0, lineY, 0xFFFFFFFF);
+                    lineY += screen.font.lineHeight;
+                }
+                guiGraphics.pose().popPose();
+                if (hasSub) {
+                    guiGraphics.pose().pushPose();
+                    guiGraphics.pose().translate(bx + pad, by + pad + titleBlockPx + 1, 0);
+                    guiGraphics.pose().scale(ss, ss, 1f);
+                    guiGraphics.drawString(screen.font, net.minecraft.network.chat.Component.literal(renderSubLabel), 0, 0, 0xFFAAAAAA);
+                    guiGraphics.pose().popPose();
+                }
+            } else if (label != null && !label.isEmpty()) {
+                String renderLabel = label.replace("&", "§");
+                int tw = screen.font.width(renderLabel);
+                guiGraphics.drawString(screen.font, renderLabel, bx + (w - tw) / 2, by + (h - 8) / 2, 0xFFFFFFFF);
+            }
+        }
+        //?} else {
+        /*@Override
         public void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
             int bx = ax0 + x;
             int by = ay0 + y;
             boolean over = mouseX >= bx && mouseX < bx + w && mouseY >= by && mouseY < by + h;
             if (texture != null && !texture.isEmpty()) {
-                ResourceLocation rl = SprauteUiJson.textureRl(texture);
+                ResourceLocation rl = SprauteScriptScreen.resolveWidgetTexture(texture);
                 RenderSystem.setShader(GameRenderer::getPositionTexShader);
                 RenderSystem.setShaderColor(over ? 1.1f : 1f, over ? 1.1f : 1f, over ? 1.1f : 1f, 1f);
                 RenderSystem.setShaderTexture(0, rl);
@@ -1574,6 +1979,7 @@ public class SprauteScriptScreen extends Screen {
                 screen.font.draw(poseStack, renderLabel, bx + (w - tw) / 2f, by + (h - 8) / 2f, 0xFFFFFFFF);
             }
         }
+        *///?}
     }
 
     private static class ClipW implements Widget {
@@ -1603,7 +2009,25 @@ public class SprauteScriptScreen extends Screen {
             return mx >= lx && mx < lx + w && my >= ly && my < ly + h;
         }
 
+        //? if >=1.20.1 {
         @Override
+        public void render(SprauteScriptScreen screen, GuiGraphics guiGraphics, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
+            if (alpha <= 0.0f) return;
+            float oldAlpha = screen.currentAlpha;
+            screen.currentAlpha *= alpha;
+            int sx = ax0 + x, sy = ay0 + y;
+            pushScissor(sx, sy, sx + w, sy + h);
+            try {
+                for (Widget child : children) {
+                    child.render(screen, guiGraphics, sx, sy, mouseX, mouseY, partialTick);
+                }
+            } finally {
+                popScissor();
+            }
+            screen.currentAlpha = oldAlpha;
+        }
+        //?} else {
+        /*@Override
         public void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
             if (alpha <= 0.0f) return;
             float oldAlpha = screen.currentAlpha;
@@ -1619,6 +2043,7 @@ public class SprauteScriptScreen extends Screen {
             }
             screen.currentAlpha = oldAlpha;
         }
+        *///?}
     }
 
     private static class ScrollW implements Widget {
@@ -1652,7 +2077,38 @@ public class SprauteScriptScreen extends Screen {
             return mx >= lx && mx < lx + w && my >= ly && my < ly + h;
         }
 
+        //? if >=1.20.1 {
         @Override
+        public void render(SprauteScriptScreen screen, GuiGraphics guiGraphics, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
+            int sx = ax0 + x, sy = ay0 + y;
+            int currentBgColor = applyAlpha(bgColor, screen.currentAlpha);
+            if ((currentBgColor & 0xFF000000) != 0) {
+                SprauteGuiDraw.fill(guiGraphics, sx, sy, sx + w, sy + h, currentBgColor);
+            }
+            pushScissor(sx, sy, sx + w, sy + h);
+            try {
+                int offsetY = -(int) scrollOffset;
+                for (Widget child : children) {
+                    child.render(screen, guiGraphics, sx, sy + offsetY, mouseX, mouseY, partialTick);
+                }
+            } finally {
+                popScissor();
+            }
+            boolean shouldShowBar = autoBar ? (contentH > h) : showBar;
+            if (shouldShowBar && contentH > h) {
+                int barW = 3;
+                int barAreaH = h;
+                float ratio = (float) h / contentH;
+                int barH = Math.max(8, (int) (barAreaH * ratio));
+                float maxScroll = contentH - h;
+                float scrollPct = maxScroll > 0 ? scrollOffset / maxScroll : 0;
+                int barY = sy + (int) ((barAreaH - barH) * scrollPct);
+                int barX = sx + w - barW - 1;
+                SprauteGuiDraw.fill(guiGraphics, barX, barY, barX + barW, barY + barH, applyAlpha(0x88AAAAAA, screen.currentAlpha));
+            }
+        }
+        //?} else {
+        /*@Override
         public void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
             int sx = ax0 + x, sy = ay0 + y;
             int currentBgColor = applyAlpha(bgColor, screen.currentAlpha);
@@ -1681,6 +2137,7 @@ public class SprauteScriptScreen extends Screen {
                 GuiComponent.fill(poseStack, barX, barY, barX + barW, barY + barH, applyAlpha(0x88AAAAAA, screen.currentAlpha));
             }
         }
+        *///?}
     }
 
     private record DividerW(int x, int y, int w, int color, String id) implements Widget {
@@ -1688,10 +2145,17 @@ public class SprauteScriptScreen extends Screen {
         @Override public int getY() { return y; }
         @Override public String getId() { return id; }
         @Override public float[] getOBB(SprauteScriptScreen screen, int ax0, int ay0) { return getBaseOBB(ax0 + x, ay0 + y, w, 1); }
+        //? if >=1.20.1 {
         @Override
+        public void render(SprauteScriptScreen screen, GuiGraphics guiGraphics, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
+            SprauteGuiDraw.fill(guiGraphics, ax0 + x, ay0 + y, ax0 + x + w, ay0 + y + 1, color);
+        }
+        //?} else {
+        /*@Override
         public void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
             GuiComponent.fill(poseStack, ax0 + x, ay0 + y, ax0 + x + w, ay0 + y + 1, color);
         }
+        *///?}
     }
 
     private record ItemW(int x, int y, int size, String itemId, String tooltip, String id) implements Widget {
@@ -1708,7 +2172,41 @@ public class SprauteScriptScreen extends Screen {
             return mx >= lx && mx < lx + size && my >= ly && my < ly + size;
         }
 
+        //? if >=1.20.1 {
         @Override
+        public void render(SprauteScriptScreen screen, GuiGraphics guiGraphics, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
+            ResourceLocation rl = itemId != null && itemId.contains(":") ? new ResourceLocation(itemId) : new ResourceLocation("minecraft", itemId != null ? itemId : "stone");
+            net.minecraft.world.item.Item item = ForgeRegistries.ITEMS.getValue(rl);
+            if (item == null || item == net.minecraft.world.item.Items.AIR) {
+                Block block = ForgeRegistries.BLOCKS.getValue(rl);
+                if (block != null && block != net.minecraft.world.level.block.Blocks.AIR) {
+                    item = block.asItem();
+                }
+            }
+            if (item == null || item == net.minecraft.world.item.Items.AIR) {
+                return;
+            }
+            ItemStack stack = new ItemStack(item);
+
+            int drawX = ax0 + x;
+            int drawY = ay0 + y;
+            int renderSize = size > 0 ? size : 16;
+
+            if (renderSize == 16) {
+                // Standard size: renderItem uses screen-space coords, no pose transform needed.
+                guiGraphics.renderItem(stack, drawX, drawY);
+            } else {
+                // Non-standard size: scale via pose, render at (0,0) inside translated pose.
+                float s = renderSize / 16f;
+                guiGraphics.pose().pushPose();
+                guiGraphics.pose().translate(drawX, drawY, 150.0f);
+                guiGraphics.pose().scale(s, s, 1.0f);
+                guiGraphics.renderItem(stack, 0, 0);
+                guiGraphics.pose().popPose();
+            }
+        }
+        //?} else {
+        /*@Override
         public void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
             ResourceLocation rl = itemId.contains(":") ? new ResourceLocation(itemId) : new ResourceLocation("minecraft", itemId);
             net.minecraft.world.item.Item item = ForgeRegistries.ITEMS.getValue(rl);
@@ -1719,17 +2217,15 @@ public class SprauteScriptScreen extends Screen {
                 }
             }
             if (item == null || item == net.minecraft.world.item.Items.AIR) {
-                System.out.println("ItemW render failed: AIR or null for itemId " + itemId);
                 return;
             }
-            System.out.println("ItemW rendering " + itemId + " at " + x + ", " + y + " size " + size);
             ItemStack stack = new ItemStack(item);
 
             Minecraft mc = Minecraft.getInstance();
             int drawX = ax0 + x;
             int drawY = ay0 + y;
             int renderSize = size > 0 ? size : 16;
-            
+
             // Используем стандартный подход Forge 1.19.2 для рендера в кастомных GUI
             com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
             poseStack.pushPose();
@@ -1738,12 +2234,12 @@ public class SprauteScriptScreen extends Screen {
             // Поскольку renderAndDecorateItem не принимает PoseStack напрямую, мы масштабируем саму матрицу
             com.mojang.blaze3d.vertex.PoseStack mvStack = com.mojang.blaze3d.systems.RenderSystem.getModelViewStack();
             mvStack.pushPose();
-            
+
             // Сдвиг и масштабирование
             mvStack.translate(drawX, drawY, 0);
             float s = renderSize / 16f;
             mvStack.scale(s, s, 1.0f);
-            
+
             com.mojang.blaze3d.systems.RenderSystem.applyModelViewMatrix();
 
             net.minecraft.client.renderer.entity.ItemRenderer itemRenderer = mc.getItemRenderer();
@@ -1761,16 +2257,42 @@ public class SprauteScriptScreen extends Screen {
             poseStack.popPose();
             com.mojang.blaze3d.systems.RenderSystem.disableDepthTest();
         }
+        *///?}
     }
 
     public static boolean disableEntityAnimations = false;
     public static boolean hideEntityNameTag = false;
 
     private static final Map<UUID, org.zonarstudio.spraute_engine.entity.SprauteNpcEntity> uiDummyCache = new HashMap<>();
+    /** Config template for chat player head — same geo/anim as a typical chat NPC (defolt + idle). */
+    private static final UUID UI_CHAT_NPC_TEMPLATE_ID = UUID.fromString("00000000-0000-4000-8000-0000000a0001");
+    /** Render dummy cache key for skin avatars (separate from template entity uuid). */
+    private static final UUID UI_SKIN_AVATAR_DUMMY_ID = UUID.fromString("00000000-0000-4000-8000-0000000a0002");
+
+    private static org.zonarstudio.spraute_engine.entity.SprauteNpcEntity getChatNpcTemplate(Minecraft mc) {
+        org.zonarstudio.spraute_engine.entity.SprauteNpcEntity tpl = uiDummyCache.get(UI_CHAT_NPC_TEMPLATE_ID);
+        if (tpl == null) {
+            tpl = new org.zonarstudio.spraute_engine.entity.SprauteNpcEntity(
+                    org.zonarstudio.spraute_engine.entity.ModEntities.SPRAUTE_NPC.get(), mc.level);
+            tpl.setModel("geo/defolt.geo.json");
+            tpl.setTexture("textures/entity/defolt.png");
+            tpl.setAnimation("animations/npc_classic.animation.json");
+            tpl.setIdleAnim("idle");
+            tpl.setWalkAnim("idle");
+            uiDummyCache.put(UI_CHAT_NPC_TEMPLATE_ID, tpl);
+        }
+        return tpl;
+    }
 
     private static org.zonarstudio.spraute_engine.entity.SprauteNpcEntity getOrCreateDummy(
-            LivingEntity source, boolean noLookAt, boolean disableAnim, boolean noHurt) {
-        UUID key = source.getUUID();
+            LivingEntity source, boolean noLookAt, boolean disableAnim, boolean noHurt, UUID skinPlayerUuid) {
+        return getOrCreateDummy(source, null, noLookAt, disableAnim, noHurt, skinPlayerUuid);
+    }
+
+    private static org.zonarstudio.spraute_engine.entity.SprauteNpcEntity getOrCreateDummy(
+            LivingEntity source, UUID cacheKey, boolean noLookAt, boolean disableAnim, boolean noHurt,
+            UUID skinPlayerUuid) {
+        UUID key = cacheKey != null ? cacheKey : source.getUUID();
         Minecraft mc = Minecraft.getInstance();
         org.zonarstudio.spraute_engine.entity.SprauteNpcEntity dummy = uiDummyCache.get(key);
         if (dummy == null) {
@@ -1785,6 +2307,22 @@ public class SprauteScriptScreen extends Screen {
             dummy.setIdleAnim(npc.getIdleAnim());
             dummy.setWalkAnim("");
             dummy.setCustomName(npc.getCustomName());
+        }
+        if (skinPlayerUuid != null) {
+            dummy.setPlayerSkinOverlay(skinPlayerUuid);
+        } else if (source instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc) {
+            String overlay = npc.getPlayerSkinOverlayUuid();
+            if (overlay != null && !overlay.isEmpty()) {
+                try {
+                    dummy.setPlayerSkinOverlay(UUID.fromString(overlay));
+                } catch (IllegalArgumentException ignored) {
+                    dummy.clearPlayerSkinOverlay();
+                }
+            } else {
+                dummy.clearPlayerSkinOverlay();
+            }
+        } else {
+            dummy.clearPlayerSkinOverlay();
         }
         // renderEntityInInventory sets yBodyRot=180, yRot=180, yHeadRot=180 but does NOT touch *O fields.
         // Custom renderer lerps between *O and current, so *O must match to prevent interpolation artifacts.
@@ -1817,7 +2355,87 @@ public class SprauteScriptScreen extends Screen {
      * (including *O variants) to prevent interpolation artifacts. This is a replacement for
      * InventoryScreen.renderEntityInInventory when we need precise control over entity pose.
      */
-    private static void renderEntityDirect(int posX, int posY, int scale, float mouseX, float mouseY, LivingEntity entity) {
+    //? if >=1.20.1 {
+    private static void renderEntityDirect(GuiGraphics guiGraphics, int posX, int posY, int scale, float mouseX, float mouseY, LivingEntity entity) {
+        float f = (float) Math.atan(mouseX / 40.0f);
+        float g = (float) Math.atan(mouseY / 40.0f);
+
+        // Flush any pending GuiGraphics draws first, so the chat background (batched) is drawn BEFORE the
+        // entity (immediate mode). This matches the 1.19.2 path, which renders fine in a HUD overlay.
+        guiGraphics.flush();
+
+        // Use ModelViewStack like vanilla InventoryScreen.renderEntityInInventory does in 1.20.1
+        PoseStack modelViewStack = com.mojang.blaze3d.systems.RenderSystem.getModelViewStack();
+        modelViewStack.pushPose();
+        modelViewStack.translate(posX, posY, 1050.0);
+        modelViewStack.mulPoseMatrix(new org.joml.Matrix4f().scaling(scale, scale, -scale));
+        com.mojang.blaze3d.systems.RenderSystem.applyModelViewMatrix();
+
+        // Entity-local pose stack (separate from GuiGraphics pose)
+        PoseStack poseStack = new PoseStack();
+        SprauteRenderCompat.rotateZ(poseStack, 180.0f);
+        SprauteRenderCompat.rotateX(poseStack, g * 20.0f);
+
+        float bodyYaw = 180.0f + f * 20.0f;
+        float yaw = 180.0f + f * 40.0f;
+        float pitch = -g * 20.0f;
+
+        float oldBodyRot = entity.yBodyRot;
+        float oldBodyRotO = entity.yBodyRotO;
+        float oldYRot = entity.getYRot();
+        float oldYRotO = entity.yRotO;
+        float oldXRot = entity.getXRot();
+        float oldXRotO = entity.xRotO;
+        float oldHeadRot = entity.yHeadRot;
+        float oldHeadRotO = entity.yHeadRotO;
+
+        entity.yBodyRot = bodyYaw;
+        entity.yBodyRotO = bodyYaw;
+        entity.setYRot(yaw);
+        entity.yRotO = yaw;
+        entity.setXRot(pitch);
+        entity.xRotO = pitch;
+        entity.yHeadRot = yaw;
+        entity.yHeadRotO = yaw;
+
+        Lighting.setupForEntityInInventory();
+        var dispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
+        dispatcher.setRenderShadow(false);
+        var bufferSource = Minecraft.getInstance().renderBuffers().bufferSource();
+        // The entity renders at ModelViewStack z=1050, while the GUI background was drawn at z=0.
+        // GUI projection maps z=0 closer to the camera than z=1050, so GL_LEQUAL depth test would
+        // reject entity fragments (entity is "behind" the background). Use GL_ALWAYS so the entity
+        // always renders on top of previously-drawn GUI elements, matching 1.19.2 behaviour.
+        com.mojang.blaze3d.systems.RenderSystem.depthFunc(org.lwjgl.opengl.GL11.GL_ALWAYS);
+        com.mojang.blaze3d.systems.RenderSystem.runAsFancy(() -> {
+            dispatcher.render(entity, 0.0, 0.0, 0.0, 0.0f, 1.0f, poseStack, bufferSource, 15728880);
+        });
+        bufferSource.endBatch();
+        com.mojang.blaze3d.systems.RenderSystem.depthFunc(org.lwjgl.opengl.GL11.GL_LEQUAL);
+        dispatcher.setRenderShadow(true);
+
+        entity.yBodyRot = oldBodyRot;
+        entity.yBodyRotO = oldBodyRotO;
+        entity.setYRot(oldYRot);
+        entity.yRotO = oldYRotO;
+        entity.setXRot(oldXRot);
+        entity.xRotO = oldXRotO;
+        entity.yHeadRot = oldHeadRot;
+        entity.yHeadRotO = oldHeadRotO;
+
+        Lighting.setupFor3DItems();
+
+        modelViewStack.popPose();
+        com.mojang.blaze3d.systems.RenderSystem.applyModelViewMatrix();
+
+        // Restore GUI render defaults that the entity render pipeline may have left dirty (shader tint,
+        // depth mask, blend). Without this, the next batched GuiGraphics flush (text, items) can flicker.
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        com.mojang.blaze3d.systems.RenderSystem.depthMask(true);
+        com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
+    }
+    //?} else {
+    /*private static void renderEntityDirect(int posX, int posY, int scale, float mouseX, float mouseY, LivingEntity entity) {
         float f = (float) Math.atan(mouseX / 40.0f);
         float g = (float) Math.atan(mouseY / 40.0f);
 
@@ -1880,6 +2498,7 @@ public class SprauteScriptScreen extends Screen {
         modelView.popPose();
         RenderSystem.applyModelViewMatrix();
     }
+    *///?}
 
     private static final java.util.Stack<int[]> scissorStack = new java.util.Stack<>();
 
@@ -1894,19 +2513,36 @@ public class SprauteScriptScreen extends Screen {
             if (y1 < y0) y1 = y0;
         }
         scissorStack.push(new int[]{x0, y0, x1, y1});
-        GuiComponent.enableScissor(x0, y0, x1, y1);
+        //? if >=1.20.1 {
+        if (scissorGuiGraphics != null) {
+            SprauteGuiDraw.enableScissor(scissorGuiGraphics, x0, y0, x1, y1);
+        }
+        //?} else {
+        /*GuiComponent.enableScissor(x0, y0, x1, y1);
+        *///?}
     }
 
     public static void popScissor() {
         if (!scissorStack.isEmpty()) {
             scissorStack.pop();
         }
-        if (scissorStack.isEmpty()) {
+        //? if >=1.20.1 {
+        // GuiGraphics maintains its own scissor stack: enableScissor = push, disableScissor = pop
+        // (the pop automatically re-applies the parent rect). Each pushScissor() called enableScissor
+        // exactly once, so each popScissor() must call disableScissor() exactly once to stay balanced.
+        // Re-enabling the parent here would push an EXTRA entry, leaving the scissor stuck enabled
+        // after the outermost pop -> the rest of the frame gets clipped to the inner rect (black screen
+        // except the crop region).
+        if (scissorGuiGraphics == null) return;
+        SprauteGuiDraw.disableScissor(scissorGuiGraphics);
+        //?} else {
+        /*if (scissorStack.isEmpty()) {
             GuiComponent.disableScissor();
         } else {
             int[] parent = scissorStack.peek();
             GuiComponent.enableScissor(parent[0], parent[1], parent[2], parent[3]);
         }
+        *///?}
     }
 
     /**
@@ -1921,7 +2557,7 @@ public class SprauteScriptScreen extends Screen {
             float cropL, float cropT, float cropR, float cropB,
             float anchorX, float anchorY, boolean disableAnim,
             boolean hideNameTag, boolean noLookAt, boolean noFollowCursor,
-            boolean noHurtAnim, String[] renderBones
+            boolean noHurtAnim, String[] renderBones, UUID skinPlayerUuid
     ) implements Widget {
         @Override
         public String tooltip() {
@@ -1934,29 +2570,141 @@ public class SprauteScriptScreen extends Screen {
             int ly = ay0 + y;
             return mx >= lx && mx < lx + w && my >= ly && my < ly + h;
         }
+        //? if >=1.20.1 {
         @Override
+        public void render(SprauteScriptScreen screen, GuiGraphics guiGraphics, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
+            int left = ax0 + x;
+            int top = ay0 + y;
+            int right = left + w;
+            int bottom = top + h;
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.level == null) {
+                SprauteGuiDraw.fill(guiGraphics, left, top, right, bottom, 0x66000000);
+                return;
+            }
+
+            boolean useDummy = noLookAt || noFollowCursor || noHurtAnim || disableAnim || hideNameTag;
+            LivingEntity renderTarget;
+            if (entityUuid == null && skinPlayerUuid != null) {
+                org.zonarstudio.spraute_engine.entity.SprauteNpcEntity avatar = getOrCreateDummy(
+                        getChatNpcTemplate(mc), UI_SKIN_AVATAR_DUMMY_ID, noLookAt, disableAnim, noHurtAnim, skinPlayerUuid);
+                if (avatar == null) {
+                    SprauteGuiDraw.fill(guiGraphics, left, top, right, bottom, 0x66000000);
+                    return;
+                }
+                renderTarget = avatar;
+                useDummy = true;
+            } else if (entityUuid == null) {
+                SprauteGuiDraw.fill(guiGraphics, left, top, right, bottom, 0x66000000);
+                return;
+            } else {
+                Entity e = findEntityByUuid(mc.level, entityUuid);
+                if (!(e instanceof LivingEntity living)) {
+                    SprauteGuiDraw.fill(guiGraphics, left, top, right, bottom, 0x66000000);
+                    return;
+                }
+                if (useDummy && living instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity) {
+                    renderTarget = getOrCreateDummy(living, noLookAt, disableAnim, noHurtAnim, skinPlayerUuid);
+                } else {
+                    renderTarget = living;
+                }
+            }
+
+            float sx0f = left + w * cropL;
+            float sy0f = top + h * cropT;
+            float sx1f = left + w * (1f - cropR);
+            float sy1f = top + h * (1f - cropB);
+            int sx0 = (int) Math.floor(sx0f);
+            int sy0 = (int) Math.floor(sy0f);
+            int sx1 = (int) Math.ceil(sx1f);
+            int sy1 = (int) Math.ceil(sy1f);
+            pushScissor(sx0, sy0, sx1, sy1);
+            try {
+                if (renderTarget instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc) {
+                    npc.uiRenderBones = renderBones;
+                }
+
+                int cx = (int) (left + w * anchorX);
+                int cy;
+                if (anchorY >= 0f) {
+                    cy = (int) (top + h * anchorY);
+                } else {
+                    float t = Math.min(1f, Math.max(0f, feetCrop));
+                    float anchorFrac = 0.48f + t * 0.20f;
+                    cy = top + (int) (h * anchorFrac);
+                }
+                int sc = Math.max(8, (int) (Math.min(w, h) * 0.44f * scale));
+
+                boolean prevDisable = SprauteScriptScreen.disableEntityAnimations;
+                boolean prevHideName = SprauteScriptScreen.hideEntityNameTag;
+                SprauteScriptScreen.disableEntityAnimations = disableAnim;
+                SprauteScriptScreen.hideEntityNameTag = hideNameTag;
+
+                boolean dontFollow = noLookAt || noFollowCursor;
+                float lookX = dontFollow ? 0f : (float) cx - mouseX;
+                float lookY = dontFollow ? 0f : (float) (cy - 50) - mouseY;
+
+                // Dummy entities (chat head: noLookAt etc.) use the manual ModelViewStack path, which is
+                // self-contained and works inside a HUD overlay (RenderGuiOverlayEvent) — exactly as on 1.19.2.
+                // InventoryScreen.renderEntityInInventory is GuiGraphics-bound and corrupts the framebuffer
+                // when called from the HUD overlay, so it is only used for the live-entity (in-screen) case.
+                if (useDummy) {
+                    renderEntityDirect(guiGraphics, cx, cy, sc, lookX, lookY, renderTarget);
+                } else {
+                    float f = (float) Math.atan(lookX / 40.0f);
+                    float g = (float) Math.atan(lookY / 40.0f);
+                    Quaternionf pose = new Quaternionf().rotateZYX(0.0f, (float) Math.PI - f * 20.0f * ((float) Math.PI / 180.0f), (float) Math.PI);
+                    Quaternionf camera = new Quaternionf().rotateX(g * 20.0f * ((float) Math.PI / 180.0f));
+                    InventoryScreen.renderEntityInInventory(guiGraphics, cx, cy, sc, pose, camera, renderTarget);
+                }
+
+                SprauteScriptScreen.disableEntityAnimations = prevDisable;
+                SprauteScriptScreen.hideEntityNameTag = prevHideName;
+            } finally {
+                if (renderTarget instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc) {
+                    npc.uiRenderBones = null;
+                }
+                popScissor();
+            }
+        }
+        //?} else {
+        /*@Override
         public void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
             int left = ax0 + x;
             int top = ay0 + y;
             int right = left + w;
             int bottom = top + h;
             Minecraft mc = Minecraft.getInstance();
-            if (mc.level == null || entityUuid == null) {
-                GuiComponent.fill(poseStack, left, top, right, bottom, 0x66000000);
-                return;
-            }
-            Entity e = findEntityByUuid(mc.level, entityUuid);
-            if (!(e instanceof LivingEntity living)) {
+            if (mc.level == null) {
                 GuiComponent.fill(poseStack, left, top, right, bottom, 0x66000000);
                 return;
             }
 
             boolean useDummy = noLookAt || noFollowCursor || noHurtAnim || disableAnim || hideNameTag;
             LivingEntity renderTarget;
+            if (entityUuid == null && skinPlayerUuid != null) {
+                org.zonarstudio.spraute_engine.entity.SprauteNpcEntity avatar = getOrCreateDummy(
+                        getChatNpcTemplate(mc), UI_SKIN_AVATAR_DUMMY_ID, noLookAt, disableAnim, noHurtAnim, skinPlayerUuid);
+                if (avatar == null) {
+                    GuiComponent.fill(poseStack, left, top, right, bottom, 0x66000000);
+                    return;
+                }
+                renderTarget = avatar;
+                useDummy = true;
+            } else if (entityUuid == null) {
+                GuiComponent.fill(poseStack, left, top, right, bottom, 0x66000000);
+                return;
+            } else {
+            Entity e = findEntityByUuid(mc.level, entityUuid);
+            if (!(e instanceof LivingEntity living)) {
+                GuiComponent.fill(poseStack, left, top, right, bottom, 0x66000000);
+                return;
+            }
             if (useDummy && living instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity) {
-                renderTarget = getOrCreateDummy(living, noLookAt, disableAnim, noHurtAnim);
+                renderTarget = getOrCreateDummy(living, noLookAt, disableAnim, noHurtAnim, skinPlayerUuid);
             } else {
                 renderTarget = living;
+            }
             }
 
             float sx0f = left + w * cropL;
@@ -2008,6 +2756,7 @@ public class SprauteScriptScreen extends Screen {
                 popScissor();
             }
         }
+        *///?}
     }
 
     public static void openOverlay(String json) {
@@ -2027,6 +2776,7 @@ public class SprauteScriptScreen extends Screen {
             if (id.isEmpty()) id = "_default";
             activeOverlays.put(id, overlay);
             activeOverlay = overlay;
+            flushPendingWidgetPatches(overlay);
         } catch (Exception e) {
             if (Minecraft.getInstance().player != null) {
                 Minecraft.getInstance().player.displayClientMessage(
@@ -2054,19 +2804,45 @@ public class SprauteScriptScreen extends Screen {
         }
     }
 
-    @SubscribeEvent
-    public static void onRenderOverlay(RenderGuiOverlayEvent.Post event) {
-        if (!event.getOverlay().id().equals(VanillaGuiOverlay.CHAT_PANEL.id())) return;
+    //? if >=1.20.1 {
+    private static void renderActiveOverlays(Minecraft mc, float partialTick, GuiGraphics guiGraphics) {
         if (activeOverlays.isEmpty()) return;
-        
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof SprauteScriptScreen) {
-            return;
-        }
+        if (mc.screen instanceof SprauteScriptScreen) return;
 
         int sw = mc.getWindow().getGuiScaledWidth();
         int sh = mc.getWindow().getGuiScaledHeight();
-        PoseStack poseStack = event.getPoseStack();
+        scissorGuiGraphics = guiGraphics;
+
+        for (SprauteScriptScreen overlay : activeOverlays.values()) {
+            overlay.left = (sw - overlay.panelW) / 2;
+            overlay.top = (sh - overlay.panelH) / 2;
+            if (overlay.root.has("x")) {
+                int rawX = readRootExtent(overlay.root, "x", sw, overlay.left);
+                overlay.left = rawX < 0 ? sw + rawX - overlay.panelW : rawX;
+            }
+            if (overlay.root.has("y")) {
+                int rawY = readRootExtent(overlay.root, "y", sh, overlay.top);
+                overlay.top = rawY < 0 ? sh + rawY - overlay.panelH : rawY;
+            }
+
+            overlay.processAnimations();
+
+            if (overlay.bgArgb != 0) {
+                SprauteGuiDraw.fill(guiGraphics, overlay.left, overlay.top, overlay.left + overlay.panelW, overlay.top + overlay.panelH, overlay.bgArgb);
+            }
+
+            for (Widget w : overlay.widgets) {
+                w.render(overlay, guiGraphics, overlay.left, overlay.top, 0, 0, partialTick);
+            }
+        }
+    }
+    //?} else {
+    /*private static void renderActiveOverlays(Minecraft mc, float partialTick, PoseStack poseStack) {
+        if (activeOverlays.isEmpty()) return;
+        if (mc.screen instanceof SprauteScriptScreen) return;
+
+        int sw = mc.getWindow().getGuiScaledWidth();
+        int sh = mc.getWindow().getGuiScaledHeight();
 
         for (SprauteScriptScreen overlay : activeOverlays.values()) {
             overlay.left = (sw - overlay.panelW) / 2;
@@ -2087,8 +2863,38 @@ public class SprauteScriptScreen extends Screen {
             }
 
             for (Widget w : overlay.widgets) {
-                w.render(overlay, poseStack, overlay.left, overlay.top, 0, 0, event.getPartialTick());
+                w.render(overlay, poseStack, overlay.left, overlay.top, 0, 0, partialTick);
             }
         }
+    }
+    *///?}
+
+    @SubscribeEvent
+    public static void onRenderOverlay(RenderGuiOverlayEvent.Post event) {
+        if (!event.getOverlay().id().equals(VanillaGuiOverlay.CHAT_PANEL.id())) return;
+        if (activeOverlays.isEmpty()) return;
+
+        Minecraft mc = Minecraft.getInstance();
+        // ChatScreen draws after HUD — overlay is rendered in onChatScreenRender instead.
+        if (mc.screen instanceof ChatScreen) return;
+
+        //? if >=1.20.1 {
+        renderActiveOverlays(mc, event.getPartialTick(), event.getGuiGraphics());
+        //?} else {
+        /*renderActiveOverlays(mc, event.getPartialTick(), event.getPoseStack());
+        *///?}
+    }
+
+    @SubscribeEvent
+    public static void onChatScreenRender(ScreenEvent.Render.Post event) {
+        if (activeOverlays.isEmpty()) return;
+        if (!(event.getScreen() instanceof ChatScreen)) return;
+
+        Minecraft mc = Minecraft.getInstance();
+        //? if >=1.20.1 {
+        renderActiveOverlays(mc, event.getPartialTick(), event.getGuiGraphics());
+        //?} else {
+        /*renderActiveOverlays(mc, event.getPartialTick(), event.getPoseStack());
+        *///?}
     }
 }

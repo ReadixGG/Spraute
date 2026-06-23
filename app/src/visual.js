@@ -1,6 +1,11 @@
-import * as Blockly from 'blockly/core';
+// Импортируем полный пакет blockly (включает contextmenu_items, locale en, blocks).
+// blockly/core не регистрирует дефолтные пункты контекстного меню — используем полный пакет.
+import * as Blockly from 'blockly';
 import { FieldMultilineInput } from '@blockly/field-multilineinput';
-import 'blockly/blocks';
+// blockly уже включает blocks и en locale, дополнительно форсируем
+import * as En from 'blockly/msg/en';
+import { registerGuiBlocks } from './gui-blocks.js';
+Blockly.setLocale(En);
 
 // ================= ГЕНЕРАТОР КОДА =================
 export const SprauteGenerator = new Blockly.Generator('Spraute');
@@ -8,10 +13,24 @@ export const SprauteGenerator = new Blockly.Generator('Spraute');
 SprauteGenerator.scrub_ = function(block, code, opt_thisOnly) {
   const nextBlock = block.nextConnection && block.nextConnection.targetBlock();
   const nextCode = opt_thisOnly ? '' : SprauteGenerator.blockToCode(nextBlock);
-  return code + nextCode;
+  let out = code == null ? '' : String(code);
+  if (out && nextCode && !out.endsWith('\n')) out += '\n';
+  return out + (nextCode || '');
 };
 
-const COLORS = { SYSTEM: '#a855f7' };
+/** Гарантирует перевод строки в конце statement-вывода блока. */
+function ensureStatementTrailingNewline(code) {
+  if (code == null) return '';
+  const text = String(code);
+  if (!text) return '';
+  return text.endsWith('\n') ? text : text + '\n';
+}
+
+const COLORS = { SYSTEM: '#a855f7', GUI: '#14b8a6' };
+/** Системные GUI-блоки и редактор — скрыты до доработки. */
+const SHOW_GUI_TOOLBOX = false;
+
+registerGuiBlocks(SprauteGenerator);
 
 Blockly.Blocks['spraute_raw_code'] = {
   init: function() {
@@ -28,27 +47,317 @@ SprauteGenerator.forBlock['spraute_raw_code'] = function(block) {
   return `${block.getFieldValue('CODE')}\n`;
 };
 
+// Блок для произвольного value-выражения (когда не нашли подходящий value-блок)
+Blockly.Blocks['spraute_raw_value'] = {
+  init: function() {
+    this.appendDummyInput()
+        .appendField("выражение")
+        .appendField(new Blockly.FieldTextInput("значение"), "EXPR");
+    this.setOutput(true, null);
+    this.setColour(COLORS.SYSTEM);
+  }
+};
+SprauteGenerator.forBlock['spraute_raw_value'] = function(block) {
+  return [block.getFieldValue('EXPR') || "", 0];
+};
+
 // ================= ДИНАМИЧЕСКИЕ ДАННЫЕ =================
 export let currentNpcs = [];
 export let currentAnimations = [];
+export let currentAnimFiles = [];
+export let currentModels = [];
+export let currentTextures = [];
 
-export function updateDynamicLists(npcs, anims) {
-  if (npcs && npcs.length > 0) currentNpcs = npcs.map(n => [n, n]);
-  if (anims && anims.length > 0) currentAnimations = anims.map(a => [a, a]);
+export function updateDynamicLists(npcs, anims, models, textures, animFiles) {
+  if (npcs != null) currentNpcs = npcs.length > 0 ? npcs.map(n => [n, n]) : [];
+  if (anims   && anims.length > 0)   currentAnimations = anims.map(a => [a, a]);
+  if (animFiles && animFiles.length > 0) {
+    currentAnimFiles = animFiles.map(p => {
+      const base = p.split('/').pop() || p;
+      const label = base.replace(/\.animation\.json$/i, '').replace(/\.json$/i, '');
+      return [label, p];
+    });
+  }
+  if (models  && models.length > 0)  currentModels     = models.map(m => [m.split('/').pop().replace('.geo.json',''), m]);
+  if (textures && textures.length > 0) currentTextures = textures.map(t => [t.split('/').pop().replace(/\.(png|jpg|jpeg)$/,''), t]);
+}
+
+
+function readBlockFieldVal(self, fieldName) {
+  if (!self) return '';
+  try {
+    const v = self.getFieldValue(fieldName);
+    if (v != null && String(v).trim() !== '') return String(v);
+  } catch (e) {}
+  const cached = self[`val_${fieldName}`];
+  return cached != null && String(cached).trim() !== '' ? String(cached) : '';
+}
+
+function ensureDropdownValue(options, current, labelFor) {
+  if (current == null || String(current).trim() === '') return options;
+  const val = String(current);
+  if (options.some(o => o[1] === val)) return options;
+  return [[labelFor(val), val], ...options];
 }
 
 function getNpcsDropdown() {
-  const filtered = currentNpcs.filter(n => n[1] !== '_event_npc').map(n => ["НИП: " + n[0], n[1]]);
-  return filtered.length > 0 ? filtered : [["НИП: npc", "npc"]];
+  const filtered = currentNpcs
+    .filter(n => n[1] && n[1] !== '_eventNpc')
+    .map(n => ["НИП: " + n[0], n[1]]);
+  return filtered.length > 0 ? filtered : [["(создайте НИП)", ""]];
+}
+
+function getNpcsDropdownFor(_self, _fieldName) {
+  return getNpcsDropdown();
+}
+
+function getAnimsDropdown() {
+  const filtered = currentAnimations.filter(a => a[1] !== '(нет анимаций)').map(a => [a[0], a[1]]);
+  return filtered.length > 0 ? filtered : [["idle", "idle"]];
+}
+
+function getAnimsDropdownFor(self, fieldName) {
+  return ensureDropdownValue(
+    getAnimsDropdown(),
+    readBlockFieldVal(self, fieldName),
+    v => v
+  );
+}
+
+function getAnimFilesDropdown() {
+  return currentAnimFiles.length > 0
+    ? currentAnimFiles
+    : [["npc_classic", "animations/npc_classic.animation.json"]];
+}
+
+function getAnimFilesDropdownFor(self, fieldName) {
+  return ensureDropdownValue(
+    getAnimFilesDropdown(),
+    readBlockFieldVal(self, fieldName),
+    v => (v.split('/').pop() || v).replace(/\.animation\.json$/i, '').replace(/\.json$/i, '')
+  );
+}
+
+function getModelsDropdown() {
+  return currentModels.length > 0 ? currentModels : [["defolt", "geo/defolt.geo.json"]];
+}
+
+function getModelsDropdownFor(self, fieldName) {
+  return ensureDropdownValue(
+    getModelsDropdown(),
+    readBlockFieldVal(self, fieldName),
+    v => (v.split('/').pop() || v).replace(/\.geo\.json$/i, '')
+  );
+}
+
+function getTexturesDropdown() {
+  return currentTextures.length > 0 ? currentTextures : [["defolt", "textures/entity/defolt.png"]];
+}
+
+function getTexturesDropdownFor(self, fieldName) {
+  return ensureDropdownValue(
+    getTexturesDropdown(),
+    readBlockFieldVal(self, fieldName),
+    v => (v.split('/').pop() || v).replace(/\.(png|jpg|jpeg)$/i, '')
+  );
+}
+
+/** Id из `create npc id` в тексте .spr */
+export function extractCreateNpcIdsFromSpr(text) {
+  const ids = [];
+  if (!text) return ids;
+  const seen = new Set();
+  for (const m of text.matchAll(/create\s+npc\s+([A-Za-z_][A-Za-z0-9_]*)/g)) {
+    if (!seen.has(m[1])) {
+      seen.add(m[1]);
+      ids.push(m[1]);
+    }
+  }
+  return ids;
+}
+
+/** Id НИПов из блоков «создать НИП» в открытом workspace. */
+export function extractNpcIdsFromWorkspace(workspace) {
+  const ids = [];
+  if (!workspace) return ids;
+  for (const block of workspace.getAllBlocks(false)) {
+    if (!block.type?.endsWith('npc_create')) continue;
+    const id = readBlockFieldVal(block, 'id');
+    if (id) ids.push(id);
+  }
+  return ids;
+}
+
+/** Собрать id для dropdown: импорты + блоки create npc в текущем скрипте. */
+export function buildNpcDropdownIds(workspace, importedNpcIds) {
+  const ids = new Set();
+  for (const id of (importedNpcIds || [])) {
+    if (id && id !== '_eventNpc') ids.add(String(id));
+  }
+  if (workspace) {
+    for (const id of extractNpcIdsFromWorkspace(workspace)) ids.add(id);
+    try {
+      for (const id of extractCreateNpcIdsFromSpr(generateWorkspaceCode(workspace))) ids.add(id);
+    } catch (e) {}
+  }
+  return [...ids];
+}
+
+/** Обновить списки НИПов (только create npc) и dropdown. */
+export function syncNpcDropdownsFromWorkspace(workspace, cache) {
+  const npcs = buildNpcDropdownIds(workspace, cache?.importedNpcIds);
+  updateDynamicLists(
+    npcs,
+    cache?.anims,
+    cache?.models,
+    cache?.textures,
+    cache?.animFiles
+  );
+  if (workspace) refreshDynamicDropdownFields(workspace);
+  return npcs;
+}
+
+/** Id из блоков npc_create в .sprv (не dropdown «выбор НИПа»). */
+export function extractNpcCreateIdsFromBlocklyXml(xmlDom) {
+  const ids = new Set();
+  if (!xmlDom) return [];
+  const blocks = xmlDom.getElementsByTagName('block');
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    const type = block.getAttribute('type') || '';
+    if (!type.endsWith('npc_create')) continue;
+    for (let j = 0; j < block.childNodes.length; j++) {
+      const child = block.childNodes[j];
+      if (child.nodeName === 'field' && child.getAttribute('name') === 'id') {
+        const val = (child.textContent || '').trim();
+        if (val) ids.add(val);
+      }
+    }
+    const mutation = block.getElementsByTagName('mutation')[0];
+    if (mutation) {
+      const fid = mutation.getAttribute('f_id');
+      if (fid?.trim()) ids.add(fid.trim());
+    }
+  }
+  return [...ids];
+}
+
+/** После обновления списков — восстановить значения dropdown из val_* / mutation. */
+export function refreshDynamicDropdownFields(workspace) {
+  if (!workspace) return;
+  for (const block of workspace.getAllBlocks(false)) {
+    block.syncValFromFields_?.();
+    for (const key of Object.getOwnPropertyNames(block)) {
+      if (!key.startsWith('val_')) continue;
+      const fname = key.slice(4);
+      const cached = block[key];
+      if (cached == null || String(cached).trim() === '') continue;
+      try {
+        block.setFieldValue(String(cached), fname);
+        block[key] = String(cached);
+      } catch (e) {}
+    }
+  }
+}
+
+function getDimensionDropdown() {
+  return [
+    ["Обычный мир", "overworld"],
+    ["Ад", "nether"],
+    ["Край", "the_end"],
+  ];
 }
 
 // ================= ПАРСЕР #\ БЛОКОВ =================
 export let customCategories = {};
 export let customParsers = [];
+export let pluginCategoryOrder = [];
+/** fullId блока → строки для начала скрипта (import, startScript и т.д.) */
+export let blockWriteStart = new Map();
 
 export function clearCustomCategories() {
   customCategories = {};
   customParsers = [];
+  pluginCategoryOrder = [];
+  blockWriteStart = new Map();
+}
+
+export function registerPluginCategoryOrder(categories) {
+  if (!Array.isArray(categories)) return;
+  for (const cat of categories) {
+    if (cat && !pluginCategoryOrder.includes(cat)) pluginCategoryOrder.push(cat);
+  }
+}
+
+export function applyPluginCategoryColors(colors) {
+  if (!colors || typeof colors !== 'object') return;
+  for (const [name, color] of Object.entries(colors)) {
+    if (customCategories[name]) customCategories[name].color = color;
+  }
+}
+
+export function sortPluginBlocks(namespace, orderByCategory) {
+  if (!orderByCategory || typeof orderByCategory !== 'object') return;
+  for (const [catName, blockIds] of Object.entries(orderByCategory)) {
+    if (!customCategories[catName] || !Array.isArray(blockIds)) continue;
+    const blocks = customCategories[catName].blocks;
+    const remaining = [...blocks];
+    const sorted = [];
+    for (const rawId of blockIds) {
+      const fullId = namespace ? `${namespace}.${rawId}` : rawId;
+      const idx = remaining.indexOf(fullId);
+      if (idx !== -1) {
+        sorted.push(remaining[idx]);
+        remaining.splice(idx, 1);
+      }
+    }
+    customCategories[catName].blocks = [...sorted, ...remaining];
+  }
+}
+
+/** Имя скрипта из import("x") (или устаревший startScript("x")). */
+function parseWriteStartScriptName(line) {
+  const m = line.trim().match(/^(?:startScript|import)\(\s*["']([^"']+)["']\s*\)$/);
+  return m ? m[1] : null;
+}
+
+/** Собирает уникальные write_start строки из типов блоков, присутствующих в workspace. */
+export function collectWriteStartLines(workspace) {
+  if (!workspace) return '';
+  const seenLines = new Set();
+  const scriptOrder = [];
+  const otherLines = [];
+
+  for (const block of workspace.getAllBlocks(false)) {
+    const wsLines = blockWriteStart.get(block.type);
+    if (!wsLines) continue;
+    for (const line of wsLines) {
+      const trimmed = line.trim();
+      if (!trimmed || seenLines.has(trimmed)) continue;
+      seenLines.add(trimmed);
+
+      const scriptName = parseWriteStartScriptName(trimmed);
+      if (scriptName) {
+        if (!scriptOrder.includes(scriptName)) scriptOrder.push(scriptName);
+        continue;
+      }
+      otherLines.push(trimmed);
+    }
+  }
+
+  const lines = scriptOrder.map(name => `import("${name}")`);
+  lines.push(...otherLines);
+  return lines.join('\n');
+}
+
+/** Генерация кода workspace + префикс write_start из использованных блоков. */
+export function generateWorkspaceCode(workspace) {
+  if (!workspace) return '';
+  const body = SprauteGenerator.workspaceToCode(workspace);
+  const prefix = collectWriteStartLines(workspace);
+  if (!prefix) return body;
+  if (!body || !body.trim()) return prefix + '\n';
+  return prefix + '\n' + body;
 }
 
 /**
@@ -84,6 +393,7 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
 
   let rawId = "", category = "Custom", color = "#555555", shape = "statement";
   let bodyLines = [];
+  let writeStartLines = [];
   
   let uiLines = [], dynamicUiLines = [], codeGenLines = [], codeParseLines = [];
   let section = "META";
@@ -103,6 +413,11 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
       else if (trimmed.startsWith('category:')) { category = trimmed.slice(9).trim(); continue; }
       else if (trimmed.startsWith('color:'))    { color    = trimmed.slice(6).trim(); continue; }
       else if (trimmed.startsWith('shape:'))    { shape    = trimmed.slice(6).trim(); continue; }
+      else if (trimmed.startsWith('write_start:')) {
+        const line = trimmed.slice(13).trim();
+        if (line) writeStartLines.push(line);
+        continue;
+      }
       else {
         section = 'BODY';
       }
@@ -124,9 +439,18 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
   const fullId = namespace ? `${namespace}.${rawId}` : rawId;
 
   if (!isPreview) {
-    if (!customCategories[category]) customCategories[category] = { color, blocks: [] };
+    if (!customCategories[category]) {
+      customCategories[category] = { color, blocks: [] };
+    } else if (customCategories[category].color) {
+      color = customCategories[category].color;
+    } else if (color && color !== '#555555') {
+      customCategories[category].color = color;
+    }
     if (!customCategories[category].blocks.includes(fullId)) {
       customCategories[category].blocks.push(fullId);
+    }
+    if (writeStartLines.length > 0) {
+      blockWriteStart.set(fullId, [...writeStartLines]);
     }
   }
 
@@ -160,7 +484,17 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
           js += `} else {\n`;
           js += `  row.appendField(new Blockly.FieldImage(toggleIcon, 15, 15, "*", function(){ self.slotToggles_[${JSON.stringify(name)}]=true; self.updateShape_(); }));\n`;
           if (typeDef === 'dropdown_npc') {
-            js += `  row.appendField(new Blockly.FieldDropdown(function(){ return getNpcsDropdown(); }, function(v){ self.validateField(${JSON.stringify(name)}, v); return v; }), ${JSON.stringify(name)});\n`;
+            js += `  row.appendField(new Blockly.FieldDropdown(function(){ return getNpcsDropdownFor(self, ${JSON.stringify(name)}); }, function(v){ self.validateField(${JSON.stringify(name)}, v); return v; }), ${JSON.stringify(name)});\n`;
+          } else if (typeDef === 'dropdown_anim') {
+            js += `  row.appendField(new Blockly.FieldDropdown(function(){ return getAnimsDropdownFor(self, ${JSON.stringify(name)}); }, function(v){ self.validateField(${JSON.stringify(name)}, v); return v; }), ${JSON.stringify(name)});\n`;
+          } else if (typeDef === 'dropdown_animfile') {
+            js += `  row.appendField(new Blockly.FieldDropdown(function(){ return getAnimFilesDropdownFor(self, ${JSON.stringify(name)}); }, function(v){ self.validateField(${JSON.stringify(name)}, v); return v; }), ${JSON.stringify(name)});\n`;
+          } else if (typeDef === 'dropdown_model') {
+            js += `  row.appendField(new Blockly.FieldDropdown(function(){ return getModelsDropdownFor(self, ${JSON.stringify(name)}); }, function(v){ self.validateField(${JSON.stringify(name)}, v); return v; }), ${JSON.stringify(name)});\n`;
+          } else if (typeDef === 'dropdown_texture') {
+            js += `  row.appendField(new Blockly.FieldDropdown(function(){ return getTexturesDropdownFor(self, ${JSON.stringify(name)}); }, function(v){ self.validateField(${JSON.stringify(name)}, v); return v; }), ${JSON.stringify(name)});\n`;
+          } else if (typeDef === 'dropdown_dimension') {
+            js += `  row.appendField(new Blockly.FieldDropdown(function(){ return getDimensionDropdown(); }, function(v){ self.validateField(${JSON.stringify(name)}, v); return v; }), ${JSON.stringify(name)});\n`;
           } else {
             const optsMatch = typeDef.match(/^dropdown\((.*)\)$/s);
             if (optsMatch) {
@@ -175,7 +509,7 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
         } else if (tok.startsWith('(')) {
           const inner = tok.slice(1, -1);
           const parts = inner.split(':').map(s => s.trim());
-          const name = parts[0], def = parts[2] || "";
+          const name = parts[0], typeDef = parts[1] || 'text', def = parts.slice(2).join(':').trim() || "";
           const contName = inputName + '_cont_' + name;
           
           js += `var toggleIcon = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNSIgaGVpZ2h0PSIxNSIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTAgOWwtMyAzIDMgM200LTZsMyAzLTMgMyIvPjwvc3ZnPg==";\n`;
@@ -187,7 +521,12 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
           js += `  self.dynamicInputNames_.push(${JSON.stringify(contName)});\n`;
           js += `} else {\n`;
           js += `  row.appendField(new Blockly.FieldImage(toggleIcon, 15, 15, "*", function(){ self.slotToggles_[${JSON.stringify(name)}]=true; self.updateShape_(); }));\n`;
-          js += `  row.appendField(new Blockly.FieldTextInput(self[${JSON.stringify("val_"+name)}] || ${JSON.stringify(def)}), ${JSON.stringify(name)});\n`;
+          const defLit = JSON.stringify(def.replace(/\\n/g, '\n').replace(/\\t/g, '\t'));
+          if (typeDef === 'textmultiline') {
+            js += `  row.appendField(new FieldMultilineInput(self[${JSON.stringify("val_"+name)}] || ${defLit}), ${JSON.stringify(name)});\n`;
+          } else {
+            js += `  row.appendField(new Blockly.FieldTextInput(self[${JSON.stringify("val_"+name)}] || ${defLit}), ${JSON.stringify(name)});\n`;
+          }
           js += `}\n`;
         }
       }
@@ -196,6 +535,7 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
       if (m) {
         const [, iname, itype, label=""] = m;
         if (itype === 'value') {
+          valueInputNames.add(iname);
           js += `var inp = self.appendValueInput(${JSON.stringify(iname)});\n`;
         } else {
           js += `var inp = self.appendStatementInput(${JSON.stringify(iname)});\n`;
@@ -211,6 +551,22 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
   let codeGenJs = "";
   let extractedTemplates = [];
   let conditionVars = new Set();
+  let filledConditionVars = new Set();
+  // Метаданные для корректного round-trip (код -> блоки):
+  const valueInputNames = new Set();   // имена value-инпутов (вложенные блоки, а не поля)
+  const templateConds = [];            // параллельно extractedTemplates: дискриминаторы {var: value}
+
+  // Разбирает условие if в список простых равенств var=="value" (только чистые AND).
+  function parseSimpleEqs(origCond) {
+    if (/\bor\b/.test(origCond) || /\bnot\b/.test(origCond) || origCond.includes('!=')) return [];
+    const eqs = [];
+    for (const part of origCond.split(/\band\b/)) {
+      const m = part.match(/^\s*([a-zA-Z_]\w*)\s*==\s*"([^"]*)"\s*$/);
+      if (m) eqs.push({ v: m[1], value: m[2] });
+    }
+    return eqs;
+  }
+  const condStack = []; // {indent, eqs}
 
   if (isLegacy) {
     let dynCounter = 0;
@@ -260,7 +616,9 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
     const codeIndentStack = [];
     let dynCounter = 0;
 
-    for (const raw of bodyLines) {
+    let pendingLabel = null;
+    for (let _bi = 0; _bi < bodyLines.length; _bi++) {
+      const raw = bodyLines[_bi];
       if (!raw.trim()) continue;
       const indent = raw.match(/^\s*/)[0].length;
       const line = raw.trim();
@@ -271,9 +629,21 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
       while (codeIndentStack.length > 0 && codeIndentStack[codeIndentStack.length-1] >= indent) {
         codeGenJs += "}\n"; codeIndentStack.pop();
       }
+      while (condStack.length > 0 && condStack[condStack.length-1].indent >= indent) {
+        condStack.pop();
+      }
 
-      if (line.startsWith('if ') && line.endsWith(':')) {
-        let cond = line.slice(3, -1).trim();
+      if (/^if_filled\s+([a-zA-Z_]\w*)\s*:$/.test(line)) {
+        pendingLabel = null;
+        const fieldName = line.match(/^if_filled\s+([a-zA-Z_]\w*)\s*:$/)[1];
+        filledConditionVars.add(fieldName);
+        dynUiJs += `if (_filled(${JSON.stringify(fieldName)})) {\n`;
+        dynIndentStack.push(indent);
+      } else if (line.startsWith('if ') && line.endsWith(':')) {
+        pendingLabel = null;
+        const origCond = line.slice(3, -1).trim();
+        condStack.push({ indent, eqs: parseSimpleEqs(origCond) });
+        let cond = origCond;
         cond = cond.replace(/\bor\b/g, '||').replace(/\band\b/g, '&&').replace(/\bnot\b/g, '!');
         
         // Temporarily extract string literals
@@ -308,13 +678,56 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
         let tmpl = line.slice(9).trim();
         let actualTmpl = tmpl.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
         extractedTemplates.push(actualTmpl);
-        let jsTmpl = actualTmpl.replace(/{([a-zA-Z0-9_]+)}/g, (match, v) => {
-            return `\${_getVal(${JSON.stringify(v)})}`;
-        });
+        // Снимок активных дискриминаторов для этого шаблона
+        const conds = {};
+        for (const c of condStack) for (const e of c.eqs) conds[e.v] = e.value;
+        templateConds.push(conds);
+        let jsTmpl = actualTmpl
+          .replace(/"\{([a-zA-Z0-9_]+)\}"/g, (match, v) => `\${_str(${JSON.stringify(v)})}`)
+          .replace(/\{([a-zA-Z0-9_]+)\}/g, (match, v) => `\${_getVal(${JSON.stringify(v)})}`);
         codeGenJs += `return \`${jsTmpl}\\n\`;\n`;
       } else if (line.startsWith('code:')) {
         codeGenJs += line.slice(5).trim() + "\n";
       } else if (line.startsWith('row:') || line.startsWith('input:')) {
+        // Lookahead: if row is only text labels and next non-empty line is input: xxx (type: value), merge them
+        if (line.startsWith('row:')) {
+          const rowContent = line.slice(4).trim();
+          // Check if row contains ONLY quoted strings (no [ ] or ( ) field tokens)
+          const isLabelOnly = /^("(?:[^"\\]|\\.)*"\s*)+$/.test(rowContent);
+          if (isLabelOnly) {
+            // Find next non-empty body line
+            const remaining = bodyLines.slice(_bi + 1);
+            let nextLine = null;
+            for (const nr of remaining) {
+              const nt = nr.trim();
+              if (nt && !nt.startsWith('if ') && !nt.startsWith('template:') && !nt.startsWith('code:')) {
+                nextLine = nt; break;
+              } else if (nt) break;
+            }
+            if (nextLine && nextLine.startsWith('input:')) {
+              const m2 = nextLine.match(/^input:\s*(\w+)\s*\(type:\s*value\)/);
+              if (m2) {
+                // Skip this row — it'll be merged in the input: handling below
+                pendingLabel = rowContent.replace(/"/g, '').trim();
+                dynCounter++;
+                continue;
+              }
+            }
+          }
+        }
+        if (line.startsWith('input:')) {
+          const m2 = line.match(/^input:\s*(\w+)\s*\(type:\s*(\w+)\)/);
+          if (m2 && m2[2] === 'value' && pendingLabel) {
+            const iname = m2[1];
+            valueInputNames.add(iname);
+            dynUiJs += `var inp = self.appendValueInput(${JSON.stringify(iname)});\n`;
+            dynUiJs += `inp.appendField(${JSON.stringify(pendingLabel)});\n`;
+            dynUiJs += `self.dynamicInputNames_.push(${JSON.stringify(iname)});\n`;
+            pendingLabel = null;
+            continue;
+          }
+          pendingLabel = null;
+        }
         dynUiJs += compileUiLine(line, `DYN_${dynCounter++}`);
       }
     }
@@ -322,18 +735,42 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
     while (codeIndentStack.length > 0) { codeGenJs += "}\n"; codeIndentStack.pop(); }
   }
 
+  if (filledConditionVars.size > 0) {
+    dynUiJs = `var _filled = function(n){
+  if (self.workspace && self.workspace._sprauteRestoringBlocks && self._sprauteForceFilled_ && self._sprauteForceFilled_[n]) return true;
+  if (self._sprautePendingChildIds_ && self._sprautePendingChildIds_[n]) return true;
+  try {
+    var inp = self.getInput(n);
+    if (inp && inp.type === 1 && inp.connection && inp.connection.targetBlock()) return true;
+  } catch (e) {}
+  if (self.filledWatchFields_ && self.filledWatchFields_.indexOf(n) >= 0) return false;
+  var cached = self["val_"+n];
+  if (cached != null && String(cached).trim().length > 0) return true;
+  try {
+    var fv = self.getFieldValue(n);
+    if (fv != null && String(fv).trim().length > 0) return true;
+  } catch (e) {}
+  return false;
+};\n` + dynUiJs;
+  }
+
   const hasDyn = dynUiJs.trim().length > 0;
   const condVarsArray = Array.from(conditionVars);
+  const filledVarsArray = Array.from(filledConditionVars);
+  const valueInputNamesArray = Array.from(valueInputNames);
 
   Blockly.Blocks[fullId] = {
     init: function() {
       const self = this;
       this.dynamicInputNames_ = [];
+      this.dynamicValueInputNames_ = valueInputNamesArray;
       this.trackedFields_ = [];
       this.conditionVars_ = condVarsArray;
+      this.filledWatchFields_ = filledVarsArray;
+      this._sprauteShape_ = shape;
       
       this.setColour(color);
-      this.setInputsInline(true);
+      this.setInputsInline(false);
       if (shape === 'value') {
         this.setOutput(true, null);
       } else {
@@ -342,8 +779,8 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
       }
 
       try {
-        const initFn = new Function('Blockly', 'getNpcsDropdown', 'self', "");
-        initFn(Blockly, getNpcsDropdown, self);
+        const initFn = new Function('Blockly', 'FieldMultilineInput', 'getNpcsDropdown', 'getNpcsDropdownFor', 'getAnimsDropdown', 'getAnimsDropdownFor', 'getAnimFilesDropdown', 'getAnimFilesDropdownFor', 'getModelsDropdown', 'getModelsDropdownFor', 'getTexturesDropdown', 'getTexturesDropdownFor', 'getDimensionDropdown', 'self', "");
+        initFn(Blockly, FieldMultilineInput, getNpcsDropdown, getNpcsDropdownFor, getAnimsDropdown, getAnimsDropdownFor, getAnimFilesDropdown, getAnimFilesDropdownFor, getModelsDropdown, getModelsDropdownFor, getTexturesDropdown, getTexturesDropdownFor, getDimensionDropdown, self);
       } catch(e) { console.error(`[Block ${fullId}] Init UI error:`, e); }
 
       if (shape === 'wrapper') {
@@ -358,26 +795,135 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
           }
         }
       }
-      if (hasDyn) this.updateShape_();
+      if (hasDyn) {
+        if (!this.workspace?._sprauteRestoringBlocks) {
+          this.updateShape_();
+        }
+        // При загрузке .sprv форму строит domToMutation (после чтения f_/c_ из mutation)
+      }
+    },
+
+    /** Только добавляет поля/слоты из dynUiJs без пересборки DO (для загрузки .sprv). */
+    applyDynUiOnly_: function() {
+      if (!dynUiJs) return;
+      const self = this;
+      try {
+        const dynFn = new Function('Blockly', 'FieldMultilineInput', 'getNpcsDropdown', 'getNpcsDropdownFor', 'getAnimsDropdown', 'getAnimsDropdownFor', 'getAnimFilesDropdown', 'getAnimFilesDropdownFor', 'getModelsDropdown', 'getModelsDropdownFor', 'getTexturesDropdown', 'getTexturesDropdownFor', 'getDimensionDropdown', 'self', dynUiJs);
+        dynFn(Blockly, FieldMultilineInput, getNpcsDropdown, getNpcsDropdownFor, getAnimsDropdown, getAnimsDropdownFor, getAnimFilesDropdown, getAnimFilesDropdownFor, getModelsDropdown, getModelsDropdownFor, getTexturesDropdown, getTexturesDropdownFor, getDimensionDropdown, self);
+      } catch (e) {
+        console.error(`[Block ${fullId}] applyDynUiOnly error:`, e);
+      }
+    },
+
+    /** Непрерывная цепочка if_filled: слот N+1 только если слот N реально заполнен. */
+    pruneFilledWatchState_: function() {
+      const fields = this.filledWatchFields_;
+      if (!fields?.length) return;
+      this._sprauteForceFilled_ = this._sprauteForceFilled_ || {};
+      const restoring = !!this.workspace?._sprauteRestoringBlocks;
+
+      for (let i = 0; i < fields.length; i++) {
+        const n = fields[i];
+        const filled = isValueSlotFilled(this, n) || (restoring && this._sprauteForceFilled_[n]);
+        if (!filled) {
+          for (let j = i; j < fields.length; j++) {
+            delete this._sprauteForceFilled_[fields[j]];
+            delete this[`val_${fields[j]}`];
+          }
+          break;
+        }
+        this._sprauteForceFilled_[n] = true;
+      }
+    },
+
+    expandFilledWatchChain_: function() {
+      this.pruneFilledWatchState_();
+    },
+
+    clearFilledWatchFrom_: function(fromInputName) {
+      const fields = this.filledWatchFields_;
+      if (!fields?.length) return;
+      const idx = fields.indexOf(fromInputName);
+      if (idx < 0) return;
+      for (let i = idx; i < fields.length; i++) {
+        const n = fields[i];
+        if (this._sprauteForceFilled_) delete this._sprauteForceFilled_[n];
+        delete this[`val_${n}`];
+      }
+    },
+
+    syncFilledWatchMutation_: function() {
+      this.pruneFilledWatchState_();
+    },
+
+    /** Сохраняет код из value-слотов в val_* перед пересборкой формы. */
+    snapshotValueInputs_: function() {
+      const dynNames = this.dynamicValueInputNames_;
+      for (const input of this.inputList) {
+        if (!input.name || input.type !== 1 || !input.connection) continue;
+        if (dynNames?.length && !dynNames.includes(input.name)) continue;
+        const child = input.connection.targetBlock();
+        if (!child) continue;
+        try {
+          let gen = SprauteGenerator.blockToCode(child);
+          if (Array.isArray(gen)) gen = gen[0];
+          const s = gen == null ? '' : String(gen).trim();
+          if (s) this[`val_${input.name}`] = s;
+        } catch (e) {}
+      }
+    },
+
+    syncCodeSlotCache_: function() {
+      if (!this.dynamicValueInputNames_?.length) return;
+      this.snapshotValueInputs_();
     },
 
     validateField: function(name, newValue) {
       const old = this[`val_${name}`];
       this[`val_${name}`] = newValue;
-      if (hasDyn && old !== newValue && this.conditionVars_.includes(name)) {
+      const reshape = hasDyn && !this._restoringShape_ && old !== newValue &&
+        (this.conditionVars_.includes(name) || this.filledWatchFields_.includes(name));
+      if (reshape) {
         const self = this;
         setTimeout(() => { if (self.workspace) self.updateShape_(); }, 0);
       }
       return newValue;
     },
 
-    mutationToDom: function() {
-      const container = Blockly.utils.xml.createElement('mutation');
+    syncValFromFields_: function() {
       for (const input of this.inputList) {
         for (const field of input.fieldRow) {
-          if (field.name) {
-             const val = this[`val_${field.name}`] || field.getValue();
-             if (val != null) container.setAttribute(`f_${field.name}`, val);
+          if (!field.name) continue;
+          try {
+            const v = field.getValue();
+            if (v != null && v !== '') this[`val_${field.name}`] = v;
+          } catch(e) {}
+        }
+      }
+    },
+
+    mutationToDom: function() {
+      this.syncValFromFields_();
+      this.syncCodeSlotCache_();
+      const container = Blockly.utils.xml.createElement('mutation');
+      const saved = new Set();
+      for (const key of Object.getOwnPropertyNames(this)) {
+        if (!key.startsWith('val_')) continue;
+        const fname = key.slice(4);
+        const val = this[key];
+        if (val != null && val !== '') {
+          container.setAttribute(`f_${fname}`, val);
+          saved.add(fname);
+        }
+      }
+      for (const input of this.inputList) {
+        for (const field of input.fieldRow) {
+          if (field.name && !saved.has(field.name)) {
+            const val = field.getValue();
+            if (val != null && val !== '') {
+              container.setAttribute(`f_${field.name}`, val);
+              this[`val_${field.name}`] = val;
+            }
           }
         }
       }
@@ -388,46 +934,264 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
            }
         }
       }
+      if (this.filledWatchFields_?.length) {
+        this.syncFilledWatchMutation_();
+        for (const n of this.filledWatchFields_) {
+          if (this._sprauteForceFilled_?.[n]) {
+            container.setAttribute(`v_${n}`, 'true');
+          }
+        }
+      }
+      if (this.dynamicValueInputNames_?.length) {
+        for (const n of this.dynamicValueInputNames_) {
+          const cached = this[`val_${n}`];
+          if (cached != null && String(cached).trim() !== '') {
+            container.setAttribute(`c_${n}`, String(cached));
+          }
+        }
+      }
       return container;
     },
 
     domToMutation: function(xml) {
       this.slotToggles_ = {};
+      this._sprauteForceFilled_ = {};
       for (const attr of xml.attributes) {
         if (attr.name.startsWith('f_')) {
           this[`val_${attr.name.slice(2)}`] = attr.value;
         } else if (attr.name.startsWith('t_')) {
           this.slotToggles_[attr.name.slice(2)] = (attr.value === "true");
+        } else if (attr.name.startsWith('v_')) {
+          if (attr.value === 'true') this._sprauteForceFilled_[attr.name.slice(2)] = true;
+        } else if (attr.name.startsWith('c_')) {
+          this[`val_${attr.name.slice(2)}`] = attr.value;
         }
+      }
+      this.expandFilledWatchChain_();
+      // При загрузке .sprv — развернуть все сохранённые слоты до подключения вложенных блоков.
+      if (hasDyn && this.workspace?._sprauteRestoringBlocks) {
+        this.updateShape_();
+      } else if (hasDyn) {
+        this.updateShape_();
+      }
+    },
+
+    /** JSON-сериализация (Ctrl+C/V) — до подключения дочерних блоков. */
+    saveExtraState: function() {
+      this.syncValFromFields_();
+      this.syncCodeSlotCache_();
+      const state = {};
+      for (const key of Object.getOwnPropertyNames(this)) {
+        if (!key.startsWith('val_')) continue;
+        const fname = key.slice(4);
+        const val = this[key];
+        if (val != null && val !== '') state[fname] = val;
+      }
+      for (const input of this.inputList) {
+        for (const field of input.fieldRow) {
+          if (!field.name || state[field.name] != null) continue;
+          try {
+            const val = field.getValue();
+            if (val != null && val !== '') state[field.name] = val;
+          } catch (e) {}
+        }
+      }
+      if (this.slotToggles_) {
+        const toggles = {};
+        for (const key in this.slotToggles_) {
+          if (this.slotToggles_[key]) toggles[key] = true;
+        }
+        if (Object.keys(toggles).length) state._toggles = toggles;
+      }
+      if (this.filledWatchFields_?.length) {
+        this.syncFilledWatchMutation_();
+        const filled = {};
+        for (const n of this.filledWatchFields_) {
+          if (this._sprauteForceFilled_?.[n]) filled[n] = true;
+        }
+        if (Object.keys(filled).length) state._filledSlots = filled;
+      }
+      if (this.dynamicValueInputNames_?.length) {
+        const codeSlots = {};
+        for (const n of this.dynamicValueInputNames_) {
+          const cached = this[`val_${n}`];
+          if (cached != null && String(cached).trim() !== '') codeSlots[n] = String(cached);
+        }
+        if (Object.keys(codeSlots).length) state._codeSlots = codeSlots;
+      }
+      return state;
+    },
+
+    loadExtraState: function(state) {
+      if (!state || typeof state !== 'object') return;
+      this.slotToggles_ = {};
+      this._sprauteForceFilled_ = {};
+      if (state._toggles) {
+        for (const key in state._toggles) {
+          if (state._toggles[key]) this.slotToggles_[key] = true;
+        }
+      }
+      if (state._filledSlots) {
+        for (const key in state._filledSlots) {
+          if (state._filledSlots[key]) this._sprauteForceFilled_[key] = true;
+        }
+        this.expandFilledWatchChain_();
+      }
+      if (state._codeSlots) {
+        for (const [n, code] of Object.entries(state._codeSlots)) {
+          if (code != null && String(code).trim() !== '') this[`val_${n}`] = String(code);
+        }
+      }
+      for (const [fname, val] of Object.entries(state)) {
+        if (fname === '_toggles' || fname === '_filledSlots' || fname === '_codeSlots') continue;
+        this[`val_${fname}`] = val;
       }
       if (hasDyn) this.updateShape_();
     },
 
     onchange: function(e) {
       if (e.blockId !== this.id) return;
-      if (e.type === Blockly.Events.BLOCK_CHANGE && e.name) {
+      if (e.type !== Blockly.Events.BLOCK_CHANGE) return;
+      if (e.element === 'collapsed') {
+        if (!e.newValue && this._sprauteReshapeWhenExpanded_) {
+          this._sprauteReshapeWhenExpanded_ = false;
+          const self = this;
+          setTimeout(() => { if (self.workspace) self.updateShape_(); }, 0);
+        }
+        return;
+      }
+      if (e.name) {
         this[`val_${e.name}`] = e.newValue;
+        if (hasDyn && !this._restoringShape_ && this.filledWatchFields_.includes(e.name)) {
+          const self = this;
+          setTimeout(() => { if (self.workspace) self.updateShape_(); }, 0);
+        }
       }
     },
 
     updateShape_: function() {
       if (!dynUiJs) return;
+      const self = this;
+      if (self._sprauteReshaping) return;
+
+      // Пересборка формы на свёрнутом блоке ломает типы полей и отваливает вложенные блоки.
+      if (typeof self.isCollapsed === 'function' && self.isCollapsed()) {
+        self._sprauteReshapeWhenExpanded_ = true;
+        return;
+      }
+      self._sprauteReshapeWhenExpanded_ = false;
+
+      self._sprauteReshaping = true;
+      try {
+      // Актуальные значения полей (в т.ч. применённые Blockly из XML после domToMutation)
+      this.syncValFromFields_();
+      this.snapshotValueInputs_();
+      if (self.filledWatchFields_?.length && !self.workspace?._sprauteRestoringBlocks) {
+        self.syncFilledWatchMutation_();
+      }
+
+      // 1. Сохраняем id вложенных блоков ДО удаления инпутов
+      const savedChildIds = {};
+      const savedStmtChains = {};
+      for (const input of this.inputList) {
+        if (!input.name || !input.connection) continue;
+        const child = input.connection.targetBlock();
+        if (child && !child.isDisposed()) {
+          savedChildIds[input.name] = child.id;
+          if (input.type === 3) {
+            const chain = [];
+            let cur = child;
+            while (cur && !cur.isDisposed()) {
+              chain.push(cur.id);
+              cur = cur.nextConnection?.targetBlock() || null;
+            }
+            savedStmtChains[input.name] = chain;
+          }
+        }
+      }
+
+      // 2. Удаляем старые динамические инпуты (quiet=true: дети отсоединяются, но не уничтожаются)
       const toRemove = [...this.dynamicInputNames_];
       for (const n of toRemove) {
-        if (this.getInput(n)) this.removeInput(n);
+        if (this.getInput(n)) this.removeInput(n, true);
       }
       this.dynamicInputNames_ = [];
-      const self = this;
-      try {
-        const dynFn = new Function('Blockly', 'getNpcsDropdown', 'self', dynUiJs);
-        dynFn(Blockly, getNpcsDropdown, self);
-      } catch(e) { console.error(`[Block ${fullId}] Dynamic UI error:`, e); }
 
-      if (shape === 'wrapper' && self.getInput("DO")) {
+      // 3. Пересоздаём форму (_filled видит слоты по id до восстановления связей)
+      self._sprautePendingChildIds_ = { ...savedChildIds };
+      try {
+        const dynFn = new Function('Blockly', 'FieldMultilineInput', 'getNpcsDropdown', 'getNpcsDropdownFor', 'getAnimsDropdown', 'getAnimsDropdownFor', 'getAnimFilesDropdown', 'getAnimFilesDropdownFor', 'getModelsDropdown', 'getModelsDropdownFor', 'getTexturesDropdown', 'getTexturesDropdownFor', 'getDimensionDropdown', 'self', dynUiJs);
+          dynFn(Blockly, FieldMultilineInput, getNpcsDropdown, getNpcsDropdownFor, getAnimsDropdown, getAnimsDropdownFor, getAnimFilesDropdown, getAnimFilesDropdownFor, getModelsDropdown, getModelsDropdownFor, getTexturesDropdown, getTexturesDropdownFor, getDimensionDropdown, self);
+      } catch(e) { console.error(`[Block ${fullId}] Dynamic UI error:`, e); }
+      self._sprautePendingChildIds_ = null;
+
+      // 4. Восстанавливаем подключения по id блока
+      const ws = self.workspace;
+      for (const n in savedChildIds) {
+        const inp = self.getInput(n);
+        const child = ws && ws.getBlockById(savedChildIds[n]);
+        if (!inp?.connection || !child || child.isDisposed()) continue;
+        try {
+          if (inp.type === 1 && child.outputConnection) {
+            if (!inp.connection.targetConnection) inp.connection.connect(child.outputConnection);
+          } else if (inp.type === 3 && child.previousConnection) {
+            if (!inp.connection.targetConnection) inp.connection.connect(child.previousConnection);
+            const chain = savedStmtChains[n];
+            if (chain && chain.length > 1) {
+              for (let ci = 0; ci < chain.length - 1; ci++) {
+                const a = ws.getBlockById(chain[ci]);
+                const b = ws.getBlockById(chain[ci + 1]);
+                if (a?.nextConnection && b?.previousConnection && !a.nextConnection.targetConnection) {
+                  a.nextConnection.connect(b.previousConnection);
+                }
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (shape === 'wrapper' && self.getInput("DO") && !self.workspace?._sprauteRestoringBlocks) {
          var doConn = self.getInput("DO").connection.targetConnection;
          self.removeInput("DO", true);
          var doInp = self.appendStatementInput("DO");
          if (doConn) doInp.connection.connect(doConn);
+         const doChain = savedStmtChains.DO;
+         if (doChain && doChain.length > 1 && ws) {
+           for (let ci = 0; ci < doChain.length - 1; ci++) {
+             const a = ws.getBlockById(doChain[ci]);
+             const b = ws.getBlockById(doChain[ci + 1]);
+             if (a?.nextConnection && b?.previousConnection && !a.nextConnection.targetConnection) {
+               a.nextConnection.connect(b.previousConnection);
+             }
+           }
+         }
+      }
+
+      // 5. Восстанавливаем значения полей из val_* (важно при загрузке XML и round-trip)
+      self._restoringShape_ = true;
+      try {
+        for (const key of Object.getOwnPropertyNames(self)) {
+          if (!key.startsWith('val_')) continue;
+          const fname = key.slice(4);
+          const fval = self[key];
+          if (fval == null || fval === '') continue;
+          try { self.setFieldValue(fval, fname); } catch(e) {}
+        }
+      } finally {
+        self._restoringShape_ = false;
+      }
+
+      if (self.filledWatchFields_?.length) {
+        self._sprauteFilledPrev = self._sprauteFilledPrev || {};
+        for (const n of self.filledWatchFields_) {
+          self._sprauteFilledPrev[n] = isValueSlotFilled(self, n);
+        }
+        if (!self.workspace?._sprauteRestoringBlocks) {
+          self.pruneFilledWatchState_();
+        }
+      }
+      } finally {
+        self._sprauteReshaping = false;
       }
     }
   };
@@ -443,9 +1207,20 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
         if (Array.isArray(gen)) return gen[0] || "";
         return gen || "";
       }
+      let cached = block[`val_${name}`];
+      if (cached != null && String(cached).trim() !== '') return String(cached).trim();
       let v = block.getFieldValue(name);
       if (v === null || v === undefined) v = block[`val_${name}`];
       return v === null || v === undefined ? "" : v;
+    }
+
+    /** Строковый литерал для шаблонов: не дублирует кавычки у блока «текст». */
+    function _str(name) {
+      const raw = String(_getVal(name) ?? '').trim();
+      if (!raw) return '""';
+      if (raw.startsWith('"') && raw.endsWith('"')) return raw;
+      if (raw.startsWith("'") && raw.endsWith("'")) return raw;
+      return JSON.stringify(raw);
     }
 
     let ctx = "";
@@ -477,22 +1252,27 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
 
     let finalCodeGen = codeGenJs;
     if (!finalCodeGen && extractedTemplates.length === 1 && !isLegacy && !hasDyn) {
-        finalCodeGen = `return \`${extractedTemplates[0].replace(/{([a-zA-Z0-9_]+)}/g, (m, v) => `\${_getVal(${JSON.stringify(v)})}`)}\\n\`;\n`;
+        const tmplJs = extractedTemplates[0]
+          .replace(/"\{([a-zA-Z0-9_]+)\}"/g, (m, v) => `\${_str(${JSON.stringify(v)})}`)
+          .replace(/\{([a-zA-Z0-9_]+)\}/g, (m, v) => `\${_getVal(${JSON.stringify(v)})}`);
+        finalCodeGen = `return \`${tmplJs}\\n\`;\n`;
     }
 
     const fullCode = (isLegacy ? ctx : "") + finalCodeGen;
     try {
-      const fn = new Function('_getVal', 'block', 'SprauteGenerator', fullCode);
-      const res = fn(_getVal, block, SprauteGenerator);
+      const fn = new Function('_getVal', '_str', 'block', 'SprauteGenerator', fullCode);
+      const res = fn(_getVal, _str, block, SprauteGenerator);
       if (shape === 'value') return [res ?? "", 0];
-      return res ?? "";
+      return ensureStatementTrailingNewline(res);
     } catch(e) {
       return `/* CodeGen error in ${fullId}: ${e.message} */\n`;
     }
   };
 
   if (!isPreview && extractedTemplates.length > 0) {
-    for (const tmpl of extractedTemplates) {
+    for (let ti = 0; ti < extractedTemplates.length; ti++) {
+      const tmpl = extractedTemplates[ti];
+      const conds = templateConds[ti] || {};
       let regexStr = tmpl.replace(/[.*+?^$()|[\]\\]/g, '\\$&');
       const vars = [];
       regexStr = regexStr.replace(/{([a-zA-Z0-9_]+)}/g, (match, varName) => {
@@ -501,31 +1281,235 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
       });
       regexStr = regexStr.replace(/\s+/g, '\\s*');
       regexStr = `^\\s*${regexStr}`;
-      
+
+      const valueVarsList = vars.filter(v => valueInputNames.has(v));
+
       const pCode = `
-        const m = text.match(/${regexStr}/);
+        const m = text.match(/${regexStr}/i);
         if (m) {
           const fields = {};
           const statements = {};
+          const valueExprs = {};
+          const conds = ${JSON.stringify(conds)};
           const varNames = ${JSON.stringify(vars)};
+          const valueVars = ${JSON.stringify(valueVarsList)};
           for (let i = 0; i < varNames.length; i++) {
             const v = varNames[i];
             const val = m[i+1].trim();
             if (v === v.toUpperCase() && v.length > 1) {
               statements[v] = val;
+            } else if (valueVars.includes(v)) {
+              valueExprs[v] = val;
             } else {
               fields[v] = val;
             }
           }
-          return { length: m[0].length, fields, statements };
+          return { length: m[0].length, fields, statements, valueExprs, conds };
         }
         return null;
       `;
       try {
-        customParsers.push({ id: fullId, plugin: namespace, fn: new Function('text', pCode) });
+        customParsers.push({
+          id: fullId, plugin: namespace, shape,
+          fn: new Function('text', pCode),
+          priority: tmpl.replace(/\{[^}]+\}/g, '').length
+        });
       } catch(e) { console.error(`[Block ${fullId}] CodeParse error:`, e); }
     }
   }
+}
+
+// ================= КАСТОМНОЕ КОНТЕКСТНОЕ МЕНЮ BLOCKLY =================
+let _ctxBlock = null;
+let _ctxCloseHandler = null;
+
+function hideBlocklyCtxMenu() {
+  const el = document.getElementById('blockly-ctx-menu');
+  if (el) el.classList.add('hidden');
+  if (_ctxCloseHandler) {
+    document.removeEventListener('pointerdown', _ctxCloseHandler, true);
+    _ctxCloseHandler = null;
+  }
+  _ctxBlock = null;
+}
+
+function showBlocklyCtxMenu(block, x, y) {
+  const el = document.getElementById('blockly-ctx-menu');
+  if (!el) return;
+  _ctxBlock = block;
+
+  const isCollapsed = block.isCollapsed();
+  const isFav = isFavorite(block.type);
+
+  const items = [
+    {
+      icon: '⭐', label: isFav ? 'Убрать из избранного' : 'В избранное',
+      action() { isFav ? removeFavorite(block.type) : addFavorite(block.type); refreshToolbox(); }
+    },
+    { separator: true },
+    {
+      icon: isCollapsed ? '▼' : '▲',
+      label: isCollapsed ? 'Развернуть блок' : 'Свернуть блок',
+      action() { block.setCollapsed(!block.isCollapsed()); }
+    },
+    {
+      icon: '⧉', label: 'Дублировать',
+      action() {
+        const ws = block.workspace;
+        const dup = block.duplicate();
+        dup && dup.moveBy(30, 30);
+      }
+    },
+    {
+      icon: '💬', label: 'Добавить комментарий',
+      action() { block.setCommentText(block.getCommentText() == null ? '' : null); }
+    },
+    { separator: true },
+    {
+      icon: '🗑', label: 'Удалить блок', danger: true,
+      action() {
+        Blockly.Events.setGroup(true);
+        block.dispose(true, true);
+        Blockly.Events.setGroup(false);
+      }
+    },
+  ];
+
+  el.innerHTML = items.map((item, i) => {
+    if (item.separator) return `<div class="my-1 border-t border-white/10"></div>`;
+    return `<button data-idx="${i}" class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-primary/20 transition-colors rounded-lg mx-1 ${item.danger ? 'text-red-400 hover:text-red-300 hover:bg-red-500/20' : ''}">
+      <span class="text-base w-5 text-center">${item.icon}</span>
+      <span>${item.label}</span>
+    </button>`;
+  }).join('');
+
+  // Attach click handlers
+  el.querySelectorAll('button[data-idx]').forEach(btn => {
+    const idx = parseInt(btn.dataset.idx);
+    btn.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      hideBlocklyCtxMenu();
+      items[idx].action();
+    });
+  });
+
+  // Position
+  el.classList.remove('hidden');
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const menuW = 180, menuH = el.offsetHeight || 240;
+  const left = x + menuW > vw ? x - menuW : x;
+  const top  = y + menuH > vh ? y - menuH : y;
+  el.style.left = `${left}px`;
+  el.style.top  = `${top}px`;
+
+  // Close on outside click
+  setTimeout(() => {
+    _ctxCloseHandler = (e) => {
+      if (!el.contains(e.target)) hideBlocklyCtxMenu();
+    };
+    document.addEventListener('pointerdown', _ctxCloseHandler, true);
+  }, 0);
+}
+
+/** Проверка, заполнен ли value-слот (подключённый блок; без устаревшего val_* для if_filled). */
+function isValueSlotFilled(block, inputName) {
+  if (block._sprautePendingChildIds_?.[inputName]) return true;
+  try {
+    const inp = block.getInput(inputName);
+    if (inp && inp.type === 1 && inp.connection && inp.connection.targetBlock()) return true;
+  } catch (e) {}
+  if (block.filledWatchFields_?.includes(inputName)) return false;
+  const cached = block['val_' + inputName];
+  if (cached != null && String(cached).trim().length > 0) return true;
+  return false;
+}
+
+/** Один слушатель на workspace: пересборка блоков с if_filled при смене вложений. */
+let _dynamicReshapeWorkspace = null;
+
+export function attachDynamicBlockReshapeListener(workspace) {
+  if (!workspace || workspace === _dynamicReshapeWorkspace) return;
+  _dynamicReshapeWorkspace = workspace;
+
+  workspace.addChangeListener((e) => {
+    if (workspace._sprauteRestoringBlocks) return;
+
+    let parentId = null;
+    let inputName = null;
+    if (e.type === Blockly.Events.BLOCK_MOVE) {
+      if (e.newParentId === e.oldParentId && e.newInputName === e.oldInputName) return;
+      parentId = e.newParentId != null ? e.newParentId : e.oldParentId;
+      inputName = e.newInputName != null ? e.newInputName : e.oldInputName;
+    } else if (e.type === Blockly.Events.BLOCK_DELETE) {
+      parentId = e.oldParentId;
+      inputName = e.oldInputName;
+    } else {
+      return;
+    }
+
+    if (!parentId || !inputName) return;
+    const parent = workspace.getBlockById(parentId);
+    if (!parent || parent.isDisposed() || typeof parent.updateShape_ !== 'function') return;
+    if (parent._sprauteReshaping) return;
+    if (!parent.filledWatchFields_?.includes(inputName)) return;
+
+    clearTimeout(parent._sprauteReshapeDebounce);
+    parent._sprauteReshapeDebounce = setTimeout(() => {
+      if (parent.isDisposed() || !parent.workspace) return;
+      if (parent.isDisposed() || parent._sprauteReshaping) return;
+
+      const prev = parent._sprauteFilledPrev?.[inputName];
+      const next = isValueSlotFilled(parent, inputName);
+      parent._sprauteFilledPrev = parent._sprauteFilledPrev || {};
+      parent._sprauteFilledPrev[inputName] = next;
+
+      if (prev === next) return;
+      if (prev === undefined && !next) return;
+
+      if (prev && !next) {
+        parent.clearFilledWatchFrom_(inputName);
+      }
+
+      parent.updateShape_();
+    }, 80);
+  });
+}
+
+/** Вызывается после inject workspace — подключает перехват ПКМ. */
+export function attachBlocklyContextMenu(workspace) {
+  // Перехватываем contextmenu на контейнере
+  const div = workspace.getInjectionDiv ? workspace.getInjectionDiv() : null;
+  const target = div || document.getElementById('blockly-mount');
+  if (!target) return;
+
+  target.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Определяем блок под курсором через Blockly gesture / clientCoords
+    const ws = Blockly.getMainWorkspace();
+    if (!ws) return;
+
+    // Ищем ближайший блок по SVG-элементу
+    let el = e.target;
+    let block = null;
+    while (el && el !== target) {
+      const id = el.getAttribute && el.getAttribute('data-id');
+      if (id) {
+        const found = ws.getBlockById(id);
+        if (found) { block = found; break; }
+      }
+      el = el.parentElement;
+    }
+
+    // Если блок не найден через data-id, пробуем через common.selected
+    if (!block) {
+      try { block = Blockly.common.getSelected(); } catch {}
+    }
+    if (!block) return; // клик по пустому workspace — не показываем наше меню
+
+    showBlocklyCtxMenu(block, e.clientX, e.clientY);
+  });
 }
 
 // ================= ТЕМА =================
@@ -572,20 +1556,114 @@ export function applyBlocklyThemeColors(colors) {
   Blockly.getMainWorkspace().setTheme(theme);
 }
 
+// ================= ИЗБРАННОЕ =================
+const FAV_KEY = 'spraute_favorite_blocks';
+
+export function getFavorites() {
+  try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveFavorites(arr) {
+  localStorage.setItem(FAV_KEY, JSON.stringify([...new Set(arr)]));
+}
+
+export function addFavorite(blockType) {
+  const favs = getFavorites();
+  if (!favs.includes(blockType)) { favs.push(blockType); saveFavorites(favs); }
+}
+
+export function removeFavorite(blockType) {
+  saveFavorites(getFavorites().filter(f => f !== blockType));
+}
+
+export function isFavorite(blockType) {
+  return getFavorites().includes(blockType);
+}
+
+/** Обновляет тулбокс с учётом избранного. Вызывается после изменений. */
+export function refreshToolbox() {
+  const ws = Blockly.getMainWorkspace();
+  if (!ws) return;
+  ws.updateToolbox(getDynamicToolbox());
+}
+
+// Регистрируем пункт контекстного меню один раз при загрузке модуля.
+// В Blockly 12 используем ContextMenuRegistry.
+(function registerFavouriteMenuItem() {
+  const registry = Blockly.ContextMenuRegistry.registry;
+
+  // Удаляем старую регистрацию при hot-reload
+  try { registry.unregister('spraute_toggle_favourite'); } catch {}
+
+  registry.register({
+    id: 'spraute_toggle_favourite',
+    scopeType: Blockly.ContextMenuRegistry.ScopeType.BLOCK,
+    displayText(scope) {
+      const type = scope.block && scope.block.type;
+      return isFavorite(type) ? '★ Убрать из избранного' : '☆ В избранное';
+    },
+    preconditionFn(scope) {
+      // Показываем только для зарегистрированных кастомных блоков
+      return scope.block ? 'enabled' : 'hidden';
+    },
+    callback(scope) {
+      const type = scope.block && scope.block.type;
+      if (!type) return;
+      if (isFavorite(type)) {
+        removeFavorite(type);
+      } else {
+        addFavorite(type);
+      }
+      refreshToolbox();
+    },
+    weight: 6,   // Ниже стандартных пунктов (Delete ≈5, Collapse ≈4)
+  });
+})();
+
 // ================= ТУЛБОКС =================
 export function getDynamicToolbox() {
+  const favs = getFavorites().filter(id => Blockly.Blocks[id]);
+
   const tb = {
     "kind": "categoryToolbox",
-    "contents": [
-      {
-        "kind": "category",
-        "name": "Система",
-        "colour": COLORS.SYSTEM,
-        "contents": [{ "kind": "block", "type": "spraute_raw_code" }]
-      }
-    ]
+    "contents": []
   };
-  for (const catName in customCategories) {
+
+  // Категория «Избранное» — всегда первая, скрыта если пусто
+  if (favs.length > 0) {
+    tb.contents.push({
+      "kind": "category",
+      "name": "⭐ Избранное",
+      "colour": "#f59e0b",
+      "contents": favs.map(id => ({ "kind": "block", "type": id }))
+    });
+  }
+
+  if (SHOW_GUI_TOOLBOX) {
+    tb.contents.push({
+      "kind": "category",
+      "name": "GUI",
+      "colour": COLORS.GUI,
+      "contents": [
+        { "kind": "block", "type": "spraute_gui_create" },
+        { "kind": "block", "type": "spraute_gui_open" },
+        { "kind": "block", "type": "spraute_gui_close" }
+      ]
+    });
+  }
+
+  tb.contents.push({
+    "kind": "category",
+    "name": "Система",
+    "colour": COLORS.SYSTEM,
+    "contents": [{ "kind": "block", "type": "spraute_raw_code" }]
+  });
+
+  for (const catName of (pluginCategoryOrder.length > 0
+    ? [...pluginCategoryOrder, ...Object.keys(customCategories).filter(c => !pluginCategoryOrder.includes(c))]
+    : Object.keys(customCategories))) {
+    if (!customCategories[catName]) continue;
     tb.contents.push({
       "kind": "category",
       "name": catName,
@@ -597,131 +1675,229 @@ export function getDynamicToolbox() {
 }
 
 // ================= ПАРСЕР ТЕКСТА В БЛОКИ =================
+
+function splitArgs(argStr) {
+  if (!argStr || !argStr.trim()) return [];
+  const args = [];
+  let cur = '', depth = 0, inStr = null;
+  for (let i = 0; i < argStr.length; i++) {
+    const c = argStr[i];
+    if (inStr) {
+      cur += c;
+      if (c === inStr && argStr[i - 1] !== '\\') inStr = null;
+      continue;
+    }
+    if (c === '"' || c === "'") { inStr = c; cur += c; continue; }
+    if (c === '(' || c === '[' || c === '{') depth++;
+    if (c === ')' || c === ']' || c === '}') depth--;
+    if (c === ',' && depth === 0) { args.push(cur.trim()); cur = ''; continue; }
+    cur += c;
+  }
+  if (cur.trim()) args.push(cur.trim());
+  return args;
+}
+
+function extractBraceBody(text, openBracePos) {
+  if (text[openBracePos] !== '{') return null;
+  let depth = 0;
+  for (let i = openBracePos; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"' || c === "'") {
+      const q = c;
+      i++;
+      while (i < text.length && (text[i] !== q || text[i - 1] === '\\')) i++;
+      continue;
+    }
+    if (c === '{') depth++;
+    if (c === '}') {
+      depth--;
+      if (depth === 0) return { body: text.slice(openBracePos + 1, i), end: i + 1 };
+    }
+  }
+  return null;
+}
+
+function skipWsComments(text, pos) {
+  while (pos < text.length) {
+    const rest = text.slice(pos);
+    const ws = rest.match(/^[\s\r\n]+/);
+    if (ws) { pos += ws[0].length; continue; }
+    const comment = rest.match(/^#[^\n]*/);
+    if (comment) { pos += comment[0].length; continue; }
+    break;
+  }
+  return pos;
+}
+
+function getSortedPluginParsers(shape) {
+  return customParsers
+    .filter(p => !shape || p.shape === shape)
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+}
+
+function tryBestPluginParse(text, shape) {
+  let best = null;
+  for (const parser of getSortedPluginParsers(shape)) {
+    try {
+      const result = parser.fn(text);
+      if (result && result.length > 0 && (!best || result.length > best.result.length)) {
+        best = { parser, result };
+      }
+    } catch (e) {}
+  }
+  return best;
+}
+
 export function textToBlocks(text, workspace) {
   try {
     workspace.clear();
-    let remainingText = text.trim();
-    const x = 20, y = 20;
     const allBlocks = [];
+    const x = 20, y = 20;
+
+    function instantiateBlock(parserId, result, ws) {
+      const newBlock = ws.newBlock(parserId);
+      allBlocks.push(newBlock);
+
+      const allFieldVals = Object.assign({}, result.conds || {}, result.fields || {});
+      for (const [k, v] of Object.entries(allFieldVals)) {
+        newBlock[`val_${k}`] = v;
+        try { newBlock.setFieldValue(v, k); } catch (e) {}
+      }
+      if (newBlock.updateShape_) newBlock.updateShape_();
+      for (const [k, v] of Object.entries(allFieldVals)) {
+        try { newBlock.setFieldValue(v, k); } catch (e) {}
+      }
+
+      if (result.valueExprs) {
+        for (const [k, expr] of Object.entries(result.valueExprs)) {
+          if (!expr) continue;
+          const valBlock = parseValueExpression(expr, ws);
+          if (valBlock) {
+            const input = newBlock.getInput(k);
+            if (input?.connection && valBlock.outputConnection) {
+              input.connection.connect(valBlock.outputConnection);
+            }
+          }
+        }
+      }
+
+      if (result.statements) {
+        for (const [k, innerStr] of Object.entries(result.statements)) {
+          const innerFirst = parseStatements(innerStr, ws);
+          if (innerFirst) {
+            const input = newBlock.getInput(k);
+            if (input?.connection) input.connection.connect(innerFirst.previousConnection);
+          }
+        }
+      }
+
+      newBlock.initSvg();
+      return newBlock;
+    }
+
+    function parseValueExpression(expr, ws) {
+      const trimmed = (expr || '').trim();
+      if (!trimmed) return null;
+
+      const best = tryBestPluginParse(trimmed, 'value');
+      if (best && best.result.length >= trimmed.length - 2) {
+        return instantiateBlock(best.parser.id, best.result, ws);
+      }
+
+      const raw = ws.newBlock('spraute_raw_value');
+      allBlocks.push(raw);
+      try { raw.setFieldValue(trimmed, 'EXPR'); } catch (e) {}
+      raw.initSvg();
+      return raw;
+    }
 
     function parseStatements(str, currentWorkspace) {
       let currentConn = null;
       let firstBlock = null;
+      let pos = 0;
+      const text = str;
 
-      let lines = str.split('\n');
-      while(lines.length > 0 && lines[0].trim() === '') lines.shift();
-      while(lines.length > 0 && lines[lines.length-1].trim() === '') lines.pop();
-      
-      let baseIndent = -1;
-      for (const l of lines) {
-        if (l.trim() === '') continue;
-        const indent = l.match(/^\s*/)[0].length;
-        if (baseIndent === -1 || indent < baseIndent) baseIndent = indent;
-      }
-      if (baseIndent > 0) {
-        lines = lines.map(l => {
-          if (l.trim() === '') return '';
-          const m = l.match(/^\s*/);
-          if (m && m[0].length >= baseIndent) return l.substring(baseIndent);
-          return l.trimStart();
-        });
-      }
-      
-      let localRemaining = lines.join('\n');
+      while (pos < text.length) {
+        pos = skipWsComments(text, pos);
+        if (pos >= text.length) break;
 
-      while (localRemaining.length > 0) {
-        localRemaining = localRemaining.replace(/^(?:[ \t]*\n)+/, '');
-        if (localRemaining.trim() === '') break;
+        if (text[pos] === '}') { pos++; continue; }
 
-        let matched = false;
-        
-        for (const parser of customParsers) {
-          try {
-            const result = parser.fn(localRemaining);
-            if (result && result.length > 0) {
-              const newBlock = currentWorkspace.newBlock(parser.id);
-              allBlocks.push(newBlock);
-              if (result.fields) {
-                for (const [k, v] of Object.entries(result.fields)) {
-                  newBlock.setFieldValue(v, k);
-                  newBlock[`val_${k}`] = v;
+        const rest = text.slice(pos);
+        let consumed = 0;
+        let newBlock = null;
+
+        const best = tryBestPluginParse(rest, 'statement');
+        if (!best) {
+          const bestAny = tryBestPluginParse(rest, null);
+          if (bestAny && bestAny.parser.shape !== 'value') best = bestAny;
+        }
+
+        if (best) {
+          newBlock = instantiateBlock(best.parser.id, best.result, currentWorkspace);
+          consumed = best.result.length;
+
+          // Тело в фигурных скобках сразу после совпадения (on/if/async/fun/…)
+          const after = skipWsComments(text, pos + consumed);
+          if (text[after] === '{') {
+            const body = extractBraceBody(text, after);
+            if (body) {
+              const doInput = newBlock.getInput('DO');
+              if (doInput) {
+                const innerFirst = parseStatements(body.body, currentWorkspace);
+                if (innerFirst && doInput.connection) {
+                  doInput.connection.connect(innerFirst.previousConnection);
                 }
               }
-              if (newBlock.updateShape_) newBlock.updateShape_();
-
-              if (result.statements) {
-                for (const [k, innerStr] of Object.entries(result.statements)) {
-                  const innerFirst = parseStatements(innerStr, currentWorkspace);
-                  if (innerFirst) {
-                    const input = newBlock.getInput(k);
-                    if (input && input.connection) {
-                      input.connection.connect(innerFirst.previousConnection);
-                    }
-                  }
-                }
-              }
-              
-              newBlock.initSvg();
-
-              if (currentConn) {
-                currentConn.connect(newBlock.previousConnection);
-              } else {
-                firstBlock = newBlock;
-              }
-              currentConn = newBlock.nextConnection;
-
-              localRemaining = localRemaining.slice(result.length);
-              matched = true;
-              break;
+              consumed = body.end - pos;
             }
-          } catch(e) {
-            console.error(`Parser error in ${parser.id}:`, e);
           }
-        }
+        } else {
+          const lineEnd = rest.search(/\n/);
+          const line = (lineEnd === -1 ? rest : rest.slice(0, lineEnd)).replace(/\r$/, '').replace(/\s+$/, '');
+          consumed = lineEnd === -1 ? rest.length : lineEnd + 1;
 
-        if (!matched) {
-          const lineEnd = localRemaining.indexOf('\n');
-          let line = "";
-          if (lineEnd === -1) {
-              line = localRemaining;
-              localRemaining = "";
-          } else {
-              line = localRemaining.slice(0, lineEnd);
-              localRemaining = localRemaining.slice(lineEnd + 1);
-          }
-          
-          line = line.replace(/\r$/, '').replace(/\s+$/, '');
-          
           if (line && !line.trimStart().startsWith('#')) {
-              const rawBlock = currentWorkspace.newBlock('spraute_raw_code');
-              allBlocks.push(rawBlock);
-              rawBlock.setFieldValue(line, 'CODE');
-              rawBlock.initSvg();
-
-              if (currentConn) {
-                currentConn.connect(rawBlock.previousConnection);
-              } else {
-                firstBlock = rawBlock;
-              }
-              currentConn = rawBlock.nextConnection;
+            newBlock = currentWorkspace.newBlock('spraute_raw_code');
+            allBlocks.push(newBlock);
+            newBlock.setFieldValue(line, 'CODE');
+            newBlock.initSvg();
           }
         }
+
+        if (newBlock) {
+          if (currentConn) currentConn.connect(newBlock.previousConnection);
+          else firstBlock = newBlock;
+          currentConn = newBlock.nextConnection;
+        }
+
+        pos += consumed || 1;
+        if (!consumed) break;
       }
+
       return firstBlock;
     }
 
-    const rootBlock = parseStatements(remainingText, workspace);
-    if (rootBlock) {
-      rootBlock.moveBy(x, y);
-    }
+    const rootBlock = parseStatements(text.trim(), workspace);
+    if (rootBlock) rootBlock.moveBy(x, y);
 
-    // Batch render after all blocks are created and connected
     for (const b of allBlocks) {
-      b.render();
+      try { b.render(); } catch (e) {}
     }
-  } catch(e) {
-    console.error("Parse error", e);
+  } catch (e) {
+    console.error('Parse error', e);
   }
+}
+
+export function isMostlyRawBlocks(workspace) {
+  if (!workspace) return false;
+  const blocks = workspace.getAllBlocks(false);
+  if (blocks.length === 0) return false;
+  let raw = 0;
+  for (const b of blocks) {
+    if (b.type === 'spraute_raw_code' || b.type === 'spraute_raw_value') raw++;
+  }
+  return raw > 0 && raw / blocks.length >= 0.9;
 }
 
 export const toolbox = getDynamicToolbox();

@@ -13,7 +13,7 @@ public class SnapshotFunctions {
     public static class SaveSnapshot implements ScriptFunction {
         @Override
         public String getName() {
-            return "save_snapshot";
+            return "saveSnapshot";
         }
 
         @Override
@@ -35,7 +35,11 @@ public class SnapshotFunctions {
             net.minecraft.server.level.ServerLevel level = source.getLevel();
             if (level == null) return null;
 
-            net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(source.getPosition());
+            //? if >=1.20.1 {
+            net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.containing(source.getPosition());
+            //?} else {
+            /*net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(source.getPosition());
+            *///?}
             ChunkPos center = new ChunkPos(pos);
             
             List<ChunkPos> chunksToSave = new ArrayList<>();
@@ -53,7 +57,7 @@ public class SnapshotFunctions {
     public static class LoadSnapshot implements ScriptFunction {
         @Override
         public String getName() {
-            return "load_snapshot";
+            return "loadSnapshot";
         }
 
         @Override

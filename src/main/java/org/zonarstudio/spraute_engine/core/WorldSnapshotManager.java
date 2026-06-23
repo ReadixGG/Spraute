@@ -144,7 +144,13 @@ public class WorldSnapshotManager {
 
                 // 5. Send update to clients
                 level.getChunkSource().chunkMap.getPlayers(pos, false).forEach(p -> {
-                    p.connection.send(new ClientboundLevelChunkWithLightPacket(existingChunk, level.getLightEngine(), null, null, true));
+                    p.connection.send(
+                            //? if >=1.20.1 {
+                            new ClientboundLevelChunkWithLightPacket(existingChunk, level.getLightEngine(), null, null)
+                            //?} else {
+                            /*new ClientboundLevelChunkWithLightPacket(existingChunk, level.getLightEngine(), null, null, true)
+                            *///?}
+                    );
                 });
             }
         } catch (Exception e) {

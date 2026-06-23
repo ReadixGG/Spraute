@@ -1,14 +1,24 @@
 package org.zonarstudio.spraute_engine.registry;
 
 import com.mojang.logging.LogUtils;
-import net.minecraft.core.Registry;
+//? if >=1.20.1 {
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+//?} else {
+/*import net.minecraft.core.Registry;
+*///?}
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
-import net.minecraft.world.level.material.Material;
+//? if <1.20.1 {
+/*import net.minecraft.world.level.material.Material;
+*///?}
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.loading.FMLPaths;
@@ -74,6 +84,13 @@ public class CustomBlockRegistry {
     public static final Map<String, String> CUSTOM_RECIPES_JSON = new HashMap<>();
 
     public static final Map<String, CustomItemDef> ITEMS = new HashMap<>();
+    //? if >=1.20.1 {
+    public static class CustomTabDef {
+        public String id;
+        public String icon;
+    }
+    public static final Map<String, CustomTabDef> TAB_DEFS = new HashMap<>();
+    //?}
     public static final Map<String, net.minecraft.world.item.CreativeModeTab> CUSTOM_TABS = new HashMap<>();
 
     private static void parseScripts() {
@@ -133,8 +150,14 @@ public class CustomBlockRegistry {
                         String body = tabM.group(2);
                         Matcher iconM = iconPattern.matcher(body);
                         String iconStr = iconM.find() ? iconM.group(1) : "minecraft:stone";
-                        
-                        net.minecraft.world.item.CreativeModeTab customTab = new net.minecraft.world.item.CreativeModeTab("spraute_" + id) {
+
+                        //? if >=1.20.1 {
+                        CustomTabDef tabDef = new CustomTabDef();
+                        tabDef.id = id;
+                        tabDef.icon = iconStr;
+                        TAB_DEFS.put(id, tabDef);
+                        //?} else {
+                        /*net.minecraft.world.item.CreativeModeTab customTab = new net.minecraft.world.item.CreativeModeTab("spraute_" + id) {
                             @Override
                             public net.minecraft.world.item.ItemStack makeIcon() {
                                 net.minecraft.resources.ResourceLocation rl = new net.minecraft.resources.ResourceLocation(iconStr.contains(":") ? iconStr : "minecraft:" + iconStr);
@@ -143,6 +166,7 @@ public class CustomBlockRegistry {
                             }
                         };
                         CUSTOM_TABS.put(id, customTab);
+                        *///?}
                     }
                     
                     Matcher craftM = craftPattern.matcher(content);
@@ -331,13 +355,69 @@ public class CustomBlockRegistry {
         }
     }
 
+    //? if >=1.20.1 {
+    private static ItemStack makeTabIcon(String iconStr) {
+        ResourceLocation rl = new ResourceLocation(iconStr.contains(":") ? iconStr : "minecraft:" + iconStr);
+        Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(rl);
+        return new ItemStack(item != null ? item : Items.STONE);
+    }
+
+    private static void populateCreativeTab(String tabId, CreativeModeTab.Output output) {
+        for (CustomBlockDef def : BLOCKS.values()) {
+            if (tabId.equals(def.tab)) {
+                Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(new ResourceLocation(Spraute_engine.MODID, def.id));
+                if (item != null) {
+                    output.accept(new ItemStack(item));
+                }
+            }
+        }
+        for (CustomItemDef def : ITEMS.values()) {
+            if (tabId.equals(def.tab)) {
+                Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(new ResourceLocation(Spraute_engine.MODID, def.id));
+                if (item != null) {
+                    output.accept(new ItemStack(item));
+                }
+            }
+        }
+    }
+    //?}
+
     @SubscribeEvent
     public static void onRegister(RegisterEvent event) {
         parseScripts();
 
-        if (event.getRegistryKey().equals(Registry.BLOCK_REGISTRY)) {
+        //? if >=1.20.1 {
+        if (event.getRegistryKey().equals(Registries.CREATIVE_MODE_TAB)) {
+            for (CustomTabDef tabDef : TAB_DEFS.values()) {
+                final String tabId = tabDef.id;
+                final String icon = tabDef.icon;
+                event.register(Registries.CREATIVE_MODE_TAB, new ResourceLocation(Spraute_engine.MODID, "spraute_" + tabId), () -> {
+                    CreativeModeTab tab = CreativeModeTab.builder()
+                            .title(Component.translatable("itemGroup.spraute_" + tabId))
+                            .icon(() -> makeTabIcon(icon))
+                            .displayItems((params, output) -> populateCreativeTab(tabId, output))
+                            .build();
+                    CUSTOM_TABS.put(tabId, tab);
+                    return tab;
+                });
+            }
+        }
+        //?}
+
+        if (event.getRegistryKey().equals(
+                //? if >=1.20.1 {
+                Registries.BLOCK
+                //?} else {
+                /*Registry.BLOCK_REGISTRY*/
+                //?}
+        )) {
             for (CustomBlockDef def : BLOCKS.values()) {
-                BlockBehaviour.Properties props = BlockBehaviour.Properties.of(Material.STONE)
+                BlockBehaviour.Properties props =
+                    //? if >=1.20.1 {
+                    BlockBehaviour.Properties.of()
+                    //?} else {
+                    /*BlockBehaviour.Properties.of(Material.STONE)
+                    *///?}
                     .strength(def.hardness, def.hardness * 4.0f)
                     .noOcclusion()
                     .lightLevel(state -> def.lightEmission);
@@ -346,40 +426,80 @@ public class CustomBlockRegistry {
                 
                 Block block = new CustomGeoBlock(props, def.model, def.texture, def.dropItem, def.directional, def.hitbox);
                 REGISTERED_BLOCKS.add(block);
-                event.register(Registry.BLOCK_REGISTRY, new ResourceLocation(Spraute_engine.MODID, def.id), () -> block);
+                event.register(
+                        //? if >=1.20.1 {
+                        Registries.BLOCK
+                        //?} else {
+                        /*Registry.BLOCK_REGISTRY*/
+                        //?}
+                , new ResourceLocation(Spraute_engine.MODID, def.id), () -> block);
             }
         }
 
-        if (event.getRegistryKey().equals(Registry.ITEM_REGISTRY)) {
+        if (event.getRegistryKey().equals(
+                //? if >=1.20.1 {
+                Registries.ITEM
+                //?} else {
+                /*Registry.ITEM_REGISTRY*/
+                //?}
+        )) {
             for (CustomBlockDef def : BLOCKS.values()) {
                 Item.Properties props = new Item.Properties();
-                if (def.tab != null && CUSTOM_TABS.containsKey(def.tab)) {
+                //? if <1.20.1 {
+                /*if (def.tab != null && CUSTOM_TABS.containsKey(def.tab)) {
                     props = props.tab(CUSTOM_TABS.get(def.tab));
                 }
+                *///?}
                 final Item.Properties finalProps = props;
                 Block block = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getValue(new ResourceLocation(Spraute_engine.MODID, def.id));
                 if (block != null) {
-                    event.register(Registry.ITEM_REGISTRY, new ResourceLocation(Spraute_engine.MODID, def.id), () -> new BlockItem(block, finalProps));
+                    event.register(
+                            //? if >=1.20.1 {
+                            Registries.ITEM
+                            //?} else {
+                            /*Registry.ITEM_REGISTRY*/
+                            //?}
+                    , new ResourceLocation(Spraute_engine.MODID, def.id), () -> new BlockItem(block, finalProps));
                 }
             }
             
             for (CustomItemDef def : ITEMS.values()) {
                 Item.Properties props = new Item.Properties().stacksTo(def.maxStackSize);
-                if (def.tab != null && CUSTOM_TABS.containsKey(def.tab)) {
+                //? if <1.20.1 {
+                /*if (def.tab != null && CUSTOM_TABS.containsKey(def.tab)) {
                     props = props.tab(CUSTOM_TABS.get(def.tab));
                 }
+                *///?}
                 final Item.Properties finalProps = props;
-                event.register(Registry.ITEM_REGISTRY, new ResourceLocation(Spraute_engine.MODID, def.id), () -> new Item(finalProps));
+                event.register(
+                        //? if >=1.20.1 {
+                        Registries.ITEM
+                        //?} else {
+                        /*Registry.ITEM_REGISTRY*/
+                        //?}
+                , new ResourceLocation(Spraute_engine.MODID, def.id), () -> new Item(finalProps));
             }
         }
         
-        if (event.getRegistryKey().equals(Registry.BLOCK_ENTITY_TYPE_REGISTRY)) {
+        if (event.getRegistryKey().equals(
+                //? if >=1.20.1 {
+                Registries.BLOCK_ENTITY_TYPE
+                //?} else {
+                /*Registry.BLOCK_ENTITY_TYPE_REGISTRY*/
+                //?}
+        )) {
             Block[] blocksArr = REGISTERED_BLOCKS.isEmpty() ? new Block[]{net.minecraft.world.level.block.Blocks.STONE} : REGISTERED_BLOCKS.toArray(new Block[0]);
             // Even if empty, we MUST register the BlockEntityType or Forge will crash later
             // if we try to register a renderer for it, or it will just be null.
             // A BlockEntityType with no valid blocks is allowed, but we pass stone just in case.
             CUSTOM_GEO_BLOCK_ENTITY = BlockEntityType.Builder.of(CustomGeoBlockEntity::new, blocksArr).build(null);
-            event.register(Registry.BLOCK_ENTITY_TYPE_REGISTRY, new ResourceLocation(Spraute_engine.MODID, "custom_geo_block"), () -> CUSTOM_GEO_BLOCK_ENTITY);
+            event.register(
+                    //? if >=1.20.1 {
+                    Registries.BLOCK_ENTITY_TYPE
+                    //?} else {
+                    /*Registry.BLOCK_ENTITY_TYPE_REGISTRY*/
+                    //?}
+            , new ResourceLocation(Spraute_engine.MODID, "custom_geo_block"), () -> CUSTOM_GEO_BLOCK_ENTITY);
         }
     }
 }

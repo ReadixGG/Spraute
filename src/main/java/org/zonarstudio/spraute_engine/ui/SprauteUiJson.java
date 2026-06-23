@@ -47,18 +47,49 @@ public final class SprauteUiJson {
             JsonObject w = el.getAsJsonObject();
             String type = w.has("type") ? w.get("type").getAsString() : "";
             if ("entity".equalsIgnoreCase(type) && w.has("entity")) {
-                Entity resolved = resolveEntity(level, source, w.get("entity").getAsString());
-                if (resolved != null) {
-                    w.addProperty("entityUuid", resolved.getUUID().toString());
-                    w.addProperty("entityType", net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES.getKey(resolved.getType()).toString());
-                    if (resolved.hasCustomName()) {
-                        w.addProperty("entityName", resolved.getCustomName().getString());
+                String entityRef = w.get("entity").getAsString();
+                if (!"avatar".equalsIgnoreCase(entityRef) && !entityRef.startsWith("chat:")) {
+                    Entity resolved = resolveEntity(level, source, entityRef);
+                    if (resolved != null) {
+                        w.addProperty("entityUuid", resolved.getUUID().toString());
+                        w.addProperty("entityType", net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES.getKey(resolved.getType()).toString());
+                        if (resolved.hasCustomName()) {
+                            w.addProperty("entityName", resolved.getCustomName().getString());
+                        }
+                    } else {
+                        String uuidStr = null;
+                        if (entityRef.startsWith("npc:")) {
+                            String id = entityRef.substring(4);
+                            UUID tracked = NpcManager.get(id);
+                            if (tracked != null) uuidStr = tracked.toString();
+                            else {
+                                try { UUID.fromString(id); uuidStr = id; } catch (IllegalArgumentException ignored) {}
+                            }
+                        } else {
+                            try { UUID.fromString(entityRef); uuidStr = entityRef; } catch (IllegalArgumentException ignored) {}
+                        }
+                        if (uuidStr != null) {
+                            w.addProperty("entityUuid", uuidStr);
+                            w.addProperty("entityType", "spraute_engine:spraute_npc");
+                        }
                     }
                 }
+                resolveSkinPlayerWidget(w, level, source);
             }
             if (w.has("children") && w.get("children").isJsonArray()) {
                 resolveEntitiesRecursive(w.getAsJsonArray("children"), level, source);
             }
+        }
+    }
+
+    private static void resolveSkinPlayerWidget(JsonObject w, ServerLevel level, CommandSourceStack source) {
+        if (w.has("skinPlayer") && !w.has("skinPlayerUuid")) {
+            String skinRef = w.get("skinPlayer").getAsString();
+            Entity skinEnt = resolveEntity(level, source, skinRef);
+            if (skinEnt != null) {
+                w.addProperty("skinPlayerUuid", skinEnt.getUUID().toString());
+            }
+            w.remove("skinPlayer");
         }
     }
 
@@ -71,7 +102,14 @@ public final class SprauteUiJson {
 
         if (ref.startsWith("npc:")) {
             String id = ref.substring(4);
-            return NpcManager.getEntity(id, level);
+            Entity byName = NpcManager.getEntity(id, level);
+            if (byName != null) return byName;
+            // id might be a UUID (when NPC entity object was used in string concat)
+            try {
+                UUID u = UUID.fromString(id);
+                return level.getEntity(u);
+            } catch (IllegalArgumentException ignored) {}
+            return null;
         }
         if ("player".equalsIgnoreCase(ref)) {
             Entity origin = source.getEntity();

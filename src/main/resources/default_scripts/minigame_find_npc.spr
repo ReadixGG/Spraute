@@ -1,0 +1,74 @@
+# Find NPC Minigame
+val spawn = findSafeBlock("player", 32, 3)
+if (spawn == null) {
+    chat("§c[Прятки] Не нашёл безопасное место рядом с игроком!")
+} else {
+    val home_x = listGet(spawn, 0)
+    val home_y = listGet(spawn, 1)
+    val home_z = listGet(spawn, 2)
+
+    create npc hider_npc {
+        name = "§dПрячущийся"
+        pos = home_x, home_y, home_z
+        showName = true
+        model = "geo/defolt.geo.json"
+        texture = "textures/entity/defolt.png"
+        animation = "animations/npc_classic.animation.json"
+    }
+
+    chat("§a[Прятки] Прячущийся появился рядом с тобой! Нажми ПКМ.")
+
+    val hider_active = false
+    val current_player = null
+
+    on interact(hider_npc) -> start_hide {
+        val p = _eventPlayer
+        if (hider_active) {
+            if (p == current_player) {
+                hider_npc.playOnce("happy")
+                say(hider_npc, "Ты нашел меня!")
+                playSound(p, "minecraft:entity.player.levelup", 1.0, 1.0)
+                spawnOrb("minecraft:textures/item/diamond.png", 5, hider_npc.x, hider_npc.y + 1, hider_npc.z)
+                
+                hider_active = false
+                current_player = null
+
+                hider_npc.x = home_x
+                hider_npc.y = home_y
+                hider_npc.z = home_z
+                
+                async {
+                    await orbPickup(p, 5, "minecraft:textures/item/diamond.png")
+                    giveItem(p, "minecraft:diamond", 1)
+                }
+            } else {
+                hider_npc.playOnce("sad")
+                say(hider_npc, "Я прячусь не от тебя!")
+            }
+        } else {
+            hider_active = true
+            current_player = p
+
+            async {
+                hider_npc.alwaysLookAt(p)
+                hider_npc.playOnce("hello")
+                say(hider_npc, "Давай сыграем в прятки! Я спрячусь, а ты ищи. Даю 5 секунд!")
+
+                await time(5)
+
+                val hide = findSafeBlock(p, 32, 3)
+                if (hide != null) {
+                    hider_npc.x = listGet(hide, 0)
+                    hider_npc.y = listGet(hide, 1)
+                    hider_npc.z = listGet(hide, 2)
+                    hider_npc.playOnce("hint")
+                    say(hider_npc, "Я спрятался! Ищи!")
+                } else {
+                    say(hider_npc, "Некуда спрятаться... Попробуем в другой раз!")
+                    hider_active = false
+                    current_player = null
+                }
+            }
+        }
+    }
+}

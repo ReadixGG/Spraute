@@ -60,7 +60,7 @@ public class SprauteContainerMenu extends AbstractContainerMenu {
                         if (currentCustomSlotIndex < this.customContainer.getContainerSize()) {
                             this.addSlot(new Slot(this.customContainer, currentCustomSlotIndex++, x, y));
                         }
-                    } else if ("player_inventory".equals(type)) {
+                    } else if ("playerInventory".equals(type) || "player_inventory".equals(type)) {
                         int startX = child.has("pos") ? child.getAsJsonArray("pos").get(0).getAsInt() : 8;
                         int startY = child.has("pos") ? child.getAsJsonArray("pos").get(1).getAsInt() : 84;
                         

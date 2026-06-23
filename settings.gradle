@@ -5,6 +5,24 @@ pluginManagement {
             name = 'MinecraftForge'
             url = 'https://maven.minecraftforge.net/'
         }
+        maven {
+            name = 'KikuGie'
+            url = 'https://maven.kikugie.dev/releases'
+        }
+    }
+}
+
+plugins {
+    id 'dev.kikugie.stonecutter' version '0.7.11'
+}
+
+stonecutter {
+    centralScript = 'build.gradle'
+
+    create(rootProject) {
+        vers '1.19.2', '1.19.2'
+        vers '1.20.1', '1.20.1'
+        vcsVersion = '1.19.2'
     }
 }
 

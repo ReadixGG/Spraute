@@ -10,7 +10,7 @@ public class JavaFunctions {
     public static class JavaClassFunction implements ScriptFunction {
         @Override
         public String getName() {
-            return "java_class";
+            return "javaClass";
         }
 
         @Override
@@ -42,7 +42,7 @@ public class JavaFunctions {
     public static class JavaNewFunction implements ScriptFunction {
         @Override
         public String getName() {
-            return "java_new";
+            return "javaNew";
         }
 
         @Override

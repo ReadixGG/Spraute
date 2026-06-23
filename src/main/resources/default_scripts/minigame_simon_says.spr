@@ -1,0 +1,148 @@
+# Simon Says Minigame
+val spawn = findSafeBlock("player", 5, 3)
+if (spawn == null) {
+    chat("§c[Саймон] Не нашёл безопасное место рядом с игроком!")
+} else {
+    val sx = listGet(spawn, 0)
+    val sy = listGet(spawn, 1)
+    val sz = listGet(spawn, 2)
+
+    create npc simon_npc {
+        name = "§bСаймон"
+        pos = sx, sy, sz
+        showName = true
+        model = "geo/defolt.geo.json"
+        texture = "textures/entity/defolt.png"
+        animation = "animations/npc_classic.animation.json"
+    }
+
+    chat("§a[Саймон] Саймон появился рядом с тобой! Нажми ПКМ.")
+
+    val simon_active = false
+
+    on interact(simon_npc) -> start_simon {
+        if (simon_active) {
+            say(simon_npc, "Уже идёт игра!")
+            return null
+        }
+        simon_active = true
+        async {
+            val p = _eventPlayer
+            simon_npc.alwaysLookAt(p)
+            simon_npc.playOnce("hello")
+            say(simon_npc, "Саймон говорит: повторяй за мной!")
+
+            val sequence = list()
+            var round = 1
+            var lost = false
+
+            create ui simon_ui {
+                size = ["200", "200"]
+                background = "#DD222222"
+                canClose = false
+
+                button("btn_0", "") { pos = ["10", "10"]; size = ["80", "80"]; color = "#888800"; hover = "#888800" }
+                button("btn_1", "") { pos = ["110", "10"]; size = ["80", "80"]; color = "#880000"; hover = "#880000" }
+                button("btn_2", "") { pos = ["10", "110"]; size = ["80", "80"]; color = "#000088"; hover = "#000088" }
+                button("btn_3", "") { pos = ["110", "110"]; size = ["80", "80"]; color = "#008800"; hover = "#008800" }
+            }
+
+            uiOpen(p, simon_ui)
+
+            while (round <= 5 && !lost) {
+                await time(1)
+                val next_color = random(0, 3)
+                listAdd(sequence, next_color)
+
+                say(simon_npc, "Раунд " + round + "! Запоминай!")
+                simon_npc.playLoop("talking1")
+                await time(1)
+
+                for (i in range(0, listSize(sequence))) {
+                    val c = listGet(sequence, i)
+                    
+                    var bright = "#FFFFFF"
+                    var dim = "#222222"
+                    if (c == 0) { bright = "#FFFF55"; dim = "#888800" }
+                    if (c == 1) { bright = "#FF5555"; dim = "#880000" }
+                    if (c == 2) { bright = "#5555FF"; dim = "#000088" }
+                    if (c == 3) { bright = "#55FF55"; dim = "#008800" }
+
+                    uiUpdate(p, "btn_" + c, "color", bright)
+                    playSound(p, "minecraft:block.note_block.harp", 1.0, 1.0 + c * 0.2)
+                    await time(0.5)
+                    uiUpdate(p, "btn_" + c, "color", dim)
+                    await time(0.5)
+                }
+
+                say(simon_npc, "Твоя очередь!")
+                simon_npc.stop("talking1")
+                
+                # Enable hovers for player turn
+                uiUpdate(p, "btn_0", "hover", "#FFFF55")
+                uiUpdate(p, "btn_1", "hover", "#FF5555")
+                uiUpdate(p, "btn_2", "hover", "#5555FF")
+                uiUpdate(p, "btn_3", "hover", "#55FF55")
+
+                for (i in range(0, listSize(sequence))) {
+                    val expected = listGet(sequence, i)
+                    val btn = await uiClick(p)
+
+                    var clicked_idx = -1
+                    if (btn == "btn_0") { clicked_idx = 0 }
+                    if (btn == "btn_1") { clicked_idx = 1 }
+                    if (btn == "btn_2") { clicked_idx = 2 }
+                    if (btn == "btn_3") { clicked_idx = 3 }
+
+                    if (clicked_idx == expected) {
+                        playSound(p, "minecraft:block.note_block.harp", 1.0, 1.0 + clicked_idx * 0.2)
+                        
+                        # Flash briefly
+                        var bright = "#FFFFFF"
+                        var dim = "#222222"
+                        if (clicked_idx == 0) { bright = "#FFFF55"; dim = "#888800" }
+                        if (clicked_idx == 1) { bright = "#FF5555"; dim = "#880000" }
+                        if (clicked_idx == 2) { bright = "#5555FF"; dim = "#000088" }
+                        if (clicked_idx == 3) { bright = "#55FF55"; dim = "#008800" }
+                        
+                        uiUpdate(p, "btn_" + clicked_idx, "color", bright)
+                        await time(0.2)
+                        uiUpdate(p, "btn_" + clicked_idx, "color", dim)
+                    } else {
+                        lost = true
+                        break
+                    }
+                }
+
+                # Disable hovers again
+                uiUpdate(p, "btn_0", "hover", "#888800")
+                uiUpdate(p, "btn_1", "hover", "#880000")
+                uiUpdate(p, "btn_2", "hover", "#000088")
+                uiUpdate(p, "btn_3", "hover", "#008800")
+
+                if (lost) {
+                    simon_npc.playOnce("sad")
+                    say(simon_npc, "Ошибка! Ты проиграл на раунде " + round)
+                    playSound(p, "minecraft:block.note_block.bass", 1.0, 0.5)
+                } else {
+                    simon_npc.playOnce("yes")
+                    say(simon_npc, "Отлично!")
+                    playSound(p, "minecraft:entity.player.levelup", 1.0, 2.0)
+                    round = round + 1
+                }
+            }
+            
+            uiClose(p)
+
+            if (!lost) {
+                simon_npc.playOnce("laughter")
+                say(simon_npc, "Ты победил! Получай награду!")
+                spawnOrb("minecraft:textures/item/diamond.png", 15, simon_npc.x, simon_npc.y + 1, simon_npc.z)
+                await orbPickup(p, 15, "minecraft:textures/item/diamond.png")
+                giveItem(p, "minecraft:diamond", 1)
+            }
+
+            simon_active = false
+        }
+    }
+}

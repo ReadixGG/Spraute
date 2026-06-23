@@ -241,6 +241,14 @@ public class ScriptManager {
         executor.onOrbPickup(player, texture, amount);
     }
 
+    public void onTradeBuy(net.minecraft.server.level.ServerPlayer player, String itemId, int price) {
+        executor.onTradeBuy(player, itemId, price);
+    }
+
+    public void onTradeSell(net.minecraft.server.level.ServerPlayer player, String itemId, int price) {
+        executor.onTradeSell(player, itemId, price);
+    }
+
     /**
      * Get all loaded script names (including those with compile errors) for tab completion.
      */
@@ -330,7 +338,7 @@ public class ScriptManager {
                             return h
                         }
                         
-                        fun npc_chat(player, npc_id, text, color) {
+                        fun npcChat(player, npc_id, text, color) {
                             var headTexture = npc_id.head
                             if (headTexture == null) {
                                 headTexture = "minecraft:textures/heads/head.png"
@@ -401,11 +409,11 @@ public class ScriptManager {
                             play_sound(player, "minecraft:entity.experience_orb.pickup", 0.5, 1.0)
                             
                             # Анимация плавного появления
-                            ui_animate(player, "chat_container", "alpha", 1.0, 0.3)
+                            uiAnimate(player, "chat_container", "alpha", 1.0, 0.3)
                             
                             async {
                                 await time(5.0)
-                                ui_animate(player, "chat_container", "alpha", 0.0, 0.3)
+                                uiAnimate(player, "chat_container", "alpha", 0.0, 0.3)
                                 await time(0.3)
                                 overlay_close(player)
                             }
@@ -422,7 +430,7 @@ public class ScriptManager {
                                 w = 300
                                 h = 200
                                 bg = "#DD000000"
-                                can_close = true
+                                canClose = true
                                 
                                 text {
                                     x = 10

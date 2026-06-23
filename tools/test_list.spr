@@ -1,0 +1,1 @@
+val SHOP_ITEMS = list(dict("id", "minecraft:bread", "name", "Хлеб", "buy", 3, "sell", 1))

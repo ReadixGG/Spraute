@@ -154,10 +154,37 @@ public class ScriptParser {
                 ScriptNode body = parseBlock();
                 return withPos(new ScriptNode.CommandDefNode(cmdName.getValue(), body), previous());
             }
-            expect(ScriptToken.TokenType.NPC, "Expected 'npc', 'ui', or 'command' after 'create'");
-            ScriptToken identifier = expect(ScriptToken.TokenType.IDENTIFIER, "Expected NPC identifier after 'create npc'");
-            expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start NPC block");
-            return parseNpcBlock(identifier.getValue());
+            if (match(ScriptToken.TokenType.NPC)) {
+                ScriptToken identifier = expect(ScriptToken.TokenType.IDENTIFIER, "Expected NPC identifier after 'create npc'");
+                expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start NPC block");
+                return parseNpcBlock(identifier.getValue());
+            }
+
+            // Skip static data blocks (like create block, create item, create craft, plugins)
+            if (check(ScriptToken.TokenType.IDENTIFIER)) {
+                ScriptToken kind = advance();
+                if (check(ScriptToken.TokenType.IDENTIFIER)) {
+                    advance(); // skip identifier
+                    if (check(ScriptToken.TokenType.LBRACE)) {
+                        advance();
+                        int braceCount = 1;
+                        while (!isAtEnd() && braceCount > 0) {
+                            ScriptToken t = advance();
+                            if (t.getType() == ScriptToken.TokenType.LBRACE) braceCount++;
+                            if (t.getType() == ScriptToken.TokenType.RBRACE) braceCount--;
+                        }
+                        return withPos(new ScriptNode.BlockNode(java.util.Collections.emptyList()), previous());
+                    }
+                }
+            }
+
+            throw new ScriptException("Expected 'npc', 'ui', 'command', or a static data block after 'create'", previous().getLine());
+        }
+
+        if (match(ScriptToken.TokenType.CAMERA)) {
+            ScriptToken camId = expect(ScriptToken.TokenType.IDENTIFIER, "Expected camera identifier after 'camera'");
+            expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start camera block");
+            return parseCameraBlock(camId.getValue());
         }
 
         int startPos = pos;
@@ -232,11 +259,26 @@ public class ScriptParser {
     }
 
     private ScriptNode parseBinaryExpression() {
+        return parseAdditive();
+    }
+
+    private ScriptNode parseAdditive() {
+        ScriptNode left = parseMultiplicative();
+
+        while (check(ScriptToken.TokenType.PLUS) || check(ScriptToken.TokenType.MINUS)) {
+            ScriptToken operator = advance();
+            ScriptNode right = parseMultiplicative();
+            left = new ScriptNode.BinaryExpressionNode(left, operator, right);
+        }
+
+        return left;
+    }
+
+    private ScriptNode parseMultiplicative() {
         ScriptNode left = parseUnary();
 
-        while (check(ScriptToken.TokenType.PLUS) || check(ScriptToken.TokenType.MINUS) ||
-               check(ScriptToken.TokenType.STAR) || check(ScriptToken.TokenType.SLASH) ||
-               check(ScriptToken.TokenType.SLASH_SLASH) ||
+        while (check(ScriptToken.TokenType.STAR) || check(ScriptToken.TokenType.SLASH) ||
+               check(ScriptToken.TokenType.SLASH_SLASH) || check(ScriptToken.TokenType.PERCENT) ||
                check(ScriptToken.TokenType.STAR_STAR)) {
             ScriptToken operator = advance();
             ScriptNode right = parseUnary();
@@ -306,13 +348,41 @@ public class ScriptParser {
         return withPos(new ScriptNode.NpcBlockNode(identifier, props), previous());
     }
 
+    private ScriptNode parseCameraBlock(String identifier) {
+        java.util.Map<String, List<ScriptNode>> props = new java.util.HashMap<>();
+
+        while (!check(ScriptToken.TokenType.RBRACE) && !isAtEnd()) {
+            if (match(ScriptToken.TokenType.NEWLINE)) continue;
+
+            ScriptToken propName = expect(ScriptToken.TokenType.IDENTIFIER, "Expected property name");
+            expect(ScriptToken.TokenType.ASSIGN, "Expected '='");
+
+            List<ScriptNode> values = new ArrayList<>();
+            do {
+                values.add(parseExpression());
+            } while (match(ScriptToken.TokenType.COMMA));
+
+            props.put(propName.getValue(), values);
+
+            if (!match(ScriptToken.TokenType.NEWLINE) && !check(ScriptToken.TokenType.RBRACE)) {
+                // optionally expect statement terminator
+            }
+        }
+
+        expect(ScriptToken.TokenType.RBRACE, "Expected '}'");
+        return withPos(new ScriptNode.CameraBlockNode(identifier, props), previous());
+    }
+
     private List<ScriptNode> parseArguments() {
         List<ScriptNode> args = new ArrayList<>();
+        skipNewlines();
         if (!check(ScriptToken.TokenType.RPAREN)) {
             do {
+                skipNewlines();
                 args.add(parseExpression());
             } while (match(ScriptToken.TokenType.COMMA));
         }
+        skipNewlines();
         expect(ScriptToken.TokenType.RPAREN, "Expected ')' after arguments");
         return args;
     }
@@ -619,11 +689,14 @@ public class ScriptParser {
 
         if (match(ScriptToken.TokenType.LBRACKET)) {
             List<ScriptNode> elements = new ArrayList<>();
+            skipNewlines();
             if (!check(ScriptToken.TokenType.RBRACKET)) {
                 do {
+                    skipNewlines();
                     elements.add(parseExpression());
                 } while (match(ScriptToken.TokenType.COMMA));
             }
+            skipNewlines();
             expect(ScriptToken.TokenType.RBRACKET, "Expected ']' to close list literal");
             return withPos(new ScriptNode.ListLiteralNode(elements), previous());
         }
@@ -694,8 +767,9 @@ public class ScriptParser {
             "pos", "size", "x", "y", "w", "h", "color", "alpha", "scale", "wrap", "align", "layer",
             "contentH", "content_h", "scrollbar", "autoScrollbar", "hover", "texture", "id", "slice_borders", "slice_scale",
             "feetCrop", "feet_crop", "crop", "anchor", "anchorX", "anchor_x", "anchorY", "anchor_y", "viewport", "tooltip", "block", "item",
-            "labelWrap", "labelScale", "subLabel", "subScale", "bgColor", "outlineColor", "maxLines", "max_lines", "maxChars", "max_chars", "inputType", "placeholder", "gridType", "cellSize", "thickness",
-            "nameTag", "name_tag", "noLookAt", "no_look_at", "noFollowCursor", "no_follow_cursor", "noHurtAnim", "no_hurt_anim", "animation", "renderBones", "render_bones"
+            "labelWrap", "labelScale", "subLabel", "subScale", "bgColor", "outlineColor", "maxLines", "max_lines", "maxChars", "max_chars", "inputType", "placeholder", "gridType", "cellSize", "thickness", "src",
+            "nameTag", "name_tag", "noLookAt", "no_look_at", "noFollowCursor", "no_follow_cursor", "noHurtAnim", "no_hurt_anim", "animation", "renderBones", "render_bones", "skinPlayer", "skin_player",
+            "yaw", "pitch", "time"
     );
 
     private static boolean isWidgetPropertyName(String name) {

@@ -1,6 +1,6 @@
 {
   "name": "spraute-studio",
-  "version": "0.3.2",
+  "version": "1.0.0",
   "private": true,
   "description": "Редактор скриптов Spraute — оболочка в духе VS Code для папки Minecraft",
   "author": {
@@ -14,7 +14,11 @@
     "build": "npx vite build",
     "start": "npx electron .",
     "preview": "npx vite build && npx electron .",
-    "studio": "npm run dev"
+    "studio": "npm run dev",
+    "dist": "npm run build && npx electron-builder --publish never",
+    "dist:win": "npm run build && npx electron-builder --win --publish never",
+    "dist:linux": "npm run build && npx electron-builder --linux --publish never",
+    "dist:mac": "npm run build && npx electron-builder --mac --publish never"
   },
   "dependencies": {
     "@blockly/field-multilineinput": "^6.0.8",

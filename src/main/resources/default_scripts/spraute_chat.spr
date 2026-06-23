@@ -1,8 +1,37 @@
 # Библиотека кастомного чата
-# Запустите скрипт, затем из другого скрипта: import("spraute_chat")
+# import("spraute_chat")
+#
+# customChatEx(viewer, message, who, whoRef) — чат по центру
+#   who: "npc" | "player" — голова подставляется автоматически
 
 global val chat_history = list()
 global val chat_msg_counter = 0
+
+fun calc_msg_height(text, wrap_w) {
+    val pad_top = 4
+    val pad_bottom = 4
+    val name_h = 12
+    val line_h = 10
+    val lines = calc_wrapped_lines(text, wrap_w)
+    var bar_h = pad_top + name_h + (lines * line_h) + pad_bottom
+    if (bar_h < 34) {
+        bar_h = 34
+    }
+    return bar_h
+}
+
+fun calc_head_layout(bar_h) {
+    val pad_top = 4
+    val pad_bottom = 4
+    val name_h = 12
+    val line_h = 10
+    var layout_h = bar_h
+    val ref_h = pad_top + name_h + (2 * line_h) + pad_bottom
+    if (layout_h < ref_h) { layout_h = ref_h }
+    val clip_h = (layout_h - 4) // 2
+    val clip_y = (bar_h - clip_h) // 2
+    return dict("clip_h", clip_h, "clip_y", clip_y, "head_w", 28, "pad_top", pad_top, "name_h", name_h)
+}
 
 fun calc_wrapped_lines(text, wrap_w) {
     var text_w = strWidth(text)
@@ -12,13 +41,53 @@ fun calc_wrapped_lines(text, wrap_w) {
     return (text_w // wrap_w) + 1
 }
 
-fun npc_chat(player, npc_id, text, color) {
-    var npcName = npc_id.name
-    if (npcName == null || npcName == "") {
-        npcName = "Неизвестный"
+fun chat_entity_ref(npcRef) {
+    if (npcRef == null) { return "avatar" }
+    val uid = npcRef.uuid
+    if (uid != null) {
+        if (uid != "") { return uid }
     }
+    return "npc:" + npcRef
+}
 
-    chat_history.add(dict("name", npcName, "text", text, "color", color, "npc", npc_id))
+fun npcChat(player, npc_id, text, color) {
+    var name = npc_id.name
+    if (name == null || name == "") {
+        name = "Неизвестный"
+    }
+    chatShow(player, npc_id, text, color, null, name, "npc")
+}
+
+fun customChatEx(viewer, message, who, whoRef) {
+    var skinPlayer = null
+    var npcRef = whoRef
+    var displayName = ""
+    var nameColor = "#FFD700"
+    if (who == "player") {
+        skinPlayer = whoRef
+        displayName = whoRef.name
+        if (displayName == null || displayName == "") {
+            displayName = "Игрок"
+        }
+        nameColor = "#55AAFF"
+    } else {
+        displayName = whoRef.name
+        if (displayName == null || displayName == "") {
+            displayName = "Неизвестный"
+        }
+    }
+    chatShow(viewer, npcRef, message, nameColor, skinPlayer, displayName, who)
+}
+
+fun chatShow(player, npcRef, text, color, skinPlayer, displayName, who) {
+    chat_history.add(dict(
+        "name", displayName,
+        "text", text,
+        "color", color,
+        "npc", npcRef,
+        "skinPlayer", skinPlayer,
+        "who", who
+    ))
     if (chat_history.size() > 50) {
         chat_history.remove(0)
     }
@@ -35,7 +104,7 @@ fun npc_chat(player, npc_id, text, color) {
     val min_w = 100
     val max_w = 320
 
-    val name_w = strWidth(npcName + ": ")
+    val name_w = strWidth(displayName + ": ")
     val full_text_w = strWidth(text) + 6
     var bar_w = head_w + full_text_w + pad_right
     if (bar_w < head_w + name_w + pad_right) {
@@ -51,58 +120,117 @@ fun npc_chat(player, npc_id, text, color) {
     val wrap_w = bar_w - head_w - pad_right
     val lines = calc_wrapped_lines(text, wrap_w)
     var bar_h = pad_top + name_h + (lines * line_h) + pad_bottom
-    if (bar_h < 28) {
-        bar_h = 28
+    if (bar_h < 34) {
+        bar_h = 34
     }
 
-    val ent_h = bar_h - 4
-    val clip_h = ent_h // 2
+    var layout_h = bar_h
+    val ref_h = pad_top + name_h + (2 * line_h) + pad_bottom
+    if (layout_h < ref_h) { layout_h = ref_h }
+    val clip_h = (layout_h - 4) // 2
     val clip_y = (bar_h - clip_h) // 2
 
-    create ui chat_bar {
-        id = "spraute_chat_bar"
-        size = [bar_w, bar_h]
-        pos = ["center", -40]
-        background = "#00000000"
+    var ent_ref = chat_entity_ref(npcRef)
 
-        clip("chat_clip") {
-            pos = [0, 0]
+    if (who == "player") {
+        val skin_tex = getPlayerSkinTexture(skinPlayer)
+        val head_sz = 20
+        val hat_sz = 22
+        val head_x = 2
+        val head_y = (clip_h - head_sz) // 2
+        val hat_x = 1
+        val hat_y = head_y - 1
+
+        create ui chat_bar {
+            id = "spraute_chat_bar"
             size = [bar_w, bar_h]
-            alpha = 0.0
+            pos = ["center", -40]
+            background = "#00000000"
 
-            rect("chat_bg") {
+            clip("chat_clip") {
                 pos = [0, 0]
                 size = [bar_w, bar_h]
-                color = "#CC111111"
-            }
+                alpha = 1.0
 
-            clip("head_clip") {
-                pos = [2, clip_y]
-                size = [24, clip_h]
-
-                entity("npc:" + npc_id, "chat_head") {
+                rect("chat_bg") {
                     pos = [0, 0]
-                    size = [24, clip_h * 2]
-                    scale = 2.1
-                    anchor_y = 1.4
-                    nameTag = false
-                    noLookAt = true
-                    noFollowCursor = true
-                    noHurtAnim = true
-                    animation = false
-                    renderBones = "Head"
+                    size = [bar_w, bar_h]
+                    color = "#CC111111"
+                }
+
+                clip("head_clip") {
+                    pos = [2, clip_y]
+                    size = [24, clip_h]
+
+                    image("chat_head", skin_tex + "/head") {
+                        pos = [head_x, head_y]
+                        size = [head_sz, head_sz]
+                    }
+                    image("chat_head_hat", skin_tex + "/hat") {
+                        pos = [hat_x, hat_y]
+                        size = [hat_sz, hat_sz]
+                        layer = 1
+                    }
+                }
+
+                text("chat_name", displayName + ": ") {
+                    pos = [head_w, pad_top]
+                    color = color
+                    scale = 1.0
+                }
+                text("chat_text", text) {
+                    pos = [head_w, pad_top + name_h]
+                    color = "#FFFFFF"
+                    wrap = wrap_w
                 }
             }
+        }
+    } else {
+        create ui chat_bar {
+            id = "spraute_chat_bar"
+            size = [bar_w, bar_h]
+            pos = ["center", -40]
+            background = "#00000000"
 
-            text("chat_name", npcName + ": ") {
-                pos = [head_w, pad_top]
-                color = color
-                scale = 1.0
-            }
-            text("chat_text", text) {
-                pos = [head_w, pad_top + name_h]
-                color = "#FFFFFF"
-                wrap = wrap_w
+            clip("chat_clip") {
+                pos = [0, 0]
+                size = [bar_w, bar_h]
+                alpha = 1.0
+
+                rect("chat_bg") {
+                    pos = [0, 0]
+                    size = [bar_w, bar_h]
+                    color = "#CC111111"
+                }
+
+                clip("head_clip") {
+                    pos = [2, clip_y]
+                    size = [24, clip_h]
+
+                    entity(ent_ref, "chat_head") {
+                        pos = [0, 0]
+                        size = [24, clip_h * 2]
+                        scale = 2.1
+                        anchor_y = 1.4
+                        nameTag = false
+                        noLookAt = true
+                        noFollowCursor = true
+                        noHurtAnim = true
+                        animation = false
+                        renderBones = "Head"
+                    }
+                }
+
+                text("chat_name", displayName + ": ") {
+                    pos = [head_w, pad_top]
+                    color = color
+                    scale = 1.0
+                }
+                text("chat_text", text) {
+                    pos = [head_w, pad_top + name_h]
+                    color = "#FFFFFF"
+                    wrap = wrap_w
+                }
             }
         }
     }
@@ -110,12 +238,12 @@ fun npc_chat(player, npc_id, text, color) {
     overlayOpen(player, chat_bar)
     playSound(player, "minecraft:entity.experience_orb.pickup", 0.5, 1.0)
 
-    uiAnimate(player, "chat_clip", "alpha", 1.0, 0.3, "ease_out")
+    uiAnimate(player, "chat_clip", "alpha", 1.0, 0.3, "easeOut")
 
     async {
         await time(5)
         if (chat_msg_counter == my_counter) {
-            uiAnimate(player, "chat_clip", "alpha", 0.0, 0.5, "ease_in")
+            uiAnimate(player, "chat_clip", "alpha", 0.0, 0.5, "easeIn")
             await time(0.6)
             if (chat_msg_counter == my_counter) {
                 overlayClose(player, "spraute_chat_bar")
@@ -125,7 +253,7 @@ fun npc_chat(player, npc_id, text, color) {
 }
 
 on keybind("B") -> chat_history_kb {
-    val player = _event_player
+    val player = _eventPlayer
 
     if (chat_history.size() == 0) {
         chat("§7Нет сообщений в истории.")
@@ -134,20 +262,14 @@ on keybind("B") -> chat_history_kb {
         var i = 0
         while (i < chat_history.size()) {
             val msg = chat_history.get(i)
-            val wrap_w = 280
-            val lines = calc_wrapped_lines(msg["text"], wrap_w)
-            var m_h = 12 + (lines * 10) + 8
-            if (m_h < 28) {
-                m_h = 28
-            }
-            total_h = total_h + m_h + 4
+            total_h = total_h + calc_msg_height(msg["text"], 280) + 4
             i = i + 1
         }
 
         create ui history_ui {
             size = [340, 220]
             background = "#EE111111"
-            can_close = true
+            canClose = true
 
             text("title", "§6История сообщений") {
                 pos = [10, 8]
@@ -165,11 +287,19 @@ on keybind("B") -> chat_history_kb {
                 while (j < chat_history.size()) {
                     val msg = chat_history.get(j)
                     val wrap_w = 280
-                    val lines = calc_wrapped_lines(msg["text"], wrap_w)
-                    var m_h = 12 + (lines * 10) + 8
-                    if (m_h < 28) {
-                        m_h = 28
+                    val m_h = calc_msg_height(msg["text"], wrap_w)
+                    val head = calc_head_layout(m_h)
+                    var hist_who = msg["who"]
+                    if (hist_who == null || hist_who == "") {
+                        hist_who = "npc"
                     }
+                    var hist_ent = chat_entity_ref(msg["npc"])
+                    val head_sz = 20
+                    val hat_sz = 22
+                    val head_x = 2
+                    val head_y = (head["clip_h"] - head_sz) // 2
+                    val hat_x = 1
+                    val hat_y = head_y - 1
 
                     rect("bg_" + j) {
                         pos = [0, current_y]
@@ -177,18 +307,26 @@ on keybind("B") -> chat_history_kb {
                         color = "#33FFFFFF"
                     }
 
-                    val has_npc = msg["npc"] != null
-                    var h_clip = (m_h - 4) // 2
-                    var h_clip_y = current_y + ((m_h - h_clip) // 2)
-                    if (has_npc) {
-                        clip("hclip_" + j) {
-                            pos = [2, h_clip_y]
-                            size = [24, h_clip]
+                    clip("hclip_" + j) {
+                        pos = [2, current_y + head["clip_y"]]
+                        size = [24, head["clip_h"]]
 
-                            entity("npc:" + msg["npc"], "hist_head_" + j) {
+                        if (hist_who == "player") {
+                            val hist_skin_tex = getPlayerSkinTexture(msg["skinPlayer"])
+                            image("hist_head_" + j, hist_skin_tex + "/head") {
+                                pos = [head_x, head_y]
+                                size = [head_sz, head_sz]
+                            }
+                            image("hist_hat_" + j, hist_skin_tex + "/hat") {
+                                pos = [hat_x, hat_y]
+                                size = [hat_sz, hat_sz]
+                                layer = 1
+                            }
+                        } else {
+                            entity(hist_ent, "hist_head_" + j) {
                                 pos = [0, 0]
-                                size = [24, h_clip * 2]
-                                scale = 2.1
+                                size = [24, head["clip_h"] * 2]
+                                scale = 2.3
                                 anchor_y = 1.4
                                 nameTag = false
                                 noLookAt = true
@@ -201,11 +339,11 @@ on keybind("B") -> chat_history_kb {
                     }
 
                     text("name_" + j, msg["name"] + ": ") {
-                        pos = [28, current_y + 3]
+                        pos = [head["head_w"], current_y + head["pad_top"]]
                         color = msg["color"]
                     }
                     text("txt_" + j, msg["text"]) {
-                        pos = [28, current_y + 15]
+                        pos = [head["head_w"], current_y + head["pad_top"] + head["name_h"]]
                         color = "#DDDDDD"
                         wrap = wrap_w
                     }

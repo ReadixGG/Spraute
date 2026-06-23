@@ -1,7 +1,11 @@
 package org.zonarstudio.spraute_engine.registry;
 
 import com.mojang.logging.LogUtils;
-import net.minecraft.core.Registry;
+//? if >=1.20.1 {
+import net.minecraft.core.registries.Registries;
+//?} else {
+/*import net.minecraft.core.Registry;
+*///?}
 import net.minecraft.core.particles.ParticleType;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.resources.ResourceLocation;
@@ -70,10 +74,22 @@ public class CustomParticleRegistry {
     @SubscribeEvent
     public static void onRegister(RegisterEvent event) {
         parseScripts();
-        if (event.getRegistryKey().equals(Registry.PARTICLE_TYPE_REGISTRY)) {
+        if (event.getRegistryKey().equals(
+                //? if >=1.20.1 {
+                Registries.PARTICLE_TYPE
+                //?} else {
+                /*Registry.PARTICLE_TYPE_REGISTRY*/
+                //?}
+        )) {
             for (CustomParticleDef def : PARTICLES.values()) {
                 SimpleParticleType type = new SimpleParticleType(true); // true = alwaysShow
-                event.register(Registry.PARTICLE_TYPE_REGISTRY, new ResourceLocation(Spraute_engine.MODID, def.id), () -> type);
+                event.register(
+                        //? if >=1.20.1 {
+                        Registries.PARTICLE_TYPE
+                        //?} else {
+                        /*Registry.PARTICLE_TYPE_REGISTRY*/
+                        //?}
+                , new ResourceLocation(Spraute_engine.MODID, def.id), () -> type);
             }
         }
     }
