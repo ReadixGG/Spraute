@@ -105,6 +105,15 @@ public class ScriptExecutor {
         }
     }
 
+    public void onPlayerJoin(net.minecraft.server.level.ServerPlayer player) {
+        for (ActiveScript script : activeScripts) {
+            script.onPlayerJoin(player);
+        }
+        for (ActiveScript script : scriptsToAdd) {
+            script.onPlayerJoin(player);
+        }
+    }
+
     public void onDeath(net.minecraft.world.entity.LivingEntity entity, net.minecraft.world.entity.Entity killer) {
         for (ActiveScript script : activeScripts) {
             script.onDeath(entity, killer);
@@ -182,6 +191,30 @@ public class ScriptExecutor {
         }
         for (ActiveScript script : scriptsToAdd) {
             if (script.onPlaceBlock(player, pos, block, dimId)) canceled = true;
+        }
+        return canceled;
+    }
+
+    public boolean onOpenChest(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, net.minecraft.world.level.Level level) {
+        String dimId = level != null ? level.dimension().location().toString() : null;
+        boolean canceled = false;
+        for (ActiveScript script : activeScripts) {
+            if (script.onOpenChest(player, pos, block, dimId)) canceled = true;
+        }
+        for (ActiveScript script : scriptsToAdd) {
+            if (script.onOpenChest(player, pos, block, dimId)) canceled = true;
+        }
+        return canceled;
+    }
+
+    public boolean onOpenDoor(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, net.minecraft.world.level.Level level) {
+        String dimId = level != null ? level.dimension().location().toString() : null;
+        boolean canceled = false;
+        for (ActiveScript script : activeScripts) {
+            if (script.onOpenDoor(player, pos, block, dimId)) canceled = true;
+        }
+        for (ActiveScript script : scriptsToAdd) {
+            if (script.onOpenDoor(player, pos, block, dimId)) canceled = true;
         }
         return canceled;
     }
@@ -448,7 +481,10 @@ public class ScriptExecutor {
         private boolean keybindMet = false;
         private net.minecraft.world.entity.player.Player keybindPlayer = null;
         private String waitDeathTarget = null;
+        private String waitKillKillerTarget = null;
+        private String waitKillVictimTarget = null;
         private boolean deathMet = false;
+        private boolean killMet = false;
         private net.minecraft.world.entity.LivingEntity deadEntity = null;
         private net.minecraft.world.entity.Entity deathKiller = null;
         private UUID waitFollowTargetUuid = null;
@@ -596,6 +632,7 @@ public class ScriptExecutor {
                 case NEXT -> "next";
                 case KEYBIND -> "keybind (" + keybind + ")";
                 case DEATH -> "death (" + deathTarget + ")";
+                case KILL -> "kill (" + deathTarget + ")";
                 case UI_CLICK -> "uiClick";
                 case UI_CLOSE -> "uiClose";
                 case MOVE_TO -> String.format("move_to (%.0f, %.0f, %.0f)", mx, my, mz);
@@ -610,6 +647,8 @@ public class ScriptExecutor {
                 case CLICK_BLOCK -> "clickBlock";
                 case BREAK_BLOCK -> "breakBlock";
                 case PLACE_BLOCK -> "placeBlock";
+                case OPEN_CHEST -> "openChest";
+                case OPEN_DOOR -> "openDoor";
                 case UI_INPUT -> "uiInput";
                 case CHAT -> "chat";
                 case UI_OVERLAP -> "uiOverlap";
@@ -861,6 +900,21 @@ public class ScriptExecutor {
                 } else {
                     return;
                 }
+            } else if (waitType == WaitType.KILL) {
+                if (killMet) {
+                    waitType = WaitType.NONE;
+                    killMet = false;
+                    if (pendingVarName != null && deadEntity != null) {
+                        variables.put(pendingVarName, deadEntity);
+                    }
+                    deadEntity = null;
+                    deathKiller = null;
+                    waitKillKillerTarget = null;
+                    waitKillVictimTarget = null;
+                    pendingVarName = null;
+                } else {
+                    return;
+                }
                 } else if (waitType == WaitType.UI_CLICK || waitType == WaitType.UI_CLOSE) {
                     if (uiClickMet && (waitType == WaitType.UI_CLICK || uiClickClosed)) {
                         waitType = WaitType.NONE;
@@ -947,11 +1001,27 @@ public class ScriptExecutor {
                     } else {
                         return;
                     }
-                } else if (waitType == WaitType.CLICK_BLOCK || waitType == WaitType.BREAK_BLOCK || waitType == WaitType.PLACE_BLOCK) {
+                } else if (waitType == WaitType.CLICK_BLOCK || waitType == WaitType.BREAK_BLOCK || waitType == WaitType.PLACE_BLOCK
+                        || waitType == WaitType.OPEN_CHEST || waitType == WaitType.OPEN_DOOR) {
                     if (blockEventMet) {
                         waitType = WaitType.NONE;
                         blockEventMet = false;
                         waitBlockPlayerUuid = null;
+                        if (pendingVarName != null && asyncResult != null) {
+                            variables.put(pendingVarName, asyncResult);
+                        }
+                        asyncResult = null;
+                        pendingVarName = null;
+                    } else {
+                        return;
+                    }
+                } else if (waitType == WaitType.PLAYER_ACTION) {
+                    if (playerActionMet) {
+                        waitType = WaitType.NONE;
+                        playerActionMet = false;
+                        waitPlayerActionPlayerUuid = null;
+                        waitPlayerActionType = null;
+                        waitPlayerActionTarget = null;
                         if (pendingVarName != null && asyncResult != null) {
                             variables.put(pendingVarName, asyncResult);
                         }
@@ -1315,11 +1385,28 @@ public class ScriptExecutor {
                     } else {
                         continue;
                     }
-                } else if (task.waitType == WaitType.CLICK_BLOCK || task.waitType == WaitType.BREAK_BLOCK || task.waitType == WaitType.PLACE_BLOCK) {
+                } else if (task.waitType == WaitType.CLICK_BLOCK || task.waitType == WaitType.BREAK_BLOCK || task.waitType == WaitType.PLACE_BLOCK
+                        || task.waitType == WaitType.OPEN_CHEST || task.waitType == WaitType.OPEN_DOOR) {
                     if (task.blockEventMet) {
                         task.waitType = WaitType.NONE;
                         task.blockEventMet = false;
                         task.waitBlockPlayerUuid = null;
+                        if (task.pendingUiClickVarName != null && asyncResult != null) {
+                            putVariable(task.pendingUiClickVarName, asyncResult);
+                        }
+                        asyncResult = null;
+                        task.pendingUiClickVarName = null;
+                        task.ip++;
+                    } else {
+                        continue;
+                    }
+                } else if (task.waitType == WaitType.PLAYER_ACTION) {
+                    if (task.playerActionMet) {
+                        task.waitType = WaitType.NONE;
+                        task.playerActionMet = false;
+                        task.waitPlayerActionPlayerUuid = null;
+                        task.waitPlayerActionType = null;
+                        task.waitPlayerActionTarget = null;
                         if (task.pendingUiClickVarName != null && asyncResult != null) {
                             putVariable(task.pendingUiClickVarName, asyncResult);
                         }
@@ -1494,7 +1581,7 @@ public class ScriptExecutor {
                         return true;
                     }
                 }
-                case AWAIT_CLICK_BLOCK, AWAIT_BREAK_BLOCK, AWAIT_PLACE_BLOCK -> {
+                case AWAIT_CLICK_BLOCK, AWAIT_BREAK_BLOCK, AWAIT_PLACE_BLOCK, AWAIT_OPEN_CHEST, AWAIT_OPEN_DOOR -> {
                     List<ScriptNode> args = (List<ScriptNode>) instr.getArg(0);
                     net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(args.get(0)));
                     if (sp != null) {
@@ -1514,7 +1601,9 @@ public class ScriptExecutor {
                         }
                         if (instr.getOpcode() == CompiledScript.Opcode.AWAIT_CLICK_BLOCK) task.waitType = WaitType.CLICK_BLOCK;
                         else if (instr.getOpcode() == CompiledScript.Opcode.AWAIT_BREAK_BLOCK) task.waitType = WaitType.BREAK_BLOCK;
-                        else task.waitType = WaitType.PLACE_BLOCK;
+                        else if (instr.getOpcode() == CompiledScript.Opcode.AWAIT_PLACE_BLOCK) task.waitType = WaitType.PLACE_BLOCK;
+                        else if (instr.getOpcode() == CompiledScript.Opcode.AWAIT_OPEN_CHEST) task.waitType = WaitType.OPEN_CHEST;
+                        else task.waitType = WaitType.OPEN_DOOR;
                         task.blockEventMet = false;
                         return true;
                     }
@@ -1539,6 +1628,20 @@ public class ScriptExecutor {
                         task.chatEventMet = false;
                         task.chatMatchedMessage = "";
                         task.waitType = WaitType.CHAT;
+                        return true;
+                    }
+                }
+                case AWAIT_PLAYER_ACTION -> {
+                    ScriptNode pNode = (ScriptNode) instr.getArg(0);
+                    ScriptNode actionNode = (ScriptNode) instr.getArg(1);
+                    ScriptNode targetNode = instr.getArgCount() >= 3 ? (ScriptNode) instr.getArg(2) : null;
+                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
+                    if (sp != null) {
+                        task.waitPlayerActionPlayerUuid = sp.getUUID();
+                        task.waitPlayerActionType = String.valueOf(evaluateExpression(actionNode));
+                        task.waitPlayerActionTarget = targetNode != null ? String.valueOf(evaluateExpression(targetNode)) : null;
+                        task.playerActionMet = false;
+                        task.waitType = WaitType.PLAYER_ACTION;
                         return true;
                     }
                 }
@@ -1628,13 +1731,44 @@ public class ScriptExecutor {
             }
         }
 
+        public void onPlayerJoin(net.minecraft.server.level.ServerPlayer player) {
+            for (var entry : eventHandlers.entrySet()) {
+                EventHandler handler = entry.getValue();
+                if (!handler.active || !handler.eventName.equals("join")) continue;
+
+                Object prevPlayer = variables.get("_eventPlayer");
+                variables.put("_eventPlayer", player);
+                try {
+                    executeInstructionBlock(handler.bodyInstructions);
+                } catch (ReturnException e) {
+                    handler.active = false;
+                } catch (Exception e) {
+                    LOGGER.error("[Script: {}] Join handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage(), e);
+                }
+                if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer);
+                else variables.remove("_eventPlayer");
+            }
+        }
+
         public void onDeath(net.minecraft.world.entity.LivingEntity entity, net.minecraft.world.entity.Entity killer) {
-            // Main script await
+            // Main script await death
             if (waitType == WaitType.DEATH && waitDeathTarget != null) {
                 if (matchesDeathTarget(entity, waitDeathTarget)) {
                     deathMet = true;
                     deathKiller = killer;
                     deadEntity = entity;
+                }
+            }
+
+            // Main script await kill
+            if (waitType == WaitType.KILL && waitKillKillerTarget != null && killer != null) {
+                if (matchesKillFilter(killer, waitKillKillerTarget)) {
+                    String victimFilter = waitKillVictimTarget != null ? waitKillVictimTarget : "any";
+                    if (matchesDeathTarget(entity, victimFilter)) {
+                        killMet = true;
+                        deathKiller = killer;
+                        deadEntity = entity;
+                    }
                 }
             }
 
@@ -1663,6 +1797,37 @@ public class ScriptExecutor {
                 else variables.remove("_eventEntity");
                 if (prevKiller != null) variables.put("_eventKiller", prevKiller);
                 else variables.remove("_eventKiller");
+            }
+
+            // Fire "kill" event handlers
+            if (killer != null) {
+                for (var entry : eventHandlers.entrySet()) {
+                    EventHandler handler = entry.getValue();
+                    if (!handler.active || !handler.eventName.equals("kill")) continue;
+
+                    if (!handler.eventArgs.isEmpty()) {
+                        if (!matchesKillFilter(killer, String.valueOf(handler.eventArgs.get(0)))) continue;
+                    }
+                    if (handler.eventArgs.size() >= 2) {
+                        if (!matchesDeathTarget(entity, String.valueOf(handler.eventArgs.get(1)))) continue;
+                    }
+
+                    Object prevEntity = variables.get("_eventEntity");
+                    Object prevKiller = variables.get("_eventKiller");
+                    variables.put("_eventEntity", entity);
+                    variables.put("_eventKiller", killer);
+                    try {
+                        executeInstructionBlock(handler.bodyInstructions);
+                    } catch (ReturnException e) {
+                        handler.active = false;
+                    } catch (Exception e) {
+                        LOGGER.error("[Script: {}] Kill handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
+                    }
+                    if (prevEntity != null) variables.put("_eventEntity", prevEntity);
+                    else variables.remove("_eventEntity");
+                    if (prevKiller != null) variables.put("_eventKiller", prevKiller);
+                    else variables.remove("_eventKiller");
+                }
             }
         }
 
@@ -1812,10 +1977,19 @@ public class ScriptExecutor {
                 if (!closed && widgetId != null && !widgetId.isEmpty()) {
                     java.util.List<CompiledScript.Instruction> h = boundUiTemplate.getClickHandlers().get(widgetId);
                     if (h != null && !h.isEmpty()) {
+                        Object prevPlayer = variables.get("_eventPlayer");
+                        Object prevWidget = variables.get("_eventWidget");
+                        variables.put("_eventPlayer", player);
+                        variables.put("_eventWidget", widgetId);
                         try {
                             executeInstructionBlock(h);
                         } catch (Exception e) {
                             LOGGER.error("[Script: {}] UI on_click '{}': {}", script.getName(), widgetId, e.getMessage());
+                        } finally {
+                            if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer);
+                            else variables.remove("_eventPlayer");
+                            if (prevWidget != null) variables.put("_eventWidget", prevWidget);
+                            else variables.remove("_eventWidget");
                         }
                     }
                 }
@@ -1915,6 +2089,66 @@ public class ScriptExecutor {
                 }
             }
             return fireBlockEvent("placeBlock", player, pos, blockStr, null);
+        }
+
+        public boolean onOpenChest(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block) {
+            return onOpenChest(player, pos, block, null);
+        }
+
+        public boolean onOpenChest(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, String dimId) {
+            String blockStr = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(block).toString();
+            if (waitType == WaitType.OPEN_CHEST && waitBlockPlayerUuid != null && waitBlockPlayerUuid.equals(player.getUUID())) {
+                if (matchesBlockWait(blockStr, pos, dimId)) {
+                    blockEventMet = true;
+                    asyncResult = blockStr;
+                }
+            }
+            for (AsyncTask task : asyncTasks.values()) {
+                if (task.waitType == WaitType.OPEN_CHEST && task.waitBlockPlayerUuid != null && task.waitBlockPlayerUuid.equals(player.getUUID())) {
+                    if (matchesBlockWaitTask(task, blockStr, pos, dimId)) {
+                        task.blockEventMet = true;
+                        asyncResult = blockStr;
+                    }
+                }
+            }
+            return fireBlockEvent("openChest", player, pos, blockStr, null);
+        }
+
+        public boolean onOpenDoor(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block) {
+            return onOpenDoor(player, pos, block, null);
+        }
+
+        public boolean onOpenDoor(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, String dimId) {
+            String blockStr = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(block).toString();
+            if (waitType == WaitType.OPEN_DOOR && waitBlockPlayerUuid != null && waitBlockPlayerUuid.equals(player.getUUID())) {
+                if (matchesBlockWait(blockStr, pos, dimId)) {
+                    blockEventMet = true;
+                    asyncResult = blockStr;
+                }
+            }
+            for (AsyncTask task : asyncTasks.values()) {
+                if (task.waitType == WaitType.OPEN_DOOR && task.waitBlockPlayerUuid != null && task.waitBlockPlayerUuid.equals(player.getUUID())) {
+                    if (matchesBlockWaitTask(task, blockStr, pos, dimId)) {
+                        task.blockEventMet = true;
+                        asyncResult = blockStr;
+                    }
+                }
+            }
+            return fireBlockEvent("openDoor", player, pos, blockStr, null);
+        }
+
+        private boolean matchesBlockWait(String blockStr, net.minecraft.core.BlockPos pos, String dimId) {
+            boolean idMatch = waitBlockId == null || waitBlockId.equals(blockStr) || waitBlockId.equals(blockStr.replace("minecraft:", ""));
+            boolean posMatch = waitBlockPos == null || waitBlockPos.equals(pos);
+            boolean dimMatch = dimMatches(waitBlockDim, dimId);
+            return idMatch && posMatch && dimMatch;
+        }
+
+        private boolean matchesBlockWaitTask(AsyncTask task, String blockStr, net.minecraft.core.BlockPos pos, String dimId) {
+            boolean idMatch = task.waitBlockId == null || task.waitBlockId.equals(blockStr) || task.waitBlockId.equals(blockStr.replace("minecraft:", ""));
+            boolean posMatch = task.waitBlockPos == null || task.waitBlockPos.equals(pos);
+            boolean dimMatch = dimMatches(task.waitBlockDim, dimId);
+            return idMatch && posMatch && dimMatch;
         }
 
         private boolean fireBlockEvent(String eventName, net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, String blockStr, String extraAction) {
@@ -2208,25 +2442,48 @@ public class ScriptExecutor {
             
             for (var entry : eventHandlers.entrySet()) {
                 EventHandler handler = entry.getValue();
-                if (!handler.active || !handler.eventName.equals("action")) continue;
-                if (handler.eventArgs.size() < 2) continue;
-                
-                net.minecraft.world.entity.Entity playerEnt = resolveEntity(handler.eventArgs.get(0));
-                if (playerEnt == null || !playerEnt.getUUID().equals(player.getUUID())) continue;
-                
-                String expectedAction = String.valueOf(handler.eventArgs.get(1));
-                if (!expectedAction.equalsIgnoreCase(actionType)) continue;
-                
-                if (handler.eventArgs.size() > 2) {
-                    String expectedTarget = String.valueOf(handler.eventArgs.get(2));
-                    if (!matchesActionTarget(target, expectedTarget)) continue;
+                if (!handler.active) continue;
+                String en = handler.eventName;
+                if (!en.equals("action") && !en.equals("playerAction")) continue;
+
+                boolean matched = false;
+                if (handler.eventArgs.isEmpty()) {
+                    matched = true;
+                } else if (handler.eventArgs.size() == 1) {
+                    Object arg0 = handler.eventArgs.get(0);
+                    net.minecraft.world.entity.Entity playerEnt = resolveEntity(arg0);
+                    if (playerEnt != null) {
+                        matched = playerEnt.getUUID().equals(player.getUUID());
+                    } else {
+                        matched = String.valueOf(arg0).equalsIgnoreCase(actionType);
+                    }
+                } else {
+                    net.minecraft.world.entity.Entity playerEnt = resolveEntity(handler.eventArgs.get(0));
+                    if (playerEnt != null && playerEnt.getUUID().equals(player.getUUID())) {
+                        String expectedAction = String.valueOf(handler.eventArgs.get(1));
+                        if (expectedAction.equalsIgnoreCase(actionType)) {
+                            if (handler.eventArgs.size() <= 2) {
+                                matched = true;
+                            } else {
+                                String expectedTarget = String.valueOf(handler.eventArgs.get(2));
+                                matched = matchesActionTarget(target, expectedTarget);
+                            }
+                        }
+                    }
                 }
-                
+                if (!matched) continue;
+
                 Object prevPlayer = variables.get("_eventPlayer");
                 Object prevTarget = variables.get("_eventTarget");
+                Object prevItemId = variables.get("_eventItemId");
                 variables.put("_eventPlayer", player);
                 variables.put("_eventTarget", target);
-                
+                if (target instanceof net.minecraft.world.item.Item item) {
+                    variables.put("_eventItemId", net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(item).toString());
+                } else {
+                    variables.remove("_eventItemId");
+                }
+
                 try {
                     executeInstructionBlock(handler.bodyInstructions);
                 } catch (ReturnException e) {
@@ -2234,11 +2491,37 @@ public class ScriptExecutor {
                 } catch (Exception e) {
                     LOGGER.error("[Script: {}] Action handler error: {}", script.getName(), e.getMessage());
                 }
-                
+
                 if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer);
                 else variables.remove("_eventPlayer");
                 if (prevTarget != null) variables.put("_eventTarget", prevTarget);
                 else variables.remove("_eventTarget");
+                if (prevItemId != null) variables.put("_eventItemId", prevItemId);
+                else variables.remove("_eventItemId");
+            }
+
+            for (var entry : eventHandlers.entrySet()) {
+                EventHandler handler = entry.getValue();
+                if (!handler.active || !handler.eventName.equals("jump")) continue;
+
+                if (!handler.eventArgs.isEmpty()) {
+                    net.minecraft.world.entity.Entity playerEnt = resolveEntity(handler.eventArgs.get(0));
+                    if (playerEnt == null || !playerEnt.getUUID().equals(player.getUUID())) continue;
+                }
+
+                Object prevPlayer = variables.get("_eventPlayer");
+                variables.put("_eventPlayer", player);
+
+                try {
+                    executeInstructionBlock(handler.bodyInstructions);
+                } catch (ReturnException e) {
+                    handler.active = false;
+                } catch (Exception e) {
+                    LOGGER.error("[Script: {}] Jump handler error: {}", script.getName(), e.getMessage());
+                }
+
+                if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer);
+                else variables.remove("_eventPlayer");
             }
             
             for (AsyncTask task : asyncTasks.values()) {
@@ -2281,6 +2564,26 @@ public class ScriptExecutor {
                 case "any" -> true;
                 default -> false;
             };
+        }
+
+        private boolean matchesKillFilter(net.minecraft.world.entity.Entity entity, String target) {
+            if (entity == null) return false;
+            if (entity instanceof net.minecraft.world.entity.LivingEntity living) {
+                return matchesDeathTarget(living, target);
+            }
+            UUID npcUuid = org.zonarstudio.spraute_engine.entity.NpcManager.get(target);
+            if (npcUuid != null) {
+                return entity.getUUID().equals(npcUuid);
+            }
+            net.minecraft.world.entity.Entity expected = resolveEntity(target);
+            if (expected != null) {
+                return entity.getUUID().equals(expected.getUUID());
+            }
+            if (entity instanceof net.minecraft.server.level.ServerPlayer sp
+                    && target.equalsIgnoreCase(sp.getName().getString())) {
+                return true;
+            }
+            return false;
         }
 
         public boolean isFinished() { return finished; }
@@ -2557,6 +2860,15 @@ public class ScriptExecutor {
                              waitType = WaitType.DEATH;
                              pendingVarName = name;
                              return true;
+                         } else if (call.getFunctionName().equals("kill")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             waitKillKillerTarget = String.valueOf(evaluateExpression(call.getArgs().get(0)));
+                             waitKillVictimTarget = call.getArgs().size() > 1
+                                     ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : "any";
+                             killMet = false;
+                             waitType = WaitType.KILL;
+                             pendingVarName = name;
+                             return true;
                          } else if (call.getFunctionName().equals("keybind")) {
                              ScriptNode keyNode = call.getArgs().get(0);
                              Object val = evaluateExpression(keyNode);
@@ -2687,7 +2999,8 @@ public class ScriptExecutor {
                                  pendingVarName = name;
                                  return true;
                              }
-                         } else if (call.getFunctionName().equals("clickBlock") || call.getFunctionName().equals("breakBlock") || call.getFunctionName().equals("placeBlock")) {
+                         } else if (call.getFunctionName().equals("clickBlock") || call.getFunctionName().equals("breakBlock") || call.getFunctionName().equals("placeBlock")
+                                 || call.getFunctionName().equals("openChest") || call.getFunctionName().equals("openDoor")) {
                              if (call.getArgs().isEmpty()) return false;
                              net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
                              if (sp != null) {
@@ -2706,8 +3019,22 @@ public class ScriptExecutor {
                                  }
                                  if (call.getFunctionName().equals("clickBlock")) waitType = WaitType.CLICK_BLOCK;
                                  else if (call.getFunctionName().equals("breakBlock")) waitType = WaitType.BREAK_BLOCK;
-                                 else waitType = WaitType.PLACE_BLOCK;
+                                 else if (call.getFunctionName().equals("placeBlock")) waitType = WaitType.PLACE_BLOCK;
+                                 else if (call.getFunctionName().equals("openChest")) waitType = WaitType.OPEN_CHEST;
+                                 else waitType = WaitType.OPEN_DOOR;
                                  blockEventMet = false;
+                                 pendingVarName = name;
+                                 return true;
+                             }
+                         } else if (call.getFunctionName().equals("jump")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                             if (sp != null) {
+                                 waitPlayerActionPlayerUuid = sp.getUUID();
+                                 waitPlayerActionType = "jump";
+                                 waitPlayerActionTarget = null;
+                                 playerActionMet = false;
+                                 waitType = WaitType.PLAYER_ACTION;
                                  pendingVarName = name;
                                  return true;
                              }
@@ -2751,6 +3078,15 @@ public class ScriptExecutor {
                              waitType = WaitType.DEATH;
                              pendingVarName = name;
                              return true;
+                         } else if (call.getFunctionName().equals("kill")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             waitKillKillerTarget = String.valueOf(evaluateExpression(call.getArgs().get(0)));
+                             waitKillVictimTarget = call.getArgs().size() > 1
+                                     ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : "any";
+                             killMet = false;
+                             waitType = WaitType.KILL;
+                             pendingVarName = name;
+                             return true;
                          } else if (call.getFunctionName().equals("keybind")) {
                              ScriptNode keyNode = call.getArgs().get(0);
                              Object val = evaluateExpression(keyNode);
@@ -2881,7 +3217,8 @@ public class ScriptExecutor {
                                  pendingVarName = name;
                                  return true;
                              }
-                         } else if (call.getFunctionName().equals("clickBlock") || call.getFunctionName().equals("breakBlock") || call.getFunctionName().equals("placeBlock")) {
+                         } else if (call.getFunctionName().equals("clickBlock") || call.getFunctionName().equals("breakBlock") || call.getFunctionName().equals("placeBlock")
+                                 || call.getFunctionName().equals("openChest") || call.getFunctionName().equals("openDoor")) {
                              if (call.getArgs().isEmpty()) return false;
                              net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
                              if (sp != null) {
@@ -2900,8 +3237,22 @@ public class ScriptExecutor {
                                  }
                                  if (call.getFunctionName().equals("clickBlock")) waitType = WaitType.CLICK_BLOCK;
                                  else if (call.getFunctionName().equals("breakBlock")) waitType = WaitType.BREAK_BLOCK;
-                                 else waitType = WaitType.PLACE_BLOCK;
+                                 else if (call.getFunctionName().equals("placeBlock")) waitType = WaitType.PLACE_BLOCK;
+                                 else if (call.getFunctionName().equals("openChest")) waitType = WaitType.OPEN_CHEST;
+                                 else waitType = WaitType.OPEN_DOOR;
                                  blockEventMet = false;
+                                 pendingVarName = name;
+                                 return true;
+                             }
+                         } else if (call.getFunctionName().equals("jump")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                             if (sp != null) {
+                                 waitPlayerActionPlayerUuid = sp.getUUID();
+                                 waitPlayerActionType = "jump";
+                                 waitPlayerActionTarget = null;
+                                 playerActionMet = false;
+                                 waitType = WaitType.PLAYER_ACTION;
                                  pendingVarName = name;
                                  return true;
                              }
@@ -2980,6 +3331,15 @@ public class ScriptExecutor {
                     Object val = evaluateExpression(targetNode);
                     waitDeathTarget = String.valueOf(val);
                     waitType = WaitType.DEATH;
+                    return true;
+                }
+                case AWAIT_KILL -> {
+                    ScriptNode killerNode = (ScriptNode) instruction.getArg(0);
+                    ScriptNode victimNode = instruction.getArgCount() >= 2 ? (ScriptNode) instruction.getArg(1) : null;
+                    waitKillKillerTarget = String.valueOf(evaluateExpression(killerNode));
+                    waitKillVictimTarget = victimNode != null ? String.valueOf(evaluateExpression(victimNode)) : "any";
+                    killMet = false;
+                    waitType = WaitType.KILL;
                     return true;
                 }
                 case AWAIT_PICKUP -> {
@@ -3153,7 +3513,7 @@ public class ScriptExecutor {
                         return true;
                     }
                 }
-                case AWAIT_CLICK_BLOCK, AWAIT_BREAK_BLOCK, AWAIT_PLACE_BLOCK -> {
+                case AWAIT_CLICK_BLOCK, AWAIT_BREAK_BLOCK, AWAIT_PLACE_BLOCK, AWAIT_OPEN_CHEST, AWAIT_OPEN_DOOR -> {
                     List<ScriptNode> args = (List<ScriptNode>) instruction.getArg(0);
                     net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(args.get(0)));
                     if (sp != null) {
@@ -3184,7 +3544,9 @@ public class ScriptExecutor {
                         }
                         if (instruction.getOpcode() == CompiledScript.Opcode.AWAIT_CLICK_BLOCK) waitType = WaitType.CLICK_BLOCK;
                         else if (instruction.getOpcode() == CompiledScript.Opcode.AWAIT_BREAK_BLOCK) waitType = WaitType.BREAK_BLOCK;
-                        else waitType = WaitType.PLACE_BLOCK;
+                        else if (instruction.getOpcode() == CompiledScript.Opcode.AWAIT_PLACE_BLOCK) waitType = WaitType.PLACE_BLOCK;
+                        else if (instruction.getOpcode() == CompiledScript.Opcode.AWAIT_OPEN_CHEST) waitType = WaitType.OPEN_CHEST;
+                        else waitType = WaitType.OPEN_DOOR;
                         blockEventMet = false;
                         return true;
                     }
@@ -3657,6 +4019,12 @@ public class ScriptExecutor {
 
             if (obj instanceof net.minecraft.world.entity.Entity entity) {
                 String method = methodName != null ? methodName.toLowerCase() : "";
+                if (entity instanceof net.minecraft.world.entity.player.Player player
+                        && org.zonarstudio.spraute_engine.script.PlayerScriptMethods.isKnown(method)) {
+                    org.zonarstudio.spraute_engine.script.PlayerScriptMethods.invoke(
+                            player, method, args, this::performRaycast);
+                    return false;
+                }
                 switch (method) {
                     case "damage" -> {
                         if (entity instanceof net.minecraft.world.entity.LivingEntity living) {
@@ -4436,6 +4804,9 @@ public class ScriptExecutor {
                         case "lookY" -> player.getLookAngle().y;
                         case "lookZ" -> player.getLookAngle().z;
                         case "uuid" -> player.getUUID().toString();
+                        case "isSneaking", "issneaking", "sneaking" -> player.isShiftKeyDown();
+                        case "isCrouching", "iscrouching", "crouching" -> player.isCrouching();
+                        case "onGround", "onground", "isOnGround" -> org.zonarstudio.spraute_engine.compat.SprauteEntityCompat.onGround(player);
                         case "java" -> player;
                         case "data" -> org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().getPlayerSessionData(player.getUUID());
                         case "savedData" -> new PlayerSavedDataMap(player.getUUID(), source.getLevel().getServer(), source.getLevel());
@@ -4520,6 +4891,12 @@ public class ScriptExecutor {
                 if (obj instanceof net.minecraft.world.entity.Entity entity) {
                     if (method.equals("java")) return entity;
                     if (method.equals("uuid")) return entity.getUUID().toString();
+                    if (entity instanceof net.minecraft.world.entity.LivingEntity living) {
+                        String m = method != null ? method.toLowerCase() : "";
+                        if (m.equals("facing") || m.equals("direction") || m.equals("lookvector") || m.equals("look")) {
+                            return org.zonarstudio.spraute_engine.script.util.EntityFacingUtil.buildFacing(living);
+                        }
+                    }
                     if (method.equals("distanceTo") || method.equals("distanceto")) {
                         net.minecraft.world.entity.Entity other = resolveEntity(methodArgs.isEmpty() ? null : methodArgs.get(0));
                         if (other != null) return entity.distanceTo(other);
@@ -4584,89 +4961,12 @@ public class ScriptExecutor {
                     }
                 }
 
-                if (obj instanceof net.minecraft.world.entity.player.Player player) {
-                    return switch (method) {
-                        case "raycast" -> {
-                            double dist = !methodArgs.isEmpty() ? ((Number) methodArgs.get(0)).doubleValue() : 50.0;
-                            yield performRaycast(player, dist);
-                        }
-                        case "slot" -> {
-                            if (!methodArgs.isEmpty()) {
-                                int slot = ((Number) methodArgs.get(0)).intValue();
-                                if (slot >= 0 && slot <= 40) {
-                                    net.minecraft.world.item.ItemStack stack = player.getInventory().getItem(slot);
-                                    yield stack.isEmpty() ? ""
-                                            : net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem()).toString();
-                                }
-                            }
-                            yield "";
-                        }
-                        case "slotCount" -> {
-                            if (!methodArgs.isEmpty()) {
-                                int slot = ((Number) methodArgs.get(0)).intValue();
-                                if (slot >= 0 && slot <= 40) {
-                                    yield player.getInventory().getItem(slot).getCount();
-                                }
-                            }
-                            yield 0;
-                        }
-                        case "slotNbt" -> {
-                            if (!methodArgs.isEmpty()) {
-                                int slot = ((Number) methodArgs.get(0)).intValue();
-                                if (slot >= 0 && slot <= 40) {
-                                    net.minecraft.world.item.ItemStack stack = player.getInventory().getItem(slot);
-                                    yield stack.hasTag() ? stack.getTag().toString() : "";
-                                }
-                            }
-                            yield "";
-                        }
-                        case "heldItem" -> {
-                            String hand = methodArgs.isEmpty() ? "right" : String.valueOf(methodArgs.get(0)).toLowerCase();
-                            net.minecraft.world.item.ItemStack stack = (hand.equals("left") || hand.equals("offhand")) ? player.getOffhandItem() : player.getMainHandItem();
-                            yield stack.isEmpty() ? "" : net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem()).toString();
-                        }
-                        case "heldItemNbt" -> {
-                            String hand = methodArgs.isEmpty() ? "right" : String.valueOf(methodArgs.get(0)).toLowerCase();
-                            net.minecraft.world.item.ItemStack stack = (hand.equals("left") || hand.equals("offhand")) ? player.getOffhandItem() : player.getMainHandItem();
-                            yield stack.hasTag() ? stack.getTag().toString() : "";
-                        }
-                        case "hasItem" -> {
-                            if (!methodArgs.isEmpty()) {
-                                String itemId = String.valueOf(methodArgs.get(0));
-                                net.minecraft.resources.ResourceLocation searchRL = new net.minecraft.resources.ResourceLocation(itemId);
-                                for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-                                    net.minecraft.world.item.ItemStack stack = player.getInventory().getItem(i);
-                                    if (!stack.isEmpty()) {
-                                        net.minecraft.resources.ResourceLocation stackRL =
-                                                net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
-                                        if (stackRL.equals(searchRL)) yield true;
-                                    }
-                                }
-                                yield false;
-                            }
-                            yield false;
-                        }
-                        case "countItem", "countitem" -> {
-                            if (!methodArgs.isEmpty()) {
-                                String itemId = String.valueOf(methodArgs.get(0));
-                                net.minecraft.resources.ResourceLocation searchRL = new net.minecraft.resources.ResourceLocation(itemId);
-                                int total = 0;
-                                for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-                                    net.minecraft.world.item.ItemStack stack = player.getInventory().getItem(i);
-                                    if (!stack.isEmpty()) {
-                                        net.minecraft.resources.ResourceLocation stackRL =
-                                                net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
-                                        if (stackRL.equals(searchRL)) total += stack.getCount();
-                                    }
-                                }
-                                yield total;
-                            }
-                            yield 0;
-                        }
-                        default -> null;
-                    };
+                if (obj instanceof net.minecraft.world.entity.player.Player player
+                        && org.zonarstudio.spraute_engine.script.PlayerScriptMethods.isKnown(method)) {
+                    return org.zonarstudio.spraute_engine.script.PlayerScriptMethods.invoke(
+                            player, method, methodArgs, this::performRaycast);
                 }
-                
+
                 if (obj instanceof String str) {
                     return switch (method) {
                         case "toInt" -> { try { yield Integer.parseInt(str); } catch(Exception e){ yield null; } }
@@ -5195,9 +5495,9 @@ public class ScriptExecutor {
     }
 
         private enum WaitType {
-        NONE, TIME, INTERACT, NEXT, KEYBIND, DEATH, UI_CLICK, UI_CLOSE, MOVE_TO, FOLLOW, PICKUP, ORB_PICKUP,
+        NONE, TIME, INTERACT, NEXT, KEYBIND, DEATH, KILL, UI_CLICK, UI_CLOSE, MOVE_TO, FOLLOW, PICKUP, ORB_PICKUP,
         TRADE_BUY, TRADE_SELL, WAIT_TASK,
-        POSITION, INVENTORY, CLICK_BLOCK, BREAK_BLOCK, PLACE_BLOCK, UI_INPUT, CHAT, UI_OVERLAP,
+        POSITION, INVENTORY, CLICK_BLOCK, BREAK_BLOCK, PLACE_BLOCK, OPEN_CHEST, OPEN_DOOR, UI_INPUT, CHAT, UI_OVERLAP,
         PLAYER_ACTION
     }
 

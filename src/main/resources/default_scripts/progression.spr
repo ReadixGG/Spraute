@@ -1,0 +1,901 @@
+# ================================================================
+#  Spraute Progression — уровни, очки, статы и навыки
+#  Запуск: /spraute run progression
+#  import("progression") — API в других скриптах
+#  Меню прокачки: клавиша P
+# ================================================================
+
+val PROG_XP_KILL = 8
+val PROG_XP_BREAK = 3
+val PROG_XP_PLACE = 2
+val PROG_XP_CRAFT = 5
+val PROG_SKILL_MAX = 3
+val PROG_STAT_MAX = 30
+
+global val PROG_SKILL_IDS = [
+    "c_slayer", "c_vampire", "c_cleave",
+    "m_wide", "m_spark", "m_vein",
+    "w_scaffold", "w_djump", "w_dash"
+]
+global val PROG_SKILL_NAMES = [
+    "Охотник", "Вампиризм", "Рассекатель",
+    "Широкий разрез", "Искры руды", "Жила",
+    "Леса", "Двойной прыжок", "Рывок"
+]
+global val PROG_SKILL_DESCS = [
+    "Бонус опыта за убийства: +25% / +50% / +75%",
+    "Лечение при убийстве: 1 / 2 / 3 сердца",
+    "Урон по мобам рядом с жертвой: радиус 2 / 3 / 4",
+    "Копает полосу 3×1 / 3×2 / 3×3 влево-вправо на грани блока (не вглубь)",
+    "Скорость копания +5% / +10% / +15% за уровень",
+    "Бонус опыта за добычу: +1 / +2 / +3",
+    "Высота шага +0.5 / +1.0 / +2.0 блока",
+    "Прыжки в воздухе: 1 / 2 / 3 за приземление",
+    "Рывок по двойному Shift: сила 0.5 / 0.8 / 1.1 блоков"
+]
+
+# Состояние прокачки хранится в player.savedData (см. progInit)
+
+fun progIsPlayer(p) {
+    if (p == null) { return false }
+    if (p.savedData == null) { return false }
+    return true
+}
+
+fun progSkipBreak(p) {
+    if (p == null) { return false }
+    var v = p.savedData["prog_skip_break"]
+    if (v == null) { return false }
+    return v
+}
+
+fun progSetSkipBreak(p, flag) {
+    if (p == null) { return }
+    p.savedData["prog_skip_break"] = flag
+}
+
+# ──── Инициализация и данные ────
+
+fun progXpToLevel(lvl) {
+    if (lvl == null) { lvl = 1 }
+    if (lvl < 1) { lvl = 1 }
+    return 2000 + (lvl - 1) * 500
+}
+
+fun progInit(p) {
+    if (p == null) { return }
+    val d = p.savedData
+    if (d == null) { return }
+    if (d["prog_level"] == null) {
+        d["prog_level"] = 1
+        d["prog_xp"] = 0
+        d["prog_max_xp"] = 2000
+        d["prog_points"] = 0
+        d["stat_dmg"] = 0
+        d["stat_spd"] = 0
+        d["stat_dig"] = 0
+    }
+    if (d["prog_points"] == null) { d["prog_points"] = 0 }
+    if (d["prog_xp"] == null) { d["prog_xp"] = 0 }
+    if (d["prog_max_xp"] == null || d["prog_max_xp"] < 1000) {
+        d["prog_max_xp"] = progXpToLevel(d["prog_level"])
+    }
+    var si = 0
+    while (si < listSize(PROG_SKILL_IDS)) {
+        val sid = PROG_SKILL_IDS[si]
+        if (d[sid] == null) {
+            if (sid == "w_scaffold" && d["b_scaffold"] != null) {
+                d[sid] = d["b_scaffold"]
+            } else {
+                d[sid] = 0
+            }
+        }
+        si = si + 1
+    }
+}
+
+fun progSkillLvl(p, id) {
+    progInit(p)
+    var key = id
+    if (id == "w_scaffold") {
+        var migrated = p.savedData["w_scaffold"]
+        if (migrated == null) {
+            migrated = p.savedData["b_scaffold"]
+        }
+        if (migrated == null) { return 0 }
+        return migrated
+    }
+    var v = p.savedData[key]
+    if (v == null) { return 0 }
+    return v
+}
+
+fun progSkillCost(p, id) {
+    var lvl = progSkillLvl(p, id)
+    return 2 ** lvl
+}
+
+fun progSkillHoverText(p, id, name, desc) {
+    var lvl = progSkillLvl(p, id)
+    var txt = "§l" + name + "§r\n§7" + desc + "\n§fУровень: §e" + lvl + " / " + PROG_SKILL_MAX
+    if (lvl < PROG_SKILL_MAX) {
+        txt = txt + "\n§7Стоимость: §e" + progSkillCost(p, id) + " очк."
+    } else {
+        txt = txt + "\n§aМаксимум"
+    }
+    return txt
+}
+
+fun progStatHoverText(p, key, name, desc) {
+    progInit(p)
+    var lvl = p.savedData[key]
+    if (lvl == null) { lvl = 0 }
+    var txt = "§l" + name + "§r\n§7" + desc + "\n§fУровень: §e" + lvl + " / " + PROG_STAT_MAX
+    if (lvl < PROG_STAT_MAX) {
+        txt = txt + "\n§7Стоимость: §e1 очко"
+    } else {
+        txt = txt + "\n§aМаксимум"
+    }
+    return txt
+}
+
+fun progSkillTooltip(p, id, name, desc) {
+    return progSkillHoverText(p, id, name, desc)
+}
+
+fun progStatTooltip(p, key, name, desc) {
+    return progStatHoverText(p, key, name, desc)
+}
+
+fun progApplyStats(p) {
+    if (p == null) { return }
+    progInit(p)
+    val d = p.savedData
+    var dmg = 1.0 + d["stat_dmg"] * 0.5
+    var spd = 0.1 + d["stat_spd"] * 0.01
+    var noSpd = d["prog_no_spd"]
+    if (noSpd == null) { noSpd = 0 }
+    if (noSpd > 0) { spd = 0.1 }
+    var dig = 1.0 + d["stat_dig"] * 0.1
+    var spark = progSkillLvl(p, "m_spark")
+    if (spark > 0) { dig = dig + spark * 0.05 }
+    var sc = progSkillLvl(p, "w_scaffold")
+    var stepBonus = 0
+    if (sc == 1) { stepBonus = 0.5 }
+    if (sc == 2) { stepBonus = 1.0 }
+    if (sc == 3) { stepBonus = 2.0 }
+    var step = 0.6 + stepBonus
+    setPlayerAttackDamage(p, dmg)
+    setPlayerMovementSpeed(p, spd)
+    setPlayerDigSpeed(p, dig)
+    setPlayerStepHeight(p, step)
+}
+
+fun progUpdateMenuXp(p) {
+    if (p == null) { return }
+    progInit(p)
+    val d = p.savedData
+    var lvl = d["prog_level"]
+    var xp = d["prog_xp"]
+    var max_xp = d["prog_max_xp"]
+    var pts = d["prog_points"]
+    if (pts == null) { pts = 0 }
+    uiUpdate(p, "pm_info", "text", "Ур. " + lvl + "  |  Очки: " + pts)
+    uiUpdate(p, "pm_xp_lbl", "text", "Опыт: " + xp + " / " + max_xp)
+    var pct = 0
+    if (max_xp > 0) { pct = (xp * 100) / max_xp }
+    var w = (pct * 336) / 100
+    if (w < 1) { w = 1 }
+    if (pct == 0) { w = 0 }
+    uiUpdate(p, "pm_xp_fill", "w", w)
+}
+
+fun progAddXp(p, amount, source) {
+    if (p == null) { return }
+    if (amount < 1) { return }
+    if (!progIsPlayer(p)) { return }
+    progInit(p)
+    val d = p.savedData
+    if (d == null) { return }
+
+    if (source == "kill") {
+        var sl = progSkillLvl(p, "c_slayer")
+        if (sl > 0) { amount = amount + (amount * sl * 25) // 100 }
+    }
+    if (source == "break") {
+        var vn = progSkillLvl(p, "m_vein")
+        if (vn > 0) { amount = amount + vn }
+    }
+
+    d["prog_xp"] = d["prog_xp"] + amount
+    var leveled = false
+    while (d["prog_xp"] >= d["prog_max_xp"]) {
+        d["prog_xp"] = d["prog_xp"] - d["prog_max_xp"]
+        d["prog_level"] = d["prog_level"] + 1
+        d["prog_max_xp"] = progXpToLevel(d["prog_level"])
+        d["prog_points"] = d["prog_points"] + 1
+        leveled = true
+    }
+
+    if (leveled) {
+        playSound(p, "minecraft:entity.player.levelup", 1.0, 1.2)
+        chat(p, "§b§lПрокачка! §r§7Уровень §e" + d["prog_level"] + "§7 — получено §e1§7 очко.")
+        particleSpawn("minecraft:totem_of_undying", p.x, p.y + 1.0, p.z, 24, 0.35, 0.4, 0.35, 0.1)
+        particleCircle("minecraft:enchant", p.x, p.y + 0.2, p.z, 1.2, 16, 0, 0.1, 0, 0.02)
+        particleSpiral("minecraft:end_rod", p.x, p.y, p.z, 1.0, 2.0, 20, 0, 0, 0, 0)
+    }
+
+    progUpdateMenuXp(p)
+}
+
+# ──── Навыки: добыча и мир ────
+
+fun progWideCut(p, bx, by, bz) {
+    if (p == null) { return }
+    if (p.isSneaking) { return }
+    var lvl = progSkillLvl(p, "m_wide")
+    if (lvl < 1) { return }
+
+    # Влево-вправо относительно взгляда (перпендикуляр горизонтальному facing), без копания вглубь
+    var f = getPlayerFacing(p)
+    var wx = 0 - f["hz"]
+    var wz = f["hx"]
+    var midRow = 0
+    if (lvl >= 3) { midRow = 1 }
+
+    progSetSkipBreak(p, true)
+    var si = 0
+    while (si < lvl) {
+        var yoff = si
+        if (lvl >= 3) { yoff = si - 1 }
+        if (lvl == 1) { yoff = 0 }
+        var wi = -1
+        while (wi <= 1) {
+            if (si == midRow && wi == 0) {
+                # центральный блок — ванильный лом
+            } else {
+                var nx = bx + wx * wi
+                var ny = by + yoff
+                var nz = bz + wz * wi
+                breakBlockAt(nx, ny, nz, p)
+                particleSpawn("minecraft:crit", nx + 0.5, ny + 0.5, nz + 0.5, 4, 0.15, 0.15, 0.15, 0.02)
+                particleSpawn("minecraft:cloud", nx + 0.5, ny + 0.6, nz + 0.5, 2, 0.05, 0.05, 0.05, 0)
+            }
+            wi = wi + 1
+        }
+        si = si + 1
+    }
+    progSetSkipBreak(p, false)
+    playSound(p, "minecraft:block.stone.break", 0.6, 1.1)
+}
+
+fun progToggleSpeed(p) {
+    if (p == null) { return }
+    progInit(p)
+    var off = p.savedData["prog_no_spd"]
+    if (off == null) { off = 0 }
+    if (off > 0) {
+        p.savedData["prog_no_spd"] = 0
+        chat(p, "§aБонус скорости §7включён")
+    } else {
+        p.savedData["prog_no_spd"] = 1
+        chat(p, "§7Бонус скорости §cвыключен")
+    }
+    progApplyStats(p)
+    var pitch = 0.8
+    if (off > 0) { pitch = 1.2 }
+    playSound(p, "minecraft:ui.button.click", 0.8, pitch)
+}
+
+fun progResetAirJumps(p) {
+    if (p == null) { return }
+    var dj = progSkillLvl(p, "w_djump")
+    if (dj > 0) {
+        p.savedData["prog_dj_left"] = dj
+    }
+}
+
+fun progTryAirJump(p) {
+    if (p == null) { return }
+    if (p.onGround) { return }
+    var dj = progSkillLvl(p, "w_djump")
+    if (dj < 1) { return }
+    var left = p.savedData["prog_dj_left"]
+    if (left == null) { left = 0 }
+    if (left < 1) { return }
+    p.savedData["prog_dj_left"] = left - 1
+    p.savedData["prog_used_air_jump"] = 1
+    resetFallDistance(p)
+    var strength = 0.32 + dj * 0.1
+    addPlayerMotion(p, 0, strength, 0)
+    playSound(p, "minecraft:entity.ender_dragon.flap", 0.4, 1.4)
+    particleSpawn("minecraft:cloud", p.x, p.y, p.z, 6, 0.2, 0.1, 0.2, 0.02)
+    particleCircle("minecraft:end_rod", p.x, p.y + 0.2, p.z, 0.5, 8, 0, 0.05, 0, 0.01)
+}
+
+fun progHandleDashKey(p) {
+    if (p == null) { return }
+    # Двойной Shift — рывок не мешает приседанию / другим биндам на одиночное нажатие
+    var tap = p.savedData["prog_dash_tap"]
+    if (tap == null) { tap = 0 }
+    if (tap > 0) {
+        p.savedData["prog_dash_tap"] = 0
+        progTryDash(p)
+    } else {
+        p.savedData["prog_dash_tap"] = 2
+    }
+}
+
+fun progOnLand(p) {
+    if (p == null) { return }
+    var used = p.savedData["prog_used_air_jump"]
+    if (used == null) { used = 0 }
+    if (used > 0) {
+        resetFallDistance(p)
+        p.savedData["prog_used_air_jump"] = 0
+    }
+}
+
+fun progFallSafeTick(p) {
+    if (p == null) { return }
+    var used = p.savedData["prog_used_air_jump"]
+    if (used == null) { used = 0 }
+    if (used > 0) {
+        resetFallDistance(p)
+    }
+}
+
+fun progTryDash(p) {
+    if (p == null) { return }
+    var dash = progSkillLvl(p, "w_dash")
+    if (dash < 1) { return }
+    var cd = p.savedData["prog_dash_cd"]
+    if (cd == null) { cd = 0 }
+    if (cd > 0) { return }
+    p.savedData["prog_dash_cd"] = 1.6 - dash * 0.3
+    var f = getPlayerFacing(p)
+    var hx = f["hx"]
+    var hz = f["hz"]
+    var power = 0.35 + dash * 0.25
+    var m = getPlayerMotion(p)
+    setPlayerMotion(p, m[0] + hx * power, m[1] + 0.05, m[2] + hz * power)
+    playSound(p, "minecraft:entity.phantom.flap", 0.5, 1.2)
+    particleCircle("minecraft:sweep_attack", p.x, p.y + 0.5, p.z, 0.6, 10, 0, 0, 0, 0)
+    particleSpawn("minecraft:cloud", p.x, p.y + 0.3, p.z, 8, 0.25, 0.05, 0.25, 0.03)
+}
+
+fun progOnKillSkills(killer, victim) {
+    if (killer == null) { return }
+    progInit(killer)
+
+    var vamp = progSkillLvl(killer, "c_vampire")
+    if (vamp > 0) {
+        var heal = vamp * 2.0
+        healEntity(killer, heal)
+        particleSpawn("minecraft:heart", killer.x, killer.y + 1.2, killer.z, vamp * 2, 0.25, 0.25, 0.25, 0)
+    }
+
+    var cleave = progSkillLvl(killer, "c_cleave")
+    if (cleave > 0 && victim != null) {
+        var rad = 1.0 + cleave
+        var nearby = entitiesNear(victim, rad, "mob")
+        var ni = 0
+        while (ni < listSize(nearby)) {
+            var ent = nearby[ni]
+            if (ent != null) {
+                if (ent != victim) {
+                    ent.damage(2.0 + cleave, killer)
+                    particleSpawn("minecraft:crit", ent.x, ent.y + 0.8, ent.z, 5, 0.2, 0.2, 0.2, 0)
+                }
+            }
+            ni = ni + 1
+        }
+        particleCircle("minecraft:sweep_attack", victim.x, victim.y + 0.5, victim.z, rad, 12, 0, 0, 0, 0)
+    }
+}
+
+# ──── UI прокачки ────
+
+fun progBuildUi(p) {
+    if (p == null) { return }
+    progInit(p)
+    val d = p.savedData
+    var pts = d["prog_points"]
+    if (pts == null) { pts = 0 }
+    var xp = d["prog_xp"]
+    var max_xp = d["prog_max_xp"]
+    var xpPct = 0
+    if (max_xp > 0) { xpPct = (xp * 100) / max_xp }
+    var xpW = (xpPct * 336) / 100
+    if (xpPct == 0) { xpW = 0 }
+    if (xpW < 1 && xpPct > 0) { xpW = 1 }
+
+    create ui prog_menu_ui {
+        size = [360, 338]
+        background = "#EE1A1A2E"
+        can_close = true
+
+        text("pm_title", "§l§bПрокачка") {
+            pos = [12, 8]
+            color = "#55CCFF"
+            scale = 1.2
+        }
+        text("pm_info", "Ур. " + d["prog_level"] + "  |  Очки: " + pts) {
+            pos = [12, 26]
+            color = "#CCCCCC"
+            scale = 0.85
+        }
+        text("pm_xp_lbl", "Опыт: " + xp + " / " + max_xp) {
+            pos = [12, 42]
+            color = "#AAAAAA"
+            scale = 0.78
+        }
+        rect("pm_xp_bg") {
+            pos = [12, 56]
+            size = [336, 12]
+            color = "#88000000"
+        }
+        rect("pm_xp_fill") {
+            pos = [12, 56]
+            size = [xpW, 12]
+            color = "#FF55AAFF"
+        }
+        divider("pm_div1") {
+            pos = [8, 74]
+            size = [344, 1]
+            color = "#44FFFFFF"
+        }
+
+        text("pm_stats_lbl", "§6Общие характеристики §7(1 очко)") {
+            pos = [12, 82]
+            color = "#FFAA00"
+            scale = 0.82
+        }
+        button("stat_dmg", "Урон") {
+            pos = [12, 98]
+            size = [108, 22]
+            color = "#66442222"
+            hover = "#88663333"
+            hover_size = [228, 88]
+            text("ht_dmg", progStatHoverText(p, "stat_dmg", "Урон", "+0.5 урона за уровень")) {
+                pos = [8, 6]
+                wrap = 210
+                scale = 0.82
+                color = "#DDDDDD"
+            }
+            on_click { progTryUpgradeStat(_eventPlayer, "stat_dmg") }
+        }
+        button("stat_spd", "Скорость") {
+            pos = [126, 98]
+            size = [108, 22]
+            color = "#44224422"
+            hover = "#66336633"
+            hover_size = [228, 88]
+            text("ht_spd", progStatHoverText(p, "stat_spd", "Скорость", "+0.01 скорости ходьбы")) {
+                pos = [8, 6]
+                wrap = 210
+                scale = 0.82
+                color = "#DDDDDD"
+            }
+            on_click { progTryUpgradeStat(_eventPlayer, "stat_spd") }
+        }
+        button("stat_dig", "Копание") {
+            pos = [240, 98]
+            size = [108, 22]
+            color = "#44442244"
+            hover = "#66663366"
+            hover_size = [228, 88]
+            text("ht_dig", progStatHoverText(p, "stat_dig", "Копание", "+10% скорости копания")) {
+                pos = [8, 6]
+                wrap = 210
+                scale = 0.82
+                color = "#DDDDDD"
+            }
+            on_click { progTryUpgradeStat(_eventPlayer, "stat_dig") }
+        }
+
+        divider("pm_div2") {
+            pos = [8, 126]
+            size = [344, 1]
+            color = "#33FFFFFF"
+        }
+
+        text("pm_cat0", "§c§lБой") {
+            pos = [12, 134]
+            color = "#FF6666"
+            scale = 0.9
+        }
+        button("skill_c_slayer", "Охотник") {
+            pos = [12, 150]
+            size = [108, 22]
+            color = "#55332222"
+            hover = "#77443333"
+            hover_size = [228, 96]
+            text("ht_slayer", progSkillHoverText(p, "c_slayer", PROG_SKILL_NAMES[0], PROG_SKILL_DESCS[0])) {
+                pos = [8, 6]
+                wrap = 210
+                scale = 0.8
+                color = "#DDDDDD"
+            }
+            on_click { progTryUpgradeSkill(_eventPlayer, "c_slayer") }
+        }
+        button("skill_c_vampire", "Вампир") {
+            pos = [126, 150]
+            size = [108, 22]
+            color = "#55332222"
+            hover = "#77443333"
+            hover_size = [228, 96]
+            text("ht_vamp", progSkillHoverText(p, "c_vampire", PROG_SKILL_NAMES[1], PROG_SKILL_DESCS[1])) {
+                pos = [8, 6]
+                wrap = 210
+                scale = 0.8
+                color = "#DDDDDD"
+            }
+            on_click { progTryUpgradeSkill(_eventPlayer, "c_vampire") }
+        }
+        button("skill_c_cleave", "Рассек.") {
+            pos = [240, 150]
+            size = [108, 22]
+            color = "#55332222"
+            hover = "#77443333"
+            hover_size = [228, 96]
+            text("ht_cleave", progSkillHoverText(p, "c_cleave", PROG_SKILL_NAMES[2], PROG_SKILL_DESCS[2])) {
+                pos = [8, 6]
+                wrap = 210
+                scale = 0.8
+                color = "#DDDDDD"
+            }
+            on_click { progTryUpgradeSkill(_eventPlayer, "c_cleave") }
+        }
+
+        text("pm_cat1", "§e§lДобыча") {
+            pos = [12, 180]
+            color = "#FFCC55"
+            scale = 0.9
+        }
+        button("skill_m_wide", "3×N") {
+            pos = [12, 196]
+            size = [108, 22]
+            color = "#55443322"
+            hover = "#77665533"
+            hover_size = [228, 96]
+            text("ht_wide", progSkillHoverText(p, "m_wide", PROG_SKILL_NAMES[3], PROG_SKILL_DESCS[3])) {
+                pos = [8, 6]
+                wrap = 210
+                scale = 0.8
+                color = "#DDDDDD"
+            }
+            on_click { progTryUpgradeSkill(_eventPlayer, "m_wide") }
+        }
+        button("skill_m_spark", "Искры") {
+            pos = [126, 196]
+            size = [108, 22]
+            color = "#55443322"
+            hover = "#77665533"
+            hover_size = [228, 96]
+            text("ht_spark", progSkillHoverText(p, "m_spark", PROG_SKILL_NAMES[4], PROG_SKILL_DESCS[4])) {
+                pos = [8, 6]
+                wrap = 210
+                scale = 0.8
+                color = "#DDDDDD"
+            }
+            on_click { progTryUpgradeSkill(_eventPlayer, "m_spark") }
+        }
+        button("skill_m_vein", "Жила") {
+            pos = [240, 196]
+            size = [108, 22]
+            color = "#55443322"
+            hover = "#77665533"
+            hover_size = [228, 96]
+            text("ht_vein", progSkillHoverText(p, "m_vein", PROG_SKILL_NAMES[5], PROG_SKILL_DESCS[5])) {
+                pos = [8, 6]
+                wrap = 210
+                scale = 0.8
+                color = "#DDDDDD"
+            }
+            on_click { progTryUpgradeSkill(_eventPlayer, "m_vein") }
+        }
+
+        text("pm_cat2", "§b§lМир") {
+            pos = [12, 226]
+            color = "#66CCFF"
+            scale = 0.9
+        }
+        button("skill_w_scaffold", "Леса") {
+            pos = [12, 242]
+            size = [108, 22]
+            color = "#55335544"
+            hover = "#77557766"
+            hover_size = [228, 96]
+            text("ht_scaf", progSkillHoverText(p, "w_scaffold", PROG_SKILL_NAMES[6], PROG_SKILL_DESCS[6])) {
+                pos = [8, 6]
+                wrap = 210
+                scale = 0.8
+                color = "#DDDDDD"
+            }
+            on_click { progTryUpgradeSkill(_eventPlayer, "w_scaffold") }
+        }
+        button("skill_w_djump", "Прыжок") {
+            pos = [126, 242]
+            size = [108, 22]
+            color = "#55335544"
+            hover = "#77557766"
+            hover_size = [228, 96]
+            text("ht_djump", progSkillHoverText(p, "w_djump", PROG_SKILL_NAMES[7], PROG_SKILL_DESCS[7])) {
+                pos = [8, 6]
+                wrap = 210
+                scale = 0.8
+                color = "#DDDDDD"
+            }
+            on_click { progTryUpgradeSkill(_eventPlayer, "w_djump") }
+        }
+        button("skill_w_dash", "Рывок") {
+            pos = [240, 242]
+            size = [108, 22]
+            color = "#55335544"
+            hover = "#77557766"
+            hover_size = [228, 96]
+            text("ht_dash", progSkillHoverText(p, "w_dash", PROG_SKILL_NAMES[8], PROG_SKILL_DESCS[8])) {
+                pos = [8, 6]
+                wrap = 210
+                scale = 0.8
+                color = "#DDDDDD"
+            }
+            on_click { progTryUpgradeSkill(_eventPlayer, "w_dash") }
+        }
+
+        text("pm_hint", "§7Наведи на кнопку — панель с описанием\n§7N — вкл/выкл бонус скорости  |  P — меню") {
+            pos = [12, 272]
+            color = "#888888"
+            scale = 0.75
+            wrap = 336
+        }
+        button("pm_close", "Закрыть") {
+            pos = [12, 306]
+            size = [336, 22]
+            color = "#555555"
+            hover = "#777777"
+            on_click {
+                uiClose(_eventPlayer)
+                playSound(_eventPlayer, "minecraft:ui.button.click", 1.0, 1.0)
+            }
+        }
+    }
+}
+
+fun progReopenMenu(p) {
+    if (p == null) { return }
+    progBuildUi(p)
+    uiOpen(p, prog_menu_ui)
+}
+
+fun progTryUpgradeStat(p, key) {
+    progInit(p)
+    val d = p.savedData
+    var lvl = d[key]
+    if (lvl == null) { lvl = 0 }
+    if (lvl >= PROG_STAT_MAX) {
+        playSound(p, "minecraft:block.note_block.bass", 1.0, 0.5)
+        return false
+    }
+    if (d["prog_points"] == null) { d["prog_points"] = 0 }
+    if (d["prog_points"] < 1) {
+        playSound(p, "minecraft:block.note_block.bass", 1.0, 0.5)
+        return false
+    }
+    d["prog_points"] = d["prog_points"] - 1
+    d[key] = lvl + 1
+    progApplyStats(p)
+    playSound(p, "minecraft:entity.player.levelup", 0.8, 1.5)
+    particleSpawn("minecraft:enchant", p.x, p.y + 1.0, p.z, 12, 0.3, 0.3, 0.3, 0.05)
+    progReopenMenu(p)
+    return true
+}
+
+fun progTryUpgradeSkill(p, id) {
+    progInit(p)
+    val d = p.savedData
+    var lvl = progSkillLvl(p, id)
+    if (lvl >= PROG_SKILL_MAX) {
+        playSound(p, "minecraft:block.note_block.bass", 1.0, 0.5)
+        return false
+    }
+    var cost = progSkillCost(p, id)
+    if (d["prog_points"] == null) { d["prog_points"] = 0 }
+    if (d["prog_points"] < cost) {
+        playSound(p, "minecraft:block.note_block.bass", 1.0, 0.5)
+        return false
+    }
+    d["prog_points"] = d["prog_points"] - cost
+    d[id] = lvl + 1
+    progApplyStats(p)
+    playSound(p, "minecraft:entity.player.levelup", 0.8, 1.3)
+    particleSpiral("minecraft:witch", p.x, p.y, p.z, 0.8, 1.5, 15, 0, 0, 0, 0)
+    progReopenMenu(p)
+    return true
+}
+
+fun progOpenMenu(p) {
+    if (p == null) { return }
+    progInit(p)
+    progApplyStats(p)
+    progBuildUi(p)
+    uiOpen(p, prog_menu_ui)
+}
+
+# ──── События ────
+
+on join() -> progJoin {
+    val p = _eventPlayer
+    if (p == null) { return }
+    if (!progIsPlayer(p)) { return }
+    progInit(p)
+    progApplyStats(p)
+}
+
+on breakBlock() -> progBreak {
+    val p = _eventPlayer
+    if (p == null) { return }
+    if (!progIsPlayer(p)) { return }
+    if (progSkipBreak(p)) { return }
+    progInit(p)
+    progAddXp(p, PROG_XP_BREAK, "break")
+    progWideCut(p, _eventX, _eventY, _eventZ)
+    var spark = progSkillLvl(p, "m_spark")
+    if (spark > 0) {
+        particleSpawn("minecraft:enchant", _eventX + 0.5, _eventY + 0.5, _eventZ + 0.5, spark * 3, 0.2, 0.2, 0.2, 0.02)
+    }
+}
+
+on placeBlock() -> progPlace {
+    val p = _eventPlayer
+    if (p == null) { return }
+    if (!progIsPlayer(p)) { return }
+    progInit(p)
+    progAddXp(p, PROG_XP_PLACE, "place")
+    progApplyStats(p)
+}
+
+on action("craft") -> progCraft {
+    val p = _eventPlayer
+    if (p == null) { return }
+    if (!progIsPlayer(p)) { return }
+    progInit(p)
+    progAddXp(p, PROG_XP_CRAFT, "craft")
+}
+
+on kill() -> progKill {
+    val killer = _eventKiller
+    if (killer == null) { return }
+    if (!progIsPlayer(killer)) { return }
+    progInit(killer)
+    progAddXp(killer, PROG_XP_KILL, "kill")
+    progOnKillSkills(killer, _eventEntity)
+}
+
+on keybind("P") -> progKeyMenu {
+    val p = _eventPlayer
+    if (p == null) { return }
+    progOpenMenu(p)
+}
+
+on keybind("space") -> progAirJumpKey {
+    val p = _eventPlayer
+    if (p == null) { return }
+    if (!progIsPlayer(p)) { return }
+    progInit(p)
+    progTryAirJump(p)
+}
+
+on keybind("shift") -> progDashKey {
+    val p = _eventPlayer
+    if (p == null) { return }
+    if (!progIsPlayer(p)) { return }
+    progInit(p)
+    progHandleDashKey(p)
+}
+
+on keybind("N") -> progToggleSpeedKey {
+    val p = _eventPlayer
+    if (p == null) { return }
+    if (!progIsPlayer(p)) { return }
+    progToggleSpeed(p)
+}
+
+every(0.05) -> progFallTick {
+    val players = getPlayers()
+    var pi = 0
+    while (pi < listSize(players)) {
+        var p = players[pi]
+        if (progIsPlayer(p)) {
+            progFallSafeTick(p)
+        }
+        pi = pi + 1
+    }
+}
+
+every(0.2) -> progWorldTick {
+    val players = getPlayers()
+    var pi = 0
+    while (pi < listSize(players)) {
+        var p = players[pi]
+        if (progIsPlayer(p)) {
+            progInit(p)
+            progApplyStats(p)
+            var tap = p.savedData["prog_dash_tap"]
+            if (tap == null) { tap = 0 }
+            if (tap > 0) {
+                p.savedData["prog_dash_tap"] = tap - 1
+            }
+            if (p.onGround) {
+                progOnLand(p)
+                progResetAirJumps(p)
+            }
+            var cd = p.savedData["prog_dash_cd"]
+            if (cd == null) { cd = 0 }
+            if (cd > 0) {
+                p.savedData["prog_dash_cd"] = cd - 0.2
+            }
+        }
+        pi = pi + 1
+    }
+}
+
+on uiClick() -> progUiClick {
+    val p = _eventPlayer
+    val btn = _eventWidget
+    if (p == null) { return }
+    if (btn == null) { return }
+
+    if (btn == "pm_close") {
+        uiClose(p)
+        playSound(p, "minecraft:ui.button.click", 1.0, 1.0)
+        return
+    }
+
+    if (btn == "stat_dmg") { progTryUpgradeStat(p, "stat_dmg") }
+    if (btn == "stat_spd") { progTryUpgradeStat(p, "stat_spd") }
+    if (btn == "stat_dig") { progTryUpgradeStat(p, "stat_dig") }
+
+    var si = 0
+    while (si < listSize(PROG_SKILL_IDS)) {
+        var sid = PROG_SKILL_IDS[si]
+        if (btn == "skill_" + sid) {
+            progTryUpgradeSkill(p, sid)
+        }
+        si = si + 1
+    }
+}
+
+# ──── Команды (нужен запущенный скрипт: /spraute run progression) ────
+
+fun progCmdAmount(args, defVal) {
+    if (args == null) { return defVal }
+    if (listSize(args) < 1) { return defVal }
+    var v = args[0]
+    if (v == null) { return defVal }
+    return v
+}
+
+create command progxp {
+    val p = _eventPlayer
+    val args = _eventArgs
+    if (p == null) { return }
+    progInit(p)
+    var amt = progCmdAmount(args, 100)
+    if (amt < 1) { amt = 1 }
+    progAddXp(p, amt, "cmd")
+    chat(p, "§a+§e" + amt + " §7опыта прокачки")
+}
+
+create command progpoints {
+    val p = _eventPlayer
+    val args = _eventArgs
+    if (p == null) { return }
+    progInit(p)
+    var amt = progCmdAmount(args, 1)
+    if (amt < 1) { amt = 1 }
+    if (p.savedData["prog_points"] == null) { p.savedData["prog_points"] = 0 }
+    p.savedData["prog_points"] = p.savedData["prog_points"] + amt
+    chat(p, "§a+§e" + amt + " §7очк. (всего: " + p.savedData["prog_points"] + ")")
+}

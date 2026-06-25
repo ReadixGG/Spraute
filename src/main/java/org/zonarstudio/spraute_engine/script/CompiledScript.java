@@ -35,6 +35,7 @@ public class CompiledScript {
         STOP_HANDLER, // Stop a running handler. Args: [handlerId]
         AWAIT_KEYBIND, // Wait for key press. Args: [ScriptNode keyName]
         AWAIT_DEATH,  // Wait for entity death. Args: [ScriptNode entityId/type]
+        AWAIT_KILL,   // Wait for killer to slay victim. Args: [ScriptNode killerFilter, ScriptNode victimFilter?]
         AWAIT_PICKUP, // Wait for NPC to pick up item. Args: [ScriptNode npcId, ScriptNode amount, ScriptNode itemId, ScriptNode nbt?]
         AWAIT_ORB_PICKUP, // Wait for player to pick up orb. Args: [ScriptNode player, ScriptNode amount, ScriptNode texture]
         AWAIT_TRADE_BUY,  // Wait for trade buy. Args: [ScriptNode player, ScriptNode itemId?]
@@ -50,6 +51,8 @@ public class CompiledScript {
         AWAIT_CLICK_BLOCK,
         AWAIT_BREAK_BLOCK,
         AWAIT_PLACE_BLOCK,
+        AWAIT_OPEN_CHEST,
+        AWAIT_OPEN_DOOR,
         AWAIT_CHAT,
         AWAIT_UI_TOUCH,
         AWAIT_PLAYER_ACTION,

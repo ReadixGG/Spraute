@@ -1,0 +1,13 @@
+#\ block: await_action
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать действие игрока" [action: dropdown(есть: eat, рыбалка: fish, мотыга: hoe, прыжок: jump, сон: sleep, крафт: craft, выброс: drop)]
+#\ input: player (type: value)
+#\ row: [target: dropdown(без цели: no, с целью: yes)]
+#\ if target == "no":
+#\   template: await action({player}, "{action}")
+#\ if target == "yes":
+#\   row: "цель (предмет/блок)" (targetId: text: minecraft:bread)
+#\   template: await action({player}, "{action}", "{targetId}")

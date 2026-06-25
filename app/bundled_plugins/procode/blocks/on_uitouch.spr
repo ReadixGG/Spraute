@@ -1,0 +1,9 @@
+#\ block: on_uitouch
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда UI-виджеты пересекаются"
+#\ input: player (type: value)
+#\ row: "виджет 1" (id1: text: widget_a) "и" (id2: text: widget_b) "→" (handler: text: h_touch)
+#\ template: on uiTouch({player}, "{id1}", "{id2}") -> {handler} {\n{DO}}

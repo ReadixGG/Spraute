@@ -107,6 +107,43 @@ export let currentAnimFiles = [];
 export let currentModels = [];
 export let currentTextures = [];
 
+/** Файл модели в geo/ — .geo.json, .geo или .json (не animation). */
+export function isGeoModelFileName(fileName) {
+  if (!fileName || typeof fileName !== 'string') return false;
+  if (/\.geo\.json$/i.test(fileName)) return true;
+  if (/\.geo$/i.test(fileName)) return true;
+  if (/\.json$/i.test(fileName) && !/\.animation\.json$/i.test(fileName)) return true;
+  return false;
+}
+
+/** Подписи dropdown: путь относительно geo/, без дубликатов по value. */
+export function buildModelDropdownOptions(models) {
+  const paths = [];
+  const seen = new Set();
+  for (const raw of models || []) {
+    const p = String(raw).replace(/\\/g, '/');
+    const key = p.toLowerCase();
+    if (!p || seen.has(key)) continue;
+    seen.add(key);
+    paths.push(p);
+  }
+  paths.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+  const labelUse = {};
+  return paths.map(p => {
+    let label = (p.startsWith('geo/') ? p.slice(4) : p)
+      .replace(/\.geo\.json$/i, '')
+      .replace(/\.geo$/i, '')
+      .replace(/\.json$/i, '');
+    const key = label.toLowerCase();
+    labelUse[key] = (labelUse[key] || 0) + 1;
+    if (labelUse[key] > 1) {
+      label = `${label} (${labelUse[key]})`;
+    }
+    return [label, p];
+  });
+}
+
 export function updateDynamicLists(npcs, anims, models, textures, animFiles) {
   if (npcs != null) currentNpcs = npcs.length > 0 ? npcs.map(n => [n, n]) : [];
   if (anims   && anims.length > 0)   currentAnimations = anims.map(a => [a, a]);
@@ -117,7 +154,11 @@ export function updateDynamicLists(npcs, anims, models, textures, animFiles) {
       return [label, p];
     });
   }
-  if (models  && models.length > 0)  currentModels     = models.map(m => [m.split('/').pop().replace('.geo.json',''), m]);
+  if (models != null) {
+    currentModels = models.length > 0
+      ? buildModelDropdownOptions(models)
+      : [];
+  }
   if (textures && textures.length > 0) currentTextures = textures.map(t => [t.split('/').pop().replace(/\.(png|jpg|jpeg)$/,''), t]);
 }
 

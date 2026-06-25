@@ -1,0 +1,41 @@
+#\ block: players_in_radius
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "игроки в радиусе" (radius: number: 5) "от точки" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ template: playersInRadius({x}, {y}, {z}, {radius})
+
+#\ block: players_near
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "игроки в радиусе" (radius: number: 5) "от" input: anchor (type: value)
+#\ template: playersNear({anchor}, {radius})
+
+#\ block: entities_in_radius
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "сущности в радиусе" (radius: number: 5) "от" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ row: "тип" [filter: dropdown(любые: any, игроки: player, НИПы: npc, мобы: mob, живые: living)]
+#\ template: entitiesInRadius({x}, {y}, {z}, {radius}, "{filter}")
+
+#\ block: entities_near
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "сущности в радиусе" (radius: number: 5) "от" input: anchor (type: value)
+#\ row: "тип" [filter: dropdown(любые: any, игроки: player, НИПы: npc, мобы: mob, живые: living)]
+#\ template: entitiesNear({anchor}, {radius}, "{filter}")
+
+#\ block: aoe_damage_players
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "урон" (damage: number: 2) "игрокам в радиусе" (radius: number: 4) "от" input: center (type: value)
+#\ template: val __aoe_pl = playersNear({center}, {radius})\nvar __aoe_i = 0\nwhile (__aoe_i < listSize(__aoe_pl)) {\n  val __aoe_p = listGet(__aoe_pl, __aoe_i)\n  __aoe_p.damage({damage})\n  __aoe_i = __aoe_i + 1\n}

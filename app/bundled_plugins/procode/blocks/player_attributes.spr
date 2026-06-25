@@ -1,0 +1,79 @@
+#\ block: get_player_movement_speed
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "скорость передвижения" input: player (type: value) "игрока"
+#\ template: getPlayerMovementSpeed({player})
+
+#\ block: set_player_movement_speed
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "скорость передвижения" input: player (type: value) "игроку" (speed: number: 0.1)
+#\ template: setPlayerMovementSpeed({player}, {speed})
+
+#\ block: get_player_jump_strength
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "сила прыжка" input: player (type: value) "игрока"
+#\ template: getPlayerJumpStrength({player})
+
+#\ block: set_player_jump_strength
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "сила прыжка" input: player (type: value) "игроку" (jump: number: 0.42)
+#\ template: setPlayerJumpStrength({player}, {jump})
+
+#\ block: get_player_step_height
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "высота шага" input: player (type: value) "игрока"
+#\ template: getPlayerStepHeight({player})
+
+#\ block: set_player_step_height
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "высота шага" input: player (type: value) "игроку" (step: number: 0.6) "блоков"
+#\ template: setPlayerStepHeight({player}, {step})
+
+#\ block: get_player_attack_damage
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "урон" input: player (type: value) "игрока"
+#\ template: getPlayerAttackDamage({player})
+
+#\ block: set_player_attack_damage
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "урон" input: player (type: value) "игроку" (damage: number: 1)
+#\ template: setPlayerAttackDamage({player}, {damage})
+
+#\ block: get_player_dig_speed
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "скорость копания" input: player (type: value) "игрока"
+#\ template: getPlayerDigSpeed({player})
+
+#\ block: set_player_dig_speed
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "скорость копания" input: player (type: value) "игроку" (mult: number: 1) "×"
+#\ template: setPlayerDigSpeed({player}, {mult})

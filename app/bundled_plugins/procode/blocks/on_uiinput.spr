@@ -1,0 +1,15 @@
+#\ block: on_uiinput
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда ввод в UI" [filter: dropdown(любой: any, у игрока: player, виджет: widget)] "→" (handler: text: h_input)
+#\ if filter == "any":
+#\   template: on uiInput() -> {handler} {\n{DO}}
+#\ if filter == "player":
+#\   input: player (type: value)
+#\   template: on uiInput({player}) -> {handler} {\n{DO}}
+#\ if filter == "widget":
+#\   input: player (type: value)
+#\   row: "id виджета" (widgetId: text: my_input)
+#\   template: on uiInput({player}, "{widgetId}") -> {handler} {\n{DO}}

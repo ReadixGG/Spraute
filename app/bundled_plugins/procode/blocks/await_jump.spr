@@ -1,0 +1,8 @@
+#\ block: await_jump
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать прыжок"
+#\ input: player (type: value)
+#\ template: await jump({player})

@@ -35,6 +35,13 @@ contextBridge.exposeInMainWorld('spraute', {
     ipcRenderer.removeAllListeners('update-progress');
     ipcRenderer.on('update-progress', (_e, msg) => callback(msg));
   },
+  onAssetsChanged: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.removeAllListeners('assets-changed');
+    ipcRenderer.removeAllListeners('workspace-changed');
+    ipcRenderer.on('assets-changed', handler);
+    ipcRenderer.on('workspace-changed', handler);
+  },
 
   openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
 

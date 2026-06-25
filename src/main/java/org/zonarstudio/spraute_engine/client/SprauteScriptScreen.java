@@ -560,19 +560,21 @@ public class SprauteScriptScreen extends Screen {
                     case "text" -> new TextW(tw.x, tw.y, value, tw.color, tw.scale, tw.tooltip, tw.id, tw.wrapWidth, tw.align, tw.maxLines, tw.maxChars, tw.anchorX, tw.anchorY);
                     case "color" -> new TextW(tw.x, tw.y, tw.text, parseColor(value), tw.scale, tw.tooltip, tw.id, tw.wrapWidth, tw.align, tw.maxLines, tw.maxChars, tw.anchorX, tw.anchorY);
                     case "scale" -> new TextW(tw.x, tw.y, tw.text, tw.color, Float.parseFloat(value.trim()), tw.tooltip, tw.id, tw.wrapWidth, tw.align, tw.maxLines, tw.maxChars, tw.anchorX, tw.anchorY);
+                    case "tooltip" -> new TextW(tw.x, tw.y, tw.text, tw.color, tw.scale, value, tw.id, tw.wrapWidth, tw.align, tw.maxLines, tw.maxChars, tw.anchorX, tw.anchorY);
                     default -> w;
                 };
             }
             if (w instanceof ButtonW bw) {
                 return switch (field) {
-                    case "x" -> new ButtonW(bw.id, (int)Float.parseFloat(value.trim()), bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale());
-                    case "y" -> new ButtonW(bw.id, bw.x, (int)Float.parseFloat(value.trim()), bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale());
-                    case "w" -> new ButtonW(bw.id, bw.x, bw.y, (int)Float.parseFloat(value.trim()), bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale());
-                    case "h" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, (int)Float.parseFloat(value.trim()), bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale());
-                    case "label" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, value, bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale());
-                    case "color" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), parseColor(value), bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale());
-                    case "hover" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, parseColor(value), bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale());
-                    case "texture" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, value, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale());
+                    case "x" -> new ButtonW(bw.id, (int)Float.parseFloat(value.trim()), bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "y" -> new ButtonW(bw.id, bw.x, (int)Float.parseFloat(value.trim()), bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "w" -> new ButtonW(bw.id, bw.x, bw.y, (int)Float.parseFloat(value.trim()), bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "h" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, (int)Float.parseFloat(value.trim()), bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "label" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, value, bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "color" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), parseColor(value), bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "hover" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, parseColor(value), bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "texture" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, value, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "tooltip" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, value, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
                     default -> w;
                 };
             }
@@ -583,6 +585,7 @@ public class SprauteScriptScreen extends Screen {
                     case "w" -> new RectW(rw.x, rw.y, resolveSize(value, true), rw.h, rw.color, rw.tooltip, rw.id);
                     case "h" -> new RectW(rw.x, rw.y, rw.w, resolveSize(value, false), rw.color, rw.tooltip, rw.id);
                     case "color" -> new RectW(rw.x, rw.y, rw.w, rw.h, parseColor(value), rw.tooltip, rw.id);
+                    case "tooltip" -> new RectW(rw.x, rw.y, rw.w, rw.h, rw.color, value, rw.id);
                     default -> w;
                 };
             }
@@ -593,6 +596,7 @@ public class SprauteScriptScreen extends Screen {
                     case "w" -> new ImageW(iw.x, iw.y, (int)Float.parseFloat(value.trim()), iw.h, iw.texture, iw.tooltip, iw.id, iw.sliceBorders, iw.sliceScale, iw.srcU, iw.srcV, iw.srcW, iw.srcH);
                     case "h" -> new ImageW(iw.x, iw.y, iw.w, (int)Float.parseFloat(value.trim()), iw.texture, iw.tooltip, iw.id, iw.sliceBorders, iw.sliceScale, iw.srcU, iw.srcV, iw.srcW, iw.srcH);
                     case "texture" -> new ImageW(iw.x, iw.y, iw.w, iw.h, value, iw.tooltip, iw.id, iw.sliceBorders, iw.sliceScale, iw.srcU, iw.srcV, iw.srcW, iw.srcH);
+                    case "tooltip" -> new ImageW(iw.x, iw.y, iw.w, iw.h, iw.texture, value, iw.id, iw.sliceBorders, iw.sliceScale, iw.srcU, iw.srcV, iw.srcW, iw.srcH);
                     default -> w;
                 };
             }
@@ -602,6 +606,7 @@ public class SprauteScriptScreen extends Screen {
                     case "y" -> new ItemW(iw.x, (int)Float.parseFloat(value.trim()), iw.size, iw.itemId, iw.tooltip, iw.id);
                     case "size", "w", "h" -> new ItemW(iw.x, iw.y, (int)Float.parseFloat(value.trim()), iw.itemId, iw.tooltip, iw.id);
                     case "item", "block" -> new ItemW(iw.x, iw.y, iw.size, value, iw.tooltip, iw.id);
+                    case "tooltip" -> new ItemW(iw.x, iw.y, iw.size, iw.itemId, value, iw.id);
                     default -> w;
                 };
             }
@@ -779,7 +784,23 @@ public class SprauteScriptScreen extends Screen {
                         w.has("maxChars") ? w.get("maxChars").getAsInt() : 0,
                         anchors[0], anchors[1]);
             }
-            case "button" -> new ButtonW(
+            case "button" -> {
+                List<Widget> hoverChildren = new ArrayList<>();
+                int hpw = 0;
+                int hph = 0;
+                if (w.has("hover_panel") && w.get("hover_panel").isJsonObject()) {
+                    JsonObject hp = w.getAsJsonObject("hover_panel");
+                    hpw = hp.has("w") ? hp.get("w").getAsInt() : 210;
+                    hph = hp.has("h") ? hp.get("h").getAsInt() : 96;
+                    if (hp.has("children") && hp.get("children").isJsonArray()) {
+                        for (JsonElement hel : hp.getAsJsonArray("children")) {
+                            if (!hel.isJsonObject()) continue;
+                            Widget cw = parseOneWidget(hel.getAsJsonObject(), null, hpw, hph);
+                            if (cw != null) hoverChildren.add(cw);
+                        }
+                    }
+                }
+                yield new ButtonW(
                     w.has("id") ? w.get("id").getAsString() : "",
                     x, y, ww, hh,
                     w.has("label") ? w.get("label").getAsString() : "",
@@ -790,7 +811,9 @@ public class SprauteScriptScreen extends Screen {
                     tooltip,
                     w.has("labelWrap") ? readCoord(w, "labelWrap", pw) : 0,
                     w.has("labelScale") ? w.get("labelScale").getAsFloat() : 1f,
-                    w.has("subScale") ? w.get("subScale").getAsFloat() : 0.65f);
+                    w.has("subScale") ? w.get("subScale").getAsFloat() : 0.65f,
+                    hoverChildren, hpw, hph);
+            }
             case "entity" -> {
                 UUID uuid = null;
                 if (w.has("entityUuid")) {
@@ -1023,6 +1046,56 @@ public class SprauteScriptScreen extends Screen {
 
     private record WidgetEntry(int layer, int order, Widget widget) {}
 
+    //? if >=1.20.1 {
+    private void renderButtonHoverPanel(GuiGraphics guiGraphics, ButtonW bw, int mouseX, int mouseY) {
+        int hw = bw.hoverPw() > 0 ? bw.hoverPw() : 210;
+        int hh = bw.hoverPh() > 0 ? bw.hoverPh() : 96;
+        int px = mouseX + 10;
+        int py = mouseY + 10;
+        int sw = width;
+        int sh = height;
+        if (px + hw > sw - 4) px = mouseX - hw - 10;
+        if (py + hh > sh - 4) py = mouseY - hh - 10;
+        px = Math.max(4, px);
+        py = Math.max(4, py);
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate(0, 0, 500);
+        SprauteGuiDraw.enableScissor(guiGraphics, px, py, px + hw, py + hh);
+        SprauteGuiDraw.fill(guiGraphics, px - 1, py - 1, px + hw + 1, py + hh + 1, 0xFF5566AA);
+        SprauteGuiDraw.fill(guiGraphics, px, py, px + hw, py + hh, 0xFF0D0D14);
+        SprauteGuiDraw.fill(guiGraphics, px, py, px + hw, py + hh, 0xFF1A1A2E);
+        for (Widget cw : bw.hoverChildren()) {
+            if (cw instanceof RectW) continue;
+            cw.render(this, guiGraphics, px, py, mouseX, mouseY, 0f);
+        }
+        SprauteGuiDraw.disableScissor(guiGraphics);
+        guiGraphics.pose().popPose();
+    }
+    //?} else {
+    /*private void renderButtonHoverPanel(PoseStack poseStack, ButtonW bw, int mouseX, int mouseY) {
+        int hw = bw.hoverPw() > 0 ? bw.hoverPw() : 210;
+        int hh = bw.hoverPh() > 0 ? bw.hoverPh() : 96;
+        int px = mouseX + 10;
+        int py = mouseY + 10;
+        int sw = width;
+        int sh = height;
+        if (px + hw > sw - 4) px = mouseX - hw - 10;
+        if (py + hh > sh - 4) py = mouseY - hh - 10;
+        px = Math.max(4, px);
+        py = Math.max(4, py);
+        poseStack.pushPose();
+        poseStack.translate(0, 0, 500);
+        GuiComponent.fill(poseStack, px - 1, py - 1, px + hw + 1, py + hh + 1, 0xFF5566AA);
+        GuiComponent.fill(poseStack, px, py, px + hw, py + hh, 0xFF0D0D14);
+        GuiComponent.fill(poseStack, px, py, px + hw, py + hh, 0xFF1A1A2E);
+        for (Widget cw : bw.hoverChildren()) {
+            if (cw instanceof RectW) continue;
+            cw.render(this, poseStack, px, py, mouseX, mouseY, 0f);
+        }
+        poseStack.popPose();
+    }
+    *///?}
+
     /** Pixel, integer, or {@code "25%"} relative to panel width/height. */
     private static int readCoord(JsonObject w, String key, int panelSize) {
         if (!w.has(key)) return 0;
@@ -1205,12 +1278,24 @@ public class SprauteScriptScreen extends Screen {
         for (Widget w : widgets) {
             w.render(this, guiGraphics, ax0, ay0, mouseX, mouseY, partialTick);
         }
+        ButtonW hoveredWithPanel = null;
         for (int i = widgets.size() - 1; i >= 0; i--) {
             Widget w = widgets.get(i);
-            String tip = w.tooltip();
-            if (tip != null && !tip.isEmpty() && w.contains(this, ax0, ay0, mouseX, mouseY)) {
-                guiGraphics.renderTooltip(this.font, Component.literal(tip), mouseX, mouseY);
+            if (w instanceof ButtonW bw && bw.hasHoverPanel() && bw.contains(this, ax0, ay0, mouseX, mouseY)) {
+                hoveredWithPanel = bw;
                 break;
+            }
+        }
+        if (hoveredWithPanel != null) {
+            // defer to after super.render so hover panel draws above all widgets
+        } else {
+            for (int i = widgets.size() - 1; i >= 0; i--) {
+                Widget w = widgets.get(i);
+                String tip = w.tooltip();
+                if (tip != null && !tip.isEmpty() && w.contains(this, ax0, ay0, mouseX, mouseY)) {
+                    guiGraphics.renderTooltip(this.font, Component.literal(tip), mouseX, mouseY);
+                    break;
+                }
             }
         }
 
@@ -1235,6 +1320,9 @@ public class SprauteScriptScreen extends Screen {
         }
 
         super.render(guiGraphics, mouseX, mouseY, partialTick);
+        if (hoveredWithPanel != null) {
+            renderButtonHoverPanel(guiGraphics, hoveredWithPanel, mouseX, mouseY);
+        }
     }
     //?} else {
     /*@Override
@@ -1247,12 +1335,22 @@ public class SprauteScriptScreen extends Screen {
         for (Widget w : widgets) {
             w.render(this, poseStack, ax0, ay0, mouseX, mouseY, partialTick);
         }
+        ButtonW hoveredWithPanel = null;
         for (int i = widgets.size() - 1; i >= 0; i--) {
             Widget w = widgets.get(i);
-            String tip = w.tooltip();
-            if (tip != null && !tip.isEmpty() && w.contains(this, ax0, ay0, mouseX, mouseY)) {
-                renderTooltip(poseStack, Component.literal(tip), mouseX, mouseY);
+            if (w instanceof ButtonW bw && bw.hasHoverPanel() && bw.contains(this, ax0, ay0, mouseX, mouseY)) {
+                hoveredWithPanel = bw;
                 break;
+            }
+        }
+        if (hoveredWithPanel == null) {
+            for (int i = widgets.size() - 1; i >= 0; i--) {
+                Widget w = widgets.get(i);
+                String tip = w.tooltip();
+                if (tip != null && !tip.isEmpty() && w.contains(this, ax0, ay0, mouseX, mouseY)) {
+                    renderTooltip(poseStack, Component.literal(tip), mouseX, mouseY);
+                    break;
+                }
             }
         }
 
@@ -1277,6 +1375,9 @@ public class SprauteScriptScreen extends Screen {
         }
 
         super.render(poseStack, mouseX, mouseY, partialTick);
+        if (hoveredWithPanel != null) {
+            renderButtonHoverPanel(poseStack, hoveredWithPanel, mouseX, mouseY);
+        }
     }
     *///?}
 
@@ -1863,7 +1964,16 @@ public class SprauteScriptScreen extends Screen {
     }
 
     private record ButtonW(String id, int x, int y, int w, int h, String label, String subLabel, int color, int hoverColor, String texture, String tooltip,
-                           int labelWrap, float labelScale, float subScale) implements Widget {
+                           int labelWrap, float labelScale, float subScale,
+                           List<Widget> hoverChildren, int hoverPw, int hoverPh) implements Widget {
+        ButtonW {
+            if (hoverChildren == null) hoverChildren = List.of();
+        }
+
+        boolean hasHoverPanel() {
+            return hoverPw > 0 && hoverPh > 0 && !hoverChildren.isEmpty();
+        }
+
         @Override public int getX() { return x; }
         @Override public int getY() { return y; }
         @Override public String getId() { return id; }

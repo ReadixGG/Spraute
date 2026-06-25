@@ -1,0 +1,16 @@
+#\ block: get_player_motion
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "вектор движения" input: player (type: value) "игрока"
+#\ template: getPlayerMotion({player})
+
+#\ block: set_player_motion
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "задать вектор движения" input: player (type: value) "игроку"
+#\ row: "vx" (vx: number: 0) "vy" (vy: number: 0) "vz" (vz: number: 0)
+#\ template: setPlayerMotion({player}, {vx}, {vy}, {vz})

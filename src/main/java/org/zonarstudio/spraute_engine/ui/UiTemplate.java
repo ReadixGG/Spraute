@@ -226,6 +226,27 @@ public final class UiTemplate {
         o.addProperty("order", order);
         String tooltip = propStr(rw.evaluatedProps, "tooltip", null);
         if (tooltip != null && !tooltip.isEmpty()) o.addProperty("tooltip", tooltip);
+        if (rw.children != null && !rw.children.isEmpty()) {
+            int hpw = 210;
+            int hph = 96;
+            Object hs = rw.evaluatedProps.get("hover_size");
+            if (hs == null) hs = rw.evaluatedProps.get("hoverSize");
+            if (hs instanceof List<?> l && l.size() >= 2) {
+                hpw = toInt(l.get(0), pw);
+                hph = toInt(l.get(1), ph);
+            }
+            JsonObject hpRoot = new JsonObject();
+            hpRoot.addProperty("w", hpw);
+            hpRoot.addProperty("h", hph);
+            JsonArray hpChildren = new JsonArray();
+            int childOrder = 0;
+            for (RuntimeWidget child : rw.children) {
+                JsonObject co = buildWidget(child, hpw, hph, childOrder++, handlers);
+                if (co != null) hpChildren.add(co);
+            }
+            hpRoot.add("children", hpChildren);
+            o.add("hover_panel", hpRoot);
+        }
         return o;
     }
 

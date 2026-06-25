@@ -22,7 +22,7 @@ import java.util.Collections;
  *   /spraute reload             — reload all scripts from disk
  *   /spraute list               — list all loaded scripts
  *   /spraute var clear global [имя] — сброс глобальных переменных скриптов
- *   /spraute var clear world [имя] — сброс переменных мира (текущее измерение)
+ *   /spraute var clear world [имя] — сброс переменных сейва (общие для всех измерений)
  *   /spraute var list global|world — список имён
  */
 public class SprauteCommands {
@@ -362,7 +362,7 @@ public class SprauteCommands {
         ScriptWorldData.get(level).clearAll();
         //? if >=1.20.1 {
         source.sendSuccess(
-                () -> Component.literal("§6[Spraute]§r §fПеременные мира очищены (измерение: §e" + level.dimension().location() + "§f)."),
+                () -> Component.literal("§6[Spraute]§r §fПеременные сейва очищены (общие для всех измерений)."),
                 true
         );
         //?} else {
@@ -387,7 +387,7 @@ public class SprauteCommands {
             data.remove(name);
             //? if >=1.20.1 {
             source.sendSuccess(
-                    () -> Component.literal("§6[Spraute]§r §fПеременная мира §e" + name + "§f удалена (§7" + level.dimension().location() + "§f)."),
+                    () -> Component.literal("§6[Spraute]§r §fПеременная сейва §e" + name + "§f удалена."),
                     true
             );
             //?} else {
@@ -398,7 +398,7 @@ public class SprauteCommands {
             *///?}
             return 1;
         }
-        source.sendFailure(Component.literal("§c[Spraute]§r §fПеременной §e" + name + "§f в этом измерении нет."));
+        source.sendFailure(Component.literal("§c[Spraute]§r §fПеременной сейва §e" + name + "§f нет."));
         return 0;
     }
 
@@ -444,7 +444,7 @@ public class SprauteCommands {
         if (keys.isEmpty()) {
             //? if >=1.20.1 {
             source.sendSuccess(
-                    () -> Component.literal("§7[Spraute]§r В этом измерении переменных нет (§7" + level.dimension().location() + "§r)."),
+                    () -> Component.literal("§7[Spraute]§r Переменных сейва нет."),
                     false
             );
             //?} else {
@@ -456,7 +456,7 @@ public class SprauteCommands {
         } else {
             //? if >=1.20.1 {
             source.sendSuccess(
-                    () -> Component.literal("§6[Spraute]§r §fМир §7" + level.dimension().location() + "§f (§e" + keys.size() + "§f):"),
+                    () -> Component.literal("§6[Spraute]§r §fПеременные сейва (§e" + keys.size() + "§f):"),
                     false
             );
             //?} else {

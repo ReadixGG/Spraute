@@ -50,7 +50,12 @@ public class ScriptKeybindListener {
 
         for (var entry : KEY_MAP.entrySet()) {
             if (entry.getValue() == event.getKey()) {
-                ModNetwork.CHANNEL.sendToServer(new KeybindPressedPacket(entry.getKey()));
+                if (mc.player != null) {
+                    var motion = mc.player.getDeltaMovement();
+                    ModNetwork.CHANNEL.sendToServer(new KeybindPressedPacket(entry.getKey(), motion.x, motion.z));
+                } else {
+                    ModNetwork.CHANNEL.sendToServer(new KeybindPressedPacket(entry.getKey()));
+                }
                 return;
             }
         }

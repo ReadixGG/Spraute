@@ -1,0 +1,12 @@
+#\ block: await_kill
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать убийство от" [killer: dropdown(игрока: player, моба: mob, НИПа: npc_ref)]
+#\ row: "жертва" [victim: dropdown(любая: any, игрок: player, НИП: npc, моб: mob)]
+#\ if killer == "npc_ref":
+#\   row: "НИП" [npc: dropdown_npc]
+#\   template: await kill({npc}, "{victim}")
+#\ if killer != "npc_ref":
+#\   template: await kill("{killer}", "{victim}")

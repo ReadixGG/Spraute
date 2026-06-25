@@ -12,7 +12,8 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Persistent storage for world-scoped script variables.
+ * Persistent storage for save-wide script variables ({@code world val}, {@code player.savedData}).
+ * Stored on the overworld dimension so all in-game dimensions share one namespace per save.
  * Survives server restarts.
  * <p>
  * List/Map values are stored as JSON ({@code j:...}). Live objects are cached so in-place mutations
@@ -57,8 +58,13 @@ public class ScriptWorldData extends SavedData {
         }
     }
 
+    /** Resolve save-wide storage (always overworld — not the caller's current dimension). */
     public static ScriptWorldData get(ServerLevel level) {
-        return level.getDataStorage().computeIfAbsent(
+        if (level == null) {
+            throw new IllegalArgumentException("level is null");
+        }
+        ServerLevel storageLevel = level.getServer().overworld();
+        return storageLevel.getDataStorage().computeIfAbsent(
                 ScriptWorldData::load,
                 ScriptWorldData::new,
                 DATA_NAME
@@ -97,7 +103,7 @@ public class ScriptWorldData extends SavedData {
         setDirty();
     }
 
-    /** Очистить все переменные этого измерения. */
+    /** Очистить все переменные сейва. */
     public void clearAll() {
         liveCache.clear();
         storage.clear();

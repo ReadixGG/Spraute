@@ -204,6 +204,10 @@ public class ScriptManager {
         executor.onKeybind(key, player);
     }
 
+    public void onPlayerJoin(net.minecraft.server.level.ServerPlayer player) {
+        executor.onPlayerJoin(player);
+    }
+
     public void onDeath(net.minecraft.world.entity.LivingEntity entity, net.minecraft.world.entity.Entity killer) {
         executor.onDeath(entity, killer);
     }
@@ -227,6 +231,14 @@ public class ScriptManager {
 
     public boolean onPlaceBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block) {
         return executor.onPlaceBlock(player, pos, block);
+    }
+
+    public boolean onOpenChest(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, net.minecraft.world.level.Level level) {
+        return executor.onOpenChest(player, pos, block, level);
+    }
+
+    public boolean onOpenDoor(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, net.minecraft.world.level.Level level) {
+        return executor.onOpenDoor(player, pos, block, level);
     }
 
     public void onChat(net.minecraft.server.level.ServerPlayer player, String message) {

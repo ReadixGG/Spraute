@@ -1,0 +1,13 @@
+#\ block: on_action
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда игрок" [action: dropdown(есть: eat, рыбалка: fish, мотыга: hoe, прыжок: jump, сон: sleep, крафт: craft, выброс: drop)]
+#\ input: player (type: value)
+#\ row: [target: dropdown(без цели: no, с целью: yes)] "→" (handler: text: h_action)
+#\ if target == "no":
+#\   template: on action({player}, "{action}") -> {handler} {\n{DO}}
+#\ if target == "yes":
+#\   row: "цель (предмет/блок)" (targetId: text: minecraft:bread)
+#\   template: on action({player}, "{action}", "{targetId}") -> {handler} {\n{DO}}

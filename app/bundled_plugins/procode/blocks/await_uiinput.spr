@@ -1,0 +1,12 @@
+#\ block: await_uiinput
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать ввод в UI" [filter: dropdown(любой input: any, конкретный: widget)]
+#\ input: player (type: value)
+#\ if filter == "any":
+#\   template: await uiInput({player})
+#\ if filter == "widget":
+#\   row: "id виджета" (widgetId: text: my_input)
+#\   template: await uiInput({player}, "{widgetId}")

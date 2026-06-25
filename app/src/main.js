@@ -14,7 +14,7 @@ import { linter, lintGutter } from "@codemirror/lint";
 import { autocompletion, completeAnyWord, snippetCompletion, completionKeymap, acceptCompletion, startCompletion } from "@codemirror/autocomplete";
 
 import * as Blockly from 'blockly';
-import { SprauteGenerator, generateWorkspaceCode, SprauteTheme, applyBlocklyThemeColors, updateDynamicLists, parseCustomBlocks, getDynamicToolbox, customCategories, clearCustomCategories, registerPluginCategoryOrder, applyPluginCategoryColors, sortPluginBlocks, attachBlocklyContextMenu, attachDynamicBlockReshapeListener, extractNpcCreateIdsFromBlocklyXml, extractNpcIdsFromWorkspace, extractCreateNpcIdsFromSpr, buildNpcDropdownIds, refreshDynamicDropdownFields, syncNpcDropdownsFromWorkspace, beginBlocklyRestore, endBlocklyRestore, prepareBlocklyXmlForLoad } from './visual.js';
+import { SprauteGenerator, generateWorkspaceCode, SprauteTheme, applyBlocklyThemeColors, updateDynamicLists, parseCustomBlocks, getDynamicToolbox, customCategories, clearCustomCategories, registerPluginCategoryOrder, applyPluginCategoryColors, sortPluginBlocks, attachBlocklyContextMenu, attachDynamicBlockReshapeListener, extractNpcCreateIdsFromBlocklyXml, extractNpcIdsFromWorkspace, extractCreateNpcIdsFromSpr, buildNpcDropdownIds, refreshDynamicDropdownFields, syncNpcDropdownsFromWorkspace, beginBlocklyRestore, endBlocklyRestore, prepareBlocklyXmlForLoad, isGeoModelFileName } from './visual.js';
 
 import { visualBlocksDocs } from './docs.js';
 import { initGuiEditor, setupGuiEditorBridge } from './gui-editor.js';
@@ -119,11 +119,45 @@ const sprauteFunctionsList = [
   "hasPlayerTag(${1:player}, ${2:tag})",
   "getPlayersByTag(${1:tag})",
   "getPlayerTags(${1:player})",
+  "getPlayerMotion(${1:player})",
+  "setPlayerMotion(${1:player}, ${2:vx}, ${3:vy}, ${4:vz})",
+  "getPlayerMovementSpeed(${1:player})",
+  "setPlayerMovementSpeed(${1:player}, ${2:speed})",
+  "getPlayerJumpStrength(${1:player})",
+  "setPlayerJumpStrength(${1:player}, ${2:jump})",
+  "getPlayerStepHeight(${1:player})",
+  "setPlayerStepHeight(${1:player}, ${2:step})",
+  "getPlayerAttackDamage(${1:player})",
+  "setPlayerAttackDamage(${1:player}, ${2:damage})",
+  "getPlayerDigSpeed(${1:player})",
+  "setPlayerDigSpeed(${1:player}, ${2:mult})",
+  "getPlayerFacing(${1:player})",
+  "playersInRadius(${1:x}, ${2:y}, ${3:z}, ${4:radius})",
+  "playersNear(${1:anchor}, ${2:radius})",
+  "entitiesInRadius(${1:x}, ${2:y}, ${3:z}, ${4:radius}, \"${5:any}\")",
+  "entitiesNear(${1:anchor}, ${2:radius}, \"${3:any}\")",
   "setBlock(${1:x}, ${2:y}, ${3:z}, ${4:block_id})",
   "heldItem(${1:hand})",
   "heldItemNbt(${1:hand})",
   "giveItem(${1:player}, ${2:item_id}, ${3:count})",
   "getHeldItem(${1:player})",
+  "getItemInSlot(${1:player}, ${2:slot})",
+  "getPlayerInventory(${1:player})",
+  "isSlotEmpty(${1:player}, ${2:slot})",
+  "hasItemInSlot(${1:player}, ${2:slot}, ${3:item_id})",
+  "findItemSlot(${1:player}, ${2:item_id})",
+  "setItemInSlot(${1:player}, ${2:slot}, ${3:item_id}, ${4:count})",
+  "setItemCount(${1:player}, ${2:slot}, ${3:count})",
+  "clearItemSlot(${1:player}, ${2:slot})",
+  "removeItem(${1:player}, ${2:item_id}, ${3:count})",
+  "getItemName(${1:player}, ${2:slot})",
+  "setItemName(${1:player}, ${2:slot}, ${3:name})",
+  "getItemLore(${1:player}, ${2:slot})",
+  "setItemLore(${1:player}, ${2:slot}, ${3:lore})",
+  "getItemAttackDamage(${1:player}, ${2:slot})",
+  "setItemAttackDamage(${1:player}, ${2:slot}, ${3:damage})",
+  "getItemNbt(${1:player}, ${2:slot})",
+  "setItemNbt(${1:player}, ${2:slot}, ${3:nbt})",
   "execute(${1:command})",
   "taskDone(${1:task_id})",
   "intStr(${1:x})",
@@ -255,6 +289,7 @@ const sprauteSnippets = [
   snippetCompletion('on interact(${1:target}) -> ${2:handlerId} {\n  ${3}\n}', {label: "on interact", detail: "event", type: "keyword"}),
   snippetCompletion('on keybind("${1:key}") -> ${2:handlerId} {\n  ${3}\n}', {label: "on keybind", detail: "event", type: "keyword"}),
   snippetCompletion('on death(${1:target}) -> ${2:handlerId} {\n  ${3}\n}', {label: "on death", detail: "event", type: "keyword"}),
+  snippetCompletion('on kill("${1:player}", "${2:any}") -> ${3:handlerId} {\n  ${4}\n}', {label: "on kill", detail: "event", type: "keyword"}),
   snippetCompletion('on pickup(${1:npc}, "${2:item_id}") -> ${3:handlerId} {\n  ${4}\n}', {label: "on pickup", detail: "event", type: "keyword"}),
   snippetCompletion('on uiClick(${1:player}) -> ${2:handlerId} {\n  ${3}\n}', {label: "on uiClick", detail: "event", type: "keyword"}),
   snippetCompletion('on uiClose(${1:player}) -> ${2:handlerId} {\n  ${3}\n}', {label: "on uiClose", detail: "event", type: "keyword"}),
@@ -265,6 +300,9 @@ const sprauteSnippets = [
   snippetCompletion('on breakBlock("${1:target}") -> ${2:handlerId} {\n  ${3}\n}', {label: "on breakBlock", detail: "event", type: "keyword"}),
   snippetCompletion('on placeBlock("${1:target}") -> ${2:handlerId} {\n  ${3}\n}', {label: "on placeBlock", detail: "event", type: "keyword"}),
   snippetCompletion('on chat(${1:player}, "${2:message}") -> ${3:handlerId} {\n  ${4}\n}', {label: "on chat", detail: "event", type: "keyword"}),
+  snippetCompletion('on jump(${1:player}) -> ${2:handlerId} {\n  ${3}\n}', {label: "on jump", detail: "event", type: "keyword"}),
+  snippetCompletion('on uiTouch(${1:player}, "${2:id1}", "${3:id2}") -> ${4:handlerId} {\n  ${5}\n}', {label: "on uiTouch", detail: "event", type: "keyword"}),
+  snippetCompletion('on action(${1:player}, "${2:action}") -> ${3:handlerId} {\n  ${4}\n}', {label: "on action", detail: "event", type: "keyword"}),
 
   // await Ожидания
   snippetCompletion('await time(${1:seconds})', {label: "await time", detail: "wait", type: "keyword"}),
@@ -272,6 +310,7 @@ const sprauteSnippets = [
   snippetCompletion('await next', {label: "await next", detail: "wait", type: "keyword"}),
   snippetCompletion('await keybind("${1:key}")', {label: "await keybind", detail: "wait", type: "keyword"}),
   snippetCompletion('await death(${1:target})', {label: "await death", detail: "wait", type: "keyword"}),
+  snippetCompletion('await kill("${1:player}", "${2:any}")', {label: "await kill", detail: "wait", type: "keyword"}),
   snippetCompletion('await pickup(${1:npc}, ${2:amount}, "${3:item_id}")', {label: "await pickup", detail: "wait", type: "keyword"}),
   snippetCompletion('await task("${1:task_id}")', {label: "await task", detail: "wait", type: "keyword"}),
   snippetCompletion('await uiClick(${1:player})', {label: "await uiClick", detail: "wait", type: "keyword"}),
@@ -283,6 +322,10 @@ const sprauteSnippets = [
   snippetCompletion('await breakBlock(${1:player}, "${2:target}")', {label: "await breakBlock", detail: "wait", type: "keyword"}),
   snippetCompletion('await placeBlock(${1:player}, "${2:target}")', {label: "await placeBlock", detail: "wait", type: "keyword"}),
   snippetCompletion('await chat(${1:player}, "${2:message}")', {label: "await chat", detail: "wait", type: "keyword"}),
+  snippetCompletion('await jump(${1:player})', {label: "await jump", detail: "wait", type: "keyword"}),
+  snippetCompletion('await uiTouch(${1:player}, "${2:id1}", "${3:id2}")', {label: "await uiTouch", detail: "wait", type: "keyword"}),
+  snippetCompletion('await action(${1:player}, "${2:action}")', {label: "await action", detail: "wait", type: "keyword"}),
+  snippetCompletion('await orbPickup(${1:player}, ${2:amount})', {label: "await orbPickup", detail: "wait", type: "keyword"}),
 
   // UI Виджеты (внутри create ui)
   snippetCompletion('text("${1:id}", "${2:text}") {\n  ${3}\n}', {label: "text", detail: "ui widget", type: "function"}),
@@ -655,6 +698,7 @@ function showVisualLoadError(message, { missingBlocks } = {}) {
 
 // Инициализация
 async function init() {
+  setupAssetRescanListeners();
   if (!window.spraute) {
     document.body.innerHTML = '<div class="flex items-center justify-center h-full text-white">Please run inside Electron</div>';
     return;
@@ -1070,7 +1114,7 @@ function setupDragAndDrop(el, item, wrapper) {
               await window.spraute.rename(oldSprv, newSprv);
             }
           }
-          await loadDirectory('');
+          await reloadFileTree();
           setStatus(`Перемещено: ${srcName} → ${item.name}/`);
         } catch (err) {
           appAlert(`Ошибка перемещения: ${err.message}`);
@@ -1081,10 +1125,31 @@ function setupDragAndDrop(el, item, wrapper) {
 }
 
 // Загрузка дерева файлов (рекурсивная реализация)
-async function loadDirectory(relPath, containerEl = null, level = 0, forceExpand = false) {
+function collectExpandedFolderPaths() {
+  const paths = new Set();
+  const tree = document.getElementById('file-tree');
+  if (!tree) return paths;
+  tree.querySelectorAll('[data-file-path]').forEach(el => {
+    const wrapper = el.parentElement;
+    if (!wrapper || wrapper.children.length < 2) return;
+    const childrenContainer = wrapper.children[1];
+    if (childrenContainer && !childrenContainer.classList.contains('hidden')) {
+      const path = el.dataset.filePath;
+      if (path) paths.add(path);
+    }
+  });
+  return paths;
+}
+
+async function loadDirectory(relPath, containerEl = null, level = 0, forceExpand = false, expandedSet = null, opts = {}) {
+  const silent = opts.silent === true;
   const treeContainer = containerEl || document.getElementById('file-tree');
   if (!containerEl) {
-    treeContainer.innerHTML = '<div class="text-center text-on-variant mt-4 animate-pulse">Загрузка...</div>';
+    if (!silent) {
+      treeContainer.innerHTML = '<div class="text-center text-on-variant mt-4 animate-pulse">Загрузка...</div>';
+    } else {
+      treeContainer.innerHTML = '';
+    }
   }
   
   try {
@@ -1103,6 +1168,7 @@ async function loadDirectory(relPath, containerEl = null, level = 0, forceExpand
     const shouldAutoExpand = items.length === 1 && items[0].isDir;
 
     for (const item of items) {
+      const shouldExpandThis = forceExpand || shouldAutoExpand || (expandedSet && expandedSet.has(item.rel));
       const wrapper = document.createElement('div');
       
       const el = document.createElement('div');
@@ -1170,8 +1236,10 @@ async function loadDirectory(relPath, containerEl = null, level = 0, forceExpand
           if (isHidden) {
             childrenContainer.classList.remove('hidden');
             el.querySelector('.material-symbols-outlined').style.transform = 'rotate(90deg)';
-            if (!isLoaded) {
-              await loadDirectory(item.rel, childrenContainer, level + 1, shouldAutoExpand);
+            const needsReload = !isLoaded || (opts.refresh && expandedSet && expandedSet.has(item.rel));
+            if (needsReload) {
+              childrenContainer.innerHTML = '';
+              await loadDirectory(item.rel, childrenContainer, level + 1, shouldAutoExpand, expandedSet, opts);
               isLoaded = true;
             }
           } else {
@@ -1189,8 +1257,8 @@ async function loadDirectory(relPath, containerEl = null, level = 0, forceExpand
           await toggleFolder();
         });
 
-        // Авто-открытие (если 1 папка внутри)
-        if (shouldAutoExpand || forceExpand) {
+        // Авто-открытие (если 1 папка внутри или была раскрыта до обновления)
+        if (shouldExpandThis) {
           await toggleFolder();
         }
       } else {
@@ -1523,6 +1591,7 @@ const VisualEngine = {
   _cachedModels: [],
   _cachedTextures: [],
   _scanPromise: null,
+  _assetRescanPromise: null,
   _initPromise: null,
   _lastScanText: '',
 
@@ -1662,60 +1731,105 @@ const VisualEngine = {
     return [...ids];
   },
 
-  async _doScan(currentText) {
+  async _scanAssetsFromDisk() {
     let anims = [];
     let animFiles = [];
     let models = [];
     let textures = [];
 
+    if (!window.spraute) {
+      return { anims, animFiles, models, textures };
+    }
+
     try {
-      if (window.spraute) {
-        // Анимации — имена из .animation.json
-        const animFilesList = await window.spraute.listDir('animations');
-        for (const f of animFilesList) {
-          if (!f.isDir && f.name.endsWith('.json')) {
-            const animPath = 'animations/' + f.name;
-            if (!animFiles.includes(animPath)) animFiles.push(animPath);
-            const content = await window.spraute.readFile(f.rel, 'utf8');
-            try {
-              const json = JSON.parse(content);
-              if (json.animations) {
-                for (const aName in json.animations) {
-                  if (!anims.includes(aName)) anims.push(aName);
-                }
-              }
-            } catch(e) {}
-          }
-        }
-
-        // Модели — .geo.json из geo/
-        try {
-          const geoFiles = await window.spraute.listDir('geo');
-          for (const f of geoFiles) {
-            if (!f.isDir && f.name.endsWith('.geo.json')) {
-              const path = 'geo/' + f.name;
-              if (!models.includes(path)) models.push(path);
-            }
-          }
-        } catch(e) {}
-
-        // Текстуры — .png/.jpg из textures/ (рекурсивно)
-        async function collectTextures(dir) {
+      const animFilesList = await window.spraute.listDir('animations');
+      for (const f of animFilesList) {
+        if (!f.isDir && f.name.endsWith('.json')) {
+          const animPath = f.rel.replace(/\\/g, '/');
+          if (!animFiles.includes(animPath)) animFiles.push(animPath);
           try {
-            const files = await window.spraute.listDir(dir);
-            for (const f of files) {
-              if (f.isDir) {
-                await collectTextures(dir + '/' + f.name);
-              } else if (/\.(png|jpg|jpeg)$/i.test(f.name)) {
-                const path = dir + '/' + f.name;
-                if (!textures.includes(path)) textures.push(path);
+            const content = await window.spraute.readFile(f.rel, 'utf8');
+            const json = JSON.parse(content);
+            if (json.animations) {
+              for (const aName in json.animations) {
+                if (!anims.includes(aName)) anims.push(aName);
               }
             }
-          } catch(e) {}
+          } catch (e) {}
         }
-        await collectTextures('textures');
       }
-    } catch(e) {}
+
+      async function collectGeoModels(dir) {
+        const seen = new Set();
+        try {
+          const files = await window.spraute.listDir(dir);
+          for (const f of files) {
+            if (f.isDir) {
+              await collectGeoModels(f.rel);
+            } else if (isGeoModelFileName(f.name)) {
+              const modelPath = f.rel.replace(/\\/g, '/');
+              const key = modelPath.toLowerCase();
+              if (!seen.has(key)) {
+                seen.add(key);
+                models.push(modelPath);
+              }
+            }
+          }
+        } catch (e) {}
+      }
+      await collectGeoModels('geo');
+
+      async function collectTextures(dir) {
+        try {
+          const files = await window.spraute.listDir(dir);
+          for (const f of files) {
+            if (f.isDir) {
+              await collectTextures(f.rel);
+            } else if (/\.(png|jpg|jpeg)$/i.test(f.name)) {
+              const texPath = f.rel.replace(/\\/g, '/');
+              if (!textures.includes(texPath)) textures.push(texPath);
+            }
+          }
+        } catch (e) {}
+      }
+      await collectTextures('textures');
+    } catch (e) {}
+
+    return { anims, animFiles, models, textures };
+  },
+
+  _applyAssetScanResult(assets, npcs) {
+    let { anims, animFiles, models, textures } = assets;
+    if (anims.length === 0) anims.push('(нет анимаций)');
+    if (animFiles.length === 0) animFiles.push('animations/npc_classic.animation.json');
+    if (models.length === 0) models.push('geo/defolt.geo.json');
+    if (textures.length === 0) textures.push('textures/entity/defolt.png');
+
+    this._cachedAnims = anims;
+    this._cachedAnimFiles = animFiles;
+    this._cachedModels = models;
+    this._cachedTextures = textures;
+    updateDynamicLists(npcs, anims, models, textures, animFiles);
+    if (blocklyWorkspace) refreshDynamicDropdownFields(blocklyWorkspace);
+  },
+
+  /** Перечитать geo/animations/textures с диска и обновить dropdown (без перезапуска). */
+  async rescanAssets() {
+    if (this._assetRescanPromise) return this._assetRescanPromise;
+    this._assetRescanPromise = (async () => {
+      const assets = await this._scanAssetsFromDisk();
+      const npcs = this._cachedNpcs?.length ? this._cachedNpcs : ['_eventNpc'];
+      this._applyAssetScanResult(assets, npcs);
+    })();
+    try {
+      await this._assetRescanPromise;
+    } finally {
+      this._assetRescanPromise = null;
+    }
+  },
+
+  async _doScan(currentText) {
+    const assets = await this._scanAssetsFromDisk();
 
     let importedNpcIds = await this._collectImportedNpcIds(currentText);
     const localNpcIds = new Set(extractCreateNpcIdsFromSpr(currentText));
@@ -1727,21 +1841,11 @@ const VisualEngine = {
     }
     const npcs = [...new Set([...importedNpcIds, ...localNpcIds])];
 
-    if (anims.length === 0) anims.push("(нет анимаций)");
-    if (animFiles.length === 0) animFiles.push("animations/npc_classic.animation.json");
-    if (models.length === 0) models.push("geo/defolt.geo.json");
-    if (textures.length === 0) textures.push("textures/entity/defolt.png");
-
     this._cachedImportedNpcs = importedNpcIds;
     this._cachedNpcs = npcs;
-    this._cachedAnims = anims;
-    this._cachedAnimFiles = animFiles;
-    this._cachedModels = models;
-    this._cachedTextures = textures;
+    this._applyAssetScanResult(assets, npcs);
     this._dynamicDataCached = true;
-    updateDynamicLists(npcs, anims, models, textures, animFiles);
     this._lastScanText = currentText;
-    if (blocklyWorkspace) refreshDynamicDropdownFields(blocklyWorkspace);
   },
 
   // Предзагрузка блоков плагинов — вызывается при старте и при включении/выключении плагина
@@ -1877,6 +1981,38 @@ const VisualEngine = {
     run();
   }
 };
+
+let _workspaceRefreshTimer = null;
+
+async function refreshFileTreeRealtime() {
+  const expanded = collectExpandedFolderPaths();
+  const selected = selectedItemPath;
+  await loadDirectory('', null, 0, false, expanded, { silent: true, refresh: true });
+  if (selected) highlightFileInTree(selected);
+  await VisualEngine.rescanAssets();
+}
+
+function scheduleWorkspaceRefresh() {
+  clearTimeout(_workspaceRefreshTimer);
+  _workspaceRefreshTimer = setTimeout(() => {
+    refreshFileTreeRealtime().catch(() => {});
+  }, 250);
+}
+
+async function reloadFileTree() {
+  const expanded = collectExpandedFolderPaths();
+  await loadDirectory('', null, 0, false, expanded, { refresh: true });
+  await VisualEngine.rescanAssets();
+}
+
+function setupAssetRescanListeners() {
+  if (window._assetRescanListenersSetup) return;
+  window._assetRescanListenersSetup = true;
+  window.addEventListener('focus', () => scheduleWorkspaceRefresh());
+  if (window.spraute?.onAssetsChanged) {
+    window.spraute.onAssetsChanged(() => scheduleWorkspaceRefresh());
+  }
+}
 
 // Вкладки
 let openTabs = []; // { path: string, name: string, isImage: boolean, isDirty: boolean, state: EditorState|null }
@@ -2527,7 +2663,7 @@ document.getElementById('ctx-new-file').addEventListener('click', async () => {
 
   try {
     await window.spraute.writeFile(newPath, '# Новый скрипт\n');
-    loadDirectory(''); // Перезагружаем корень
+    await reloadFileTree();
   } catch(e) {
     appAlert('Ошибка: ' + e.message);
   }
@@ -2549,7 +2685,7 @@ document.getElementById('ctx-new-visual-script').addEventListener('click', async
 
   try {
     await createVisualScriptPair(newPath);
-    await loadDirectory('');
+    await reloadFileTree();
     await openFile(newPath, finalName.split('/').pop());
   } catch(e) {
     appAlert('Ошибка: ' + e.message);
@@ -2570,7 +2706,7 @@ document.getElementById('ctx-new-folder').addEventListener('click', async () => 
 
   try {
     await window.spraute.mkdir(newPath);
-    loadDirectory('');
+    await reloadFileTree();
   } catch(e) {
     appAlert('Ошибка: ' + e.message);
   }
@@ -2603,7 +2739,7 @@ document.getElementById('ctx-rename').addEventListener('click', async () => {
       }
     }
     if (activeTabPath === currentCtxRelPath) activeTabPath = newPath;
-    loadDirectory('');
+    await reloadFileTree();
   } catch(e) {
     appAlert('Ошибка: ' + e.message);
   }
@@ -2631,7 +2767,7 @@ document.getElementById('ctx-delete').addEventListener('click', async () => {
       if (openTabs.length > 0) await switchToTab(openTabs[Math.max(0, closedIdx - 1)].path);
       else renderTabs();
     }
-    loadDirectory('');
+    await reloadFileTree();
   } catch(e) {
     appAlert('Ошибка: ' + e.message);
   }
@@ -2751,7 +2887,7 @@ document.addEventListener('keydown', async (e) => {
     try {
       await window.spraute.copy(clipboardPath, destPath);
       setStatus(`Вставлено: ${destPath}`);
-      loadDirectory('');
+      await reloadFileTree();
     } catch(e) {
       appAlert('Ошибка при вставке: ' + e.message);
     }
@@ -2776,7 +2912,7 @@ document.getElementById('btn-root-new-file').addEventListener('click', async () 
   try {
     await window.spraute.writeFile(newPath, '# Новый скрипт\n');
     setStatus(`Файл ${finalName} создан`);
-    loadDirectory('');
+    await reloadFileTree();
   } catch(e) {
     appAlert('Ошибка: ' + e.message);
   }
@@ -2798,7 +2934,7 @@ document.getElementById('btn-root-new-folder').addEventListener('click', async (
   try {
     await window.spraute.mkdir(newPath);
     setStatus(`Папка ${name} создана`);
-    loadDirectory('');
+    await reloadFileTree();
   } catch(e) {
     appAlert('Ошибка: ' + e.message);
   }
@@ -3131,9 +3267,10 @@ btnChangeMcPath.addEventListener('click', async () => {
   if (path) {
     inputMcPath.value = path;
     await window.spraute.storeSet('minecraftPath', path);
-    // Требуется перезагрузка директории
+    await window.spraute.initWorkspace(path);
     document.getElementById('studio-path-display').innerText = path + '\\spraute_engine';
-    loadDirectory('');
+    await reloadFileTree();
+    await VisualEngine.scanInBackground(currentEditor ? currentEditor.state.doc.toString() : '');
     loadPluginsList();
   }
 });
@@ -3273,7 +3410,7 @@ fileTree.addEventListener('drop', async (e) => {
       }
       
       await window.spraute.rename(srcPath, destPath);
-      await loadDirectory('');
+      await reloadFileTree();
       setStatus(`Перемещено в корень: ${srcName}`);
     } catch (err) {
       appAlert(`Ошибка перемещения: ${err.message}`);

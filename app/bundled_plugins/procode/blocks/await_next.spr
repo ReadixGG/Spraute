@@ -1,0 +1,7 @@
+#\ block: await_next
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать кнопку «Далее» в диалоге"
+#\ template: await next

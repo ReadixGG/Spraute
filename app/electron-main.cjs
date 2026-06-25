@@ -1,9 +1,51 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
+const fsNative = require('fs');
 
 let store;
 let mainWindow;
+let assetWatchers = [];
+let assetWatchNotifyTimer = null;
+
+function stopAssetWatchers() {
+  for (const w of assetWatchers) {
+    try { w.close(); } catch (_) {}
+  }
+  assetWatchers = [];
+}
+
+function notifyRendererAssetsChanged() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('assets-changed');
+    mainWindow.webContents.send('workspace-changed');
+  }
+}
+
+function scheduleAssetWatchNotify() {
+  clearTimeout(assetWatchNotifyTimer);
+  assetWatchNotifyTimer = setTimeout(notifyRendererAssetsChanged, 350);
+}
+
+function watchAssetDir(absDir) {
+  if (!fsNative.existsSync(absDir)) return;
+  try {
+    const w = fsNative.watch(absDir, { recursive: true }, () => scheduleAssetWatchNotify());
+    assetWatchers.push(w);
+  } catch (_) {
+    try {
+      const w = fsNative.watch(absDir, () => scheduleAssetWatchNotify());
+      assetWatchers.push(w);
+    } catch (_2) {}
+  }
+}
+
+function startAssetWatchers(mcPath) {
+  stopAssetWatchers();
+  if (!mcPath) return;
+  const sprautePath = path.join(mcPath, 'spraute_engine');
+  watchAssetDir(sprautePath);
+}
 
 function initStore() {
   const Store = require('electron-store');
@@ -71,6 +113,7 @@ function createWindow() {
 app.whenReady().then(async () => {
   initStore();
   await ensurePluginsMigrated();
+  await ensureBundledProcodeBlocks();
   createWindow();
 
   app.on('activate', () => {
@@ -169,6 +212,145 @@ async function ensurePluginsMigrated() {
     } catch (e) {
       console.error('Plugin migration failed for', entry.name, e);
     }
+  }
+}
+
+/** Категории procode: «Игрок и Мир» → «Игрок» / «Мир» / «Инвентарь». */
+const PROCODE_MIR_BLOCKS = new Set([
+  'set_block', 'find_safe_block', 'spawn_orb', 'execute_cmd', 'start_script',
+]);
+const PROCODE_INVENTORY_BLOCKS = new Set([
+  'give_item', 'has_item', 'has_item_stmt', 'count_item', 'count_item_stmt',
+  'player_held', 'player_held_stmt',
+  'get_slot', 'get_slot_count', 'get_slot_nbt',
+  'get_item_in_slot', 'get_player_inventory', 'has_item_in_slot', 'is_slot_empty', 'find_item_slot',
+  'set_item_in_slot', 'set_item_in_slot_named', 'set_item_count', 'clear_item_slot', 'remove_item',
+  'get_item_name', 'set_item_name', 'get_item_lore', 'set_item_lore',
+  'get_item_attack_damage', 'set_item_attack_damage', 'get_item_nbt', 'set_item_nbt',
+]);
+
+function procodeCategoryForBlock(blockId, legacyCategory) {
+  if (blockId && PROCODE_MIR_BLOCKS.has(blockId)) return 'Мир';
+  if (blockId && PROCODE_INVENTORY_BLOCKS.has(blockId)) return 'Инвентарь';
+  if (legacyCategory === 'Слоты') return 'Инвентарь';
+  if (legacyCategory === 'Игрок и Мир') return 'Игрок';
+  return legacyCategory;
+}
+
+async function migrateProcodeBlockCategories(pluginRoot) {
+  const blocksDir = path.join(pluginRoot, 'blocks');
+  if (!(await pathExists(blocksDir))) return;
+
+  const obsoleteFiles = ['player_slots.spr'];
+  for (const name of obsoleteFiles) {
+    const fp = path.join(blocksDir, name);
+    if (await pathExists(fp)) {
+      await fs.unlink(fp).catch(() => {});
+    }
+  }
+
+  const files = await fs.readdir(blocksDir).catch(() => []);
+  for (const name of files) {
+    if (!name.endsWith('.spr')) continue;
+    const fp = path.join(blocksDir, name);
+    let text = await fs.readFile(fp, 'utf8');
+    const blockId = (text.match(/^#\\?\s*block:\s*(\S+)/m) || [])[1];
+    const catMatch = text.match(/^#\\?\s*category:\s*(.+)$/m);
+    if (!catMatch) continue;
+    const legacy = catMatch[1].trim();
+    if (legacy !== 'Игрок и Мир' && legacy !== 'Слоты') continue;
+    const newCat = procodeCategoryForBlock(blockId, legacy);
+    const next = text.replace(/^#\\?\s*category:\s*.+$/m, `#\\ category: ${newCat}`);
+    if (next !== text) await fs.writeFile(fp, next, 'utf8');
+  }
+
+  const catPath = path.join(pluginRoot, 'categories.json');
+  let cats = {};
+  if (await pathExists(catPath)) {
+    cats = JSON.parse(await fs.readFile(catPath, 'utf8'));
+  }
+  const legacyColor = cats['Игрок и Мир'] || '#84cc16';
+  const newCats = {};
+  for (const [key, color] of Object.entries(cats)) {
+    if (key === 'Игрок и Мир') {
+      newCats['Игрок'] = cats['Игрок'] || '#22c55e';
+      newCats['Инвентарь'] = cats['Инвентарь'] || '#f59e0b';
+      newCats['Мир'] = cats['Мир'] || legacyColor;
+    } else if (key === 'Слоты') {
+      // пропуск — объединено в «Инвентарь»
+    } else {
+      newCats[key] = color;
+    }
+  }
+  if (!newCats['Игрок']) newCats['Игрок'] = '#22c55e';
+  if (!newCats['Инвентарь']) newCats['Инвентарь'] = '#f59e0b';
+  if (!newCats['Мир']) newCats['Мир'] = legacyColor;
+  await fs.writeFile(catPath, JSON.stringify(newCats, null, 2), 'utf8');
+}
+
+/** Синхронизирует bundled-блоки procode и мигрирует категории. */
+async function ensureBundledProcodeBlocks() {
+  const bundledRoot = path.join(__dirname, 'bundled_plugins', 'procode');
+  const pluginRoot = path.join(getPluginsRoot(), 'procode');
+  const bundledBlocks = path.join(bundledRoot, 'blocks');
+  const destBlocks = path.join(pluginRoot, 'blocks');
+
+  if (!(await pathExists(bundledBlocks))) return;
+  if (!(await pathExists(pluginRoot))) return;
+
+  await migrateProcodeBlockCategories(pluginRoot);
+
+  await fs.mkdir(destBlocks, { recursive: true });
+
+  const files = await fs.readdir(bundledBlocks).catch(() => []);
+  for (const name of files) {
+    if (!name.endsWith('.spr')) continue;
+    await fs.copyFile(path.join(bundledBlocks, name), path.join(destBlocks, name));
+  }
+
+  const bundledCatsPath = path.join(bundledRoot, 'categories.json');
+  const destCatsPath = path.join(pluginRoot, 'categories.json');
+  if (await pathExists(bundledCatsPath)) {
+    try {
+      const bundledCats = JSON.parse(await fs.readFile(bundledCatsPath, 'utf8'));
+      let destCats = {};
+      if (await pathExists(destCatsPath)) {
+        destCats = JSON.parse(await fs.readFile(destCatsPath, 'utf8'));
+      }
+      delete destCats['Игрок и Мир'];
+      delete destCats['Слоты'];
+      Object.assign(destCats, bundledCats);
+      await fs.writeFile(destCatsPath, JSON.stringify(destCats, null, 2), 'utf8');
+    } catch (e) {
+      console.error('procode categories merge failed:', e);
+    }
+  }
+
+  await migrateProcodeBlockCategories(pluginRoot);
+
+  const bundledOrderPath = path.join(bundledRoot, 'blocks_order.json');
+  const destOrderPath = path.join(pluginRoot, 'blocks_order.json');
+  if (!(await pathExists(bundledOrderPath))) return;
+
+  try {
+    const bundledOrder = JSON.parse(await fs.readFile(bundledOrderPath, 'utf8'));
+    let destOrder = {};
+    if (await pathExists(destOrderPath)) {
+      destOrder = JSON.parse(await fs.readFile(destOrderPath, 'utf8'));
+    }
+    delete destOrder['Игрок и Мир'];
+    delete destOrder['Слоты'];
+    let changed = false;
+    for (const [cat, ids] of Object.entries(bundledOrder)) {
+      if (!Array.isArray(ids)) continue;
+      destOrder[cat] = [...ids];
+      changed = true;
+    }
+    if (changed) {
+      await fs.writeFile(destOrderPath, JSON.stringify(destOrder, null, 2), 'utf8');
+    }
+  } catch (e) {
+    console.error('procode blocks_order merge failed:', e);
   }
 }
 
@@ -554,6 +736,7 @@ ipcMain.handle('app:init-workspace', async (event, mcPath) => {
 
   const log = (msg) => { event.sender.send('update-progress', msg); };
   log('Структура папок готова.');
+  startAssetWatchers(mcPath);
   log('Запуск Spraute Studio...');
   return { success: true };
 });

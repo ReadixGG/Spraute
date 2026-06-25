@@ -1,0 +1,23 @@
+#\ block: get_player_facing
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "направление взгляда" input: entity (type: value) "сущности"
+#\ template: getPlayerFacing({entity})
+
+#\ block: player_facing_horizontal
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "горизонт. направление" input: player (type: value) "игрока"
+#\ template: getPlayerFacing({player})["horizontal"]
+
+#\ block: player_facing_step
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "шаг по X/Z от" input: player (type: value) "игрока" "hx" (hxKey: text: hx) "hz" (hzKey: text: hz)
+#\ template: getPlayerFacing({player})["{hxKey}"]

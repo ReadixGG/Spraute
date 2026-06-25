@@ -25,7 +25,9 @@ public class CountItemFunction implements ScriptFunction {
         Player player = resolvePlayer(target, source);
         if (player == null) return 0;
 
-        ResourceLocation searchRL = new ResourceLocation(itemId);
+        net.minecraft.world.item.Item item = org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.resolveItem(itemId);
+        if (item == null) return 0;
+        ResourceLocation searchRL = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(item);
         int total = 0;
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);

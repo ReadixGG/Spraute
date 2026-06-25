@@ -1,0 +1,13 @@
+#\ block: on_pickup
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда НИП подбирает" [npc: dropdown_npc]
+#\ row: "предмет" (item: text: minecraft:iron_ingot)
+#\ row: [nbt: dropdown(без NBT: no, с NBT: yes)] "→" (handler: text: h_pickup)
+#\ if nbt == "no":
+#\   template: on pickup({npc}, "{item}") -> {handler} {\n{DO}}
+#\ if nbt == "yes":
+#\   row: "NBT" (tag: text: {})
+#\   template: on pickup({npc}, "{item}", "{tag}") -> {handler} {\n{DO}}

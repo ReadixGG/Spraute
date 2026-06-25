@@ -1,0 +1,12 @@
+#\ block: on_kill
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда" [killer: dropdown(игрок: player, моб: mob, НИП: npc_ref)]
+#\ row: "убивает" [victim: dropdown(любую: any, игрока: player, НИПа: npc, моба: mob)] "→" (handler: text: h_kill)
+#\ if killer == "npc_ref":
+#\   row: "НИП-убийца" [npc: dropdown_npc]
+#\   template: on kill({npc}, "{victim}") -> {handler} {\n{DO}}
+#\ if killer != "npc_ref":
+#\   template: on kill("{killer}", "{victim}") -> {handler} {\n{DO}}

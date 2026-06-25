@@ -39,7 +39,8 @@
       "dist/**/*",
       "electron-main.cjs",
       "preload.cjs",
-      "package.json"
+      "package.json",
+      "bundled_plugins/**/*"
     ],
     "fileAssociations": [
       {

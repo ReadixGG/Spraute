@@ -1,0 +1,9 @@
+#\ block: on_jump
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда прыгает"
+#\ input: player (type: value)
+#\ row: "→" (handler: text: h_jump)
+#\ template: on jump({player}) -> {handler} {\n{DO}}

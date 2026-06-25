@@ -1,0 +1,9 @@
+#\ block: await_uitouch
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать пересечение UI-виджетов"
+#\ input: player (type: value)
+#\ row: "виджет 1" (id1: text: widget_a) "и" (id2: text: widget_b)
+#\ template: await uiTouch({player}, "{id1}", "{id2}")

@@ -36,8 +36,7 @@ jobs:
         run: |
           mkdir -p mod-artifact
           JAR=$(ls -t "versions/${{ matrix.mc }}/build/libs/"spraute_engine-*.jar | head -1)
-          MOD_VER=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
-          cp "$JAR" "mod-artifact/spraute_engine-${MOD_VER}-${{ matrix.mc }}.jar"
+          cp "$JAR" "mod-artifact/$(basename "$JAR")"
 
       - name: Upload mod artifact
         uses: actions/upload-artifact@v4

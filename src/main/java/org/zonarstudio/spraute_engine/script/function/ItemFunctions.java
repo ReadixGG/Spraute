@@ -119,21 +119,8 @@ public class ItemFunctions {
             ItemStack stack = player.getMainHandItem();
             if (stack.isEmpty()) return null;
 
-            Map<String, Object> dict = new HashMap<>();
-            String regName = ForgeRegistries.ITEMS.getKey(stack.getItem()).toString();
-            dict.put("id", regName);
-            dict.put("count", stack.getCount());
-            dict.put("name", stack.getHoverName().getString());
-            
-            if (stack.hasTag()) {
-                Map<String, Object> nbtMap = new HashMap<>();
-                for (String key : stack.getTag().getAllKeys()) {
-                    nbtMap.put(key, stack.getTag().get(key).getAsString());
-                }
-                dict.put("nbt", nbtMap);
-            }
-
-            return dict;
+            return org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.stackToMap(
+                    stack, player.getInventory().selected);
         }
     }
 }

@@ -89,6 +89,10 @@ public class ScriptCompiler {
             } else if (func.equals("death")) {
                 if (args.isEmpty()) throw new ScriptException("await death() requires entity id");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_DEATH, args.get(0)));
+            } else if (func.equals("kill")) {
+                if (args.isEmpty()) throw new ScriptException("await kill(killer, [victim]) requires killer filter");
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_KILL,
+                        args.get(0), args.size() > 1 ? args.get(1) : null));
             } else if (func.equals("pickup")) {
                 if (args.size() < 3) throw new ScriptException("await pickup(npc_id, amount, item_id, nbt?) requires at least npc_id, amount, item_id");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_PICKUP,
@@ -132,12 +136,22 @@ public class ScriptCompiler {
             } else if (func.equals("placeBlock")) {
                 if (args.isEmpty()) throw new ScriptException("await placeBlock(player, [block_id/coords]) requires player");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_PLACE_BLOCK, args));
+            } else if (func.equals("openChest")) {
+                if (args.isEmpty()) throw new ScriptException("await openChest(player, [block_id/coords]) requires player");
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_OPEN_CHEST, args));
+            } else if (func.equals("openDoor")) {
+                if (args.isEmpty()) throw new ScriptException("await openDoor(player, [block_id/coords]) requires player");
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_OPEN_DOOR, args));
             } else if (func.equals("chat")) {
                 if (args.size() < 2) throw new ScriptException("await chat(player, message, [ignore_case], [ignore_punctuation]) requires player and message");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_CHAT, args));
             } else if (func.equals("uiTouch") || func.equals("uiOverlap")) {
                 if (args.size() < 3) throw new ScriptException("await uiTouch(player, id1, id2) requires player, id1, id2");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_UI_TOUCH, args.get(0), args.get(1), args.get(2)));
+            } else if (func.equals("jump")) {
+                if (args.isEmpty()) throw new ScriptException("await jump(player) requires player");
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_PLAYER_ACTION,
+                        args.get(0), new ScriptNode.LiteralNode("jump"), null));
             } else if (func.equals("action") || func.equals("playerAction")) {
                 if (args.size() < 2) throw new ScriptException("await action(player, action_type, [target]) requires player and action_type");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_PLAYER_ACTION, args.get(0), args.get(1), args.size() > 2 ? args.get(2) : null));

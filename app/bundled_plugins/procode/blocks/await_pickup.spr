@@ -1,0 +1,13 @@
+#\ block: await_pickup
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать подбор у НИП" [npc: dropdown_npc]
+#\ row: "кол-во" (amount: number: 1) "шт." (item: text: minecraft:iron_ingot)
+#\ row: [nbt: dropdown(без NBT: no, с NBT: yes)]
+#\ if nbt == "no":
+#\   template: await pickup({npc}, {amount}, "{item}")
+#\ if nbt == "yes":
+#\   row: "NBT" (tag: text: {})
+#\   template: await pickup({npc}, {amount}, "{item}", "{tag}")

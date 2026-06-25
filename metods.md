@@ -10,7 +10,7 @@
 |----------------|------------|
 | `val` | Локальная переменная |
 | `global val` | Глобальная переменная (в рамках выполнения скрипта) |
-| `world val` | Переменная мира (сохраняется в `ScriptWorldData`, переживает перезапуск сервера) |
+| `world val` | Переменная сейва (общая для всех измерений; хранится в `ScriptWorldData` на overworld, переживает перезапуск сервера) |
 | `import("name")` | Импортирует функции из **уже запущенного** скрипта `name.spr`. Не запускает скрипт и не регистрирует его `on`/`every` обработчики — только даёт доступ к `fun`-функциям. Для запуска скрипта используйте `startScript("name")` перед `import`. |
 | `await` | Ожидание события / времени / задачи (см. ниже) |
 | `create npc` | Блок создания NPC |
@@ -70,6 +70,54 @@ ID предмета в слоте инвентаря (`""` если пусто).
 Получает объект игрока по его нику.
 Пример: `val p = getPlayer("Notch");`
 
+### `healEntity(entity, amount)` / `heal(entity, amount)`
+Лечит сущность, **не меняя** max HP (в отличие от `entity.hp = ...`, которое выставляет и max, и текущее).
+
+### `getPlayerFacing(entity)`
+Возвращает словарь направления взгляда (см. `player.facing()`). Работает для игрока и НИПа.
+
+### `playersInRadius(x, y, z, radius)` / `playersNear(anchor, radius)`
+Список игроков в сфере. `anchor` — игрок, НИП, id или сущность.
+
+### `entitiesInRadius(x, y, z, radius, [filter])` / `entitiesNear(anchor, radius, [filter])`
+Список сущностей в сфере. `filter`: `any`, `player`, `npc`, `mob`, `living`.
+
+### `getPlayerMotion(player)` / `setPlayerMotion(player, vx, vy, vz)`
+Вектор движения (скорость) игрока в **блоках за тик** — то же, что `getDeltaMovement` / `setDeltaMovement` в Minecraft.
+
+* `getPlayerMotion(player)` → список `[vx, vy, vz]` или `null`, если игрок не найден.
+* `setPlayerMotion(player, vx, vy, vz)` — задать скорость; можно передать список: `setPlayerMotion(player, [0.5, 0.2, -0.3])`.
+
+Алиасы: `getPlayerMoveVector` / `setPlayerMoveVector`, `get_player_motion` / `set_player_motion`.
+
+```text
+val p = getPlayer("Steve")
+val m = getPlayerMotion(p)
+setPlayerMotion(p, 0, 0.5, 0)   # подбросить вверх
+```
+
+### Параметры игрока (атрибуты)
+
+| Функция | Что делает | Ванильный ориентир |
+|---------|------------|-------------------|
+| `getPlayerMovementSpeed` / `setPlayerMovementSpeed` | Скорость ходьбы | ~`0.1` |
+| `getPlayerJumpStrength` / `setPlayerJumpStrength` | Сила прыжка | ~`0.42` |
+| `getPlayerStepHeight` / `setPlayerStepHeight` | На сколько блоков может подняться без прыжка | ~`0.6` |
+| `getPlayerAttackDamage` / `setPlayerAttackDamage` | Урон рукой / оружием | ~`1` |
+| `getPlayerDigSpeed` / `setPlayerDigSpeed` | Множитель скорости копания | `1.0` = ваниль |
+
+`get*` возвращает **текущее итоговое** значение (с модификаторами). `set*` задаёт **базовое** значение атрибута (кроме копания — там множитель).
+
+Алиасы в snake_case: `get_player_movement_speed`, `set_player_movement_speed`, и т.д.
+
+```text
+setPlayerMovementSpeed(player, 0.15)
+setPlayerJumpStrength(player, 0.5)
+setPlayerStepHeight(player, 1.0)
+setPlayerAttackDamage(player, 8)
+setPlayerDigSpeed(player, 2.0)
+```
+
 ### `setBlock(x, y, z, block_id)`
 Устанавливает блок по указанным координатам.
 Пример: `setBlock(10, 65, -5, "minecraft:stone")`
@@ -88,8 +136,47 @@ ID предмета в слоте инвентаря (`""` если пусто).
 
 ### `getHeldItem(player)`
 Возвращает словарь (dict) с информацией о предмете в главной руке игрока. Если рука пуста, возвращает `null`.
-* Ключи словаря: `"id"` (строка), `"count"` (число), `"name"` (строка), `"nbt"` (словарь всех тегов, если они есть).
+* Ключи словаря: `"id"`, `"count"`, `"name"`, `"slot"`, `"lore"` (список), `"attack_damage"`, `"durability"` / `"max_durability"` (если есть), `"nbt"` (словарь).
 * *Пример:* `val held = getHeldItem(player); if (held != null && held.id == "minecraft:stick") { ... }`
+
+### Инвентарь игрока
+
+Слоты: **0–8** хотбар, **9–35** основной инвентарь, **36–39** броня (ботинки→шлем), **40** вторая рука.  
+Алиасы слота: `"main"` / `"right"` (выбранный хотбар), `"offhand"` / `"left"`.
+
+| Функция | Описание |
+|---------|----------|
+| `getItemInSlot(player, slot)` | Словарь предмета в слоте или `null` |
+| `getPlayerInventory(player)` | Список словарей всех непустых слотов |
+| `isSlotEmpty(player, slot)` | Пуст ли слот |
+| `hasItemInSlot(player, slot, item_id)` | Совпадает ли ID предмета в слоте |
+| `findItemSlot(player, item_id)` | Первый слот с предметом или `-1` |
+| `setItemInSlot(player, slot, item_id, [count], [name], [lore], [nbt])` | Положить/заменить предмет |
+| `setItemCount(player, slot, count)` | Изменить количество (`0` — очистить) |
+| `clearItemSlot(player, slot)` | Очистить слот |
+| `removeItem(player, item_id, [count])` | Забрать предметы; возвращает сколько забрали |
+| `getItemName` / `setItemName` | Название (отображаемое) |
+| `getItemLore` / `setItemLore` | Описание (список строк, `&` → цвет) |
+| `getItemAttackDamage` / `setItemAttackDamage` | Бонус урона предмета (модификатор атрибута) |
+| `getItemNbt` / `setItemNbt` | Чтение / запись NBT-тегов (словарь) |
+
+Уже есть: `getSlot`, `hasItem`, `countItem`, `giveItem`, `player.slot(n)`, `player.hasItem(id)`.
+
+```text
+val items = getPlayerInventory(player)
+for item in items {
+    chat(item.id + " x" + item.count + " slot " + item.slot)
+}
+
+val slot = findItemSlot(player, "minecraft:diamond_sword")
+if (slot >= 0) {
+    setItemName(player, slot, "&6Легендарный меч")
+    setItemLore(player, slot, ["&7Очень острый", "&c+урон"])
+    setItemAttackDamage(player, slot, 12)
+}
+
+removeItem(player, "minecraft:dirt", 64)
+```
 
 ### `execute(command)` / `execute(command, executor)`
 Выполнить команду сервера (без или с префикса `/`).  
@@ -162,7 +249,7 @@ sendPacket(player, packet)
 | `getVar(name)` | Возвращает значение переменной (устарело, лучше использовать напрямую имя переменной или индексы `[]`). |
 | `spawnOrb(texture, amount, x, y, z, [dimension])` | Спавнит кастомную частицу (орб, аналогичную опыту), которая притягивается к игроку и которую можно подобрать. Возвращает `UUID` заспавненной сущности. Орб существует 5 минут. Значение `amount` передастся в событие `on orbPickup`. Опционально можно указать измерение (например, `"minecraft:overworld"`). |
 | `removeOrbs(texture)` | Удаляет все орбы (вызванные через `spawnOrb`) с указанной текстурой в радиусе 256 блоков от источника выполнения. Возвращает количество удаленных орбов. |
-| `cancelEvent()` | Отменяет выполнение текущего события (например, `on placeBlock`). Возвращает выполнение к ванильной логике (блок не ставится). |
+| `cancelEvent()` | Отменяет выполнение текущего события (`on placeBlock`, `on openChest`, `on openDoor`). Блок не ставится / сундук не открывается / дверь не переключается. |
 | `addMobDrop(mob_id, item_id, [min=1], [max=1], [chance=100], [replace=false], [nbt_string])` | Добавляет кастомный предмет в лут ванильного или модового моба (например: `"minecraft:zombie"`, `"minecraft:diamond"`, `1`, `1`, `50`). Аргумент `replace` отменяет выпадение оригинального дропа, оставляя только кастомный. NBT строка указывается опционально (как в `/give`). |
 | `addBlockDrop(block_id, item_id, [min=1], [max=1], [chance=100], [replace=false], [nbt_string])` | Настраивает кастомный дроп при ломании блока игроком. Если `replace` = `true`, блок будет сломан без оригинального дропа (только с кастомным предметом). NBT строка указывается опционально (как в `/give`). |
 | `startScript(name, [args_dict])` | Запускает другой скрипт параллельно. Опционально можно передать словарь аргументов, которые станут локальными переменными в запущенном скрипте (например: `startScript("scriptY", { "target": npc_id })`). |
@@ -242,10 +329,11 @@ npc_chat(player, my_guard, "Проход закрыт, уходи отсюда!"
 |--------|---------|--------|
 | `text` | `x`, `y`, `text`, `color`, `scale` | число, число, текст, `#RRGGBB` / `#AARRGGBB`, число |
 | `input` | `x`, `y`, `w`, `h`, `text` | числа, текст |
-| `button` | `x`, `y`, `w`, `h`, `label`, `color`, `hover`, `texture` | числа, подпись, цвета, путь текстуры |
-| `rect` / `panel` | `x`, `y`, `w`, `h`, `color` | числа, цвет |
+| `button` | `x`, `y`, `w`, `h`, `label`, `color`, `hover`, `texture`, `tooltip` | числа, подпись, цвета, путь текстуры, текст (поддерживает `\n`) |
+| `rect` / `panel` | `x`, `y`, `w`, `h`, `color`, `tooltip` | числа, цвет, текст |
 | `clip` | `x`, `y`, `w`, `h` | числа |
-| `image` | `x`, `y`, `w`, `h`, `texture` | числа, путь текстуры |
+| `image` | `x`, `y`, `w`, `h`, `texture`, `tooltip` | числа, путь текстуры, текст |
+| `item` | `x`, `y`, `size`, `item`, `tooltip` | числа, id предмета, текст |
 | `entity` | `x`, `y`, `w`, `h`, `scale`, `feet_crop`, `crop`, `anchor_x`, `anchor_y`, `viewport` | числа; `crop` / `viewport` — четыре числа (строка или `[...]`); отрицательный `anchor_y` в `uiUpdate` — снова `feet_crop` |
 
 Работает только если виджет в разметке был с **непустым** `id` в JSON.
@@ -577,6 +665,9 @@ create ui my_workbench {
 
 *   `openBlockUi(player, x, y, z, ui_template)` — открывает `ui_template` для игрока. Предметы, положенные в слоты, сохраняются во внутреннем инвентаре кастомного блока! Если вы используете обычный `uiOpen`, предметы выпадают при закрытии, но `openBlockUi` их сохраняет.
 *   `getBlockSlot(x, y, z, slot_index)` — возвращает ID предмета (например, `"minecraft:diamond"`), лежащего в указанном слоте кастомного блока. Если пусто, возвращает `""`.
+*   `setBlockSlot(x, y, z, slot, item_id, [count])` — положить предмет в слот визуального блока (`create block`) без UI.
+*   `setChestLoot(x, y, z, slot, item_id, [count])` — настроить лут **ванильного** сундука/бочки/шалкера по координатам (сохраняется в мире, заполняется при **первом** открытии).
+*   `clearChestLoot(x, y, z)` — удалить настроенный лут с позиции.
 *   `setBlockDisplay(x, y, z, id, item_id, ox, oy, oz, rx, ry, rz, scale)` — устанавливает визуальное отображение предмета на самом блоке!
     *   `id` — уникальное строковое имя для этого отображения (чтобы потом его можно было удалить, например `"monitor"`).
     *   `item_id` — ID предмета для отображения (например, `"spraute_engine:monitor"`).
@@ -678,6 +769,7 @@ my_obj.nested_obj.x = 10
 | `hasItem(item_id)` | Есть ли предмет |
 | `countItem(item_id)` | Суммарное количество |
 | `raycast([max_dist])` | Пускает луч взгляда (по умолчанию макс. дистанция 50). Возвращает словарь с полем `"type"` (`"entity"`, `"block"` или `"miss"`). Для сущности: `hit["entity"]`, `hit["x"]`, `hit["y"]`, `hit["z"]`. Для блока: `hit["block"]` (id), `hit["x"]`, `hit["y"]`, `hit["z"]`. |
+| `facing()` / `direction()` / `lookVector()` | Направление взгляда (работает у игрока и любой LivingEntity). Словарь: `yaw`, `pitch`, `direction` (`north`/`south`/`east`/`west`/`up`/`down`), `horizontal` (без учёта pitch), `dx`/`dy`/`dz` (единичный вектор), `hx`/`hz` (шаг −1/0/1 для копания по горизонтали). |
 | `damage(amount)` | Наносит урон игроку (или любой другой LivingEntity). `amount` по умолчанию 1.0. |
 | `teleport(x, y, z)` | Телепортирует сущность (игрока, NPC, моба) на указанные координаты. Альтернативное название: `tp(x, y, z)`. |
 
@@ -781,6 +873,7 @@ my_obj.nested_obj.x = 10
 | `await next` | Продолжение по привязанной клавише диалога |
 | `await keybind("key")` | Ожидание нажатия клавиши. Названия кнопок: `"g"`, `"f"`, `"space"`, `"shift"` и т.д. |
 | `await death(target)` | Смерть сущности: `target` — id NPC, ник, `player`, `npc`, `mob`, `any` |
+| `await kill(killer, [victim])` | Ожидать убийство: `killer` — кто убил (`player`, `npc`, `mob`, id НИПа, сущность); `victim` — кого (`any`, `player`, `npc`, `mob`, id). Возвращает убитую сущность. |
 | `await pickup(npc, amount, item_id)` | Пока у NPC не станет `amount` предметов (опционально 4-й аргумент — NBT строка) |
 | `await orbPickup(player, amount, [texture])` | Ожидает, пока игрок не подберет нужное количество кастомных орбов (вызванных через `spawnOrb`). |
 | `await task("task_id")` | Пока не завершится именованный `async`-блок |
@@ -793,7 +886,10 @@ my_obj.nested_obj.x = 10
 | `await clickBlock(player, [target])` | Ожидать пока игрок не кликнет (ЛКМ/ПКМ) по блоку. Возвращает `"left"` или `"right"`. Варианты `target`: пусто, `block_id`, `x, y, z` или `x, y, z, block_id`. |
 | `await breakBlock(player, [target])` | Ожидать пока игрок не сломает блок. Возвращает `block_id`. Варианты `target` как у `clickBlock`. |
 | `await placeBlock(player, [target])` | Ожидать пока игрок не поставит блок. Возвращает `block_id`. Варианты `target` как у `clickBlock`. |
+| `await openChest(player, [target])` | Ожидать открытие сундука/бочки/шалкера (ПКМ). Возвращает `block_id`. Фильтры как у `clickBlock`. |
+| `await openDoor(player, [target])` | Ожидать открытие двери/люка/калитки (ПКМ). Возвращает `block_id`. Фильтры как у `clickBlock`. |
 | `await chat(player, message, [ignore_case=true], [ignore_punct=true])` | Ожидать конкретное сообщение от игрока. `message` может быть строкой или массивом строк. Возвращает сообщение, которое игрок написал. |
+| `await jump(player)` | Ожидать прыжок игрока. |
 | `await action(player, action_type, [target])` | (или `playerAction`) Ожидать действия игрока (`"eat"`, `"fish"`, `"hoe"`, `"jump"`, `"sleep"`, `"craft"`, `"drop"`). Возвращает объект или ID предмета/блока, если применимо. |
 
 ---
@@ -812,6 +908,9 @@ my_obj.nested_obj.x = 10
 
 ### `on death(targetFilter) -> ...`
 В теле: **`_event_entity`**, **`_event_killer`**.
+
+### `on kill(killerFilter, [victimFilter]) -> ...`
+Срабатывает, когда `killerFilter` убивает сущность. Фильтры как у `death` / `await kill`. В теле: **`_event_entity`** (жертва), **`_event_killer`** (убийца).
 
 ### `on pickup(npc, item_id)` или `on pickup(npc, item_id, nbt)`
 Срабатывает при переходе количества предмета у NPC. В теле: **`_event_npc`**, **`_event_item`** (стек), **`_event_dropper`** (кто выбросил, если известен).
@@ -843,6 +942,15 @@ my_obj.nested_obj.x = 10
 
 ### `on placeBlock([target]) -> ...`
 Срабатывает при установке блока игроком. Варианты `target` как у `clickBlock`. В теле: **`_event_player`**, **`_event_x`**, **`_event_y`**, **`_event_z`** (координаты устанавливаемого блока), **`_event_block`**. Можно вызвать `cancelEvent()`, чтобы отменить установку.
+
+### `on openChest([target]) -> ...`
+Срабатывает при попытке открыть сундук, бочку или шалкер (ПКМ). Фильтры `target` как у `clickBlock`. В теле: **`_eventPlayer`**, **`_eventX`**, **`_eventY`**, **`_eventZ`**, **`_eventBlock`**. `cancelEvent()` — сундук не откроется. При первом открытии применяется лут из `setChestLoot`, если настроен.
+
+### `on openDoor([target]) -> ...`
+Срабатывает при попытке открыть дверь, люк или калитку (ПКМ). Фильтры как у `clickBlock`. В теле: **`_eventPlayer`**, **`_eventX`**, **`_eventY`**, **`_eventZ`**, **`_eventBlock`**. `cancelEvent()` — дверь не откроется.
+
+### `on jump([player]) -> ...`
+Срабатывает при прыжке игрока. В теле: **`_event_player`**.
 
 ### `on action([player], action_type, [target])` или `on playerAction(...) -> ...`
 Срабатывает при определенном действии игрока (например: `"eat"`, `"fish"`, `"hoe"`, `"jump"`, `"sleep"`, `"craft"`, `"drop"`). 
@@ -938,9 +1046,16 @@ stop_task("magic_circle")
 
 - **Локальные** — в рамках одного «потока» выполнения скрипта (создаются через `val` или `var`).
 - **`global`** — общие переменные для всего скрипта.
-- **`world`** — сериализуются в данные мира (сохраняются между перезапусками сервера).
+- **`world`** — общие для всего сейва (overworld + nether + end); сериализуются в `ScriptWorldData` и переживают перезапуск сервера.
 - **`player.data`** — уникальный словарь для каждого игрока, хранящийся **только до перезапуска сервера** (сессионные данные).
 - **`player.savedData`** — уникальный словарь для каждого игрока, который **навсегда сохраняется в мире** (например, статистика, квесты).
+- **`player.onGround`** — стоит ли игрок на земле.
+- **`player.isSneaking`** — зажат ли Shift (приседание / медленное копание). Алиасы: `isCrouching` — реальная поза приседа.
+- **`player.countItem(item_id)`** / **`player.hasItem(item_id)`** — методы игрока (работают в `fun`, условиях и выражениях).
+
+### `breakBlockAt(x, y, z, [player])`
+Сломать блок с дропом. Если передан `player`, дроп учитывает инструмент и зачарования.
+
 
 
 Пример работы с переменными игрока:

@@ -29,6 +29,15 @@ public final class SprauteEntityCompat {
         *///?}
     }
 
+    public static void resetFallDistance(Entity entity) {
+        if (entity == null) return;
+        //? if >=1.20.1 {
+        entity.resetFallDistance();
+        //?} else {
+        /*entity.fallDistance = 0.0F;
+        *///?}
+    }
+
     public static ServerLevel serverLevel(ServerPlayer player) {
         //? if >=1.20.1 {
         return player.serverLevel();

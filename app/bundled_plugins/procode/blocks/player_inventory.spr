@@ -1,0 +1,170 @@
+#\ block: get_slot
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: "ID в слоте" input: player (type: value) "игрок" (slot: number: 0) "0–40"
+#\ template: getSlot({player}, {slot})
+
+#\ block: get_slot_count
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: "кол-во в слоте" input: player (type: value) "игрок" (slot: number: 0) ""
+#\ template: {player}.slotCount({slot})
+
+#\ block: get_slot_nbt
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: "NBT слота" input: player (type: value) "игрок" (slot: number: 0) ""
+#\ template: {player}.slotNbt({slot})
+
+#\ block: get_item_in_slot
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: "предмет в слоте" input: player (type: value) "игрок" (slot: number: 0) "(словарь)"
+#\ template: getItemInSlot({player}, {slot})
+
+#\ block: get_player_inventory
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: "весь инвентарь" input: player (type: value) "игрока" "(список)"
+#\ template: getPlayerInventory({player})
+
+#\ block: has_item_in_slot
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: "в слоте" input: player (type: value) "у игрока" (slot: number: 0) "есть" (item: text: minecraft:diamond) ""
+#\ template: hasItemInSlot({player}, {slot}, {item})
+
+#\ block: is_slot_empty
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: "слот пуст" input: player (type: value) "у игрока" (slot: number: 0) ""
+#\ template: isSlotEmpty({player}, {slot})
+
+#\ block: find_item_slot
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: "найти слот" input: player (type: value) "у игрока" (item: text: minecraft:diamond) ""
+#\ template: findItemSlot({player}, {item})
+
+#\ block: set_item_in_slot
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "положить в слот" input: player (type: value) "игроку" (slot: number: 0) (item: text: minecraft:diamond) (count: number: 1) ""
+#\ template: setItemInSlot({player}, {slot}, {item}, {count})
+
+#\ block: set_item_in_slot_named
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "положить с именем" input: player (type: value) "игроку" (slot: number: 0) (item: text: minecraft:diamond) (count: number: 1) ""
+#\ row: "имя" (name: text: &6Меч)
+#\ template: setItemInSlot({player}, {slot}, {item}, {count}, {name})
+
+#\ block: set_item_count
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "количество в слоте" input: player (type: value) "у игрока" (slot: number: 0) "→" (count: number: 1)
+#\ template: setItemCount({player}, {slot}, {count})
+
+#\ block: clear_item_slot
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "очистить слот" input: player (type: value) "у игрока" (slot: number: 0) ""
+#\ template: clearItemSlot({player}, {slot})
+
+#\ block: remove_item
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: "забрать у игрока" input: player (type: value) "" (item: text: minecraft:diamond) (count: number: 1) "шт."
+#\ template: removeItem({player}, {item}, {count})
+
+#\ block: get_item_name
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: "название в слоте" input: player (type: value) "у игрока" (slot: number: 0) ""
+#\ template: getItemName({player}, {slot})
+
+#\ block: set_item_name
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "название в слоте" input: player (type: value) "у игрока" (slot: number: 0) "→" (name: text: Меч)
+#\ template: setItemName({player}, {slot}, {name})
+
+#\ block: get_item_lore
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: "описание в слоте" input: player (type: value) "у игрока" (slot: number: 0) "(список)"
+#\ template: getItemLore({player}, {slot})
+
+#\ block: set_item_lore
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "описание в слоте" input: player (type: value) "у игрока" (slot: number: 0) ""
+#\ row: "строки" input: lore (type: value) "список"
+#\ template: setItemLore({player}, {slot}, {lore})
+
+#\ block: get_item_attack_damage
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: "урон предмета" input: player (type: value) "у игрока в слоте" (slot: number: 0) ""
+#\ template: getItemAttackDamage({player}, {slot})
+
+#\ block: set_item_attack_damage
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "урон предмета" input: player (type: value) "у игрока в слоте" (slot: number: 0) "→" (damage: number: 10)
+#\ template: setItemAttackDamage({player}, {slot}, {damage})
+
+#\ block: get_item_nbt
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: "NBT предмета" input: player (type: value) "у игрока в слоте" (slot: number: 0) "(словарь)"
+#\ template: getItemNbt({player}, {slot})
+
+#\ block: set_item_nbt
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "NBT предмета" input: player (type: value) "у игрока в слоте" (slot: number: 0) ""
+#\ row: "теги" input: nbt (type: value) "словарь"
+#\ template: setItemNbt({player}, {slot}, {nbt})

@@ -61,6 +61,31 @@ public class Spraute_engine {
     }
 
     @SubscribeEvent
+    public static void onPlayerLoggedOut(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
+        java.util.UUID id = event.getEntity().getUUID();
+        org.zonarstudio.spraute_engine.script.PlayerDigSpeedOverrides.clear(id);
+        org.zonarstudio.spraute_engine.script.PlayerStepHeightOverrides.clear(id);
+        if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) {
+            org.zonarstudio.spraute_engine.compat.SprauteStepHeightCompat.clear(sp);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerTick(net.minecraftforge.event.TickEvent.PlayerTickEvent event) {
+        if (event.phase != net.minecraftforge.event.TickEvent.Phase.END) return;
+        if (SprauteEntityCompat.level(event.player).isClientSide) return;
+        if (event.player instanceof net.minecraft.server.level.ServerPlayer sp) {
+            org.zonarstudio.spraute_engine.script.PlayerStepHeightOverrides.apply(sp);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerBreakSpeed(net.minecraftforge.event.entity.player.PlayerEvent.BreakSpeed event) {
+        if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp)) return;
+        event.setNewSpeed(org.zonarstudio.spraute_engine.script.PlayerDigSpeedOverrides.apply(sp, event.getNewSpeed()));
+    }
+
+    @SubscribeEvent
     public static void onServerTick(net.minecraftforge.event.TickEvent.ServerTickEvent event) {
         if (event.phase == net.minecraftforge.event.TickEvent.Phase.END) {
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().tick();
@@ -136,6 +161,13 @@ public class Spraute_engine {
     public static void onLivingDeath(net.minecraftforge.event.entity.living.LivingDeathEvent event) {
         if (!SprauteEntityCompat.level(event.getEntity()).isClientSide) {
             net.minecraft.world.entity.Entity killer = event.getSource().getEntity();
+            if (killer instanceof net.minecraft.world.entity.projectile.Projectile projectile
+                    && projectile.getOwner() != null) {
+                killer = projectile.getOwner();
+            }
+            if (killer == null) {
+                killer = event.getEntity().getKillCredit();
+            }
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onDeath(event.getEntity(), killer);
         }
     }
@@ -188,9 +220,34 @@ public class Spraute_engine {
 
     @SubscribeEvent
     public static void onRightClickBlock(net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock event) {
-        if (!event.getLevel().isClientSide) {
-            org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onClickBlock(event.getEntity(), event.getPos(), event.getLevel().getBlockState(event.getPos()).getBlock(), false);
+        if (event.getLevel().isClientSide()) return;
+        net.minecraft.world.level.block.state.BlockState state = event.getLevel().getBlockState(event.getPos());
+        net.minecraft.world.level.block.Block block = state.getBlock();
+        net.minecraft.world.entity.player.Player player = event.getEntity();
+
+        if (org.zonarstudio.spraute_engine.script.BlockInteractionUtil.isChestLike(block)) {
+            boolean canceled = org.zonarstudio.spraute_engine.script.ScriptManager.getInstance()
+                    .onOpenChest(player, event.getPos(), block, event.getLevel());
+            if (canceled) {
+                event.setCanceled(true);
+                event.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
+                return;
+            }
+            if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                org.zonarstudio.spraute_engine.script.ChestLootManager.applyOnOpen(serverLevel, event.getPos(), state);
+            }
+        } else if (org.zonarstudio.spraute_engine.script.BlockInteractionUtil.isDoorLike(block)) {
+            boolean canceled = org.zonarstudio.spraute_engine.script.ScriptManager.getInstance()
+                    .onOpenDoor(player, event.getPos(), block, event.getLevel());
+            if (canceled) {
+                event.setCanceled(true);
+                event.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
+                return;
+            }
         }
+
+        org.zonarstudio.spraute_engine.script.ScriptManager.getInstance()
+                .onClickBlock(player, event.getPos(), block, false);
     }
 
     @SubscribeEvent
@@ -317,6 +374,8 @@ public class Spraute_engine {
         } else if (triggers.on_join != null && !triggers.on_join.isEmpty()) {
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().run(triggers.on_join, source);
         }
+
+        org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerJoin(player);
     }
 
     @SubscribeEvent

@@ -1,0 +1,7 @@
+#\ block: await_task
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать завершения async-задачи" (taskId: text: task_id)
+#\ template: await task("{taskId}")
