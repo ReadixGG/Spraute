@@ -24,6 +24,51 @@
     "npc_group_anim",
     "npc_group_cmd"
   ],
+  "События": [
+    "event_var",
+    "on_interact",
+    "on_inventory",
+    "on_chat",
+    "on_kill",
+    "on_action",
+    "on_pickup",
+    "on_uiinput",
+    "on_uitouch",
+    "on_jump",
+    "on_position",
+    "on_keybind",
+    "on_death",
+    "on_breakblock",
+    "on_clickblock",
+    "on_placeblock",
+    "on_orbpickup",
+    "on_uiclick",
+    "on_uiclose",
+    "on_dimension"
+  ],
+  "Ожидание": [
+    "await_interact",
+    "await_inventory",
+    "await_chat",
+    "await_action",
+    "await_uiinput",
+    "await_uitouch",
+    "await_jump",
+    "await_kill",
+    "await_task",
+    "await_next",
+    "await_pickup",
+    "await_position",
+    "await_keybind",
+    "await_death",
+    "await_breakblock",
+    "await_clickblock",
+    "await_placeblock",
+    "await_orb",
+    "await_uiclick",
+    "await_uiclose",
+    "await_dimension"
+  ],
   "Игрок": [
     "get_player",
     "get_player_stmt",
@@ -100,52 +145,7 @@
     "forbid_item",
     "allow_item",
     "clear_item_restrictions",
-    "is_item_forbidden",
-    "await_inventory"
-  ],
-  "События": [
-    "on_interact",
-    "on_inventory",
-    "event_inventory_item",
-    "event_inventory_count",
-    "on_chat",
-    "on_kill",
-    "on_action",
-    "on_pickup",
-    "on_uiinput",
-    "on_uitouch",
-    "on_jump",
-    "on_position",
-    "on_keybind",
-    "on_death",
-    "on_breakblock",
-    "on_clickblock",
-    "on_placeblock",
-    "on_orbpickup",
-    "on_uiclick",
-    "on_uiclose"
-  ],
-  "Ожидание": [
-    "await_interact",
-    "await_inventory",
-    "await_chat",
-    "await_action",
-    "await_uiinput",
-    "await_uitouch",
-    "await_jump",
-    "await_kill",
-    "await_task",
-    "await_next",
-    "await_pickup",
-    "await_position",
-    "await_keybind",
-    "await_death",
-    "await_breakblock",
-    "await_clickblock",
-    "await_placeblock",
-    "await_orb",
-    "await_uiclick",
-    "await_uiclose"
+    "is_item_forbidden"
   ],
   "Мир": [
     "set_block",
@@ -157,11 +157,83 @@
   "Измерения": [
     "create_world",
     "get_world_id",
-    "teleport_to_world",
-    "on_dimension",
-    "await_dimension",
-    "event_dimension",
-    "event_from_dimension"
+    "teleport_to_world"
+  ],
+  "Переменные": [
+    "var_declare",
+    "var_set",
+    "var_get",
+    "incr",
+    "index_get",
+    "index_set"
+  ],
+  "Логика": [
+    "if_block",
+    "else_block",
+    "else_if_block",
+    "compare",
+    "logic_op",
+    "not_op",
+    "bool_lit",
+    "null_lit"
+  ],
+  "Циклы": [
+    "for_count",
+    "for_range",
+    "while_block"
+  ],
+  "Математика": [
+    "num_lit",
+    "math_op",
+    "random_range",
+    "random_float",
+    "to_int",
+    "to_double"
+  ],
+  "Текст": [
+    "str_lit",
+    "str_concat",
+    "str_len",
+    "str_contains",
+    "str_split",
+    "str_replace",
+    "int_str",
+    "to_string"
+  ],
+  "Списки": [
+    "list_new",
+    "list_add",
+    "list_get",
+    "list_set",
+    "list_remove",
+    "list_size"
+  ],
+  "Словари": [
+    "dict_new",
+    "dict_make",
+    "dict_get",
+    "dict_set",
+    "dict_has",
+    "dict_remove"
+  ],
+  "Функции": [
+    "func_def",
+    "func_return",
+    "call_stmt",
+    "call_value"
+  ],
+  "Действия": [
+    "chat",
+    "comment",
+    "raw_stmt",
+    "raw_value",
+    "ui_open",
+    "ui_close",
+    "ui_update",
+    "wait",
+    "cancel_event",
+    "stop_handler",
+    "every_timer"
   ],
   "Камера": [
     "set_camera",
@@ -171,10 +243,52 @@
     "play_camera_route",
     "camera_route_at_point"
   ],
+  "Частицы": [
+    "create_particle",
+    "particle_spawn",
+    "particle_line",
+    "particle_circle",
+    "particle_spiral",
+    "particle_start_bone",
+    "particle_stop_bone"
+  ],
   "Ресурсы": [
     "create_block",
     "create_item",
     "create_tab",
     "create_craft"
+  ],
+  "Экономика": [
+    "economy_configure",
+    "economy_show_coins",
+    "economy_update_coins",
+    "economy_shop_item",
+    "economy_define_trade",
+    "economy_open_trade",
+    "economy_spawn_coins",
+    "on_tradebuy",
+    "on_tradesell",
+    "await_tradebuy",
+    "await_tradesell"
+  ],
+  "Квесты": [
+    "quest_create",
+    "quest_goals_list",
+    "quest_goal_line",
+    "quest_add_goal",
+    "quest_append_desc",
+    "quest_set_status",
+    "quest_complete_goal",
+    "quest_fail_goal",
+    "quest_reset_goal",
+    "quest_remove"
+  ],
+  "Визуал": [
+    "billboard_spawn",
+    "billboard_control"
+  ],
+  "Структуры": [
+    "structure_place",
+    "structure_save"
   ]
 }

@@ -232,6 +232,7 @@ const PROCODE_INVENTORY_BLOCKS = new Set([
 /** Bundled-блоки, удалённые из ProCode — убираем из папки пользователя при синхронизации. */
 const REMOVED_PROCODE_BLOCK_FILES = new Set([
   'player_slots.spr',
+  'inventory_events.spr',
 ]);
 
 function procodeCategoryForBlock(blockId, legacyCategory) {

@@ -517,7 +517,10 @@ export function prepareBlocklyXmlForLoad(xmlDom) {
 export function registerPluginCategoryOrder(categories) {
   if (!Array.isArray(categories)) return;
   for (const cat of categories) {
-    if (cat && !pluginCategoryOrder.includes(cat)) pluginCategoryOrder.push(cat);
+    if (!cat) continue;
+    const idx = pluginCategoryOrder.indexOf(cat);
+    if (idx !== -1) pluginCategoryOrder.splice(idx, 1);
+    pluginCategoryOrder.push(cat);
   }
 }
 
@@ -735,8 +738,10 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
             const optsMatch = typeDef.match(/^dropdown\((.*)\)$/s);
             if (optsMatch) {
               const optsArr = optsMatch[1].split(',').map(o => {
-                const parts = o.split(':').map(s => s.trim());
-                return [parts[0], parts.length > 1 ? parts[1] : parts[0]];
+                const trimmed = o.trim();
+                const colonIdx = trimmed.indexOf(':');
+                if (colonIdx === -1) return [trimmed, trimmed];
+                return [trimmed.slice(0, colonIdx).trim(), trimmed.slice(colonIdx + 1).trim()];
               });
               js += `  row.appendField(new Blockly.FieldDropdown(${JSON.stringify(optsArr)}, function(v){ self.validateField(${JSON.stringify(name)}, v); return v; }), ${JSON.stringify(name)});\n`;
             }

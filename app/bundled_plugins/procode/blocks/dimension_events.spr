@@ -75,19 +75,3 @@
 #\   template: await dimension(getFirstPlayer(), getWorldId("{worldId}"))
 #\ if dim == "custom" and who == "custom":
 #\   template: await dimension({player}, getWorldId("{worldId}"))
-
-#\ block: event_dimension
-#\ category: События
-#\ color: #0ea5e9
-#\ shape: value
-#\
-#\ row: "измерение из события" "(куда попал)"
-#\ template: _eventDimension
-
-#\ block: event_from_dimension
-#\ category: События
-#\ color: #0ea5e9
-#\ shape: value
-#\
-#\ row: "измерение из события" "(откуда пришёл)"
-#\ template: _eventFromDimension
