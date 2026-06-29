@@ -9,6 +9,9 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import org.zonarstudio.spraute_engine.cameraroute.CameraRouteStorage;
+import org.zonarstudio.spraute_engine.script.CameraRouteScriptUtil;
 import org.zonarstudio.spraute_engine.script.ScriptManager;
 import org.zonarstudio.spraute_engine.script.ScriptWorldData;
 
@@ -36,6 +39,10 @@ public class SprauteCommands {
             (context, builder) -> SharedSuggestionProvider.suggest(
                     ScriptManager.getInstance() != null ? ScriptManager.getInstance().getRunningScriptNames() : Collections.emptySet(), builder
             );
+
+    private static final SuggestionProvider<CommandSourceStack> ROUTE_SUGGESTIONS =
+            (context, builder) -> SharedSuggestionProvider.suggest(
+                    CameraRouteStorage.listRoutes(), builder);
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
@@ -95,6 +102,13 @@ public class SprauteCommands {
                         .then(Commands.literal("load_screen")
                                 .then(Commands.literal("on").executes(SprauteCommands::executeLoadScreenOn))
                                 .then(Commands.literal("off").executes(SprauteCommands::executeLoadScreenOff)))
+                        .then(Commands.literal("route")
+                                .then(Commands.literal("preview")
+                                        .then(Commands.argument("name", StringArgumentType.word())
+                                                .suggests(ROUTE_SUGGESTIONS)
+                                                .executes(SprauteCommands::executeRoutePreview)))
+                                .then(Commands.literal("list")
+                                        .executes(SprauteCommands::executeRouteList)))
         );
     }
 
@@ -118,6 +132,50 @@ public class SprauteCommands {
         context.getSource().sendSuccess(() -> Component.literal("§a[Spraute]§r Заставка при входе §eвыключена§r для этого мира."), true);
         //?} else {
         /*context.getSource().sendSuccess(Component.literal("§a[Spraute]§r Заставка при входе §eвыключена§r для этого мира."), true);
+        *///?}
+        return 1;
+    }
+
+    private static int executeRoutePreview(CommandContext<CommandSourceStack> context) {
+        if (!(context.getSource().getEntity() instanceof ServerPlayer player)) {
+            context.getSource().sendFailure(Component.literal("§c[Spraute]§r Просмотр маршрута доступен только игроку."));
+            return 0;
+        }
+        if (context.getSource().getServer() == null) return 0;
+        String name = StringArgumentType.getString(context, "name");
+        try {
+            float duration = CameraRouteScriptUtil.playRoute(player, name);
+            String msg = "§a[Spraute]§r Просмотр маршрута §e" + name + "§r (~" + String.format("%.1f", duration) + " сек)";
+            //? if >=1.20.1 {
+            context.getSource().sendSuccess(() -> Component.literal(msg), true);
+            //?} else {
+            /*context.getSource().sendSuccess(Component.literal(msg), true);
+            *///?}
+            return 1;
+        } catch (Exception e) {
+            context.getSource().sendFailure(Component.literal("§c[Spraute]§r " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int executeRouteList(CommandContext<CommandSourceStack> context) {
+        if (context.getSource().getServer() == null) return 0;
+        var routes = CameraRouteStorage.listRoutes();
+        if (routes.isEmpty()) {
+            //? if >=1.20.1 {
+            context.getSource().sendSuccess(() -> Component.literal(
+                    "§7[Spraute]§r Маршруты не найдены в spraute_engine/routes/"), false);
+            //?} else {
+            /*context.getSource().sendSuccess(Component.literal(
+                    "§7[Spraute]§r Маршруты не найдены в spraute_engine/routes/"), false);
+            *///?}
+            return 1;
+        }
+        String joined = String.join(", ", routes);
+        //? if >=1.20.1 {
+        context.getSource().sendSuccess(() -> Component.literal("§a[Spraute]§r Маршруты: §f" + joined), false);
+        //?} else {
+        /*context.getSource().sendSuccess(Component.literal("§a[Spraute]§r Маршруты: §f" + joined), false);
         *///?}
         return 1;
     }

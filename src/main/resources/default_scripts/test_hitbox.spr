@@ -1,0 +1,79 @@
+# Тест хитбоксов НИП
+# Запуск: /spraute run test_hitbox
+# Жми [F] — переключение пресетов. Включена отладочная подсветка хитбоксов.
+
+val spawn = findSafeBlock("player", 20, 4)
+if (spawn == null) {
+    chat("§c[test_hitbox] Не нашёл безопасное место рядом с игроком.")
+} else {
+    val bx = listGet(spawn, 0)
+    val by = listGet(spawn, 1)
+    val bz = listGet(spawn, 2)
+
+    create npc hitbox_dummy {
+        name = "§eТест хитбокса"
+        model = "geo/defolt.geo.json"
+        texture = "textures/entity/defolt.png"
+        animation = "animations/npc_classic.animation.json"
+        pos = bx, by, bz
+        showName = true
+        hp = 200
+        hitboxPreset = "player"
+    }
+
+    var tester = getFirstPlayer()
+    if (tester == null) {
+        tester = getNearestPlayer(hitbox_dummy)
+    }
+    if (tester == null) {
+        chat("§c[test_hitbox] Нет игрока онлайн.")
+    } else {
+        hitbox_dummy.showHitboxDebug(true)
+        hitbox_dummy.alwaysLookAt(tester)
+
+        chat("§6[test_hitbox] §fНИП с подсветкой хитбоксов. Бей или жми §e[F]§f для смены режима.")
+        chat("§7Шаги: player → small → large → кастом → кость Head → сброс")
+
+        # 1 — пресет player (уже при создании)
+        say(hitbox_dummy, "Пресет: player (стандарт игрока)")
+        await keybind("f")
+
+        # 2 — маленький
+        chat("§a2/6 §fsetHitboxPreset(\"small\")")
+        hitbox_dummy.setHitboxPreset("small")
+        say(hitbox_dummy, "Маленький хитбокс — сложнее попасть")
+        await keybind("f")
+
+        # 3 — большой
+        chat("§a3/6 §fsetHitboxPreset(\"large\")")
+        hitbox_dummy.setHitboxPreset("large")
+        say(hitbox_dummy, "Большой хитбокс — легко попасть")
+        await keybind("f")
+
+        # 4 — кастомный размер и смещение
+        chat("§a4/6 §fsetHitbox(1.2, 2.4) + setHitboxOffset(0, 0.3, 0)")
+        hitbox_dummy.setHitbox(1.2, 2.4)
+        hitbox_dummy.setHitboxOffset(0, 0.3, 0)
+        say(hitbox_dummy, "Кастом 1.2×2.4, смещение вверх")
+        await keybind("f")
+
+        # 5 — костный хитбокс на голове (двигается с анимацией)
+        chat("§a5/6 §faddBoneHitbox на кости Head")
+        hitbox_dummy.clearBoneHitboxes()
+        hitbox_dummy.addBoneHitbox("head_box", "Head", 0.55, 0.55, 0.55, 0, 2, 0)
+        hitbox_dummy.playOnce("hello")
+        say(hitbox_dummy, "Костный хитбокс на голове + анимация")
+        await keybind("f")
+
+        # 6 — сброс
+        chat("§a6/6 §fresetHitbox + clearBoneHitboxes")
+        hitbox_dummy.stopOverlay()
+        hitbox_dummy.clearBoneHitboxes()
+        hitbox_dummy.resetHitbox()
+        hitbox_dummy.setHitboxPreset("player")
+        say(hitbox_dummy, "Сброс к дефолту. Тест завершён.")
+        hitbox_dummy.showHitboxDebug(false)
+
+        chat("§2[test_hitbox] Готово. Повтор: /spraute run test_hitbox")
+    }
+}

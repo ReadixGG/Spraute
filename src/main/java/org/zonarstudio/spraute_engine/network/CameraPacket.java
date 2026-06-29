@@ -11,10 +11,16 @@ public class CameraPacket {
     public static final byte ACTION_START = 0;
     public static final byte ACTION_STOP = 1;
     public static final byte ACTION_MOVE = 2;
+    /** Only update the look-at target; do not change camera position. */
+    public static final byte ACTION_LOOK = 3;
 
     public static final byte LOOK_NONE = 0;
     public static final byte LOOK_ONCE = 1;
     public static final byte LOOK_TRACK = 2;
+
+    public static final byte HIDE_NONE = 0;
+    public static final byte HIDE_MINECRAFT = 1;
+    public static final byte HIDE_ALL = 2;
 
     public final byte action;
     public final double x, y, z;
@@ -26,12 +32,15 @@ public class CameraPacket {
     public final byte lookAtMode;
     public final int lookAtEntityId;
     public final double lookAtX, lookAtY, lookAtZ;
+    public final boolean lockMovement;
+    public final byte hideGui;
 
     public CameraPacket(byte action, double x, double y, double z,
                         float yaw, float pitch, float time,
                         boolean smooth, float smoothTime, String dimension,
                         byte lookAtMode, int lookAtEntityId,
-                        double lookAtX, double lookAtY, double lookAtZ) {
+                        double lookAtX, double lookAtY, double lookAtZ,
+                        boolean lockMovement, byte hideGui) {
         this.action = action;
         this.x = x;
         this.y = y;
@@ -47,6 +56,18 @@ public class CameraPacket {
         this.lookAtX = lookAtX;
         this.lookAtY = lookAtY;
         this.lookAtZ = lookAtZ;
+        this.lockMovement = lockMovement;
+        this.hideGui = hideGui;
+    }
+
+    public static CameraPacket start(double x, double y, double z,
+                                     float yaw, float pitch, float time,
+                                     boolean smooth, float smoothTime, String dimension,
+                                     byte lookAtMode, int lookAtEntityId,
+                                     double lookAtX, double lookAtY, double lookAtZ,
+                                     boolean lockMovement, byte hideGui) {
+        return new CameraPacket(ACTION_START, x, y, z, yaw, pitch, time, smooth, smoothTime, dimension,
+                lookAtMode, lookAtEntityId, lookAtX, lookAtY, lookAtZ, lockMovement, hideGui);
     }
 
     public static CameraPacket start(double x, double y, double z,
@@ -54,8 +75,10 @@ public class CameraPacket {
                                      boolean smooth, float smoothTime, String dimension,
                                      byte lookAtMode, int lookAtEntityId,
                                      double lookAtX, double lookAtY, double lookAtZ) {
-        return new CameraPacket(ACTION_START, x, y, z, yaw, pitch, time, smooth, smoothTime, dimension,
-                lookAtMode, lookAtEntityId, lookAtX, lookAtY, lookAtZ);
+        return start(x, y, z, yaw, pitch, time, smooth, smoothTime, dimension,
+                lookAtMode, lookAtEntityId, lookAtX, lookAtY, lookAtZ,
+                org.zonarstudio.spraute_engine.script.CameraControls.DEFAULT_LOCK_MOVEMENT,
+                org.zonarstudio.spraute_engine.script.CameraControls.DEFAULT_HIDE_GUI);
     }
 
     public static CameraPacket start(double x, double y, double z,
@@ -66,14 +89,48 @@ public class CameraPacket {
     }
 
     public static CameraPacket stop() {
-        return new CameraPacket(ACTION_STOP, 0, 0, 0, 0, 0, 0, false, 0.5f, "",
-                LOOK_NONE, -1, 0, 0, 0);
+        return stop(0.5f);
+    }
+
+    /** @param returnSmoothTime seconds to blend back to the player; {@code <= 0} = instant */
+    public static CameraPacket stop(float returnSmoothTime) {
+        boolean doSmooth = returnSmoothTime > 0f;
+        return new CameraPacket(ACTION_STOP, 0, 0, 0, 0, 0, 0, doSmooth, Math.max(returnSmoothTime, 0f), "",
+                LOOK_NONE, -1, 0, 0, 0, false, HIDE_NONE);
+    }
+
+    public static CameraPacket reset() {
+        return stop(0f);
+    }
+
+    public static CameraPacket move(double x, double y, double z,
+                                    float yaw, float pitch, float smoothTime,
+                                    byte lookAtMode, int lookAtEntityId,
+                                    double lookAtX, double lookAtY, double lookAtZ,
+                                    boolean lockMovement, byte hideGui) {
+        return new CameraPacket(ACTION_MOVE, x, y, z, yaw, pitch, 0, true, smoothTime, "",
+                lookAtMode, lookAtEntityId, lookAtX, lookAtY, lookAtZ, lockMovement, hideGui);
+    }
+
+    public static CameraPacket move(double x, double y, double z,
+                                    float yaw, float pitch, float smoothTime,
+                                    byte lookAtMode, int lookAtEntityId,
+                                    double lookAtX, double lookAtY, double lookAtZ) {
+        return move(x, y, z, yaw, pitch, smoothTime, lookAtMode, lookAtEntityId, lookAtX, lookAtY, lookAtZ,
+                org.zonarstudio.spraute_engine.script.CameraControls.DEFAULT_LOCK_MOVEMENT,
+                org.zonarstudio.spraute_engine.script.CameraControls.DEFAULT_HIDE_GUI);
     }
 
     public static CameraPacket move(double x, double y, double z,
                                     float yaw, float pitch, float smoothTime) {
-        return new CameraPacket(ACTION_MOVE, x, y, z, yaw, pitch, 0, true, smoothTime, "",
-                LOOK_NONE, -1, 0, 0, 0);
+        return move(x, y, z, yaw, pitch, smoothTime, LOOK_NONE, -1, 0, 0, 0);
+    }
+
+    /** Packet that only changes the look-at direction, without moving the camera. */
+    public static CameraPacket look(byte lookAtMode, int lookAtEntityId,
+                                    double lookAtX, double lookAtY, double lookAtZ) {
+        return new CameraPacket(ACTION_LOOK, 0, 0, 0, 0, 0, 0, false, 0, "",
+                lookAtMode, lookAtEntityId, lookAtX, lookAtY, lookAtZ, false, HIDE_NONE);
     }
 
     public static void encode(CameraPacket msg, FriendlyByteBuf buf) {
@@ -92,6 +149,8 @@ public class CameraPacket {
         buf.writeDouble(msg.lookAtX);
         buf.writeDouble(msg.lookAtY);
         buf.writeDouble(msg.lookAtZ);
+        buf.writeBoolean(msg.lockMovement);
+        buf.writeByte(msg.hideGui);
     }
 
     public static CameraPacket decode(FriendlyByteBuf buf) {
@@ -110,8 +169,12 @@ public class CameraPacket {
         double lookAtX = buf.readDouble();
         double lookAtY = buf.readDouble();
         double lookAtZ = buf.readDouble();
+        boolean lockMovement = buf.isReadable() ? buf.readBoolean()
+                : org.zonarstudio.spraute_engine.script.CameraControls.DEFAULT_LOCK_MOVEMENT;
+        byte hideGui = buf.isReadable() ? buf.readByte()
+                : org.zonarstudio.spraute_engine.script.CameraControls.DEFAULT_HIDE_GUI;
         return new CameraPacket(action, x, y, z, yaw, pitch, time, smooth, smoothTime, dimension,
-                lookAtMode, lookAtEntityId, lookAtX, lookAtY, lookAtZ);
+                lookAtMode, lookAtEntityId, lookAtX, lookAtY, lookAtZ, lockMovement, hideGui);
     }
 
     public static void handle(CameraPacket msg, Supplier<NetworkEvent.Context> ctx) {
@@ -123,12 +186,25 @@ public class CameraPacket {
                         msg.time, msg.smooth, msg.smoothTime,
                         msg.dimension,
                         msg.lookAtMode, msg.lookAtEntityId,
-                        msg.lookAtX, msg.lookAtY, msg.lookAtZ);
-                case ACTION_STOP -> CameraHandler.stopCamera();
+                        msg.lookAtX, msg.lookAtY, msg.lookAtZ,
+                        msg.lockMovement, msg.hideGui);
+                case ACTION_STOP -> {
+                    if (msg.smooth && msg.smoothTime > 0f) {
+                        CameraHandler.stopCamera(msg.smoothTime);
+                    } else {
+                        CameraHandler.resetCamera();
+                    }
+                }
                 case ACTION_MOVE -> CameraHandler.moveCamera(
                         msg.x, msg.y, msg.z,
                         msg.yaw, msg.pitch,
-                        msg.smoothTime);
+                        msg.smoothTime,
+                        msg.lookAtMode, msg.lookAtEntityId,
+                        msg.lookAtX, msg.lookAtY, msg.lookAtZ,
+                        msg.lockMovement, msg.hideGui);
+                case ACTION_LOOK -> CameraHandler.setExternalLookAt(
+                        msg.lookAtMode, msg.lookAtEntityId,
+                        msg.lookAtX, msg.lookAtY, msg.lookAtZ);
             }
         });
         ctx.get().setPacketHandled(true);

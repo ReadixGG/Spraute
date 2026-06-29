@@ -56,9 +56,11 @@ public class CompiledScript {
         AWAIT_CHAT,
         AWAIT_UI_TOUCH,
         AWAIT_PLAYER_ACTION,
+        AWAIT_DIMENSION,
         UI_WIDGET, // Emit a widget into the current UI builder context. Args: [String kind, List<ScriptNode> args, Map<String,ScriptNode> props, Map<String,List<Instruction>> eventHandlers, List<Instruction> childBody (nullable)]
         FADE_IN,   // Show fade-in screen. Args: [Map<String,ScriptNode> props]
         CAMERA,    // Camera block. Args: [String cameraId, Map<String,List<ScriptNode>> props]
+        AWAIT_CAMERA_ROUTE, // await cameraRoute(player, route, [lock, hideGui, returnSmooth])
         INCLUDE,   // Include another script's functions/handlers. Args: [String scriptName]
         SET_INDEX, // Set array/map element. Args: [ScriptNode object, ScriptNode index, ScriptNode value]
         TRY_START, // Start try block. Args: [Integer catchTarget, String catchVar]

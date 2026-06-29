@@ -229,6 +229,11 @@ const PROCODE_INVENTORY_BLOCKS = new Set([
   'get_item_attack_damage', 'set_item_attack_damage', 'get_item_nbt', 'set_item_nbt',
 ]);
 
+/** Bundled-блоки, удалённые из ProCode — убираем из папки пользователя при синхронизации. */
+const REMOVED_PROCODE_BLOCK_FILES = new Set([
+  'player_slots.spr',
+]);
+
 function procodeCategoryForBlock(blockId, legacyCategory) {
   if (blockId && PROCODE_MIR_BLOCKS.has(blockId)) return 'Мир';
   if (blockId && PROCODE_INVENTORY_BLOCKS.has(blockId)) return 'Инвентарь';
@@ -241,7 +246,7 @@ async function migrateProcodeBlockCategories(pluginRoot) {
   const blocksDir = path.join(pluginRoot, 'blocks');
   if (!(await pathExists(blocksDir))) return;
 
-  const obsoleteFiles = ['player_slots.spr'];
+  const obsoleteFiles = [...REMOVED_PROCODE_BLOCK_FILES];
   for (const name of obsoleteFiles) {
     const fp = path.join(blocksDir, name);
     if (await pathExists(fp)) {

@@ -2111,7 +2111,7 @@ export function textToBlocks(text, workspace) {
         let consumed = 0;
         let newBlock = null;
 
-        const best = tryBestPluginParse(rest, 'statement');
+        let best = tryBestPluginParse(rest, 'statement');
         if (!best) {
           const bestAny = tryBestPluginParse(rest, null);
           if (bestAny && bestAny.parser.shape !== 'value') best = bestAny;

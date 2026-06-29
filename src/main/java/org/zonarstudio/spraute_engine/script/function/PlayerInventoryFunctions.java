@@ -290,6 +290,27 @@ public class PlayerInventoryFunctions {
         }
     }
 
+    public static class AppendItemLore implements ScriptFunction {
+        @Override public String getName() { return "appendItemLore"; }
+        @Override public int getArgCount() { return 3; }
+        @Override public Class<?>[] getArgTypes() { return new Class<?>[]{Object.class, Object.class, List.class}; }
+
+        @Override
+        public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
+            if (args.size() < 3) return false;
+            ServerPlayer player = requireServerPlayer(args.get(0), source);
+            if (player == null) return false;
+            int slot = requireSlot(player, args.get(1));
+            if (slot < 0) return false;
+            ItemStack stack = ItemStackScriptUtil.getStack(player, slot);
+            if (stack.isEmpty()) return false;
+            if (!(args.get(2) instanceof List<?> lore)) return false;
+            ItemStackScriptUtil.appendLore(stack, lore);
+            ItemStackScriptUtil.syncInventory(player);
+            return true;
+        }
+    }
+
     public static class GetItemAttackDamage implements ScriptFunction {
         @Override public String getName() { return "getItemAttackDamage"; }
         @Override public int getArgCount() { return 2; }

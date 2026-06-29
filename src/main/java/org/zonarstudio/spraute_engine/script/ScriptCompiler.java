@@ -152,6 +152,20 @@ public class ScriptCompiler {
                 if (args.isEmpty()) throw new ScriptException("await jump(player) requires player");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_PLAYER_ACTION,
                         args.get(0), new ScriptNode.LiteralNode("jump"), null));
+            } else if (func.equals("dimension")) {
+                if (args.size() < 2) throw new ScriptException("await dimension(player, dimensionId) requires player and dimension");
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_DIMENSION,
+                        args.get(0), args.get(1)));
+            } else if (func.equals("cameraRoute") || func.equals("camera_route") || func.equals("playCameraRoute")) {
+                if (args.size() < 2) throw new ScriptException("await cameraRoute(player, routeName, [lockMovement, hideGui, returnSmooth, totalSeconds, afterEnd, lookMode, lookX, lookY, lookZ]) requires player and route");
+                java.util.List<Object> instrArgs = new java.util.ArrayList<>();
+                instrArgs.add(args.get(0));
+                instrArgs.add(args.get(1));
+                for (int i = 2; i < args.size(); i++) {
+                    instrArgs.add(args.get(i));
+                }
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_CAMERA_ROUTE,
+                        instrArgs.toArray()));
             } else if (func.equals("action") || func.equals("playerAction")) {
                 if (args.size() < 2) throw new ScriptException("await action(player, action_type, [target]) requires player and action_type");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_PLAYER_ACTION, args.get(0), args.get(1), args.size() > 2 ? args.get(2) : null));

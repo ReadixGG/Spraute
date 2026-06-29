@@ -222,6 +222,16 @@ public final class UiTemplate {
         if (rw.evaluatedProps.containsKey("subScale")) {
             o.addProperty("subScale", propFloat(rw.evaluatedProps, "subScale", 0.65f));
         }
+        if (rw.evaluatedProps.containsKey("slice_borders")) {
+            o.addProperty("slice_borders", propInt(rw.evaluatedProps, "slice_borders", 0));
+        } else if (rw.evaluatedProps.containsKey("sliceBorders")) {
+            o.addProperty("slice_borders", propInt(rw.evaluatedProps, "sliceBorders", 0));
+        }
+        if (rw.evaluatedProps.containsKey("slice_scale")) {
+            o.addProperty("slice_scale", propFloat(rw.evaluatedProps, "slice_scale", 1f));
+        } else if (rw.evaluatedProps.containsKey("sliceScale")) {
+            o.addProperty("slice_scale", propFloat(rw.evaluatedProps, "sliceScale", 1f));
+        }
         o.addProperty("layer", propInt(rw.evaluatedProps, "layer", 0));
         o.addProperty("order", order);
         String tooltip = propStr(rw.evaluatedProps, "tooltip", null);
@@ -404,9 +414,13 @@ public final class UiTemplate {
         
         if (rw.evaluatedProps.containsKey("slice_borders")) {
             o.addProperty("slice_borders", propInt(rw.evaluatedProps, "slice_borders", 0));
+        } else if (rw.evaluatedProps.containsKey("sliceBorders")) {
+            o.addProperty("slice_borders", propInt(rw.evaluatedProps, "sliceBorders", 0));
         }
         if (rw.evaluatedProps.containsKey("slice_scale")) {
-            o.addProperty("slice_scale", propInt(rw.evaluatedProps, "slice_scale", 1));
+            o.addProperty("slice_scale", propFloat(rw.evaluatedProps, "slice_scale", 1f));
+        } else if (rw.evaluatedProps.containsKey("sliceScale")) {
+            o.addProperty("slice_scale", propFloat(rw.evaluatedProps, "sliceScale", 1f));
         }
         if (rw.evaluatedProps.containsKey("src")) {
             Object v = rw.evaluatedProps.get("src");

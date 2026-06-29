@@ -4,6 +4,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -37,6 +40,8 @@ public class SprauteNpcEntity extends PathfinderMob {
     /** Bumped when look target/mode changes so client can reset head smoothing (alwaysLookAt A→B without stopLook). */
     private static final net.minecraft.network.syncher.EntityDataAccessor<Integer> HEAD_LOOK_TARGET_GEN =
         net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.INT);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> HEAD_LOOK_UNLIMITED =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
 
     private static final net.minecraft.network.syncher.EntityDataAccessor<Float> SYNCED_BODY_YAW =
         net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
@@ -113,6 +118,14 @@ public class SprauteNpcEntity extends PathfinderMob {
     public static final float MAX_HEAD_PITCH_UP = 40f;
     public static final float MAX_HEAD_PITCH_DOWN = 45f;
 
+    /** When true, head rotation limits are disabled (full 360° look). Set via script setHeadLookUnlimited(). */
+    public void setHeadLookUnlimited(boolean unlimited) {
+        this.entityData.set(HEAD_LOOK_UNLIMITED, unlimited);
+    }
+    public boolean isHeadLookUnlimited() {
+        return this.entityData.get(HEAD_LOOK_UNLIMITED);
+    }
+
     /** Hysteresis for walk/idle: avoid flickering when limbSwingAmount hovers near threshold. */
     private int movingStateTicks = 0;
     private static final int MOVING_DEBOUNCE = 3;
@@ -128,6 +141,23 @@ public class SprauteNpcEntity extends PathfinderMob {
         net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
     private static final net.minecraft.network.syncher.EntityDataAccessor<Float> HITBOX_HEIGHT =
         net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> HITBOX_OFFSET_X =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> HITBOX_OFFSET_Y =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> HITBOX_OFFSET_Z =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+    /** Compact bone hitbox list for client debug: id|bone|w|h|d|ox|oy|oz;... */
+    private static final net.minecraft.network.syncher.EntityDataAccessor<String> BONE_HITBOXES_DATA =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.STRING);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> SHOW_HITBOX_DEBUG =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
+    /** Extra Y offset applied to the rendered name tag (in blocks). Default 0. */
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> NAME_Y_OFFSET =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+
+    private final java.util.List<NpcBoneHitbox> boneHitboxes = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private net.minecraft.world.phys.AABB cachedHitboxBounds = null;
 
     public final java.util.Map<String, Object> customData = new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -160,6 +190,7 @@ public class SprauteNpcEntity extends PathfinderMob {
         this.entityData.define(HEAD_LOOK_PITCH, 0f);
         this.entityData.define(HEAD_BONE_NAME, "Head");
         this.entityData.define(HEAD_LOOK_TARGET_GEN, 0);
+        this.entityData.define(HEAD_LOOK_UNLIMITED, false);
         this.entityData.define(SYNCED_BODY_YAW, 0f);
         this.entityData.define(ALWAYS_LOOK_ACTIVE, false);
         this.entityData.define(OVERLAY_ANIM, "");
@@ -181,6 +212,12 @@ public class SprauteNpcEntity extends PathfinderMob {
         this.entityData.define(HAS_COLLISION, true);
         this.entityData.define(HITBOX_WIDTH, 0.6f);
         this.entityData.define(HITBOX_HEIGHT, 1.8f);
+        this.entityData.define(HITBOX_OFFSET_X, 0f);
+        this.entityData.define(HITBOX_OFFSET_Y, 0f);
+        this.entityData.define(HITBOX_OFFSET_Z, 0f);
+        this.entityData.define(BONE_HITBOXES_DATA, "");
+        this.entityData.define(SHOW_HITBOX_DEBUG, false);
+        this.entityData.define(NAME_Y_OFFSET, 0f);
     }
 
     // ========== Model/Texture/Animation resources ==========
@@ -201,9 +238,148 @@ public class SprauteNpcEntity extends PathfinderMob {
     public String getAnimation() { return this.entityData.get(ANIMATION_RES); }
 
     public void setHitbox(float width, float height) {
-        this.entityData.set(HITBOX_WIDTH, width);
-        this.entityData.set(HITBOX_HEIGHT, height);
+        setHitbox(width, height, getHitboxOffsetX(), getHitboxOffsetY(), getHitboxOffsetZ());
+    }
+
+    public void setHitbox(float width, float height, float offsetX, float offsetY, float offsetZ) {
+        this.entityData.set(HITBOX_WIDTH, Math.max(0.05f, width));
+        this.entityData.set(HITBOX_HEIGHT, Math.max(0.05f, height));
+        this.entityData.set(HITBOX_OFFSET_X, offsetX);
+        this.entityData.set(HITBOX_OFFSET_Y, offsetY);
+        this.entityData.set(HITBOX_OFFSET_Z, offsetZ);
+        invalidateHitboxCache();
         this.refreshDimensions();
+    }
+
+    public void setHitboxOffset(float offsetX, float offsetY, float offsetZ) {
+        this.entityData.set(HITBOX_OFFSET_X, offsetX);
+        this.entityData.set(HITBOX_OFFSET_Y, offsetY);
+        this.entityData.set(HITBOX_OFFSET_Z, offsetZ);
+        invalidateHitboxCache();
+        this.refreshDimensions();
+    }
+
+    public void resetHitbox() {
+        setHitbox(0.6f, 1.8f, 0f, 0f, 0f);
+    }
+
+    public void setHitboxPreset(String preset) {
+        if (preset == null) return;
+        switch (preset.toLowerCase(java.util.Locale.ROOT)) {
+            case "small" -> setHitbox(NpcHitboxUtil.PRESET_SMALL_W, NpcHitboxUtil.PRESET_SMALL_H);
+            case "large", "big" -> setHitbox(NpcHitboxUtil.PRESET_LARGE_W, NpcHitboxUtil.PRESET_LARGE_H);
+            default -> setHitbox(NpcHitboxUtil.PRESET_PLAYER_W, NpcHitboxUtil.PRESET_PLAYER_H);
+        }
+    }
+
+    public float getHitboxWidth() { return this.entityData.get(HITBOX_WIDTH); }
+    public float getHitboxHeight() { return this.entityData.get(HITBOX_HEIGHT); }
+    public float getHitboxOffsetX() { return this.entityData.get(HITBOX_OFFSET_X); }
+    public float getHitboxOffsetY() { return this.entityData.get(HITBOX_OFFSET_Y); }
+    public float getHitboxOffsetZ() { return this.entityData.get(HITBOX_OFFSET_Z); }
+
+    public float getNameYOffset() { return this.entityData.get(NAME_Y_OFFSET); }
+    public void setNameYOffset(float v) { this.entityData.set(NAME_Y_OFFSET, v); }
+
+    public java.util.List<NpcBoneHitbox> getBoneHitboxes() { return java.util.Collections.unmodifiableList(boneHitboxes); }
+
+    public NpcBoneHitbox addBoneHitbox(String boneName, float width, float height, float depth) {
+        return addBoneHitbox(boneName, boneName, width, height, depth, 0f, 0f, 0f);
+    }
+
+    public NpcBoneHitbox addBoneHitbox(String id, String boneName, float width, float height, float depth,
+                                       float offsetX, float offsetY, float offsetZ) {
+        NpcBoneHitbox hb = new NpcBoneHitbox(id, boneName, width, height, depth, offsetX, offsetY, offsetZ);
+        boneHitboxes.removeIf(b -> b.id.equalsIgnoreCase(hb.id));
+        boneHitboxes.add(hb);
+        syncBoneHitboxesData();
+        invalidateHitboxCache();
+        refreshDimensions();
+        return hb;
+    }
+
+    public boolean removeBoneHitbox(String id) {
+        boolean removed = boneHitboxes.removeIf(b -> b.id.equalsIgnoreCase(id));
+        if (removed) {
+            syncBoneHitboxesData();
+            invalidateHitboxCache();
+            refreshDimensions();
+        }
+        return removed;
+    }
+
+    public void clearBoneHitboxes() {
+        if (boneHitboxes.isEmpty()) return;
+        boneHitboxes.clear();
+        syncBoneHitboxesData();
+        invalidateHitboxCache();
+        refreshDimensions();
+    }
+
+    public void setShowHitboxDebug(boolean show) { this.entityData.set(SHOW_HITBOX_DEBUG, show); }
+    public boolean isShowHitboxDebug() { return this.entityData.get(SHOW_HITBOX_DEBUG); }
+
+    private void invalidateHitboxCache() {
+        cachedHitboxBounds = null;
+    }
+
+    private void syncBoneHitboxesData() {
+        if (boneHitboxes.isEmpty()) {
+            this.entityData.set(BONE_HITBOXES_DATA, "");
+            return;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (NpcBoneHitbox hb : boneHitboxes) {
+            if (sb.length() > 0) sb.append(';');
+            sb.append(hb.id).append('|').append(hb.boneName).append('|')
+                    .append(hb.width).append('|').append(hb.height).append('|').append(hb.depth).append('|')
+                    .append(hb.offsetX).append('|').append(hb.offsetY).append('|').append(hb.offsetZ);
+        }
+        this.entityData.set(BONE_HITBOXES_DATA, sb.toString());
+    }
+
+    private void loadBoneHitboxesFromSync() {
+        if (!SprauteEntityCompat.level(this).isClientSide) return;
+        String data = this.entityData.get(BONE_HITBOXES_DATA);
+        boneHitboxes.clear();
+        if (data == null || data.isEmpty()) return;
+        for (String part : data.split(";")) {
+            String[] f = part.split("\\|");
+            if (f.length < 8) continue;
+            try {
+                boneHitboxes.add(new NpcBoneHitbox(
+                        f[0], f[1],
+                        Float.parseFloat(f[2]), Float.parseFloat(f[3]), Float.parseFloat(f[4]),
+                        Float.parseFloat(f[5]), Float.parseFloat(f[6]), Float.parseFloat(f[7])
+                ));
+            } catch (NumberFormatException ignored) {}
+        }
+    }
+
+    public String getBoneHitboxesData() { return this.entityData.get(BONE_HITBOXES_DATA); }
+
+    private void tickHitboxBounds() {
+        net.minecraft.world.phys.AABB bounds = NpcHitboxUtil.mainHitbox(
+                this, getHitboxWidth(), getHitboxHeight(),
+                getHitboxOffsetX(), getHitboxOffsetY(), getHitboxOffsetZ());
+
+        if (!boneHitboxes.isEmpty()) {
+            var server = SprauteEntityCompat.level(this).getServer();
+            if (server != null) {
+                org.zonarstudio.spraute_engine.core.model.SpModelInstance instance =
+                        NpcBonePoseSolver.solve(this, server.getResourceManager());
+                if (instance != null) {
+                    for (NpcBoneHitbox hb : boneHitboxes) {
+                        org.zonarstudio.spraute_engine.core.math.SpMatrix4 matrix = instance.getBoneMatrix(hb.boneName);
+                        if (matrix != null) {
+                            bounds = NpcHitboxUtil.union(bounds, NpcHitboxUtil.boneHitbox(this, matrix, hb));
+                        }
+                    }
+                }
+            }
+        }
+        cachedHitboxBounds = bounds;
+        this.setBoundingBox(bounds);
     }
 
     // ========== Overlay animation (additive layer) ==========
@@ -285,6 +461,9 @@ public class SprauteNpcEntity extends PathfinderMob {
 
     public boolean isFlying() { return this.entityData.get(IS_FLYING); }
     public void setFlying(boolean flying) {
+        if (!flying) {
+            stopMove();
+        }
         this.entityData.set(IS_FLYING, flying);
         this.setNoGravity(flying);
         if (flying) {
@@ -349,8 +528,13 @@ public class SprauteNpcEntity extends PathfinderMob {
         this.entityData.set(HEAD_LOOK_PITCH, targetPitch);
     }
 
-    /** Clamp look direction so head never turns past {@link #MAX_HEAD_YAW} / pitch limits vs current body. */
+    /** Clamp look direction so head never turns past {@link #MAX_HEAD_YAW} / pitch limits vs current body.
+     *  If head look is unlimited, skips clamping entirely. */
     private void applySyncedHeadLookClamped(float targetWorldYaw, float targetPitch) {
+        if (isHeadLookUnlimited()) {
+            applySyncedHeadLook(targetWorldYaw, targetPitch);
+            return;
+        }
         float neckDelta = net.minecraft.util.Mth.degreesDifference(this.yBodyRot, targetWorldYaw);
         neckDelta = net.minecraft.util.Mth.clamp(neckDelta, -MAX_HEAD_YAW, MAX_HEAD_YAW);
         float yaw = net.minecraft.util.Mth.wrapDegrees(this.yBodyRot + neckDelta);
@@ -438,11 +622,19 @@ public class SprauteNpcEntity extends PathfinderMob {
         alwaysLookAt(x, y, z, true);
     }
     public void alwaysLookAt(double x, double y, double z, boolean head) {
-        if (lookEntity != null || lookPointChanged(lookPoint, x, y, z)) bumpHeadLookTargetGen();
+        boolean switchingFromEntity = lookEntity != null;
+        boolean hadPoint = lookPoint != null;
+        boolean targetChanged = switchingFromEntity || !hadPoint || lookPointChanged(lookPoint, x, y, z);
+        if (targetChanged) bumpHeadLookTargetGen();
         lookEntity = null;
         lookPoint = new Vec3(x, y, z);
         lookActive = true;
-        bodyDelayTicks = BODY_START_DELAY_TICKS;
+        // Continuous point tracking (e.g. "look forward" while flying) must not reset body delay every tick.
+        if (switchingFromEntity) {
+            bodyDelayTicks = 0;
+        } else if (!hadPoint) {
+            bodyDelayTicks = BODY_START_DELAY_TICKS;
+        }
         this.entityData.set(ALWAYS_LOOK_ACTIVE, true);
         refreshSyncedHeadLookNow();
     }
@@ -452,11 +644,15 @@ public class SprauteNpcEntity extends PathfinderMob {
         alwaysLookAtEntity(e, true);
     }
     public void alwaysLookAtEntity(net.minecraft.world.entity.Entity e, boolean head) {
-        if (lookEntity != e || lookPoint != null) bumpHeadLookTargetGen();
+        boolean targetChanged = lookEntity != e || lookPoint != null;
+        if (targetChanged) bumpHeadLookTargetGen();
         lookEntity = e;
         lookPoint = null;
         lookActive = true;
-        bodyDelayTicks = BODY_START_DELAY_TICKS;
+        // Script may call this every tick — do not reset body delay or the torso never turns.
+        if (targetChanged) {
+            bodyDelayTicks = 0;
+        }
         this.entityData.set(ALWAYS_LOOK_ACTIVE, true);
         refreshSyncedHeadLookNow();
     }
@@ -600,6 +796,36 @@ public class SprauteNpcEntity extends PathfinderMob {
         this.getNavigation().moveTo(x, y, z, speed);
     }
 
+    /** Включить полёт и лететь к точке. */
+    public void flyTo(double x, double y, double z, double speed) {
+        setFlying(true);
+        activeFlySpeed = speed;
+        flightPathRecalcCooldown = 0;
+        this.getNavigation().moveTo(x, y, z, speed);
+    }
+
+    /** Включить полёт и лететь к сущности. */
+    public void flyToEntity(net.minecraft.world.entity.Entity target, double speed) {
+        if (target == null) return;
+        setFlying(true);
+        activeFlySpeed = speed;
+        flightPathRecalcCooldown = 0;
+        this.getNavigation().moveTo(target, speed);
+    }
+
+    /** Включить полёт и постоянно следовать к точке. */
+    public void alwaysFlyTo(double x, double y, double z, double speed) {
+        setFlying(true);
+        alwaysMoveTo(x, y, z, speed);
+    }
+
+    /** Включить полёт и постоянно следовать за сущностью. */
+    public void alwaysFlyToEntity(net.minecraft.world.entity.Entity target, double speed) {
+        if (target == null) return;
+        setFlying(true);
+        alwaysMoveToEntity(target, speed);
+    }
+
     // ========== alwaysMoveTo ==========
     private net.minecraft.world.entity.Entity alwaysMoveEntity = null;
     private Vec3 alwaysMovePoint = null;
@@ -609,12 +835,16 @@ public class SprauteNpcEntity extends PathfinderMob {
         this.alwaysMovePoint = new Vec3(x, y, z);
         this.alwaysMoveEntity = null;
         this.alwaysMoveSpeed = speed;
+        this.activeFlySpeed = speed;
+        this.flightPathRecalcCooldown = 0;
     }
 
     public void alwaysMoveToEntity(net.minecraft.world.entity.Entity e, double speed) {
         this.alwaysMoveEntity = e;
         this.alwaysMovePoint = null;
         this.alwaysMoveSpeed = speed;
+        this.activeFlySpeed = speed;
+        this.flightPathRecalcCooldown = 0;
     }
 
     public void stopMove() {
@@ -623,21 +853,160 @@ public class SprauteNpcEntity extends PathfinderMob {
         this.getNavigation().stop();
     }
 
+    /** True while flight steering applied this tick (drives walk/idle anim while flying). */
+    private boolean flightSteering = false;
+    private int flightPathRecalcCooldown = 0;
+    private double activeFlySpeed = 1.0;
+
+    private static final double FLIGHT_DIRECT_EPS = 0.35;
+
+    /**
+     * Flight steering smoothness (velocity lerp factor, 0..1). Lower = smoother, softer
+     * acceleration/deceleration; higher = snappier. Set via script {@code flySmoothing}.
+     */
+    private float flySmoothing = 0.35f;
+    public float getFlySmoothing() { return flySmoothing; }
+    public void setFlySmoothing(float v) { this.flySmoothing = Math.max(0.02f, Math.min(1.0f, v)); }
+
     private void tickAlwaysMove() {
         if (SprauteEntityCompat.level(this).isClientSide) return;
+
+        Vec3 target = null;
         if (alwaysMoveEntity != null) {
-            if (alwaysMoveEntity.isAlive()) {
-                if (this.tickCount % 10 == 0) {
-                    this.getNavigation().moveTo(alwaysMoveEntity, alwaysMoveSpeed);
-                }
-            } else {
-                alwaysMoveEntity = null;
-            }
+            if (alwaysMoveEntity.isAlive()) target = alwaysMoveEntity.position();
+            else alwaysMoveEntity = null;
         } else if (alwaysMovePoint != null) {
-            if (this.tickCount % 10 == 0) {
-                this.getNavigation().moveTo(alwaysMovePoint.x, alwaysMovePoint.y, alwaysMovePoint.z, alwaysMoveSpeed);
+            target = alwaysMovePoint;
+        }
+
+        if (target == null) {
+            flightSteering = false;
+            return;
+        }
+
+        if (isFlying()) {
+            steerFlightToTarget(target);
+        } else {
+            flightSteering = false;
+            if (this.tickCount % 2 == 0) {
+                this.getNavigation().moveTo(target.x, target.y, target.z, alwaysMoveSpeed);
             }
         }
+    }
+
+    /**
+     * Hybrid flight: fly straight when the line to the target is clear; otherwise follow
+     * {@link net.minecraft.world.entity.ai.navigation.FlyingPathNavigation} waypoints (still steering
+     * with velocity lerp so mid-air targets work once the path is built).
+     */
+    private void steerFlightToTarget(Vec3 finalTarget) {
+        Vec3 steer = resolveFlightSteerTarget(finalTarget);
+        applyFlightVelocity(steer);
+    }
+
+    /** One-shot {@link #flyTo} / {@link #flyToEntity} — same hybrid rules when not on always-move. */
+    private void tickPassiveFlightSteering() {
+        if (!isFlying() || alwaysMovePoint != null || alwaysMoveEntity != null) return;
+        var nav = this.getNavigation();
+        if (nav.isDone()) return;
+        var path = nav.getPath();
+        if (path == null || path.isDone()) return;
+        BlockPos end = path.getTarget();
+        if (end == null) return;
+        Vec3 finalTarget = Vec3.atCenterOf(end);
+        steerFlightToTarget(finalTarget);
+    }
+
+    private Vec3 resolveFlightSteerTarget(Vec3 finalTarget) {
+        if (canFlyDirectTo(finalTarget)) {
+            flightPathRecalcCooldown = 0;
+            return finalTarget;
+        }
+
+        var nav = this.getNavigation();
+        if (flightPathRecalcCooldown <= 0 || nav.isDone()) {
+            nav.moveTo(finalTarget.x, finalTarget.y, finalTarget.z, getFlightMoveSpeed());
+            flightPathRecalcCooldown = 20;
+        } else {
+            flightPathRecalcCooldown--;
+        }
+
+        var path = nav.getPath();
+        if (path != null && !path.isDone() && path.getNodeCount() > 0) {
+            int idx = Math.min(path.getNextNodeIndex(), path.getNodeCount() - 1);
+            Vec3 waypoint = Vec3.atCenterOf(path.getNodePos(idx));
+            if (this.position().distanceToSqr(waypoint) < 0.64) {
+                path.advance();
+                if (!path.isDone() && path.getNodeCount() > 0) {
+                    idx = Math.min(path.getNextNodeIndex(), path.getNodeCount() - 1);
+                    waypoint = Vec3.atCenterOf(path.getNodePos(idx));
+                }
+            }
+            if (canFlyDirectTo(waypoint)) {
+                return waypoint;
+            }
+            return waypoint;
+        }
+
+        return finalTarget;
+    }
+
+    /** True when no solid blocks block a straight segment to {@code target}. */
+    private boolean canFlyDirectTo(Vec3 target) {
+        Level level = SprauteEntityCompat.level(this);
+        Vec3 from = new Vec3(this.getX(), this.getY() + this.getBbHeight() * 0.5, this.getZ());
+        double targetDist = from.distanceTo(target);
+        if (targetDist < 1.0e-4) {
+            return true;
+        }
+
+        BlockHitResult hit = level.clip(new ClipContext(
+                from, target,
+                ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE,
+                this));
+
+        if (hit.getType() != HitResult.Type.BLOCK) {
+            return true;
+        }
+        return hit.getLocation().distanceTo(from) >= targetDist - FLIGHT_DIRECT_EPS;
+    }
+
+    /**
+     * Velocity steering toward {@code target}. Speed uses {@link Attributes#FLYING_SPEED} × move speed scale.
+     */
+    private void applyFlightVelocity(Vec3 target) {
+        double dx = target.x - this.getX();
+        double dy = target.y - this.getY();
+        double dz = target.z - this.getZ();
+        double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+        double flySpeed = 0.5;
+        var attr = this.getAttribute(Attributes.FLYING_SPEED);
+        if (attr != null) flySpeed = attr.getValue();
+        double maxStep = flySpeed * Math.max(0.1, getFlightMoveSpeed()) * 0.5; // blocks per tick
+
+        this.setNoGravity(true);
+
+        // Desired velocity shrinks as we approach the target; lerp gives smooth accel/decel.
+        double step = Math.min(maxStep, dist);
+        Vec3 desired = dist < 1.0e-8 ? Vec3.ZERO : new Vec3(dx, dy, dz).normalize().scale(step);
+        Vec3 cur = this.getDeltaMovement();
+        Vec3 next = cur.add(desired.subtract(cur).scale(flySmoothing));
+        double cap = dist < 1.0e-8 ? 0.0 : Math.min(maxStep, dist);
+        if (cap > 0 && next.length() > cap) {
+            next = next.normalize().scale(cap);
+        }
+        this.setDeltaMovement(next);
+        this.hasImpulse = true;
+        flightSteering = next.lengthSqr() > 1.0e-8 || dist > 0.02;
+    }
+
+    private double getFlightMoveSpeed() {
+        if (alwaysMovePoint != null || alwaysMoveEntity != null) {
+            return alwaysMoveSpeed;
+        }
+        return activeFlySpeed;
     }
 
     /** Separation steering — мягко расталкивает НПС друг от друга при сближении. */
@@ -686,10 +1055,12 @@ public class SprauteNpcEntity extends PathfinderMob {
         this.yHeadRot = bodyStart;
         this.setYRot(bodyStart);
         tickAlwaysMove();
+        tickPassiveFlightSteering();
         tickSeparation();
         isMoving();
         tickLookSystem();
         fixBodyYawSamplingContinuity();
+        tickHitboxBounds();
         this.sprauteBodyYawEndOfTick = this.yBodyRot;
         this.sprauteBodyYawHasEndOfTick = true;
     }
@@ -698,10 +1069,12 @@ public class SprauteNpcEntity extends PathfinderMob {
 
     private void tickLookSystem() {
         boolean moving = isMoving();
+        boolean trackEntity = lookActive && lookEntity != null;
+        boolean trackPoint = lookActive && lookPoint != null;
 
         Vec3 target = resolveLookTarget();
 
-        if (moving) {
+        if (moving && !trackEntity && !trackPoint && !(isFlying() && flightSteering)) {
             tickBodyWalking();
         }
 
@@ -709,7 +1082,7 @@ public class SprauteNpcEntity extends PathfinderMob {
             float targetYaw = calcTargetYaw(target.x, target.z);
             float targetPitch = calcTargetPitch(target.y, target.x, target.z);
 
-            if (!moving) {
+            if (!moving || trackEntity || trackPoint) {
                 tickBodyLookAtTarget(targetYaw);
             }
 
@@ -752,7 +1125,8 @@ public class SprauteNpcEntity extends PathfinderMob {
             syncBodyYaw(this.yBodyRot);
             return;
         }
-        float nextBody = net.minecraft.util.Mth.approachDegrees(this.yBodyRot, targetYaw, BODY_TURN_SPEED);
+        float turnSpeed = (lookEntity != null) ? BODY_TURN_SPEED * 2.5f : BODY_TURN_SPEED;
+        float nextBody = net.minecraft.util.Mth.approachDegrees(this.yBodyRot, targetYaw, turnSpeed);
         setBodyYaw(nextBody);
         syncBodyYaw(nextBody);
     }
@@ -797,7 +1171,12 @@ public class SprauteNpcEntity extends PathfinderMob {
         c.putString("SwimIdleAnim", getSwimIdleAnim());
         c.putString("SwimWalkAnim", getSwimWalkAnim());
         c.putString("DeathAnim", getDeathAnim());
-        
+        c.putFloat("HitboxWidth", getHitboxWidth());
+        c.putFloat("HitboxHeight", getHitboxHeight());
+        c.putFloat("HitboxOffsetX", getHitboxOffsetX());
+        c.putFloat("HitboxOffsetY", getHitboxOffsetY());
+        c.putFloat("HitboxOffsetZ", getHitboxOffsetZ());
+
         if (!customDrops.isEmpty()) {
             net.minecraft.nbt.ListTag dropsList = new net.minecraft.nbt.ListTag();
             for (var rule : customDrops) {
@@ -810,6 +1189,14 @@ public class SprauteNpcEntity extends PathfinderMob {
                 dropsList.add(ruleTag);
             }
             c.put("CustomDrops", dropsList);
+        }
+
+        if (!boneHitboxes.isEmpty()) {
+            net.minecraft.nbt.ListTag hbList = new net.minecraft.nbt.ListTag();
+            for (NpcBoneHitbox hb : boneHitboxes) {
+                hbList.add(hb.toNbt());
+            }
+            c.put("BoneHitboxes", hbList);
         }
     }
 
@@ -829,7 +1216,23 @@ public class SprauteNpcEntity extends PathfinderMob {
         if (c.contains("SwimIdleAnim")) setSwimIdleAnim(c.getString("SwimIdleAnim"));
         if (c.contains("SwimWalkAnim")) setSwimWalkAnim(c.getString("SwimWalkAnim"));
         if (c.contains("DeathAnim")) setDeathAnim(c.getString("DeathAnim"));
-        
+
+        if (c.contains("HitboxWidth") && c.contains("HitboxHeight")) {
+            float ox = c.contains("HitboxOffsetX") ? c.getFloat("HitboxOffsetX") : 0f;
+            float oy = c.contains("HitboxOffsetY") ? c.getFloat("HitboxOffsetY") : 0f;
+            float oz = c.contains("HitboxOffsetZ") ? c.getFloat("HitboxOffsetZ") : 0f;
+            setHitbox(c.getFloat("HitboxWidth"), c.getFloat("HitboxHeight"), ox, oy, oz);
+        }
+
+        boneHitboxes.clear();
+        if (c.contains("BoneHitboxes", 9)) {
+            net.minecraft.nbt.ListTag hbList = c.getList("BoneHitboxes", 10);
+            for (int i = 0; i < hbList.size(); i++) {
+                boneHitboxes.add(NpcBoneHitbox.fromNbt(hbList.getCompound(i)));
+            }
+            syncBoneHitboxesData();
+        }
+
         customDrops.clear();
         if (c.contains("CustomDrops", 9)) {
             net.minecraft.nbt.ListTag dropsList = c.getList("CustomDrops", 10);
@@ -862,9 +1265,15 @@ public class SprauteNpcEntity extends PathfinderMob {
         for (var rule : customDrops) {
             if (this.random.nextInt(100) < rule.chance) {
                 int amount = rule.min + this.random.nextInt(Math.max(1, rule.max - rule.min + 1));
+                String resolvedDropId = rule.itemId.contains(":") ? rule.itemId : "spraute_engine:" + rule.itemId;
                 net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(
-                    new net.minecraft.resources.ResourceLocation(rule.itemId.contains(":") ? rule.itemId : "minecraft:" + rule.itemId)
+                    new net.minecraft.resources.ResourceLocation(resolvedDropId)
                 );
+                if (item == null || item == net.minecraft.world.item.Items.AIR) {
+                    item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(
+                        new net.minecraft.resources.ResourceLocation("minecraft:" + rule.itemId)
+                    );
+                }
                 if (item != null && item != net.minecraft.world.item.Items.AIR) {
                     net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item, amount);
                     if (rule.nbt != null && !rule.nbt.isEmpty()) {
@@ -879,20 +1288,54 @@ public class SprauteNpcEntity extends PathfinderMob {
     }
 
     public static AttributeSupplier.Builder setAttributes() {
-        return PathfinderMob.createMobAttributes().add(Attributes.MAX_HEALTH, 20d).add(Attributes.MOVEMENT_SPEED, 0.3d);
+        return PathfinderMob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, 20d)
+                .add(Attributes.MOVEMENT_SPEED, 0.3d)
+                .add(Attributes.FLYING_SPEED, 0.4d);
     }
 
     @Override
     public net.minecraft.world.phys.AABB getBoundingBoxForCulling() {
-        return super.getBoundingBoxForCulling(); // Could be customized if needed
+        return super.getBoundingBoxForCulling();
+    }
+
+    @Override
+    public boolean causeFallDamage(float fallDistance, float multiplier,
+                                   net.minecraft.world.damagesource.DamageSource source) {
+        // Flying NPCs never take fall damage
+        if (isFlying()) return false;
+        return super.causeFallDamage(fallDistance, multiplier, source);
     }
 
     @Override
     public void onSyncedDataUpdated(net.minecraft.network.syncher.EntityDataAccessor<?> pKey) {
         super.onSyncedDataUpdated(pKey);
-        if (HITBOX_WIDTH.equals(pKey) || HITBOX_HEIGHT.equals(pKey)) {
+        if (HITBOX_WIDTH.equals(pKey) || HITBOX_HEIGHT.equals(pKey)
+                || HITBOX_OFFSET_X.equals(pKey) || HITBOX_OFFSET_Y.equals(pKey) || HITBOX_OFFSET_Z.equals(pKey)) {
+            invalidateHitboxCache();
             refreshDimensions();
         }
+        if (BONE_HITBOXES_DATA.equals(pKey)) {
+            loadBoneHitboxesFromSync();
+            invalidateHitboxCache();
+            refreshDimensions();
+        }
+    }
+
+    @Override
+    protected net.minecraft.world.phys.AABB makeBoundingBox() {
+        if (cachedHitboxBounds != null) {
+            return cachedHitboxBounds;
+        }
+        return NpcHitboxUtil.mainHitbox(
+                this, getHitboxWidth(), getHitboxHeight(),
+                getHitboxOffsetX(), getHitboxOffsetY(), getHitboxOffsetZ());
+    }
+
+    @Override
+    public void remove(net.minecraft.world.entity.Entity.RemovalReason reason) {
+        NpcBonePoseSolver.remove(this.getUUID());
+        super.remove(reason);
     }
 
     @Override
@@ -907,7 +1350,7 @@ public class SprauteNpcEntity extends PathfinderMob {
         if (SprauteEntityCompat.level(this).isClientSide) {
             return this.entityData.get(IS_MOVING_SYNCED);
         }
-        boolean rawMoving = this.getNavigation().isInProgress();
+        boolean rawMoving = flightSteering || this.getNavigation().isInProgress();
         if (rawMoving) movingStateTicks = Math.min(movingStateTicks + 1, MOVING_DEBOUNCE);
         else movingStateTicks = Math.max(movingStateTicks - 1, -MOVING_DEBOUNCE);
         boolean moving = movingStateTicks > 0;

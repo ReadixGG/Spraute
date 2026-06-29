@@ -1,0 +1,78 @@
+# Тест кинематографической камеры
+# Запуск: /spraute run test_camera
+# Нужен хотя бы один игрок в мире. Рядом появится НИП-мишень для слежения.
+
+val spawn = findSafeBlock("player", 24, 4)
+if (spawn == null) {
+    chat("§c[test_camera] Не нашёл безопасное место рядом с игроком.")
+} else {
+    val bx = listGet(spawn, 0)
+    val by = listGet(spawn, 1)
+    val bz = listGet(spawn, 2)
+
+    create npc camera_target {
+        name = "§bКамера-мишень"
+        model = "geo/defolt.geo.json"
+        texture = "textures/entity/knight.png"
+        animation = "animations/npc_classic.animation.json"
+        pos = bx, by, bz
+        showName = true
+        speed = 0.2
+    }
+
+    var viewer = getFirstPlayer()
+    if (viewer == null) {
+        viewer = getNearestPlayer(camera_target)
+    }
+    if (viewer == null) {
+        chat("§c[test_camera] Нет игрока онлайн.")
+    } else {
+        chat("§6[test_camera] §fТест камеры. НИП на координатах " + bx + ", " + by + ", " + bz)
+        chat("§7Жми §e[F]§7 для каждого шага. В конце камера вернётся к тебе.")
+
+        await keybind("f")
+
+        # 1) Мгновенная позиция сбоку и сверху (smoothTime=0)
+        chat("§a1/5 §fsetCamera — мгновенно на точку обзора")
+        setCamera(viewer, bx - 6, by + 5, bz + 4, 35, 15, 0, 0)
+        await keybind("f")
+
+        # 2) Плавный переход + удержание, затем авто-возврат по таймеру движка
+        chat("§a2/5 §fsetCamera с удержанием (hold=3, smooth=1.2)")
+        setCamera(viewer, bx + 5, by + 7, bz - 3, -120, 20, 3, 1.2)
+        await time(5)
+        await keybind("f")
+
+        # 3) Камера смотрит на НИПа и следит за ним
+        chat("§a3/5 §fsetCameraLookAt — слежение за НИПом")
+        async {
+            camera_target.moveTo(bx + 4, by, bz - 2, 0.35)
+            await time(2)
+            camera_target.moveTo(bx - 3, by, bz + 3, 0.35)
+        }
+        setCameraLookAt(viewer, bx - 4, by + 4, bz + 5, camera_target, 5, 1.0, true)
+        await time(5)
+        await keybind("f")
+
+        # 4) Плавная анимация камеры к новой точке
+        chat("§a4/5 §fanimateCamera — плавный перелёт")
+        animateCamera(viewer, bx, by + 8, bz, 180, -25, 1.5)
+        await time(2)
+        await keybind("f")
+
+        # 5) Плавный перелёт + взгляд на НИПа
+        chat("§a5/5 §fanimateCameraLookAt — перелёт с взглядом на цель")
+        animateCameraLookAt(viewer, bx + 3, by + 6, bz + 3, camera_target, 1.2, true)
+        await time(3)
+        await keybind("f")
+
+        chat("§a[test_camera] §fВозврат камеры игроку")
+        stopCamera(viewer, 1.0)
+        await time(1.2)
+        resetCamera(viewer)
+
+        camera_target.alwaysLookAt(viewer)
+        say(camera_target, "Камера протестирована. Можешь запустить снова: /spraute run test_camera")
+        chat("§2[test_camera] Готово.")
+    }
+}

@@ -1,14 +1,15 @@
 package org.zonarstudio.spraute_engine.script.function;
 
 import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.PacketDistributor;
-import org.zonarstudio.spraute_engine.network.CameraPacket;
-import org.zonarstudio.spraute_engine.network.ModNetwork;
+import org.zonarstudio.spraute_engine.script.CameraScriptUtil;
 import org.zonarstudio.spraute_engine.script.ScriptContext;
 
 import java.util.List;
 
+/**
+ * stopCamera(player) — плавный возврат за 0.5 сек.
+ * stopCamera(player, smoothTime) — плавный возврат; {@code 0} = мгновенно.
+ */
 public class StopCameraFunction implements ScriptFunction {
 
     @Override
@@ -18,7 +19,7 @@ public class StopCameraFunction implements ScriptFunction {
 
     @Override
     public int getArgCount() {
-        return 1;
+        return -1;
     }
 
     @Override
@@ -28,28 +29,16 @@ public class StopCameraFunction implements ScriptFunction {
 
     @Override
     public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
-        ServerPlayer player = null;
+        var player = !args.isEmpty()
+                ? CameraScriptUtil.resolvePlayer(args.get(0), source)
+                : CameraScriptUtil.resolvePlayer(null, source);
+        if (player == null) return null;
 
-        if (!args.isEmpty()) {
-            Object arg = args.get(0);
-            if (arg instanceof ServerPlayer sp) {
-                player = sp;
-            } else if (arg instanceof String name && source.getLevel() != null) {
-                player = source.getLevel().getServer().getPlayerList().getPlayerByName(name);
-            }
+        float smooth = 0.5f;
+        if (args.size() > 1 && args.get(1) instanceof Number n) {
+            smooth = n.floatValue();
         }
-
-        if (player == null) {
-            player = (source.getEntity() instanceof ServerPlayer sp) ? sp : null;
-        }
-
-        if (player != null) {
-            final ServerPlayer target = player;
-            ModNetwork.CHANNEL.send(
-                    PacketDistributor.PLAYER.with(() -> target),
-                    CameraPacket.stop()
-            );
-        }
-        return null;
+        CameraScriptUtil.sendStop(player, smooth);
+        return (double) smooth; // allow await time(stopCamera(...))
     }
 }

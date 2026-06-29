@@ -169,8 +169,8 @@ public final class SprauteUiJson {
         }
         if (path.contains(":")) {
             String[] p = path.split(":", 2);
-            return new ResourceLocation(p[0], p[1]);
+            return new ResourceLocation(p[0].toLowerCase(java.util.Locale.ROOT), p[1].toLowerCase(java.util.Locale.ROOT));
         }
-        return new ResourceLocation(org.zonarstudio.spraute_engine.Spraute_engine.MODID, path);
+        return new ResourceLocation(org.zonarstudio.spraute_engine.Spraute_engine.MODID, path.toLowerCase(java.util.Locale.ROOT));
     }
 }

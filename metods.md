@@ -15,8 +15,10 @@
 | `await` | Ожидание события / времени / задачи (см. ниже) |
 | `create npc` | Блок создания NPC |
 | `create ui` | Блок описания UI (шаблон + обработчики) |
-| `create block` | Декларация кастомного блока (см. раздел "Создание кастомных ресурсов") |
+| `create block` | Декларация кастомного блока (дроп, руда в мире — см. раздел «Создание кастомных ресурсов») |
 | `create item` | Декларация кастомного предмета (см. раздел "Создание кастомных ресурсов") |
+| `create craft` | Рецепт крафта (`any` / `slots`, замена ингредиентов) |
+| `create drop` | Кастомный дроп при ломании блока (в т.ч. ванильного) |
 | `create particle` | Декларация кастомного партикла (см. раздел "Создание кастомных ресурсов") |
 | `if` / `else` / `else if` | Условия |
 | `while` | Цикл |
@@ -121,6 +123,72 @@ setPlayerDigSpeed(player, 2.0)
 ### `setBlock(x, y, z, block_id)`
 Устанавливает блок по указанным координатам.
 Пример: `setBlock(10, 65, -5, "minecraft:stone")`
+
+### Кинематографическая камера
+
+Управляет видом **конкретного игрока** (клиентская камера, не привязка к НИПу). После сцены вызывайте `stopCamera(player)`.
+
+| Функция | Описание |
+|---------|----------|
+| `setCamera(player, x, y, z)` | Камера в точке; yaw/pitch — текущие у игрока |
+| `setCamera(player, x, y, z, yaw, pitch)` | Позиция и поворот (градусы) |
+| `setCamera(player, x, y, z, yaw, pitch, holdTime, smoothTime)` | Плавный переход за `smoothTime` сек, удержание `holdTime` сек, затем возврат; **`smoothTime = 0` — мгновенно** |
+| `setCamera(..., lockMovement, hideGui)` | Блокировка ходьбы и скрытие HUD (см. ниже) |
+| `setCameraLookAt(player, camX, camY, camZ, lookX, lookY, lookZ, [hold, smooth, track, lockMovement, hideGui])` | Камера смотрит на координаты |
+| `setCameraLookAt(player, camX, camY, camZ, entity, [hold, smooth, track, lockMovement, hideGui])` | Камера смотрит на игрока/НИПа/моба; `track=true` — слежение |
+| `animateCamera(player, x, y, z, yaw, pitch, smoothTime, [lockMovement, hideGui])` | Плавно переместить активную камеру |
+| `animateCameraLookAt(player, x, y, z, target, smoothTime, [track, lockMovement, hideGui])` | Плавный перелёт + взгляд на цель |
+| `stopCamera(player)` | Плавно вернуть вид игроку за 0.5 сек (отменяет перелёт и слежение) |
+| `stopCamera(player, smoothTime)` | Плавный возврат за указанное время; `0` — мгновенно |
+| `resetCamera(player)` | Мгновенно отключить камеру и вернуть управление |
+| `playCameraRoute(player, routeName, [lockMovement, hideGui, returnSmooth])` | Пролёт по сохранённому маршруту из `spraute_engine/routes/`; возвращает длительность в секундах |
+| `await cameraRoute(player, routeName, [lockMovement, hideGui, returnSmooth])` | То же, но скрипт ждёт окончания пролёта |
+
+**Команды маршрута (в игре):**
+
+| Команда | Описание |
+|---------|----------|
+| `/spraute route preview <имя>` | Предпросмотр маршрута для себя |
+| `/spraute route list` | Список сохранённых маршрутов |
+
+Маршруты создаются предметом **Камера** в креативе и сохраняются в `spraute_engine/routes/<имя>.json`.
+
+**Параметры при старте камеры** (по умолчанию применяются автоматически, если не указаны иначе):
+
+| Параметр | По умолчанию | Значения |
+|----------|--------------|----------|
+| `lockMovement` | `true` | Блокировать WASD/прыжок/присед у игрока |
+| `hideGui` | `"minecraft"` | `"none"` — не скрывать; `"minecraft"` — ванильный HUD; `"all"` — весь HUD включая Spraute UI |
+
+Блок `camera id { ... }` — то же через декларативный синтаксис:
+
+```text
+camera intro {
+  target = player
+  pos = 100, 80, 200
+  rotate = 45, -15
+  lookAt = knight
+  track = true
+  time = 5
+  smooth = true
+  smoothTime = 1.0
+  lockMovement = true
+  hideGui = "minecraft"
+}
+```
+
+Алиасы: `set_camera`, `set_camera_look_at`, `animate_camera`, `stop_camera`, `reset_camera`, `play_camera_route`, `disable_camera`.
+
+```text
+setCamera(player, 10, 80, 10, 90, 0, 3, 0.8)
+setCamera(player, 10, 80, 10, 90, 0, 0, 0)   # мгновенно
+setCameraLookAt(player, 10, 80, 10, knight, 5, 1.0, true, true, "minecraft")
+animateCamera(player, 20, 85, 15, 120, -10, 1.5)
+playCameraRoute(player, "intro")
+await cameraRoute(player, "intro", true, "minecraft", 0.8)
+stopCamera(player)
+resetCamera(player)
+```
 
 ### `player.heldItem([hand])` и `player.heldItemNbt([hand])`
 *   `player.heldItem("right")` или `player.heldItem("left")` (также `"main_hand"`, `"offhand"`) — возвращает ID предмета, который игрок держит в руке. Если не указать аргумент, проверяет правую (основную) руку.
@@ -387,6 +455,9 @@ npc_chat(player, my_guard, "Проход закрыт, уходи отсюда!"
 | `rotate` | `yaw, pitch` |
 | `show_name` | Показывать имя (по умолчанию true, если не указано) |
 | `collision` | Наличие коллизии (по умолчанию true). При false другие существа могут проходить сквозь NPC |
+| `hitbox` | `[ширина, высота]` или `[ширина, высота, ox, oy, oz]` — основной хитбокс |
+| `hitbox_preset` | `"player"`, `"small"` или `"large"` — стандартный размер |
+| `bone_hitboxes` | Список костных хитбоксов: `[[кость, w, h, d], [id, кость, w, h, d, ox, oy, oz], ...]` |
 | `model`, `texture`, `idle_anim`, `walk_anim` | Ресурсы Spraute NPC |
 | `drop_item` | Строка, ID предмета, который выпадает при смерти NPC (например, `"minecraft:iron_sword"`). Добавление нескольких предметов см. метод `addDrop` |
 | `drop_min`, `drop_max` | Числа, минимальное и максимальное количество предметов в дропе |
@@ -423,17 +494,53 @@ create particle my_magic_spark {
 - `model` (строка) — путь к кастомной модели (если не указано, сгенерируется куб).
 - `texture` (строка) — путь к текстуре со всех сторон.
 - `texture_up`, `texture_down`, `texture_north`, `texture_south`, `texture_west`, `texture_east` (строки) — если нужно задать разные текстуры для разных сторон (переопределяют `texture`).
-- `collision` (true/false) — есть ли у блока хитбокс (по умолчанию `true`).
+- `collision` (true/false) — есть ли у блока хитбокс коллизии (по умолчанию `true`). При `false` через блок можно ходить.
+- `hitbox` — форма коллизии и обводки:
+  - **6 чисел** — точные границы в пикселях блока (0–16): `[minX, minY, minZ, maxX, maxY, maxZ]`
+  - **3 числа** — `[ширина, глубина, высота]` в долях блока (`1` = весь блок), по центру X/Z, от пола
+  - **2 числа** — `[ширина, высота]` — квадрат в плане, по центру (удобно для плит, столбов)
+  - Примеры: `hitbox = [1, 0.5]` — плита на полблока; `hitbox = [0, 0, 0, 16, 8, 16]` — то же в полном формате
+- `directional` (true/false) — поворачивать блок при установке по взгляду игрока (по умолчанию `true`). Кастомный `hitbox` тоже крутится вместе с блоком.
 - `light` (число) — уровень свечения от 0 до 15.
 - `hardness` (число) — прочность блока (по умолчанию `1.5`).
-- `drop` (строка) — id предмета, который выпадает при ломании. Если не указано, выпадает сам блок.
-- **Генерация руд:**
-  - `is_ore` (true/false) — является ли блок рудой, генерируемой в мире.
+- `drop` (строка) — id предмета при ломании (`spraute_engine:battery`, `minecraft:raw_iron`, `none` — ничего). По умолчанию выпадает сам блок.
+- `drop_count` (число) — количество для `drop` (по умолчанию `1`).
+- `drop_replace` (true/false) — если `true`, сам блок не выпадает, только кастомный дроп. Автоматически `true` при указании `drop` или `drops`.
+- `drops` (массив) — несколько дропов с шансом: `[["minecraft:coal", мин, макс, шанс_%], ...]`.
+- **Генерация руд в мире** (нужен **новый мир** или неисследованные чанки):
+  - `is_ore` (true/false) — генерировать жилу в мире.
   - `ore_vein` (число) — размер жилы (по умолчанию `8`).
-  - `ore_min` (число) — минимальная высота генерации (по умолчанию `-64`).
-  - `ore_max` (число) — максимальная высота генерации (по умолчанию `64`).
-  - `ore_chances` (число) — шансы (количество попыток) генерации на чанк (по умолчанию `10`).
-  - `ore_dimension` (строка) — измерение для генерации руды. Принимает полные имена (например, `"minecraft:overworld"`, `"minecraft:the_nether"`, `"minecraft:the_end"`). По умолчанию `"minecraft:overworld"`.
+  - `ore_min` (число) — минимальная высота (по умолчанию `-64`).
+  - `ore_max` (число) — максимальная высота (по умолчанию `64`).
+  - `ore_chances` (число) — попыток генерации на чанк (по умолчанию `10`).
+  - `ore_dimension` (строка) — `"minecraft:overworld"`, `"minecraft:the_nether"`, `"minecraft:the_end"`.
+
+**Пример руды с кастомным дропом:**
+```
+create block raya_crystal_ore {
+    texture      = "textures/block/crystal_ore.png"
+    hardness     = 4.0
+    is_ore       = true
+    ore_vein     = 6
+    ore_min      = -32
+    ore_max      = 48
+    ore_chances  = 4
+    drop         = "battery"
+    drop_count   = 1
+}
+```
+
+**Дроп для любого блока (в т.ч. ванильного) — `create drop`:**
+```
+create drop stone_coal {
+    block   = "minecraft:stone"
+    item    = "minecraft:coal"
+    min     = 1
+    max     = 2
+    chance  = 5
+    replace = false
+}
+```
 
 ### Блок `create item id { ... }`
 
@@ -579,30 +686,66 @@ create block magic_stone {
     drop = "spraute_engine:magic_stick"
     tab = "my_tab"
 }
+
+# Руда в мире + дроп предмета вместо блока:
+create block magic_ore {
+    texture = "textures/block/magic_ore.png"
+    hardness = 3.0
+    is_ore = true
+    ore_vein = 7
+    ore_min = -16
+    ore_max = 64
+    ore_chances = 6
+    drop = "magic_stick"
+    drop_replace = true
+    tab = "my_tab"
+}
+
+# Плита на половину высоты:
+create block magic_slab {
+    texture = "textures/block/magic_slab.png"
+    hardness = 2.0
+    hitbox = [1, 0.5]
+    tab = "my_tab"
+}
+
+# Узкая колонна 0.4×0.4×1.2 блока:
+create block magic_pillar {
+    texture = "textures/block/pillar.png"
+    hitbox = [0.4, 0.4, 1.2]
+}
 ```
 
 ### Рецепты (Крафты)
 Вы можете добавлять рецепты прямо в скрипт с помощью `create craft`.
 
-**Обычный крафт (в верстаке, shaped):**
+**Два режима верстака:**
+- `type = "any"` (или `shapeless`) — ингредиенты в любом порядке, слоты не важны.
+- `type = "slots"` (или `shaped`, `grid`) — фиксированная схема в сетке 3×3.
+
+**Замена предметов (любой из списка / тег):**
+- Тег Minecraft: `"#minecraft:planks"`, `"#minecraft:logs"`
+- Свой список: `["minecraft:oak_planks", "minecraft:birch_planks", "minecraft:spruce_planks"]`
+
+**Крафт по слотам (slots / shaped):**
 ```
 create craft my_sword {
-    type = "shaped"
+    type = "slots"
     pattern_1 = " I "
     pattern_2 = " I "
     pattern_3 = " S "
     key_I = "minecraft:iron_ingot"
-    key_S = "minecraft:stick"
+    key_S = ["minecraft:stick", "minecraft:bamboo"]  # любая палка/бамбук
     result = "spraute_engine:magic_stick"
     count = 1
 }
 ```
 
-**Крафт без формы (shapeless):**
+**Крафт без слотов (any / shapeless):**
 ```
 create craft my_shapeless {
-    type = "shapeless"
-    ingredients = ["minecraft:iron_ingot", "minecraft:stick"]
+    type = "any"
+    ingredients = ["minecraft:iron_ingot", "#minecraft:planks"]
     result = "minecraft:iron_sword"
     count = 1
 }
@@ -612,8 +755,8 @@ create craft my_shapeless {
 ```
 create craft iron_ingot {
     type = "smelting"
-    ingredient = "minecraft:iron_ore"
-    result = "minecraft:iron_ingot"
+    ingredient = "#minecraft:logs"
+    result = "minecraft:charcoal"
     xp = 0.7
     time = 200
 }
@@ -786,7 +929,16 @@ my_obj.nested_obj.x = 10
 | `stopOverlay()` | сброс оверлея |
 | `stop("animName")` | остановить оверлей, если имя совпадает |
 | `setAdditiveWeight(w)` | 0…1, процедурный вес |
-| `setHitbox(w, h)` | Изменяет размеры коллизии (хитбокса) NPC |
+| `setHitbox(w, h)` | Размер основного хитбокса (ширина × высота, в блоках) |
+| `setHitbox(w, h, ox, oy, oz)` | Размер + смещение центра хитбокса (блоки) |
+| `setHitboxOffset(ox, oy, oz)` | Смещение основного хитбокса |
+| `resetHitbox()` | Сброс к 0.6 × 1.8 без смещения |
+| `setHitboxPreset("player" \| "small" \| "large")` | Стандартные пресеты размеров |
+| `addBoneHitbox(bone, w, h, d)` | Доп. хитбокс у кости (следует за анимацией) |
+| `addBoneHitbox(id, bone, w, h, d, ox, oy, oz)` | Костный хитбокс с id и смещением (смещение в 1/16 блока) |
+| `removeBoneHitbox(id)` | Удалить костный хитбокс |
+| `clearBoneHitboxes()` | Убрать все костные хитбоксы |
+| `showHitboxDebug(true/false)` | Подсветка хитбоксов в мире (отладка) |
 | `setDeathAnim(anim)` | Название кастомной анимации смерти (по умолчанию `"death"`) |
 
 Второй аргумент анимации:  
@@ -803,9 +955,21 @@ my_obj.nested_obj.x = 10
 | `setSwimming(bool)` | Включает режим "амфибии", позволяя NPC плавать в воде |
 | `setSwimIdleAnim(anim)` | Анимация бездействия в воде |
 | `setSwimWalkAnim(anim)` | Анимация движения в воде |
-| `setFlying(bool)` | Отключает гравитацию и включает воздушную навигацию |
+| `setFlying(bool)` | Вкл/выкл полёт (при выкл. также останавливает движение) |
+| `flyTo(x, y, z, [speed])` | Включить полёт и лететь к точке. С **`await`** — ждать прибытия |
+| `flyTo(entity, [speed])` | Включить полёт и лететь к сущности. С **`await`** — ждать сближения |
+| `alwaysFlyTo(x, y, z, [speed])` | Постоянно лететь к точке |
+| `alwaysFlyTo(entity, [speed])` | Постоянно лететь за сущностью |
 | `setFlyIdleAnim(anim)` | Анимация зависания в воздухе |
 | `setFlyWalkAnim(anim)` | Анимация полета |
+
+```text
+knight.setFlying(true)
+knight.flyTo(10, 80, 10, 1.2)
+await knight.flyTo(20, 90, 5)
+knight.alwaysFlyTo(player, 1.0)
+knight.setFlying(false)
+```
 
 #### Управление
 | Метод | Описание |

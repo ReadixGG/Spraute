@@ -41,18 +41,12 @@ public final class SprauteGuiDraw {
         net.minecraft.client.gui.GuiComponent.blit(pose, x, y, u, v, w, h, tw, th);
     }
     public static void blitRegion(PoseStack pose, int x, int y, int dw, int dh, int su, int sv, int sw, int sh, int tw, int th) {
-        com.mojang.blaze3d.vertex.BufferBuilder bufferbuilder = com.mojang.blaze3d.vertex.Tesselator.getInstance().getBuilder();
-        com.mojang.math.Matrix4f matrix4f = pose.last().pose();
-        float u0 = (float) su / tw;
-        float v0 = (float) sv / th;
-        float u1 = (float) (su + sw) / tw;
-        float v1 = (float) (sv + sh) / th;
-        bufferbuilder.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS, com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_TEX);
-        bufferbuilder.vertex(matrix4f, (float) x, (float) (y + dh), 0.0F).uv(u0, v1).endVertex();
-        bufferbuilder.vertex(matrix4f, (float) (x + dw), (float) (y + dh), 0.0F).uv(u1, v1).endVertex();
-        bufferbuilder.vertex(matrix4f, (float) (x + dw), (float) y, 0.0F).uv(u1, v0).endVertex();
-        bufferbuilder.vertex(matrix4f, (float) x, (float) y, 0.0F).uv(u0, v0).endVertex();
-        com.mojang.blaze3d.vertex.Tesselator.getInstance().end();
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
+        com.mojang.blaze3d.systems.RenderSystem.disableDepthTest();
+        net.minecraft.client.gui.GuiComponent.blit(pose, x, y, dw, dh, (float) su, (float) sv, sw, sh, tw, th);
+        com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
     }
     public static void drawCenteredString(PoseStack pose, Font font, String text, int x, int y, int color) {
         net.minecraft.client.gui.GuiComponent.drawCenteredString(pose, font, text, x, y, color);

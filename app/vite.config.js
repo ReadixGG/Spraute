@@ -14,6 +14,9 @@ export default defineConfig({
   base: './',
   root: '.',
   plugins: [stripCrossoriginForElectron()],
+  optimizeDeps: {
+    entries: ['./index.html', './code.html'],
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,

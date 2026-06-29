@@ -78,5 +78,9 @@ public class ModNetwork {
                 StepHeightSyncPacket::encode,
                 StepHeightSyncPacket::decode,
                 StepHeightSyncPacket::handle);
+        CHANNEL.registerMessage(id++, CameraRoutePlayPacket.class,
+                CameraRoutePlayPacket::encode,
+                CameraRoutePlayPacket::decode,
+                CameraRoutePlayPacket::handle);
     }
 }

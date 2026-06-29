@@ -2,6 +2,8 @@ package org.zonarstudio.spraute_engine.script.function;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 import org.zonarstudio.spraute_engine.script.PlayerMotionContext;
 import org.zonarstudio.spraute_engine.script.ScriptContext;
@@ -10,18 +12,26 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Player velocity (delta movement) in blocks/tick — {@link net.minecraft.world.entity.Entity#getDeltaMovement()}.
+ * Entity velocity (delta movement) in blocks/tick — {@link Entity#getDeltaMovement()}.
+ * Accepts players, NPCs, and any living entity.
  */
 public class PlayerMotionFunctions {
 
-    private static ServerPlayer resolvePlayer(Object arg, CommandSourceStack source) {
-        if (arg instanceof ServerPlayer sp) return sp;
-        if (arg instanceof net.minecraft.world.entity.player.Player p && source.getServer() != null) {
-            ServerPlayer byUuid = source.getServer().getPlayerList().getPlayer(p.getUUID());
-            if (byUuid != null) return byUuid;
+    /** Try to resolve as player first, then fall back to any entity by name/UUID. */
+    private static Entity resolveEntity(Object arg, CommandSourceStack source) {
+        if (arg instanceof Entity e) return e;
+        // Try by player name
+        if (source.getServer() != null) {
+            ServerPlayer sp = source.getServer().getPlayerList().getPlayerByName(String.valueOf(arg));
+            if (sp != null) return sp;
         }
-        if (source.getServer() == null) return null;
-        return source.getServer().getPlayerList().getPlayerByName(String.valueOf(arg));
+        return null;
+    }
+
+    /** Kept for backward-compat with code that calls resolvePlayer internally. */
+    private static ServerPlayer resolvePlayer(Object arg, CommandSourceStack source) {
+        Entity e = resolveEntity(arg, source);
+        return e instanceof ServerPlayer sp ? sp : null;
     }
 
     private static List<Object> vecToList(Vec3 v) {
@@ -59,7 +69,7 @@ public class PlayerMotionFunctions {
         return null;
     }
 
-    /** getPlayerMotion(player) → [vx, vy, vz] */
+    /** getPlayerMotion(entity) → [vx, vy, vz] — works for players, NPCs, mobs */
     public static class GetPlayerMotion implements ScriptFunction {
         @Override public String getName() { return "getPlayerMotion"; }
         @Override public int getArgCount() { return 1; }
@@ -68,13 +78,13 @@ public class PlayerMotionFunctions {
         @Override
         public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
             if (args.isEmpty()) return null;
-            ServerPlayer player = resolvePlayer(args.get(0), source);
-            if (player == null) return null;
-            return vecToList(player.getDeltaMovement());
+            Entity entity = resolveEntity(args.get(0), source);
+            if (entity == null) return null;
+            return vecToList(entity.getDeltaMovement());
         }
     }
 
-    /** setPlayerMotion(player, vx, vy, vz) or setPlayerMotion(player, [vx, vy, vz]) */
+    /** setPlayerMotion(entity, vx, vy, vz) — works for players, NPCs, mobs */
     public static class SetPlayerMotion implements ScriptFunction {
         @Override public String getName() { return "setPlayerMotion"; }
         @Override public int getArgCount() { return -1; }
@@ -83,17 +93,17 @@ public class PlayerMotionFunctions {
         @Override
         public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
             if (args.size() < 2) return null;
-            ServerPlayer player = resolvePlayer(args.get(0), source);
-            if (player == null) return null;
+            Entity entity = resolveEntity(args.get(0), source);
+            if (entity == null) return null;
             Vec3 motion = parseVec(args, 1);
             if (motion == null) return null;
-            player.setDeltaMovement(motion);
-            player.hurtMarked = true;
+            entity.setDeltaMovement(motion);
+            entity.hurtMarked = true;
             return null;
         }
     }
 
-    /** addPlayerMotion(player, dx, dy, dz) — добавить к текущей скорости, не заменяя её */
+    /** addPlayerMotion(entity, dx, dy, dz) — добавить к текущей скорости */
     public static class AddPlayerMotion implements ScriptFunction {
         @Override public String getName() { return "addPlayerMotion"; }
         @Override public int getArgCount() { return -1; }
@@ -102,27 +112,27 @@ public class PlayerMotionFunctions {
         @Override
         public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
             if (args.size() < 2) return null;
-            ServerPlayer player = resolvePlayer(args.get(0), source);
-            if (player == null) return null;
+            Entity entity = resolveEntity(args.get(0), source);
+            if (entity == null) return null;
             Vec3 delta = parseVec(args, 1);
             if (delta == null) return null;
-            Vec3 cur = player.getDeltaMovement();
+            Vec3 cur = entity.getDeltaMovement();
             double nx = cur.x;
             double nz = cur.z;
             boolean verticalOnly = Math.abs(delta.x) < 1.0e-9 && Math.abs(delta.z) < 1.0e-9;
-            if (verticalOnly) {
-                double[] preserved = PlayerMotionContext.consumePreservedHorizontal(player.getUUID());
+            if (verticalOnly && entity instanceof ServerPlayer sp) {
+                double[] preserved = PlayerMotionContext.consumePreservedHorizontal(sp.getUUID());
                 if (preserved != null) {
                     nx = preserved[0];
                     nz = preserved[1];
                 }
-            } else {
+            } else if (!verticalOnly) {
                 nx = cur.x + delta.x;
                 nz = cur.z + delta.z;
             }
             double ny = cur.y + delta.y;
-            player.setDeltaMovement(nx, ny, nz);
-            player.hurtMarked = true;
+            entity.setDeltaMovement(nx, ny, nz);
+            entity.hurtMarked = true;
             return null;
         }
     }

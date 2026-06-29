@@ -45,7 +45,7 @@ public final class SprauteStepHeightCompat {
     public static void applyTick(ServerPlayer player, float totalBlocks) {
         if (player == null) return;
         //? if >=1.20.1 {
-        // Атрибут Forge сам обновляет maxUpStep при изменении; повторная установка не нужна.
+        // Forge attribute keeps maxUpStep in sync; no per-tick reapply needed.
         //?} else {
         /*SprautePlayerCompat.setStepHeight(player, totalBlocks);
         *///?}

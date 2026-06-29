@@ -38,6 +38,21 @@ public final class SprauteEntityCompat {
         *///?}
     }
 
+    /** Outline glow visible through blocks — not the Glowing potion effect. */
+    public static void setGlowing(Entity entity, boolean glowing) {
+        if (entity == null) return;
+        //? if >=1.20.1 {
+        entity.setGlowingTag(glowing);
+        //?} else {
+        /*entity.setGlowingTag(glowing);
+        *///?}
+    }
+
+    public static boolean isGlowing(Entity entity) {
+        if (entity == null) return false;
+        return entity.isCurrentlyGlowing();
+    }
+
     public static ServerLevel serverLevel(ServerPlayer player) {
         //? if >=1.20.1 {
         return player.serverLevel();

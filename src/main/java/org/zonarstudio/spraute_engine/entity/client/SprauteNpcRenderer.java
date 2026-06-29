@@ -84,6 +84,23 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
     }
 
     @Override
+    protected void renderNameTag(SprauteNpcEntity entity,
+                                 net.minecraft.network.chat.Component displayName,
+                                 PoseStack poseStack,
+                                 MultiBufferSource bufferSource,
+                                 int packedLight) {
+        float extra = entity.getNameYOffset();
+        if (extra != 0f) {
+            poseStack.pushPose();
+            poseStack.translate(0.0, extra, 0.0);
+            super.renderNameTag(entity, displayName, poseStack, bufferSource, packedLight);
+            poseStack.popPose();
+        } else {
+            super.renderNameTag(entity, displayName, poseStack, bufferSource, packedLight);
+        }
+    }
+
+    @Override
     public boolean shouldShowName(SprauteNpcEntity entity) {
         if (org.zonarstudio.spraute_engine.client.SprauteScriptScreen.hideEntityNameTag) return false;
         return entity.isCustomNameVisible() && entity.hasCustomName();
@@ -223,6 +240,8 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
             }
         }
 
+        boolean unlimited = entity.isHeadLookUnlimited();
+
         if (entity.tickCount != entry.lastHeadSmoothTick) {
             entry.lastHeadSmoothTick = entity.tickCount;
 
@@ -232,16 +251,22 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
             float targetLocal = 0f;
             if (entity.isHeadLookActive()) {
                 targetLocal = Mth.degreesDifference(entity.yBodyRot, lookAzimuthWorld);
-                targetLocal = Mth.clamp(targetLocal, -MAX_HEAD_YAW, MAX_HEAD_YAW);
+                if (!unlimited) {
+                    targetLocal = Mth.clamp(targetLocal, -MAX_HEAD_YAW, MAX_HEAD_YAW);
+                }
             }
 
             entry.smoothHeadLocalYaw = Mth.approachDegrees(entry.smoothHeadLocalYaw, targetLocal, HEAD_LOCAL_SMOOTH_SPEED);
-            entry.smoothHeadLocalYaw = Mth.clamp(entry.smoothHeadLocalYaw, -MAX_HEAD_YAW, MAX_HEAD_YAW);
+            if (!unlimited) {
+                entry.smoothHeadLocalYaw = Mth.clamp(entry.smoothHeadLocalYaw, -MAX_HEAD_YAW, MAX_HEAD_YAW);
+            }
             entry.smoothHeadPitch = Mth.approach(entry.smoothHeadPitch, targetPitch, HEAD_LOOK_PITCH_SPEED);
             entry.smoothHeadPitch = Mth.clamp(entry.smoothHeadPitch, -MAX_HEAD_PITCH_UP, MAX_HEAD_PITCH_DOWN);
         }
 
-        float renderLocalYaw = Mth.clamp(
+        float renderLocalYaw = unlimited
+                ? Mth.rotLerp(partialTick, entry.smoothHeadLocalYawO, entry.smoothHeadLocalYaw)
+                : Mth.clamp(
                 Mth.rotLerp(partialTick, entry.smoothHeadLocalYawO, entry.smoothHeadLocalYaw),
                 -MAX_HEAD_YAW, MAX_HEAD_YAW);
         float renderPitch = Mth.clamp(
@@ -256,6 +281,16 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
 
     private static final String AUTO_IDLE_KEY = "__auto_idle__";
     private static final String AUTO_WALK_KEY = "__auto_walk__";
+
+    /** If preferred clip is missing (e.g. default fly_idle), fall back to ground idle/walk. */
+    private static String resolveAutoClipName(SprauteNpcEntity entity, String preferred, String fallback) {
+        if (preferred == null || preferred.isEmpty()) return preferred;
+        org.zonarstudio.spraute_engine.core.parser.SpAnimationParser.AnimationSet set =
+                SpAnimationCache.getOrLoad(entity.getAnimation());
+        if (set != null && set.get(preferred) != null) return preferred;
+        if (fallback != null && !fallback.isEmpty() && set != null && set.get(fallback) != null) return fallback;
+        return preferred;
+    }
 
     private void applyOverlayAnimations(SprauteNpcEntity entity, float partialTick, SpModelInstance instance, InstanceEntry entry) {
         syncOverlayState(entity, partialTick, entry);
@@ -313,6 +348,8 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
         
         String idleAnimName = flying ? entity.getFlyIdleAnim() : (swimming ? entity.getSwimIdleAnim() : entity.getIdleAnim());
         String walkAnimName = flying ? entity.getFlyWalkAnim() : (swimming ? entity.getSwimWalkAnim() : entity.getWalkAnim());
+        idleAnimName = resolveAutoClipName(entity, idleAnimName, entity.getIdleAnim());
+        walkAnimName = resolveAutoClipName(entity, walkAnimName, entity.getWalkAnim());
         String deathAnimName = entity.getDeathAnim();
 
         float now = entity.tickCount + partialTick;
@@ -354,6 +391,34 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
         boolean hasIdle = idleAnimName != null && !idleAnimName.isEmpty();
         boolean hasWalk = walkAnimName != null && !walkAnimName.isEmpty();
         if (!hasIdle && !hasWalk) return;
+
+        // When idle and walk use the SAME clip (common for flying NPCs like Raya), play a single
+        // continuous loop. Otherwise rapid moving<->idle toggling restarts the clip every few ticks
+        // and the animation appears frozen at frame 0.
+        if (hasIdle && hasWalk && idleAnimName.equals(walkAnimName)) {
+            // Fade out any walk layer so only the idle layer drives the continuous loop.
+            OverlayLayerState walkLayer = entry.layers.get(AUTO_WALK_KEY);
+            if (walkLayer != null && walkLayer.fadeOutStartTick < 0f) {
+                walkLayer.fadeOutStartTick = now;
+            }
+            OverlayLayerState idleLayer = entry.layers.get(AUTO_IDLE_KEY);
+            if (idleLayer == null) {
+                idleLayer = new OverlayLayerState();
+                idleLayer.clipName = idleAnimName;
+                idleLayer.mode = SprauteNpcEntity.OVERLAY_LOOP;
+                idleLayer.startTick = now;
+                idleLayer.fadeInStartTick = now;
+                idleLayer.fadeOutStartTick = -1f;
+                entry.layers.put(AUTO_IDLE_KEY, idleLayer);
+            } else if (idleLayer.fadeOutStartTick >= 0f) {
+                idleLayer.clipName = idleAnimName;
+                idleLayer.mode = SprauteNpcEntity.OVERLAY_LOOP;
+                idleLayer.startTick = now;
+                idleLayer.fadeInStartTick = now;
+                idleLayer.fadeOutStartTick = -1f;
+            }
+            return;
+        }
 
         boolean moving = entity.isMovingSynced();
 

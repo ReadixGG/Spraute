@@ -290,6 +290,14 @@ public class SprauteScriptScreen extends Screen {
     }
 
     private static int[] texturePixelSize(ResourceLocation rl) {
+        return texturePixelSize(rl, null);
+    }
+
+    private static int[] texturePixelSize(ResourceLocation rl, String pathHint) {
+        int[] fromDisk = readTextureSizeFromWorkspace(pathHint, rl);
+        if (fromDisk != null) {
+            return fromDisk;
+        }
         try {
             var opt = Minecraft.getInstance().getResourceManager().getResource(rl);
             if (opt.isPresent()) {
@@ -301,6 +309,53 @@ public class SprauteScriptScreen extends Screen {
         } catch (Exception ignored) {
         }
         return new int[]{256, 256};
+    }
+
+    /** Reads PNG dimensions from spraute_engine/ workspace (case-insensitive filename). */
+    private static int[] readTextureSizeFromWorkspace(String pathHint, ResourceLocation rl) {
+        String rel = pathHint;
+        if (rel == null || rel.isEmpty()) {
+            rel = rl != null ? rl.getNamespace() + ":" + rl.getPath() : "";
+        }
+        if (rel.contains(":")) {
+            rel = rel.split(":", 2)[1];
+        }
+        rel = rel.replace('\\', '/');
+        if (rel.isEmpty()) return null;
+
+        java.nio.file.Path gameDir = Minecraft.getInstance().gameDirectory.toPath();
+        java.nio.file.Path[] roots = {
+                gameDir.resolve("spraute_engine"),
+                gameDir.resolve("run").resolve("spraute_engine")
+        };
+        for (java.nio.file.Path root : roots) {
+            java.nio.file.Path disk = findCaseInsensitiveFile(root.resolve(rel));
+            if (disk != null && java.nio.file.Files.exists(disk)) {
+                try (var stream = java.nio.file.Files.newInputStream(disk);
+                     com.mojang.blaze3d.platform.NativeImage img = com.mojang.blaze3d.platform.NativeImage.read(stream)) {
+                    return new int[]{img.getWidth(), img.getHeight()};
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        return null;
+    }
+
+    private static java.nio.file.Path findCaseInsensitiveFile(java.nio.file.Path candidate) {
+        if (candidate != null && java.nio.file.Files.exists(candidate)) {
+            return candidate;
+        }
+        java.nio.file.Path parent = candidate != null ? candidate.getParent() : null;
+        if (parent == null || !java.nio.file.Files.isDirectory(parent)) {
+            return null;
+        }
+        String wanted = candidate.getFileName().toString();
+        try (var entries = java.nio.file.Files.list(parent)) {
+            return entries.filter(p -> p.getFileName().toString().equalsIgnoreCase(wanted))
+                    .findFirst().orElse(null);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     static String stripImageTextureRegion(String path) {
@@ -353,6 +408,52 @@ public class SprauteScriptScreen extends Screen {
     }
 
     //? if >=1.20.1 {
+    private static void renderNineSlice(GuiGraphics guiGraphics, ResourceLocation rl,
+                                        int ix, int iy, int w, int h, int borders, float sliceScale, String textureHint) {
+        int[] tex = texturePixelSize(rl, textureHint);
+        int tw = tex[0];
+        int th = tex[1];
+        int b = Math.min(borders, Math.min(tw, th) / 2); // texture-space border (source)
+        if (b <= 0) {
+            blitImageTexture(guiGraphics, rl, ix, iy, w, h, -1, -1, -1, -1);
+            return;
+        }
+        // Rendered border (destination). sliceScale < 1 makes the border finer/smaller on screen.
+        int bs = Math.max(1, Math.round(b * (sliceScale <= 0 ? 1f : sliceScale)));
+        bs = Math.min(bs, Math.min(w, h) / 2);
+        if (bs <= 0) bs = 1;
+
+        int midW = w - bs * 2;   // destination middle width
+        int midH = h - bs * 2;   // destination middle height
+        int srcMidW = tw - b * 2;
+        int srcMidH = th - b * 2;
+
+        // Corners (source b×b -> dest bs×bs, scaled).
+        nine(guiGraphics, rl, ix, iy, bs, bs, 0, 0, b, b, tw, th);
+        nine(guiGraphics, rl, ix + w - bs, iy, bs, bs, tw - b, 0, b, b, tw, th);
+        nine(guiGraphics, rl, ix, iy + h - bs, bs, bs, 0, th - b, b, b, tw, th);
+        nine(guiGraphics, rl, ix + w - bs, iy + h - bs, bs, bs, tw - b, th - b, b, b, tw, th);
+        // Edges.
+        if (midW > 0 && srcMidW > 0) {
+            nine(guiGraphics, rl, ix + bs, iy, midW, bs, b, 0, srcMidW, b, tw, th);
+            nine(guiGraphics, rl, ix + bs, iy + h - bs, midW, bs, b, th - b, srcMidW, b, tw, th);
+        }
+        if (midH > 0 && srcMidH > 0) {
+            nine(guiGraphics, rl, ix, iy + bs, bs, midH, 0, b, b, srcMidH, tw, th);
+            nine(guiGraphics, rl, ix + w - bs, iy + bs, bs, midH, tw - b, b, b, srcMidH, tw, th);
+        }
+        // Center.
+        if (midW > 0 && midH > 0 && srcMidW > 0 && srcMidH > 0) {
+            nine(guiGraphics, rl, ix + bs, iy + bs, midW, midH, b, b, srcMidW, srcMidH, tw, th);
+        }
+    }
+
+    /** Scaled region blit: source (su,sv,sw,sh) stretched into dest (x,y,dw,dh). */
+    private static void nine(GuiGraphics g, ResourceLocation rl, int x, int y, int dw, int dh,
+                             int su, int sv, int sw, int sh, int tw, int th) {
+        g.blit(rl, x, y, dw, dh, (float) su, (float) sv, sw, sh, tw, th);
+    }
+
     private static void blitImageTexture(GuiGraphics guiGraphics, ResourceLocation rl,
                                          int dx, int dy, int dw, int dh,
                                          int srcU, int srcV, int srcW, int srcH) {
@@ -365,7 +466,9 @@ public class SprauteScriptScreen extends Screen {
             int sh = Math.max(1, Math.round(srcH * scale));
             SprauteGuiDraw.blitRegion(guiGraphics, rl, dx, dy, dw, dh, su, sv, sw, sh, texSize[0], texSize[1]);
         } else {
-            SprauteGuiDraw.blit(guiGraphics, rl, dx, dy, 0f, 0f, dw, dh, texSize[0], texSize[1]);
+            // Stretch the WHOLE texture into the destination rect. A plain 1:1 blit reads dw×dh texels,
+            // which exceeds a small texture (UV > 1) and tiles via GL_REPEAT instead of stretching.
+            SprauteGuiDraw.blitRegion(guiGraphics, rl, dx, dy, dw, dh, 0, 0, texSize[0], texSize[1], texSize[0], texSize[1]);
         }
     }
     //?} else {
@@ -381,8 +484,55 @@ public class SprauteScriptScreen extends Screen {
             int sh = Math.max(1, Math.round(srcH * scale));
             SprauteGuiDraw.blitRegion(poseStack, dx, dy, dw, dh, su, sv, sw, sh, texSize[0], texSize[1]);
         } else {
-            SprauteGuiDraw.blit(poseStack, dx, dy, 0, 0, dw, dh, texSize[0], texSize[1]);
+            // Stretch the WHOLE texture into the destination rect (see 1.20.1 branch note).
+            SprauteGuiDraw.blitRegion(poseStack, dx, dy, dw, dh, 0, 0, texSize[0], texSize[1], texSize[0], texSize[1]);
         }
+    }*/
+    //?}
+
+    //? if <1.20.1 {
+    /*private static void renderNineSlice(PoseStack poseStack, ResourceLocation rl,
+                                        int ix, int iy, int w, int h, int borders, float sliceScale, String textureHint) {
+        int[] tex = texturePixelSize(rl, textureHint);
+        int tw = tex[0];
+        int th = tex[1];
+        int b = Math.min(borders, Math.min(tw, th) / 2);
+        if (b <= 0) {
+            blitImageTexture(poseStack, rl, ix, iy, w, h, -1, -1, -1, -1);
+            return;
+        }
+        int bs = Math.max(1, Math.round(b * (sliceScale <= 0 ? 1f : sliceScale)));
+        bs = Math.min(bs, Math.min(w, h) / 2);
+        if (bs <= 0) bs = 1;
+
+        int midW = w - bs * 2;
+        int midH = h - bs * 2;
+        int srcMidW = tw - b * 2;
+        int srcMidH = th - b * 2;
+
+        blitNineSliceRegion(poseStack, rl, ix, iy, bs, bs, 0, 0, b, b, tw, th);
+        blitNineSliceRegion(poseStack, rl, ix + w - bs, iy, bs, bs, tw - b, 0, b, b, tw, th);
+        blitNineSliceRegion(poseStack, rl, ix, iy + h - bs, bs, bs, 0, th - b, b, b, tw, th);
+        blitNineSliceRegion(poseStack, rl, ix + w - bs, iy + h - bs, bs, bs, tw - b, th - b, b, b, tw, th);
+
+        if (midW > 0 && srcMidW > 0) {
+            blitNineSliceRegion(poseStack, rl, ix + bs, iy, midW, bs, b, 0, srcMidW, b, tw, th);
+            blitNineSliceRegion(poseStack, rl, ix + bs, iy + h - bs, midW, bs, b, th - b, srcMidW, b, tw, th);
+        }
+        if (midH > 0 && srcMidH > 0) {
+            blitNineSliceRegion(poseStack, rl, ix, iy + bs, bs, midH, 0, b, b, srcMidH, tw, th);
+            blitNineSliceRegion(poseStack, rl, ix + w - bs, iy + bs, bs, midH, tw - b, b, b, srcMidH, tw, th);
+        }
+        if (midW > 0 && midH > 0 && srcMidW > 0 && srcMidH > 0) {
+            blitNineSliceRegion(poseStack, rl, ix + bs, iy + bs, midW, midH, b, b, srcMidW, srcMidH, tw, th);
+        }
+    }
+
+    private static void blitNineSliceRegion(PoseStack poseStack, ResourceLocation rl, int x, int y, int width, int height,
+                                          int u, int v, int uWidth, int vHeight, int tw, int th) {
+        RenderSystem.setShader(GameRenderer::getPositionTexShader);
+        RenderSystem.setShaderTexture(0, rl);
+        SprauteGuiDraw.blitRegion(poseStack, x, y, width, height, u, v, uWidth, vHeight, tw, th);
     }*/
     //?}
 
@@ -566,15 +716,15 @@ public class SprauteScriptScreen extends Screen {
             }
             if (w instanceof ButtonW bw) {
                 return switch (field) {
-                    case "x" -> new ButtonW(bw.id, (int)Float.parseFloat(value.trim()), bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
-                    case "y" -> new ButtonW(bw.id, bw.x, (int)Float.parseFloat(value.trim()), bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
-                    case "w" -> new ButtonW(bw.id, bw.x, bw.y, (int)Float.parseFloat(value.trim()), bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
-                    case "h" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, (int)Float.parseFloat(value.trim()), bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
-                    case "label" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, value, bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
-                    case "color" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), parseColor(value), bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
-                    case "hover" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, parseColor(value), bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
-                    case "texture" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, value, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
-                    case "tooltip" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, value, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "x" -> new ButtonW(bw.id, (int)Float.parseFloat(value.trim()), bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.sliceBorders(), bw.sliceScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "y" -> new ButtonW(bw.id, bw.x, (int)Float.parseFloat(value.trim()), bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.sliceBorders(), bw.sliceScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "w" -> new ButtonW(bw.id, bw.x, bw.y, (int)Float.parseFloat(value.trim()), bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.sliceBorders(), bw.sliceScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "h" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, (int)Float.parseFloat(value.trim()), bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.sliceBorders(), bw.sliceScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "label" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, value, bw.subLabel(), bw.color, bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.sliceBorders(), bw.sliceScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "color" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), parseColor(value), bw.hoverColor, bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.sliceBorders(), bw.sliceScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "hover" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, parseColor(value), bw.texture, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.sliceBorders(), bw.sliceScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "texture" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, value, bw.tooltip, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.sliceBorders(), bw.sliceScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
+                    case "tooltip" -> new ButtonW(bw.id, bw.x, bw.y, bw.w, bw.h, bw.label(), bw.subLabel(), bw.color, bw.hoverColor, bw.texture, value, bw.labelWrap(), bw.labelScale(), bw.subScale(), bw.sliceBorders(), bw.sliceScale(), bw.hoverChildren(), bw.hoverPw(), bw.hoverPh());
                     default -> w;
                 };
             }
@@ -771,7 +921,7 @@ public class SprauteScriptScreen extends Screen {
                     parseColor(w.has("color") ? w.get("color").getAsString() : "#44FFFFFF"), tooltip, wid);
             case "image" -> {
                 int sliceBorders = w.has("slice_borders") ? w.get("slice_borders").getAsInt() : 0;
-                int sliceScale = w.has("slice_scale") ? w.get("slice_scale").getAsInt() : 1;
+                float sliceScale = w.has("slice_scale") ? w.get("slice_scale").getAsFloat() : 1f;
                 int[] src = parseImageSrc(w);
                 yield new ImageW(x, y, ww, hh, w.has("texture") ? w.get("texture").getAsString() : "minecraft:textures/misc/unknown_pack.png", tooltip, wid, sliceBorders, sliceScale, src[0], src[1], src[2], src[3]);
             }
@@ -812,6 +962,8 @@ public class SprauteScriptScreen extends Screen {
                     w.has("labelWrap") ? readCoord(w, "labelWrap", pw) : 0,
                     w.has("labelScale") ? w.get("labelScale").getAsFloat() : 1f,
                     w.has("subScale") ? w.get("subScale").getAsFloat() : 0.65f,
+                    w.has("slice_borders") ? w.get("slice_borders").getAsInt() : 0,
+                    w.has("slice_scale") ? w.get("slice_scale").getAsFloat() : 1f,
                     hoverChildren, hpw, hph);
             }
             case "entity" -> {
@@ -1631,7 +1783,7 @@ public class SprauteScriptScreen extends Screen {
     }
 
     private record ImageW(int x, int y, int w, int h, String texture, String tooltip, String id,
-                          int sliceBorders, int sliceScale, int srcU, int srcV, int srcW, int srcH) implements Widget {
+                          int sliceBorders, float sliceScale, int srcU, int srcV, int srcW, int srcH) implements Widget {
         @Override public int getX() { return x; }
         @Override public int getY() { return y; }
         @Override public String getId() { return id; }
@@ -1657,37 +1809,13 @@ public class SprauteScriptScreen extends Screen {
             }
 
             if (sliceBorders > 0) {
-                int b = sliceBorders;
-                int bs = b * sliceScale;
-                int ix = ax0 + x;
-                int iy = ay0 + y;
-
-                SprauteGuiDraw.blit(guiGraphics, rl, ix, iy, 0, 0, bs, bs, 256, 256);
-                SprauteGuiDraw.blit(guiGraphics, rl, ix + w - bs, iy, 256 - b, 0, bs, bs, 256, 256);
-                SprauteGuiDraw.blit(guiGraphics, rl, ix, iy + h - bs, 0, 256 - b, bs, bs, 256, 256);
-                SprauteGuiDraw.blit(guiGraphics, rl, ix + w - bs, iy + h - bs, 256 - b, 256 - b, bs, bs, 256, 256);
-
-                if (w - bs * 2 > 0) {
-                    blitScaled(guiGraphics, rl, ix + bs, iy, w - bs * 2, bs, b, 0, 256 - b * 2, b);
-                    blitScaled(guiGraphics, rl, ix + bs, iy + h - bs, w - bs * 2, bs, b, 256 - b, 256 - b * 2, b);
-                }
-                if (h - bs * 2 > 0) {
-                    blitScaled(guiGraphics, rl, ix, iy + bs, bs, h - bs * 2, 0, b, b, 256 - b * 2);
-                    blitScaled(guiGraphics, rl, ix + w - bs, iy + bs, bs, h - bs * 2, 256 - b, b, b, 256 - b * 2);
-                }
-                if (w - bs * 2 > 0 && h - bs * 2 > 0) {
-                    blitScaled(guiGraphics, rl, ix + bs, iy + bs, w - bs * 2, h - bs * 2, b, b, 256 - b * 2, 256 - b * 2);
-                }
+                renderNineSlice(guiGraphics, rl, ax0 + x, ay0 + y, w, h, sliceBorders, sliceScale, texture);
             } else {
                 int[] src = resolveImageSrcRect(texture, srcU, srcV, srcW, srcH);
                 blitImageTexture(guiGraphics, rl, ax0 + x, ay0 + y, w, h, src[0], src[1], src[2], src[3]);
             }
 
             guiGraphics.setColor(1f, 1f, 1f, 1f);
-        }
-
-        private void blitScaled(GuiGraphics guiGraphics, ResourceLocation rl, int x, int y, int width, int height, float uOffset, float vOffset, int uWidth, int vHeight) {
-            guiGraphics.blit(rl, x, y, width, height, uOffset, vOffset, uWidth, vHeight, 256, 256);
         }
         //?} else {
         /*@Override
@@ -1700,31 +1828,7 @@ public class SprauteScriptScreen extends Screen {
             RenderSystem.defaultBlendFunc();
 
             if (sliceBorders > 0) {
-                int b = sliceBorders;
-                int bs = b * sliceScale;
-                int ix = ax0 + x;
-                int iy = ay0 + y;
-
-                // Draw corners
-                GuiComponent.blit(poseStack, ix, iy, 0, 0, bs, bs, 256, 256); // Top-Left
-                GuiComponent.blit(poseStack, ix + w - bs, iy, 256 - b, 0, bs, bs, 256, 256); // Top-Right
-                GuiComponent.blit(poseStack, ix, iy + h - bs, 0, 256 - b, bs, bs, 256, 256); // Bottom-Left
-                GuiComponent.blit(poseStack, ix + w - bs, iy + h - bs, 256 - b, 256 - b, bs, bs, 256, 256); // Bottom-Right
-
-                // Draw edges (scaled appropriately)
-                if (w - bs * 2 > 0) {
-                    blitScaled(poseStack, ix + bs, iy, w - bs * 2, bs, b, 0, 256 - b * 2, b); // Top
-                    blitScaled(poseStack, ix + bs, iy + h - bs, w - bs * 2, bs, b, 256 - b, 256 - b * 2, b); // Bottom
-                }
-                if (h - bs * 2 > 0) {
-                    blitScaled(poseStack, ix, iy + bs, bs, h - bs * 2, 0, b, b, 256 - b * 2); // Left
-                    blitScaled(poseStack, ix + w - bs, iy + bs, bs, h - bs * 2, 256 - b, b, b, 256 - b * 2); // Right
-                }
-
-                // Draw center
-                if (w - bs * 2 > 0 && h - bs * 2 > 0) {
-                    blitScaled(poseStack, ix + bs, iy + bs, w - bs * 2, h - bs * 2, b, b, 256 - b * 2, 256 - b * 2); // Center
-                }
+                renderNineSlice(poseStack, rl, ax0 + x, ay0 + y, w, h, sliceBorders, sliceScale, texture);
             } else {
                 int[] src = resolveImageSrcRect(texture, srcU, srcV, srcW, srcH);
                 blitImageTexture(poseStack, rl, ax0 + x, ay0 + y, w, h, src[0], src[1], src[2], src[3]);
@@ -1732,17 +1836,6 @@ public class SprauteScriptScreen extends Screen {
 
             RenderSystem.disableBlend();
             RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        }
-
-        private void blitScaled(PoseStack poseStack, int x, int y, int width, int height, float uOffset, float vOffset, int uWidth, int vHeight) {
-            com.mojang.blaze3d.vertex.BufferBuilder bufferbuilder = com.mojang.blaze3d.vertex.Tesselator.getInstance().getBuilder();
-            com.mojang.math.Matrix4f matrix4f = poseStack.last().pose();
-            bufferbuilder.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS, com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_TEX);
-            bufferbuilder.vertex(matrix4f, (float)x, (float)(y + height), 0.0F).uv(uOffset / 256.0F, (vOffset + (float)vHeight) / 256.0F).endVertex();
-            bufferbuilder.vertex(matrix4f, (float)(x + width), (float)(y + height), 0.0F).uv((uOffset + (float)uWidth) / 256.0F, (vOffset + (float)vHeight) / 256.0F).endVertex();
-            bufferbuilder.vertex(matrix4f, (float)(x + width), (float)y, 0.0F).uv((uOffset + (float)uWidth) / 256.0F, vOffset / 256.0F).endVertex();
-            bufferbuilder.vertex(matrix4f, (float)x, (float)y, 0.0F).uv(uOffset / 256.0F, vOffset / 256.0F).endVertex();
-            com.mojang.blaze3d.vertex.Tesselator.getInstance().end();
         }
         *///?}
     }
@@ -1964,7 +2057,7 @@ public class SprauteScriptScreen extends Screen {
     }
 
     private record ButtonW(String id, int x, int y, int w, int h, String label, String subLabel, int color, int hoverColor, String texture, String tooltip,
-                           int labelWrap, float labelScale, float subScale,
+                           int labelWrap, float labelScale, float subScale, int sliceBorders, float sliceScale,
                            List<Widget> hoverChildren, int hoverPw, int hoverPh) implements Widget {
         ButtonW {
             if (hoverChildren == null) hoverChildren = List.of();
@@ -2001,7 +2094,12 @@ public class SprauteScriptScreen extends Screen {
                 if (over) {
                     guiGraphics.setColor(1.1f, 1.1f, 1.1f, 1f);
                 }
-                SprauteGuiDraw.blit(guiGraphics, rl, bx, by, 0f, 0f, w, h, 256, 256);
+                if (sliceBorders > 0) {
+                    renderNineSlice(guiGraphics, rl, bx, by, w, h, sliceBorders, sliceScale, texture);
+                } else {
+                    int[] ts = texturePixelSize(rl);
+                    SprauteGuiDraw.blitRegion(guiGraphics, rl, bx, by, w, h, 0, 0, ts[0], ts[1], ts[0], ts[1]);
+                }
                 guiGraphics.setColor(1f, 1f, 1f, 1f);
             } else {
                 SprauteGuiDraw.fill(guiGraphics, bx, by, bx + w, by + h, over ? hoverColor : color);
@@ -2051,7 +2149,14 @@ public class SprauteScriptScreen extends Screen {
                 RenderSystem.setShader(GameRenderer::getPositionTexShader);
                 RenderSystem.setShaderColor(over ? 1.1f : 1f, over ? 1.1f : 1f, over ? 1.1f : 1f, 1f);
                 RenderSystem.setShaderTexture(0, rl);
-                GuiComponent.blit(poseStack, bx, by, 0f, 0f, w, h, 256, 256);
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
+                if (sliceBorders > 0) {
+                    renderNineSlice(poseStack, rl, bx, by, w, h, sliceBorders, sliceScale, texture);
+                } else {
+                    int[] ts = texturePixelSize(rl);
+                    SprauteGuiDraw.blitRegion(poseStack, bx, by, w, h, 0, 0, ts[0], ts[1], ts[0], ts[1]);
+                }
             } else {
                 GuiComponent.fill(poseStack, bx, by, bx + w, by + h, over ? hoverColor : color);
             }
@@ -2981,6 +3086,7 @@ public class SprauteScriptScreen extends Screen {
 
     @SubscribeEvent
     public static void onRenderOverlay(RenderGuiOverlayEvent.Post event) {
+        if (CameraHandler.shouldHideScriptGui()) return;
         if (!event.getOverlay().id().equals(VanillaGuiOverlay.CHAT_PANEL.id())) return;
         if (activeOverlays.isEmpty()) return;
 
@@ -2997,6 +3103,7 @@ public class SprauteScriptScreen extends Screen {
 
     @SubscribeEvent
     public static void onChatScreenRender(ScreenEvent.Render.Post event) {
+        if (CameraHandler.shouldHideScriptGui()) return;
         if (activeOverlays.isEmpty()) return;
         if (!(event.getScreen() instanceof ChatScreen)) return;
 

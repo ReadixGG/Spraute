@@ -36,6 +36,8 @@ public class CustomGeoBlockEntity extends BlockEntity {
     }
 
     public final Map<String, BlockDisplay> displays = new HashMap<>();
+    /** Other cells occupied by a multi-block footprint (master block only). */
+    public final java.util.List<BlockPos> multiblockParts = new java.util.ArrayList<>();
 
     public final SimpleContainer inventory = new SimpleContainer(54) {
         @Override
@@ -71,6 +73,12 @@ public class CustomGeoBlockEntity extends BlockEntity {
             displaysList.add(dt);
         }
         tag.put("Displays", displaysList);
+
+        if (!multiblockParts.isEmpty()) {
+            net.minecraft.nbt.LongArrayTag parts = new net.minecraft.nbt.LongArrayTag(
+                    multiblockParts.stream().mapToLong(BlockPos::asLong).toArray());
+            tag.put("MultiblockParts", parts);
+        }
     }
 
     @Override
@@ -81,6 +89,13 @@ public class CustomGeoBlockEntity extends BlockEntity {
         }
         
         displays.clear();
+        multiblockParts.clear();
+        if (tag.contains("MultiblockParts", Tag.TAG_LONG_ARRAY)) {
+            long[] raw = tag.getLongArray("MultiblockParts");
+            for (long l : raw) {
+                multiblockParts.add(BlockPos.of(l));
+            }
+        }
         if (tag.contains("Displays", Tag.TAG_LIST)) {
             ListTag list = tag.getList("Displays", Tag.TAG_COMPOUND);
             for (int i = 0; i < list.size(); i++) {

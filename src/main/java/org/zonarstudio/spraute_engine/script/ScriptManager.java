@@ -225,8 +225,8 @@ public class ScriptManager {
         executor.onClickBlock(player, pos, block, isLeft);
     }
 
-    public void onBreakBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block) {
-        executor.onBreakBlock(player, pos, block);
+    public boolean onBreakBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block) {
+        return executor.onBreakBlock(player, pos, block);
     }
 
     public boolean onPlaceBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block) {
@@ -247,6 +247,10 @@ public class ScriptManager {
 
     public void onPlayerAction(net.minecraft.world.entity.player.Player player, String actionType, Object target) {
         executor.onPlayerAction(player, actionType, target);
+    }
+
+    public void onPlayerDimensionChange(net.minecraft.server.level.ServerPlayer player, String fromDimension, String toDimension) {
+        executor.onPlayerDimensionChange(player, fromDimension, toDimension);
     }
 
     public void onOrbPickup(net.minecraft.server.level.ServerPlayer player, String texture, int amount) {

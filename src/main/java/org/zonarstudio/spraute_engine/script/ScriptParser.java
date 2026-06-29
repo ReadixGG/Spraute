@@ -765,7 +765,8 @@ public class ScriptParser {
     /** Property names valid inside widget { } blocks (anything else with `name = expr` is a variable assignment). */
     private static final Set<String> WIDGET_PROPERTY_NAMES = Set.of(
             "pos", "size", "x", "y", "w", "h", "color", "alpha", "scale", "wrap", "align", "layer",
-            "contentH", "content_h", "scrollbar", "autoScrollbar", "hover", "texture", "id", "slice_borders", "slice_scale",
+            "contentH", "content_h", "scrollbar", "autoScrollbar", "hover", "texture", "id",
+            "slice_borders", "slice_scale", "sliceBorders", "sliceScale",
             "feetCrop", "feet_crop", "crop", "anchor", "anchorX", "anchor_x", "anchorY", "anchor_y", "viewport", "tooltip", "block", "item",
             "labelWrap", "labelScale", "subLabel", "subScale", "bgColor", "outlineColor", "maxLines", "max_lines", "maxChars", "max_chars", "inputType", "placeholder", "gridType", "cellSize", "thickness", "src",
             "nameTag", "name_tag", "noLookAt", "no_look_at", "noFollowCursor", "no_follow_cursor", "noHurtAnim", "no_hurt_anim", "animation", "renderBones", "render_bones", "skinPlayer", "skin_player",

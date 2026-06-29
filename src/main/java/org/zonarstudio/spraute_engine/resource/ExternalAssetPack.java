@@ -48,6 +48,116 @@ public class ExternalAssetPack extends AbstractPackResources {
         this.rootDir = rootDir;
     }
 
+    private static String buildTexRef(String rawTexture) {
+        if (rawTexture == null || rawTexture.isEmpty()) return null;
+        if (rawTexture.contains(":")) return rawTexture;
+        String path = rawTexture.replace('\\', '/');
+        if (path.startsWith("textures/")) {
+            path = path.substring("textures/".length());
+        }
+        if (path.endsWith(".png")) {
+            path = path.substring(0, path.length() - 4);
+        }
+        return NAMESPACE + ":" + path;
+    }
+
+    /**
+     * Converts a texture path from .spr format (e.g. "textures/item/battery.png")
+     * to a valid MC model texture reference (e.g. "spraute_engine:item/battery").
+     */
+    private static String buildItemTexRef(String rawTexture) {
+        String ref = buildTexRef(rawTexture);
+        return ref != null ? ref : "minecraft:item/barrier";
+    }
+
+    private static String[] resolveBlockCubeTextures(org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomBlockDef def) {
+        String texAll = buildTexRef(def.texture);
+        if (texAll == null) texAll = "minecraft:block/stone";
+
+        String texUp = buildTexRef(def.textureUp);
+        if (texUp == null) texUp = texAll;
+
+        String texDown = buildTexRef(def.textureDown);
+        if (texDown == null) texDown = texUp;
+
+        String texSides = buildTexRef(def.textureSides);
+
+        String texNorth = buildTexRef(def.textureNorth);
+        if (texNorth == null) texNorth = texSides != null ? texSides : texAll;
+
+        String texSouth = buildTexRef(def.textureSouth);
+        if (texSouth == null) texSouth = texSides != null ? texSides : texAll;
+
+        String texWest = buildTexRef(def.textureWest);
+        if (texWest == null) texWest = texSides != null ? texSides : texAll;
+
+        String texEast = buildTexRef(def.textureEast);
+        if (texEast == null) texEast = texSides != null ? texSides : texAll;
+
+        if ("minecraft:block/stone".equals(texAll) && texUp != null && !"minecraft:block/stone".equals(texUp)) {
+            texAll = texUp;
+        }
+
+        return new String[]{texDown, texUp, texNorth, texSouth, texWest, texEast, texAll};
+    }
+
+    private Path resolveDiskPath(Path candidate) {
+        if (candidate != null && Files.exists(candidate)) {
+            return candidate;
+        }
+        Path parent = candidate != null ? candidate.getParent() : null;
+        if (parent == null || !Files.isDirectory(parent)) {
+            return null;
+        }
+        String wanted = candidate.getFileName().toString();
+        try (Stream<Path> entries = Files.list(parent)) {
+            for (Path entry : entries.collect(Collectors.toList())) {
+                if (entry.getFileName().toString().equalsIgnoreCase(wanted)) {
+                    return entry;
+                }
+            }
+        } catch (IOException ignored) {
+        }
+        return null;
+    }
+
+    private Path resolveResourcePath(String resourcePath) {
+        Path resolved = resolveDiskPath(rootDir.resolve(resourcePath));
+        if (resolved != null) {
+            return resolved;
+        }
+        if (resourcePath.startsWith("assets/" + NAMESPACE + "/")) {
+            resolved = resolveDiskPath(rootDir.resolve(resourcePath.substring(("assets/" + NAMESPACE + "/").length())));
+            if (resolved != null) {
+                return resolved;
+            }
+        }
+        if (resourcePath.startsWith("data/" + NAMESPACE + "/")) {
+            resolved = resolveDiskPath(rootDir.resolve(resourcePath.substring(("data/" + NAMESPACE + "/").length())));
+            if (resolved != null) {
+                return resolved;
+            }
+        }
+        // Fallback: custom item textures from .spr definitions
+        if (resourcePath.startsWith("assets/" + NAMESPACE + "/textures/item/") && resourcePath.endsWith(".png")) {
+            String id = resourcePath.substring(("assets/" + NAMESPACE + "/textures/item/").length(), resourcePath.length() - 4);
+            org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomItemDef def =
+                    org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.ITEMS.get(id);
+            if (def != null && def.texture != null && !def.texture.isEmpty()) {
+                String tex = def.texture.replace('\\', '/');
+                if (tex.startsWith("textures/")) {
+                    resolved = resolveDiskPath(rootDir.resolve(tex));
+                } else {
+                    resolved = resolveDiskPath(rootDir.resolve("textures").resolve(tex));
+                }
+                if (resolved != null) {
+                    return resolved;
+                }
+            }
+        }
+        return null;
+    }
+
     private InputStream getFixedJsonStream(Path file) throws IOException {
         if (file.toString().endsWith(".json")) {
             String content = Files.readString(file);
@@ -96,12 +206,19 @@ public class ExternalAssetPack extends AbstractPackResources {
 
     private InputStream openResourceByPath(String resourcePath) {
         try {
+            org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.ensureParsed();
+            org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.ensureParsed();
+
             if (resourcePath.equals("assets/" + NAMESPACE + "/sounds.json")) {
                 return generateSoundsJson();
             }
 
             if (resourcePath.startsWith("assets/" + NAMESPACE + "/blockstates/")) {
                 String id = resourcePath.substring(("assets/" + NAMESPACE + "/blockstates/").length(), resourcePath.length() - 5);
+                if ("multiblock_slave".equals(id)) {
+                    String json = "{\n  \"variants\": {\n    \"\": { \"model\": \"spraute_engine:block/multiblock_slave\" }\n  }\n}";
+                    return new ByteArrayInputStream(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                }
                 org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomBlockDef def = org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.BLOCKS.get(id);
                 if (def != null && (def.model == null || def.model.isEmpty())) {
                     String json = "{\n  \"variants\": {\n    \"\": { \"model\": \"spraute_engine:block/" + id + "\" }\n  }\n}";
@@ -111,15 +228,20 @@ public class ExternalAssetPack extends AbstractPackResources {
 
             if (resourcePath.startsWith("assets/" + NAMESPACE + "/models/block/")) {
                 String id = resourcePath.substring(("assets/" + NAMESPACE + "/models/block/").length(), resourcePath.length() - 5);
+                if ("multiblock_slave".equals(id)) {
+                    String json = "{\n  \"textures\": { \"particle\": \"minecraft:block/barrier\" },\n  \"elements\": []\n}";
+                    return new ByteArrayInputStream(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                }
                 org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomBlockDef def = org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.BLOCKS.get(id);
                 if (def != null && (def.model == null || def.model.isEmpty())) {
-                    String texAll = def.texture != null ? "spraute_engine:" + def.texture : "minecraft:block/stone";
-                    String texUp = def.textureUp != null ? "spraute_engine:" + def.textureUp : texAll;
-                    String texDown = def.textureDown != null ? "spraute_engine:" + def.textureDown : texAll;
-                    String texNorth = def.textureNorth != null ? "spraute_engine:" + def.textureNorth : texAll;
-                    String texSouth = def.textureSouth != null ? "spraute_engine:" + def.textureSouth : texAll;
-                    String texEast = def.textureEast != null ? "spraute_engine:" + def.textureEast : texAll;
-                    String texWest = def.textureWest != null ? "spraute_engine:" + def.textureWest : texAll;
+                    String[] tex = resolveBlockCubeTextures(def);
+                    String texDown = tex[0];
+                    String texUp = tex[1];
+                    String texNorth = tex[2];
+                    String texSouth = tex[3];
+                    String texWest = tex[4];
+                    String texEast = tex[5];
+                    String texAll = tex[6];
 
                     String json = "{\n" +
                             "  \"parent\": \"minecraft:block/cube\",\n" +
@@ -148,12 +270,12 @@ public class ExternalAssetPack extends AbstractPackResources {
 
                 org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomItemDef itemDef = org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.ITEMS.get(id);
                 if (itemDef != null) {
+                    String texRef = buildItemTexRef(itemDef.texture);
                     if (itemDef.model != null && !itemDef.model.isEmpty()) {
-                        String json = "{\n  \"parent\": \"" + itemDef.model + "\",\n  \"textures\": {\n    \"layer0\": \"spraute_engine:" + itemDef.texture + "\"\n  }\n}";
+                        String json = "{\n  \"parent\": \"" + itemDef.model + "\",\n  \"textures\": {\n    \"layer0\": \"" + texRef + "\"\n  }\n}";
                         return new ByteArrayInputStream(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                     } else {
-                        String tex = itemDef.texture != null ? "spraute_engine:" + itemDef.texture : "minecraft:item/stick";
-                        String json = "{\n  \"parent\": \"minecraft:item/generated\",\n  \"textures\": {\n    \"layer0\": \"" + tex + "\"\n  }\n}";
+                        String json = "{\n  \"parent\": \"item/generated\",\n  \"textures\": {\n    \"layer0\": \"" + texRef + "\"\n  }\n}";
                         return new ByteArrayInputStream(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                     }
                 }
@@ -301,18 +423,39 @@ public class ExternalAssetPack extends AbstractPackResources {
                 }
             }
 
-            Path resolved = rootDir.resolve(resourcePath);
-            if (Files.exists(resolved)) {
-                return getFixedJsonStream(resolved);
+            if (resourcePath.startsWith("data/" + NAMESPACE + "/tags/items/")) {
+                String tagId = resourcePath.substring(("data/" + NAMESPACE + "/tags/items/").length(), resourcePath.length() - 5);
+                if (org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CUSTOM_CRAFT_TAGS_JSON.containsKey(tagId)) {
+                    return new ByteArrayInputStream(org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CUSTOM_CRAFT_TAGS_JSON.get(tagId).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                }
             }
 
-            if (resourcePath.startsWith("assets/" + NAMESPACE + "/")) {
-                Path shortResolved = rootDir.resolve(resourcePath.substring(("assets/" + NAMESPACE + "/").length()));
-                if (Files.exists(shortResolved)) return getFixedJsonStream(shortResolved);
+            if (resourcePath.startsWith("data/" + NAMESPACE + "/dimension/")) {
+                String id = resourcePath.substring(("data/" + NAMESPACE + "/dimension/").length(), resourcePath.length() - 5);
+                org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.CustomWorldDef def =
+                        org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.WORLDS.get(id);
+                if (def != null) {
+                    String json = org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.buildDimensionJson(def);
+                    return new ByteArrayInputStream(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                }
             }
-            if (resourcePath.startsWith("data/" + NAMESPACE + "/")) {
-                Path shortResolved = rootDir.resolve(resourcePath.substring(("data/" + NAMESPACE + "/").length()));
-                if (Files.exists(shortResolved)) return getFixedJsonStream(shortResolved);
+
+            if (resourcePath.startsWith("data/" + NAMESPACE + "/dimension_type/")) {
+                String typeId = resourcePath.substring(("data/" + NAMESPACE + "/dimension_type/").length(), resourcePath.length() - 5);
+                if (typeId.endsWith("_type")) {
+                    String worldId = typeId.substring(0, typeId.length() - 5);
+                    org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.CustomWorldDef def =
+                            org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.WORLDS.get(worldId);
+                    if (def != null) {
+                        String json = org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.buildDimensionTypeJson(def);
+                        return new ByteArrayInputStream(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    }
+                }
+            }
+
+            Path resolved = resolveResourcePath(resourcePath);
+            if (resolved != null) {
+                return getFixedJsonStream(resolved);
             }
 
             return null;
@@ -323,6 +466,9 @@ public class ExternalAssetPack extends AbstractPackResources {
     }
 
     private boolean hasResourceByPath(String resourcePath) {
+        org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.ensureParsed();
+        org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.ensureParsed();
+
         if (resourcePath.equals("assets/" + NAMESPACE + "/sounds.json")) return true;
         if (resourcePath.startsWith("assets/" + NAMESPACE + "/blockstates/")) {
             String id = resourcePath.substring(("assets/" + NAMESPACE + "/blockstates/").length(), resourcePath.length() - 5);
@@ -375,17 +521,32 @@ public class ExternalAssetPack extends AbstractPackResources {
             if (org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CUSTOM_RECIPES_JSON.containsKey(recipeId)) return true;
         }
 
-        Path resolved = rootDir.resolve(resourcePath);
-        if (Files.exists(resolved)) return true;
+        if (resourcePath.startsWith("data/" + NAMESPACE + "/tags/items/")) {
+            String tagId = resourcePath.substring(("data/" + NAMESPACE + "/tags/items/").length(), resourcePath.length() - 5);
+            if (org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CUSTOM_CRAFT_TAGS_JSON.containsKey(tagId)) return true;
+        }
 
-        if (resourcePath.startsWith("assets/" + NAMESPACE + "/")) {
-            Path shortResolved = rootDir.resolve(resourcePath.substring(("assets/" + NAMESPACE + "/").length()));
-            if (Files.exists(shortResolved)) return true;
+        if (resourcePath.startsWith("data/" + NAMESPACE + "/dimension/")) {
+            String id = resourcePath.substring(("data/" + NAMESPACE + "/dimension/").length(), resourcePath.length() - 5);
+            if (org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.WORLDS.containsKey(id)) return true;
         }
-        if (resourcePath.startsWith("data/" + NAMESPACE + "/")) {
-            Path shortResolved = rootDir.resolve(resourcePath.substring(("data/" + NAMESPACE + "/").length()));
-            if (Files.exists(shortResolved)) return true;
+        if (resourcePath.startsWith("data/" + NAMESPACE + "/dimension_type/")) {
+            String typeId = resourcePath.substring(("data/" + NAMESPACE + "/dimension_type/").length(), resourcePath.length() - 5);
+            if (typeId.endsWith("_type")) {
+                String worldId = typeId.substring(0, typeId.length() - 5);
+                if (org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.WORLDS.containsKey(worldId)) return true;
+            }
         }
+
+        if (resourcePath.startsWith("assets/" + NAMESPACE + "/textures/item/") && resourcePath.endsWith(".png")) {
+            String texId = resourcePath.substring(("assets/" + NAMESPACE + "/textures/item/").length(), resourcePath.length() - 4);
+            if (org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.ITEMS.containsKey(texId)) {
+                return true;
+            }
+        }
+
+        Path resolved = resolveResourcePath(resourcePath);
+        if (resolved != null) return true;
 
         return false;
     }
@@ -393,6 +554,12 @@ public class ExternalAssetPack extends AbstractPackResources {
     private String packPathForLocation(PackType type, ResourceLocation location) {
         String prefix = type == PackType.CLIENT_RESOURCES ? "assets" : "data";
         return prefix + "/" + NAMESPACE + "/" + location.getPath();
+    }
+
+    /** True when {@code scanPrefix} is an ancestor of, equal to, or a descendant of {@code ourPath}. */
+    private static boolean prefixOverlaps(String scanPrefix, String ourPath) {
+        if (scanPrefix == null || scanPrefix.isEmpty()) return true;
+        return ourPath.startsWith(scanPrefix) || scanPrefix.startsWith(ourPath);
     }
 
     private List<ResourceLocation> collectResourceLocations(PackType type, String pathPrefix) {
@@ -423,6 +590,35 @@ public class ExternalAssetPack extends AbstractPackResources {
         if (type == PackType.SERVER_DATA && pathPrefix.startsWith("recipes")) {
             for (String recipeId : org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CUSTOM_RECIPES_JSON.keySet()) {
                 list.add(new ResourceLocation(NAMESPACE, "recipes/" + recipeId + ".json"));
+            }
+        }
+
+        if (type == PackType.SERVER_DATA && pathPrefix.startsWith("tags/items")) {
+            for (String tagId : org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CUSTOM_CRAFT_TAGS_JSON.keySet()) {
+                list.add(new ResourceLocation(NAMESPACE, "tags/items/" + tagId + ".json"));
+            }
+        }
+
+        if (type == PackType.SERVER_DATA && pathPrefix.startsWith("dimension")) {
+            for (String worldId : org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.WORLDS.keySet()) {
+                list.add(new ResourceLocation(NAMESPACE, "dimension/" + worldId + ".json"));
+                list.add(new ResourceLocation(NAMESPACE, "dimension_type/" + worldId + "_type.json"));
+            }
+        }
+
+        // NOTE: Minecraft's model/texture scan uses a broad prefix like "models" or "textures",
+        // so we must list our generated entries when the requested prefix is an ancestor of our
+        // path (e.g. "models" → "models/item/...") OR a descendant of it.
+        if (type == PackType.CLIENT_RESOURCES && prefixOverlaps(pathPrefix, "models/item")) {
+            for (String itemId : org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.ITEMS.keySet()) {
+                list.add(new ResourceLocation(NAMESPACE, "models/item/" + itemId + ".json"));
+            }
+        }
+
+        if (type == PackType.CLIENT_RESOURCES && prefixOverlaps(pathPrefix, "textures/item")) {
+            for (org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomItemDef def
+                    : org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.ITEMS.values()) {
+                list.add(new ResourceLocation(NAMESPACE, "textures/item/" + def.id + ".png"));
             }
         }
 

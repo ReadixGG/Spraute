@@ -156,6 +156,23 @@ public final class ItemStackScriptUtil {
         display.put("Lore", lore);
     }
 
+    /** Appends lore lines; skips exact duplicates already on the stack. */
+    public static void appendLore(ItemStack stack, List<?> loreList) {
+        if (loreList == null || loreList.isEmpty()) return;
+        List<String> existing = getLore(stack);
+        boolean changed = false;
+        for (Object o : loreList) {
+            String line = String.valueOf(o).replace("&", "§");
+            if (!existing.contains(line)) {
+                existing.add(line);
+                changed = true;
+            }
+        }
+        if (changed) {
+            setLore(stack, existing);
+        }
+    }
+
     public static double getAttackDamageBonus(ItemStack stack) {
         double total = 0;
         Multimap<Attribute, AttributeModifier> map = stack.getAttributeModifiers(EquipmentSlot.MAINHAND);

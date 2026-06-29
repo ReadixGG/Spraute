@@ -4,7 +4,9 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import org.zonarstudio.spraute_engine.compat.SprauteEntityCompat;
 import org.zonarstudio.spraute_engine.entity.SprauteBillboardEntity;
+import org.zonarstudio.spraute_engine.script.EntityScriptUtil;
 import org.zonarstudio.spraute_engine.script.ScriptContext;
 
 import java.util.List;
@@ -13,23 +15,38 @@ import java.util.UUID;
 public class EntityUtilFunctions {
 
     private static Entity resolveEntity(Object arg, CommandSourceStack source) {
-        if (arg instanceof Entity e) return e;
-        if (arg instanceof net.minecraft.world.entity.player.Player p && source.getServer() != null) {
-            net.minecraft.server.level.ServerPlayer sp = source.getServer().getPlayerList().getPlayer(p.getUUID());
-            if (sp != null) return sp;
+        return EntityScriptUtil.resolveEntity(arg, source);
+    }
+
+    /** setEntityGlowing(entity, true/false) — белый контур сквозь блоки, без зелья свечения */
+    public static class SetEntityGlowing implements ScriptFunction {
+        @Override public String getName() { return "setEntityGlowing"; }
+        @Override public int getArgCount() { return 2; }
+        @Override public Class<?>[] getArgTypes() { return new Class<?>[]{Object.class, Boolean.class}; }
+
+        @Override
+        public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
+            if (args.size() < 2) return false;
+            Entity e = resolveEntity(args.get(0), source);
+            if (e == null) return false;
+            boolean glowing = args.get(1) instanceof Boolean b ? b : Boolean.parseBoolean(String.valueOf(args.get(1)));
+            SprauteEntityCompat.setGlowing(e, glowing);
+            return true;
         }
-        if (source.getLevel() == null) return null;
-        if (arg instanceof String s) {
-            // Try UUID string
-            try {
-                UUID uuid = UUID.fromString(s);
-                return source.getLevel().getEntity(uuid);
-            } catch (IllegalArgumentException ignored) {}
-            // Try NPC name
-            UUID uuid2 = org.zonarstudio.spraute_engine.entity.NpcManager.get(s);
-            if (uuid2 != null) return source.getLevel().getEntity(uuid2);
+    }
+
+    /** isEntityGlowing(entity) */
+    public static class IsEntityGlowing implements ScriptFunction {
+        @Override public String getName() { return "isEntityGlowing"; }
+        @Override public int getArgCount() { return 1; }
+        @Override public Class<?>[] getArgTypes() { return new Class<?>[]{Object.class}; }
+
+        @Override
+        public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
+            if (args.isEmpty()) return false;
+            Entity e = resolveEntity(args.get(0), source);
+            return e != null && SprauteEntityCompat.isGlowing(e);
         }
-        return null;
     }
 
     /** removeEntity(uuidOrNpc) */
