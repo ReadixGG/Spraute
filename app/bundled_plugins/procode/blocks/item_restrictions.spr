@@ -1,0 +1,34 @@
+#\ block: forbid_item
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "запретить предмет" input: player (type: value) "игроку" (item: text: minecraft:diamond)
+#\ row: "действие" [action: dropdown(всё: all, использовать: use, копать: mine, атака: attack, надеть: wear)]
+#\ template: forbidItem({player}, "{item}", "{action}")
+
+#\ block: allow_item
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "снять запрет" input: player (type: value) "с игрока" (item: text: minecraft:diamond)
+#\ row: "действие" [action: dropdown(всё: all, использовать: use, копать: mine, атака: attack, надеть: wear)]
+#\ template: allowItem({player}, "{item}", "{action}")
+
+#\ block: clear_item_restrictions
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "сбросить все запреты" input: player (type: value) "у игрока"
+#\ template: clearItemRestrictions({player})
+
+#\ block: is_item_forbidden
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: "предмет запрещён" input: player (type: value) "у игрока" (item: text: minecraft:diamond)
+#\ row: "действие" [action: dropdown(всё: all, использовать: use, копать: mine, атака: attack, надеть: wear)]
+#\ template: isItemForbidden({player}, "{item}", "{action}")

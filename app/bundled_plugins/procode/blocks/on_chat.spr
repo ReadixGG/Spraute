@@ -1,0 +1,15 @@
+#\ block: on_chat
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда сообщение в чат" [filter: dropdown(любое: any, конкретное: msg)] "→" (handler: text: h_chat)
+#\ if filter == "any":
+#\   template: on chat() -> {handler} {\n{DO}}
+#\ if filter == "msg":
+#\   row: "текст" (message: text: привет)
+#\   row: "игнорировать регистр" [ignoreCase: checkbox(true)]
+#\ if filter == "msg" and ignoreCase == "TRUE":
+#\   template: on chat(null, "{message}", true) -> {handler} {\n{DO}}
+#\ if filter == "msg" and ignoreCase == "FALSE":
+#\   template: on chat(null, "{message}", false) -> {handler} {\n{DO}}

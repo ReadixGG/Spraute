@@ -14,7 +14,7 @@ import { linter, lintGutter } from "@codemirror/lint";
 import { autocompletion, completeAnyWord, snippetCompletion, completionKeymap, acceptCompletion, startCompletion } from "@codemirror/autocomplete";
 
 import * as Blockly from 'blockly';
-import { SprauteGenerator, generateWorkspaceCode, SprauteTheme, applyBlocklyThemeColors, updateDynamicLists, parseCustomBlocks, getDynamicToolbox, customCategories, clearCustomCategories, registerPluginCategoryOrder, applyPluginCategoryColors, sortPluginBlocks, attachBlocklyContextMenu, attachDynamicBlockReshapeListener, extractNpcCreateIdsFromBlocklyXml, extractNpcIdsFromWorkspace, extractCreateNpcIdsFromSpr, buildNpcDropdownIds, refreshDynamicDropdownFields, syncNpcDropdownsFromWorkspace, beginBlocklyRestore, endBlocklyRestore, prepareBlocklyXmlForLoad, isGeoModelFileName } from './visual.js';
+import { SprauteGenerator, generateWorkspaceCode, SprauteTheme, applyBlocklyThemeColors, updateDynamicLists, parseCustomBlocks, getDynamicToolbox, customCategories, clearCustomCategories, registerPluginCategoryOrder, applyPluginCategoryColors, sortPluginBlocks, attachBlocklyContextMenu, attachDynamicBlockReshapeListener, extractNpcCreateIdsFromBlocklyXml, extractNpcIdsFromWorkspace, extractCreateNpcIdsFromSpr, buildNpcDropdownIds, refreshDynamicDropdownFields, syncNpcDropdownsFromWorkspace, onSprauteAnimContextChanged, beginBlocklyRestore, endBlocklyRestore, prepareBlocklyXmlForLoad, isGeoModelFileName } from './visual.js';
 
 import { visualBlocksDocs } from './docs.js';
 import { initGuiEditor, setupGuiEditorBridge } from './gui-editor.js';
@@ -63,7 +63,7 @@ const sprauteProperties = [
   "x", "y", "z", "pitch", "yaw", "lookX", "lookY", "lookZ", "uuid", "java", "data", "savedData",
   
   // Параметры кастомных блоков
-  "texture_up", "texture_down", "texture_north", "texture_south", "texture_west", "texture_east",
+  "texture_up", "texture_down", "texture_sides", "texture_north", "texture_south", "texture_west", "texture_east",
   "light", "hardness", "drop", "maxStackSize", "directional",
   "is_ore", "ore_vein", "ore_min", "ore_max", "ore_chances",
   
@@ -154,6 +154,7 @@ const sprauteFunctionsList = [
   "setItemName(${1:player}, ${2:slot}, ${3:name})",
   "getItemLore(${1:player}, ${2:slot})",
   "setItemLore(${1:player}, ${2:slot}, ${3:lore})",
+  "appendItemLore(${1:player}, ${2:slot}, ${3:lore})",
   "getItemAttackDamage(${1:player}, ${2:slot})",
   "setItemAttackDamage(${1:player}, ${2:slot}, ${3:damage})",
   "getItemNbt(${1:player}, ${2:slot})",
@@ -197,7 +198,20 @@ const sprauteFunctionsList = [
   "stopOverlay()",
   "setAdditiveWeight(${1:weight})",
   "setHitbox(${1:width}, ${2:height})",
+  "setHitbox(${1:width}, ${2:height}, ${3:ox}, ${4:oy}, ${5:oz})",
+  "setHitboxOffset(${1:ox}, ${2:oy}, ${3:oz})",
+  "resetHitbox()",
+  "setHitboxPreset(${1:preset})",
+  "addBoneHitbox(${1:bone}, ${2:w}, ${3:h}, ${4:d})",
+  "addBoneHitbox(${1:id}, ${2:bone}, ${3:w}, ${4:h}, ${5:d}, ${6:ox}, ${7:oy}, ${8:oz})",
+  "removeBoneHitbox(${1:id})",
+  "clearBoneHitboxes()",
+  "showHitboxDebug(${1:on})",
   "setFlying(${1:flying})",
+  "flyTo(${1:x}, ${2:y}, ${3:z}, ${4:speed})",
+  "flyTo(${1:target}, ${2:speed})",
+  "alwaysFlyTo(${1:x}, ${2:y}, ${3:z}, ${4:speed})",
+  "alwaysFlyTo(${1:target}, ${2:speed})",
   "setFlyIdleAnim(${1:anim})",
   "setFlyWalkAnim(${1:anim})",
   "setSwimming(${1:swimming})",
@@ -240,8 +254,19 @@ const sprauteFunctionsList = [
   "fadeOut()",
 
   // Камера
+  "setCamera(${1:player}, ${2:x}, ${3:y}, ${4:z}, ${5:yaw}, ${6:pitch})",
+  "setCamera(${1:player}, ${2:x}, ${3:y}, ${4:z}, ${5:yaw}, ${6:pitch}, ${7:holdTime}, ${8:smoothTime})",
+  "setCameraLookAt(${1:player}, ${2:camX}, ${3:camY}, ${4:camZ}, ${5:lookX}, ${6:lookY}, ${7:lookZ}, ${8:holdTime}, ${9:smoothTime})",
+  "setCameraLookAt(${1:player}, ${2:camX}, ${3:camY}, ${4:camZ}, ${5:entity}, ${6:holdTime}, ${7:smoothTime}, ${8:track})",
+  "animateCamera(${1:player}, ${2:x}, ${3:y}, ${4:z}, ${5:yaw}, ${6:pitch}, ${7:smoothTime})",
+  "animateCameraLookAt(${1:player}, ${2:x}, ${3:y}, ${4:z}, ${5:target}, ${6:smoothTime}, ${7:track})",
   "stopCamera(${1:player})",
-  "moveCamera(${1:player}, ${2:x}, ${3:y}, ${4:z}, ${5:yaw}, ${6:pitch}, ${7:smoothTime})"
+  "stopCamera(${1:player}, ${2:smoothTime})",
+  "resetCamera(${1:player})",
+  "playCameraRoute(${1:player}, \"${2:route}\")",
+  "await cameraRoute(${1:player}, \"${2:route}\")",
+
+  // Полёт НПС — через методы npc.setFlying / npc.flyTo и т.д.
 ];
 
 function smartSnippetCompletion(template, options) {
@@ -295,7 +320,7 @@ const sprauteSnippets = [
   snippetCompletion('on uiClose(${1:player}) -> ${2:handlerId} {\n  ${3}\n}', {label: "on uiClose", detail: "event", type: "keyword"}),
   snippetCompletion('on uiInput(${1:player}, "${2:widget_id}") -> ${3:handlerId} {\n  ${4}\n}', {label: "on uiInput", detail: "event", type: "keyword"}),
   snippetCompletion('on position(${1:player}, ${2:x}, ${3:y}, ${4:z}, ${5:radius}) -> ${6:handlerId} {\n  ${7}\n}', {label: "on position", detail: "event", type: "keyword"}),
-  snippetCompletion('on inventory(${1:player}, "${2:item_id}", ${3:count}) -> ${4:handlerId} {\n  ${5}\n}', {label: "on inventory", detail: "event", type: "keyword"}),
+  snippetCompletion('on inventory(${1:player}, "${2:item_id}"${3:, ${4:count}}) -> ${5:handlerId} {\n  ${6}\n}', {label: "on inventory", detail: "event — count optional; _eventPlayer, _eventItemId, _eventItemCount", type: "keyword"}),
   snippetCompletion('on clickBlock("${1:target}") -> ${2:handlerId} {\n  ${3}\n}', {label: "on clickBlock", detail: "event", type: "keyword"}),
   snippetCompletion('on breakBlock("${1:target}") -> ${2:handlerId} {\n  ${3}\n}', {label: "on breakBlock", detail: "event", type: "keyword"}),
   snippetCompletion('on placeBlock("${1:target}") -> ${2:handlerId} {\n  ${3}\n}', {label: "on placeBlock", detail: "event", type: "keyword"}),
@@ -317,7 +342,7 @@ const sprauteSnippets = [
   snippetCompletion('await uiClose(${1:player})', {label: "await uiClose", detail: "wait", type: "keyword"}),
   snippetCompletion('await uiInput(${1:player}, "${2:widget_id}")', {label: "await uiInput", detail: "wait", type: "keyword"}),
   snippetCompletion('await position(${1:player}, ${2:x}, ${3:y}, ${4:z}, ${5:radius})', {label: "await position", detail: "wait", type: "keyword"}),
-  snippetCompletion('await inventory(${1:player}, "${2:item_id}", ${3:count})', {label: "await inventory", detail: "wait", type: "keyword"}),
+  snippetCompletion('await inventory(${1:player}, "${2:item_id}"${3:, ${4:count}})', {label: "await inventory", detail: "wait — count optional; sets _eventPlayer, _eventItemId, _eventItemCount", type: "keyword"}),
   snippetCompletion('await clickBlock(${1:player}, "${2:target}")', {label: "await clickBlock", detail: "wait", type: "keyword"}),
   snippetCompletion('await breakBlock(${1:player}, "${2:target}")', {label: "await breakBlock", detail: "wait", type: "keyword"}),
   snippetCompletion('await placeBlock(${1:player}, "${2:target}")', {label: "await placeBlock", detail: "wait", type: "keyword"}),
@@ -1435,7 +1460,8 @@ function restoreVisualWorkspaceFromXml(xmlText) {
         VisualEngine._cachedAnims,
         VisualEngine._cachedModels,
         VisualEngine._cachedTextures,
-        VisualEngine._cachedAnimFiles
+        VisualEngine._cachedAnimFiles,
+        VisualEngine._cachedAnimsByFile
       );
     }
     augmentBlocklyXmlFilledSlots(xml);
@@ -1476,7 +1502,8 @@ function restoreVisualWorkspaceFromXml(xmlText) {
       anims: VisualEngine._cachedAnims,
       models: VisualEngine._cachedModels,
       textures: VisualEngine._cachedTextures,
-      animFiles: VisualEngine._cachedAnimFiles
+      animFiles: VisualEngine._cachedAnimFiles,
+      animsByFile: VisualEngine._cachedAnimsByFile
     });
   } finally {
     if (blocklyWorkspace) {
@@ -1588,6 +1615,8 @@ const VisualEngine = {
   _cachedNpcs: [],
   _cachedImportedNpcs: [],
   _cachedAnims: [],
+  _cachedAnimsByFile: {},
+  _cachedAnimFiles: [],
   _cachedModels: [],
   _cachedTextures: [],
   _scanPromise: null,
@@ -1736,9 +1765,10 @@ const VisualEngine = {
     let animFiles = [];
     let models = [];
     let textures = [];
+    const animsByFile = {};
 
     if (!window.spraute) {
-      return { anims, animFiles, models, textures };
+      return { anims, animFiles, models, textures, animsByFile };
     }
 
     try {
@@ -1751,9 +1781,12 @@ const VisualEngine = {
             const content = await window.spraute.readFile(f.rel, 'utf8');
             const json = JSON.parse(content);
             if (json.animations) {
+              const clipNames = [];
               for (const aName in json.animations) {
+                clipNames.push(aName);
                 if (!anims.includes(aName)) anims.push(aName);
               }
+              animsByFile[animPath] = clipNames;
             }
           } catch (e) {}
         }
@@ -1795,22 +1828,26 @@ const VisualEngine = {
       await collectTextures('textures');
     } catch (e) {}
 
-    return { anims, animFiles, models, textures };
+    return { anims, animFiles, models, textures, animsByFile };
   },
 
   _applyAssetScanResult(assets, npcs) {
-    let { anims, animFiles, models, textures } = assets;
+    let { anims, animFiles, models, textures, animsByFile } = assets;
     if (anims.length === 0) anims.push('(нет анимаций)');
     if (animFiles.length === 0) animFiles.push('animations/npc_classic.animation.json');
     if (models.length === 0) models.push('geo/defolt.geo.json');
     if (textures.length === 0) textures.push('textures/entity/defolt.png');
+    if (!animsByFile) animsByFile = {};
 
     this._cachedAnims = anims;
     this._cachedAnimFiles = animFiles;
     this._cachedModels = models;
     this._cachedTextures = textures;
-    updateDynamicLists(npcs, anims, models, textures, animFiles);
-    if (blocklyWorkspace) refreshDynamicDropdownFields(blocklyWorkspace);
+    this._cachedAnimsByFile = animsByFile;
+    updateDynamicLists(npcs, anims, models, textures, animFiles, animsByFile);
+    if (blocklyWorkspace) {
+      onSprauteAnimContextChanged(blocklyWorkspace);
+    }
   },
 
   /** Перечитать geo/animations/textures с диска и обновить dropdown (без перезапуска). */
@@ -1936,7 +1973,7 @@ const VisualEngine = {
 
   applyCache() {
     if (this._dynamicDataCached) {
-      updateDynamicLists(this._cachedNpcs, this._cachedAnims, this._cachedModels, this._cachedTextures, this._cachedAnimFiles);
+      updateDynamicLists(this._cachedNpcs, this._cachedAnims, this._cachedModels, this._cachedTextures, this._cachedAnimFiles, this._cachedAnimsByFile);
     }
     if (blocklyWorkspace) {
       this.syncNpcsFromWorkspace();
@@ -1975,7 +2012,8 @@ const VisualEngine = {
         anims: this._cachedAnims,
         models: this._cachedModels,
         textures: this._cachedTextures,
-        animFiles: this._cachedAnimFiles
+        animFiles: this._cachedAnimFiles,
+        animsByFile: this._cachedAnimsByFile
       });
     };
     run();

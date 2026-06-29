@@ -1,0 +1,64 @@
+#\ block: entity_glow
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "подсветка" [target: dropdown(игрок: player, НИП: npc_ref, моб: mob)]
+#\ if target == "npc_ref":
+#\   row: [npc: dropdown_npc]
+#\ if target == "player":
+#\   row: [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\   if who == "custom":
+#\     input: player (type: value)
+#\ if target == "mob":
+#\   input: mobEntity (type: value)
+#\ row: [on: dropdown(включить: true, выключить: false)]
+#\
+#\ if target == "npc_ref" and on == "true":
+#\   template: setEntityGlowing({npc}, true)
+#\ if target == "npc_ref" and on == "false":
+#\   template: setEntityGlowing({npc}, false)
+#\
+#\ if target == "player" and who == "event" and on == "true":
+#\   template: setEntityGlowing(_eventPlayer, true)
+#\ if target == "player" and who == "event" and on == "false":
+#\   template: setEntityGlowing(_eventPlayer, false)
+#\ if target == "player" and who == "first" and on == "true":
+#\   template: setEntityGlowing(getFirstPlayer(), true)
+#\ if target == "player" and who == "first" and on == "false":
+#\   template: setEntityGlowing(getFirstPlayer(), false)
+#\ if target == "player" and who == "custom" and on == "true":
+#\   template: setEntityGlowing({player}, true)
+#\ if target == "player" and who == "custom" and on == "false":
+#\   template: setEntityGlowing({player}, false)
+#\
+#\ if target == "mob" and on == "true":
+#\   template: setEntityGlowing({mobEntity}, true)
+#\ if target == "mob" and on == "false":
+#\   template: setEntityGlowing({mobEntity}, false)
+
+#\ block: is_entity_glowing
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "подсвечен" [target: dropdown(игрок: player, НИП: npc_ref, моб: mob)]
+#\ if target == "npc_ref":
+#\   row: [npc: dropdown_npc]
+#\ if target == "player":
+#\   row: [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\   if who == "custom":
+#\     input: player (type: value)
+#\ if target == "mob":
+#\   input: mobEntity (type: value)
+#\
+#\ if target == "npc_ref":
+#\   template: isEntityGlowing({npc})
+#\ if target == "player" and who == "event":
+#\   template: isEntityGlowing(_eventPlayer)
+#\ if target == "player" and who == "first":
+#\   template: isEntityGlowing(getFirstPlayer())
+#\ if target == "player" and who == "custom":
+#\   template: isEntityGlowing({player})
+#\ if target == "mob":
+#\   template: isEntityGlowing({mobEntity})

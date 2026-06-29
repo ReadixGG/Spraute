@@ -1,0 +1,93 @@
+#\ block: on_dimension
+#\ category: События
+#\ color: #0ea5e9
+#\ shape: wrapper
+#\
+#\ row: "когда в измерение" [dim: dropdown(любое: any, верхний мир: overworld, ад: nether, край: end, свой: custom)]
+#\ if dim == "custom":
+#\   row: "id мира" (worldId: text: lobby)
+#\ row: [who: dropdown(любой игрок: any, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "→" (handler: text: h_dimension)
+#\
+#\ if dim == "any" and who == "any":
+#\   template: on dimension() -> {handler} {\n{DO}}
+#\ if dim == "any" and who == "custom":
+#\   template: on dimension({player}) -> {handler} {\n{DO}}
+#\
+#\ if dim == "overworld" and who == "any":
+#\   template: on dimension("minecraft:overworld") -> {handler} {\n{DO}}
+#\ if dim == "overworld" and who == "custom":
+#\   template: on dimension({player}, "minecraft:overworld") -> {handler} {\n{DO}}
+#\
+#\ if dim == "nether" and who == "any":
+#\   template: on dimension("minecraft:the_nether") -> {handler} {\n{DO}}
+#\ if dim == "nether" and who == "custom":
+#\   template: on dimension({player}, "minecraft:the_nether") -> {handler} {\n{DO}}
+#\
+#\ if dim == "end" and who == "any":
+#\   template: on dimension("minecraft:the_end") -> {handler} {\n{DO}}
+#\ if dim == "end" and who == "custom":
+#\   template: on dimension({player}, "minecraft:the_end") -> {handler} {\n{DO}}
+#\
+#\ if dim == "custom" and who == "any":
+#\   template: on dimension(getWorldId("{worldId}")) -> {handler} {\n{DO}}
+#\ if dim == "custom" and who == "custom":
+#\   template: on dimension({player}, getWorldId("{worldId}")) -> {handler} {\n{DO}}
+
+#\ block: await_dimension
+#\ category: Ожидание
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "ждать измерение" [dim: dropdown(верхний мир: overworld, ад: nether, край: end, свой: custom)]
+#\ if dim == "custom":
+#\   row: "id мира" (worldId: text: lobby)
+#\ row: [who: dropdown(из события: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\
+#\ if dim == "overworld" and who == "event":
+#\   template: await dimension(_eventPlayer, "minecraft:overworld")
+#\ if dim == "overworld" and who == "first":
+#\   template: await dimension(getFirstPlayer(), "minecraft:overworld")
+#\ if dim == "overworld" and who == "custom":
+#\   template: await dimension({player}, "minecraft:overworld")
+#\
+#\ if dim == "nether" and who == "event":
+#\   template: await dimension(_eventPlayer, "minecraft:the_nether")
+#\ if dim == "nether" and who == "first":
+#\   template: await dimension(getFirstPlayer(), "minecraft:the_nether")
+#\ if dim == "nether" and who == "custom":
+#\   template: await dimension({player}, "minecraft:the_nether")
+#\
+#\ if dim == "end" and who == "event":
+#\   template: await dimension(_eventPlayer, "minecraft:the_end")
+#\ if dim == "end" and who == "first":
+#\   template: await dimension(getFirstPlayer(), "minecraft:the_end")
+#\ if dim == "end" and who == "custom":
+#\   template: await dimension({player}, "minecraft:the_end")
+#\
+#\ if dim == "custom" and who == "event":
+#\   template: await dimension(_eventPlayer, getWorldId("{worldId}"))
+#\ if dim == "custom" and who == "first":
+#\   template: await dimension(getFirstPlayer(), getWorldId("{worldId}"))
+#\ if dim == "custom" and who == "custom":
+#\   template: await dimension({player}, getWorldId("{worldId}"))
+
+#\ block: event_dimension
+#\ category: События
+#\ color: #0ea5e9
+#\ shape: value
+#\
+#\ row: "измерение из события" "(куда попал)"
+#\ template: _eventDimension
+
+#\ block: event_from_dimension
+#\ category: События
+#\ color: #0ea5e9
+#\ shape: value
+#\
+#\ row: "измерение из события" "(откуда пришёл)"
+#\ template: _eventFromDimension

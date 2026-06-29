@@ -1,0 +1,16 @@
+#\ block: on_inventory
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда у игрока"
+#\ input: player (type: value)
+#\ row: "появится" (item: text: minecraft:diamond)
+#\ row: [countMode: dropdown(любое кол-во: any, минимум: min)]
+#\ if countMode == "min":
+#\   row: (count: number: 1) "шт."
+#\ row: "→" (handler: text: h_inv)
+#\ if countMode == "any":
+#\   template: on inventory({player}, "{item}") -> {handler} {\n{DO}}
+#\ if countMode == "min":
+#\   template: on inventory({player}, "{item}", {count}) -> {handler} {\n{DO}}

@@ -1,0 +1,69 @@
+#\ block: create_world
+#\ category: Измерения
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "создать мир" (id: text: lobby)
+#\ row: "цвет неба" (sky: text: #1b2838)
+#\ row: "цвет тумана" (fog: text: )
+#\ row: "освещение" (ambient: number: 0.4) "0–1"
+#\ row: "время" (fixedTime: number: 6000) "тик, -1 = сутки"
+#\ row: "небесный свет" [skylight: dropdown(да: true, нет: false)]
+#\
+#\ if fog == "" and fixedTime == "-1":
+#\   template: create world {id} {\n    sky = "{sky}"\n    ambient = {ambient}\n    fixed_time = -1\n    skylight = {skylight}\n}\n
+#\ if fog == "" and fixedTime != "-1":
+#\   template: create world {id} {\n    sky = "{sky}"\n    ambient = {ambient}\n    fixed_time = {fixedTime}\n    skylight = {skylight}\n}\n
+#\ if fog != "" and fixedTime == "-1":
+#\   template: create world {id} {\n    sky = "{sky}"\n    fog = "{fog}"\n    ambient = {ambient}\n    fixed_time = -1\n    skylight = {skylight}\n}\n
+#\ if fog != "" and fixedTime != "-1":
+#\   template: create world {id} {\n    sky = "{sky}"\n    fog = "{fog}"\n    ambient = {ambient}\n    fixed_time = {fixedTime}\n    skylight = {skylight}\n}\n
+
+#\ block: get_world_id
+#\ category: Измерения
+#\ color: #0ea5e9
+#\ shape: value
+#\
+#\ row: "id измерения" (id: text: lobby)
+#\ template: getWorldId("{id}")
+
+#\ block: teleport_to_world
+#\ category: Измерения
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "телепорт в" [dim: dropdown(свой мир: custom, верхний мир: overworld, ад: nether, энд: end)]
+#\ if dim == "custom":
+#\   row: "id мира" (worldId: text: lobby)
+#\ row: "x" (x: number: 0) "y" (y: number: 64) "z" (z: number: 0)
+#\ row: [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\
+#\ if dim == "custom" and who == "event":
+#\   template: teleportToWorld(_eventPlayer, "{worldId}", {x}, {y}, {z})
+#\ if dim == "custom" and who == "first":
+#\   template: teleportToWorld(getFirstPlayer(), "{worldId}", {x}, {y}, {z})
+#\ if dim == "custom" and who == "custom":
+#\   template: teleportToWorld({player}, "{worldId}", {x}, {y}, {z})
+#\
+#\ if dim == "overworld" and who == "event":
+#\   template: teleportToWorld(_eventPlayer, "minecraft:overworld", {x}, {y}, {z})
+#\ if dim == "overworld" and who == "first":
+#\   template: teleportToWorld(getFirstPlayer(), "minecraft:overworld", {x}, {y}, {z})
+#\ if dim == "overworld" and who == "custom":
+#\   template: teleportToWorld({player}, "minecraft:overworld", {x}, {y}, {z})
+#\
+#\ if dim == "nether" and who == "event":
+#\   template: teleportToWorld(_eventPlayer, "minecraft:the_nether", {x}, {y}, {z})
+#\ if dim == "nether" and who == "first":
+#\   template: teleportToWorld(getFirstPlayer(), "minecraft:the_nether", {x}, {y}, {z})
+#\ if dim == "nether" and who == "custom":
+#\   template: teleportToWorld({player}, "minecraft:the_nether", {x}, {y}, {z})
+#\
+#\ if dim == "end" and who == "event":
+#\   template: teleportToWorld(_eventPlayer, "minecraft:the_end", {x}, {y}, {z})
+#\ if dim == "end" and who == "first":
+#\   template: teleportToWorld(getFirstPlayer(), "minecraft:the_end", {x}, {y}, {z})
+#\ if dim == "end" and who == "custom":
+#\   template: teleportToWorld({player}, "minecraft:the_end", {x}, {y}, {z})

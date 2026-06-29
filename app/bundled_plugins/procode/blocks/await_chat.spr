@@ -1,0 +1,16 @@
+#\ block: await_chat
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать сообщение в чат" [filter: dropdown(любое: any, конкретное: msg)]
+#\ input: player (type: value)
+#\ if filter == "any":
+#\   template: await chat({player}, list())
+#\ if filter == "msg":
+#\   row: "текст" (message: text: привет)
+#\   row: "игнорировать регистр" [ignoreCase: checkbox(true)]
+#\ if filter == "msg" and ignoreCase == "TRUE":
+#\   template: await chat({player}, "{message}", true)
+#\ if filter == "msg" and ignoreCase == "FALSE":
+#\   template: await chat({player}, "{message}", false)

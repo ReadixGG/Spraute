@@ -1,0 +1,41 @@
+#\ block: npc_hitbox
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "НИП" [npc: dropdown_npc] [mode: dropdown(размер: size, смещение: offset, пресет: preset, сбросить: reset, отладка: debug)]
+#\ if mode == "size":
+#\   row: "ширина" (w: number: 0.6) "высота" (h: number: 1.8)
+#\   template: {npc}.setHitbox({w}, {h})
+#\ if mode == "offset":
+#\   row: "смещение" (ox: number: 0) (oy: number: 0) (oz: number: 0)
+#\   template: {npc}.setHitboxOffset({ox}, {oy}, {oz})
+#\ if mode == "preset":
+#\   row: [preset: dropdown(игрок: player, маленький: small, большой: large)]
+#\   template: {npc}.setHitboxPreset("{preset}")
+#\ if mode == "reset":
+#\   template: {npc}.resetHitbox()
+#\ if mode == "debug":
+#\   row: [on: checkbox(true)]
+#\   template: {npc}.showHitboxDebug({on})
+
+#\ block: npc_bone_hitbox
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "НИП" [npc: dropdown_npc] [mode: dropdown(добавить: add, добавить со смещением: addOffset, удалить: remove, очистить: clear)]
+#\ if mode == "add":
+#\   row: "кость" (bone: text: Head)
+#\   row: "размер" (w: number: 0.5) (h: number: 0.5) (d: number: 0.5)
+#\   template: {npc}.addBoneHitbox("{bone}", {w}, {h}, {d})
+#\ if mode == "addOffset":
+#\   row: "id" (id: text: head_box) "кость" (bone: text: Head)
+#\   row: "размер" (w: number: 0.5) (h: number: 0.5) (d: number: 0.5)
+#\   row: "смещение" (ox: number: 0) (oy: number: 0) (oz: number: 0)
+#\   template: {npc}.addBoneHitbox("{id}", "{bone}", {w}, {h}, {d}, {ox}, {oy}, {oz})
+#\ if mode == "remove":
+#\   row: "id" (id: text: head_box)
+#\   template: {npc}.removeBoneHitbox("{id}")
+#\ if mode == "clear":
+#\   template: {npc}.clearBoneHitboxes()

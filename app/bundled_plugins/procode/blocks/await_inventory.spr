@@ -1,0 +1,15 @@
+#\ block: await_inventory
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать когда у игрока"
+#\ input: player (type: value)
+#\ row: "появится" (item: text: minecraft:diamond)
+#\ row: [countMode: dropdown(любое кол-во: any, минимум: min)]
+#\ if countMode == "min":
+#\   row: (count: number: 1) "шт."
+#\ if countMode == "any":
+#\   template: await inventory({player}, "{item}")
+#\ if countMode == "min":
+#\   template: await inventory({player}, "{item}", {count})

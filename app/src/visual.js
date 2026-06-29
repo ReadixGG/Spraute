@@ -46,7 +46,7 @@ export function endBlocklyRestore(workspace) {
     if (typeof block.syncValFromFields_ === 'function') block.syncValFromFields_();
     if (typeof block.updateShape_ === 'function') block.updateShape_();
   }
-  refreshDynamicDropdownFields(workspace);
+  onSprauteAnimContextChanged(workspace);
 }
 
 SprauteGenerator.scrub_ = function(block, code, opt_thisOnly) {
@@ -106,6 +106,8 @@ export let currentAnimations = [];
 export let currentAnimFiles = [];
 export let currentModels = [];
 export let currentTextures = [];
+/** Путь файла анимации → имена клипов внутри него. */
+export let animsByFile = {};
 
 /** Файл модели в geo/ — .geo.json, .geo или .json (не animation). */
 export function isGeoModelFileName(fileName) {
@@ -144,7 +146,7 @@ export function buildModelDropdownOptions(models) {
   });
 }
 
-export function updateDynamicLists(npcs, anims, models, textures, animFiles) {
+export function updateDynamicLists(npcs, anims, models, textures, animFiles, byFile) {
   if (npcs != null) currentNpcs = npcs.length > 0 ? npcs.map(n => [n, n]) : [];
   if (anims   && anims.length > 0)   currentAnimations = anims.map(a => [a, a]);
   if (animFiles && animFiles.length > 0) {
@@ -154,12 +156,62 @@ export function updateDynamicLists(npcs, anims, models, textures, animFiles) {
       return [label, p];
     });
   }
+  if (byFile != null) animsByFile = byFile;
   if (models != null) {
     currentModels = models.length > 0
       ? buildModelDropdownOptions(models)
       : [];
   }
   if (textures && textures.length > 0) currentTextures = textures.map(t => [t.split('/').pop().replace(/\.(png|jpg|jpeg)$/,''), t]);
+}
+
+function normAnimFilePath(p) {
+  if (!p) return '';
+  return String(p).replace(/\\/g, '/');
+}
+
+function lookupAnimsInFile(animFile) {
+  const path = normAnimFilePath(animFile);
+  if (!path) return null;
+  let names = animsByFile[path];
+  if (names?.length) return names;
+  const base = path.split('/').pop().toLowerCase();
+  for (const [k, v] of Object.entries(animsByFile)) {
+    if (k.split('/').pop().toLowerCase() === base && v?.length) return v;
+  }
+  return null;
+}
+
+/** Id НИПа → путь к файлу анимации из блоков «создать НИП». */
+export function buildNpcAnimFileMap(workspace) {
+  const map = {};
+  if (!workspace) return map;
+  for (const block of workspace.getAllBlocks(false)) {
+    if (!block.type?.endsWith('npc_create')) continue;
+    const id = readBlockFieldVal(block, 'id');
+    const anim = readBlockFieldVal(block, 'animation');
+    if (id && anim) map[id] = normAnimFilePath(anim);
+  }
+  return map;
+}
+
+function resolveAnimFileForBlock(self) {
+  if (!self?.workspace) return '';
+  if (self.type?.endsWith('npc_create')) {
+    return normAnimFilePath(readBlockFieldVal(self, 'animation'));
+  }
+  const npcId = readBlockFieldVal(self, 'npc');
+  if (npcId) {
+    return buildNpcAnimFileMap(self.workspace)[npcId] || '';
+  }
+  return '';
+}
+
+function getAnimsForAnimFile(animFile) {
+  const names = lookupAnimsInFile(animFile);
+  if (names?.length) return names.map(a => [a, a]);
+  if (normAnimFilePath(animFile)) return [['(нет клипов в файле)', '']];
+  return getAnimsDropdown();
 }
 
 
@@ -197,11 +249,54 @@ function getAnimsDropdown() {
 }
 
 function getAnimsDropdownFor(self, fieldName) {
+  const animFile = resolveAnimFileForBlock(self);
+  const options = animFile ? getAnimsForAnimFile(animFile) : getAnimsDropdown();
   return ensureDropdownValue(
-    getAnimsDropdown(),
+    options,
     readBlockFieldVal(self, fieldName),
     v => v
   );
+}
+
+function clampAnimFieldToFile(block, fieldName) {
+  if (!block?.getField(fieldName)) return;
+  const animFile = resolveAnimFileForBlock(block);
+  if (!animFile) return;
+  const options = getAnimsForAnimFile(animFile);
+  const valid = new Set(options.map(o => o[1]).filter(Boolean));
+  const cur = readBlockFieldVal(block, fieldName);
+  if (!cur || valid.has(cur)) return;
+  const fallback = options.find(o => o[1])?.[1] || 'idle';
+  try {
+    block.setFieldValue(fallback, fieldName);
+    block[`val_${fieldName}`] = fallback;
+  } catch (e) {}
+}
+
+function normalizeAnimFieldsOnBlock(block) {
+  if (!block || block.isDisposed()) return;
+  if (block.type?.endsWith('npc_create')) {
+    clampAnimFieldToFile(block, 'idleAnim');
+    clampAnimFieldToFile(block, 'walkAnim');
+    return;
+  }
+  if (block.getField('anim')) {
+    clampAnimFieldToFile(block, 'anim');
+    return;
+  }
+  const prop = readBlockFieldVal(block, 'prop');
+  if (block.getField('value') && (prop === 'idleAnim' || prop === 'walkAnim')) {
+    clampAnimFieldToFile(block, 'value');
+  }
+}
+
+/** После смены файла анимации или НИПа — подогнать клипы и обновить dropdown. */
+export function onSprauteAnimContextChanged(workspace, _sourceBlock) {
+  if (!workspace || workspace._sprauteRestoringBlocks) return;
+  for (const block of workspace.getAllBlocks(false)) {
+    normalizeAnimFieldsOnBlock(block);
+  }
+  refreshDynamicDropdownFields(workspace);
 }
 
 function getAnimFilesDropdown() {
@@ -291,7 +386,8 @@ export function syncNpcDropdownsFromWorkspace(workspace, cache) {
     cache?.anims,
     cache?.models,
     cache?.textures,
-    cache?.animFiles
+    cache?.animFiles,
+    cache?.animsByFile
   );
   if (workspace) refreshDynamicDropdownFields(workspace);
   return npcs;
@@ -631,6 +727,10 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
             js += `  row.appendField(new Blockly.FieldDropdown(function(){ return getTexturesDropdownFor(self, ${JSON.stringify(name)}); }, function(v){ self.validateField(${JSON.stringify(name)}, v); return v; }), ${JSON.stringify(name)});\n`;
           } else if (typeDef === 'dropdown_dimension') {
             js += `  row.appendField(new Blockly.FieldDropdown(function(){ return getDimensionDropdown(); }, function(v){ self.validateField(${JSON.stringify(name)}, v); return v; }), ${JSON.stringify(name)});\n`;
+          } else if (typeDef.startsWith('checkbox')) {
+            const cbMatch = typeDef.match(/^checkbox(?:\((true|false)\))?$/i);
+            const defChecked = cbMatch && cbMatch[1] ? cbMatch[1].toLowerCase() === 'true' : false;
+            js += `  row.appendField(new Blockly.FieldCheckbox(${JSON.stringify(defChecked ? 'TRUE' : 'FALSE')}), ${JSON.stringify(name)});\n`;
           } else {
             const optsMatch = typeDef.match(/^dropdown\((.*)\)$/s);
             if (optsMatch) {
@@ -1023,6 +1123,13 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
       if (reshape) {
         const self = this;
         setTimeout(() => { if (self.workspace) self.updateShape_(); }, 0);
+      }
+      if (!this._restoringShape_ && old !== newValue && (name === 'animation' || name === 'npc' || name === 'prop')) {
+        const ws = this.workspace;
+        const src = this;
+        setTimeout(() => {
+          if (ws && !ws._sprauteRestoringBlocks) onSprauteAnimContextChanged(ws, src);
+        }, 0);
       }
       return newValue;
     },
@@ -1598,6 +1705,18 @@ export function attachDynamicBlockReshapeListener(workspace) {
 
   workspace.addChangeListener((e) => {
     if (workspace._sprauteRestoringBlocks) return;
+
+    if (e.type === Blockly.Events.BLOCK_CHANGE && e.element === 'field') {
+      if (e.name === 'animation' || e.name === 'npc' || e.name === 'prop') {
+        const block = workspace.getBlockById(e.blockId);
+        if (block && !block.isDisposed()) {
+          setTimeout(() => {
+            if (!workspace._sprauteRestoringBlocks) onSprauteAnimContextChanged(workspace, block);
+          }, 0);
+        }
+      }
+      return;
+    }
 
     let parentId = null;
     let inputName = null;

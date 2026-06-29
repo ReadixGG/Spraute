@@ -1,0 +1,225 @@
+#\ block: create_block
+#\ category: Ресурсы
+#\ color: #c084fc
+#\ shape: statement
+#\
+#\ row: "создать блок" (id: text: my_block)
+#\ row: [kind: dropdown(текстура: texture, 3D-модель: model, руда: ore)]
+#\
+#\ if kind == "texture":
+#\   row: [texMode: dropdown(одна на все: single, верх и бока: top_sides, все грани: all)]
+#\ if kind == "texture" and texMode == "single":
+#\   row: "текстура" (texture: text: textures/block/my_block.png)
+#\ if kind == "texture" and texMode == "top_sides":
+#\   row: "верх" (textureUp: text: textures/block/my_block_top.png)
+#\   row: "бока" (textureSides: text: textures/block/my_block_side.png)
+#\   row: "запасная" (texture: text: ) "необязательно"
+#\ if kind == "texture" and texMode == "all":
+#\   row: "верх" (textureUp: text: textures/block/my_block_top.png)
+#\   row: "низ" (textureDown: text: textures/block/my_block_bottom.png)
+#\   row: "север" (textureNorth: text: textures/block/my_block_side.png)
+#\   row: "юг" (textureSouth: text: textures/block/my_block_side.png)
+#\   row: "запад" (textureWest: text: textures/block/my_block_side.png)
+#\   row: "восток" (textureEast: text: textures/block/my_block_side.png)
+#\ if kind == "texture":
+#\   row: "прочность" (hardness: number: 1.5)
+#\   row: "коллизия" [collision: dropdown(да: true, нет: false)]
+#\
+#\ if kind == "model":
+#\   row: "модель" [model: dropdown_model]
+#\   row: "текстура" [texture: dropdown_texture]
+#\   row: "размер" (sizeW: number: 1) "×" (sizeD: number: 1) "×" (sizeH: number: 1)
+#\   row: "поворот" [directional: dropdown(да: true, нет: false)]
+#\   row: "прочность" (hardness: number: 1.5)
+#\   row: "коллизия" [collision: dropdown(да: true, нет: false)]
+#\   row: "хитбокс" (hitbox: text: )
+#\
+#\ if kind == "ore":
+#\   row: [texMode: dropdown(одна на все: single, верх и бока: top_sides, все грани: all)]
+#\ if kind == "ore" and texMode == "single":
+#\   row: "текстура" (texture: text: textures/block/my_ore.png)
+#\ if kind == "ore" and texMode == "top_sides":
+#\   row: "верх" (textureUp: text: textures/block/my_ore_top.png)
+#\   row: "бока" (textureSides: text: textures/block/my_ore_side.png)
+#\ if kind == "ore" and texMode == "all":
+#\   row: "верх" (textureUp: text: textures/block/my_ore_top.png)
+#\   row: "низ" (textureDown: text: textures/block/my_ore_bottom.png)
+#\   row: "север" (textureNorth: text: textures/block/my_ore_side.png)
+#\   row: "юг" (textureSouth: text: textures/block/my_ore_side.png)
+#\   row: "запад" (textureWest: text: textures/block/my_ore_side.png)
+#\   row: "восток" (textureEast: text: textures/block/my_ore_side.png)
+#\ if kind == "ore":
+#\   row: "прочность" (hardness: number: 3.0)
+#\   row: "жила" (oreVein: number: 8) "высота" (oreMin: number: -64) "–" (oreMax: number: 64)
+#\   row: "попыток/чанк" (oreChances: number: 10)
+#\   row: "измерение" [oreDim: dropdown(верхний мир: minecraft:overworld, ад: minecraft:the_nether, энд: minecraft:the_end)]
+#\
+#\ row: "свет 0–15" (light: text: )
+#\ row: "дроп" (drop: text: )
+#\ row: "кол-во дропа" (dropCount: number: 1)
+#\ row: "вкладка креатива" (tab: text: )
+#\
+#\ code: var kind = _getVal('kind');
+#\ code: var id = String(_getVal('id') || '').trim();
+#\ code: var lines = ['create block ' + id + ' {'];
+#\ code: function q(v) { return String(v || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
+#\ code: function addStr(k, v) { v = String(v || '').trim(); if (v) lines.push('    ' + k + ' = "' + q(v) + '"'); }
+#\ code: function addNum(k, v) { v = String(v || '').trim(); if (v) lines.push('    ' + k + ' = ' + v); }
+#\ code: function addBlockTex(texMode) {
+#\ code:   if (texMode === 'top_sides') {
+#\ code:     addStr('texture_up', _getVal('textureUp'));
+#\ code:     addStr('texture_sides', _getVal('textureSides'));
+#\ code:     addStr('texture', _getVal('texture'));
+#\ code:   } else if (texMode === 'all') {
+#\ code:     addStr('texture_up', _getVal('textureUp'));
+#\ code:     addStr('texture_down', _getVal('textureDown'));
+#\ code:     addStr('texture_north', _getVal('textureNorth'));
+#\ code:     addStr('texture_south', _getVal('textureSouth'));
+#\ code:     addStr('texture_west', _getVal('textureWest'));
+#\ code:     addStr('texture_east', _getVal('textureEast'));
+#\ code:   } else {
+#\ code:     addStr('texture', _getVal('texture'));
+#\ code:   }
+#\ code: }
+#\ code: if (kind === 'texture') {
+#\ code:   var texMode = _getVal('texMode') || 'single';
+#\ code:   addBlockTex(texMode);
+#\ code:   addNum('hardness', _getVal('hardness'));
+#\ code:   addStr('collision', _getVal('collision'));
+#\ code: } else if (kind === 'model') {
+#\ code:   addStr('model', _getVal('model'));
+#\ code:   addStr('texture', _getVal('texture'));
+#\ code:   lines.push('    size = [' + (_getVal('sizeW') || 1) + ', ' + (_getVal('sizeD') || 1) + ', ' + (_getVal('sizeH') || 1) + ']');
+#\ code:   addStr('directional', _getVal('directional'));
+#\ code:   addNum('hardness', _getVal('hardness'));
+#\ code:   addStr('collision', _getVal('collision'));
+#\ code:   var hb = String(_getVal('hitbox') || '').trim();
+#\ code:   if (hb) lines.push('    hitbox = [' + hb + ']');
+#\ code: } else if (kind === 'ore') {
+#\ code:   var oreTexMode = _getVal('texMode') || 'single';
+#\ code:   addBlockTex(oreTexMode);
+#\ code:   addNum('hardness', _getVal('hardness'));
+#\ code:   lines.push('    is_ore = true');
+#\ code:   addNum('ore_vein', _getVal('oreVein'));
+#\ code:   addNum('ore_min', _getVal('oreMin'));
+#\ code:   addNum('ore_max', _getVal('oreMax'));
+#\ code:   addNum('ore_chances', _getVal('oreChances'));
+#\ code:   addStr('ore_dimension', _getVal('oreDim'));
+#\ code: }
+#\ code: var light = String(_getVal('light') || '').trim();
+#\ code: if (light && light !== '0') lines.push('    light = ' + light);
+#\ code: var drop = String(_getVal('drop') || '').trim();
+#\ code: if (drop) {
+#\ code:   addStr('drop', drop);
+#\ code:   addNum('drop_count', _getVal('dropCount') || '1');
+#\ code:   lines.push('    drop_replace = true');
+#\ code: }
+#\ code: addStr('tab', _getVal('tab'));
+#\ code: lines.push('}');
+#\ code: return lines.join('\n') + '\n';
+
+#\ block: create_item
+#\ category: Ресурсы
+#\ color: #c084fc
+#\ shape: statement
+#\
+#\ row: "создать предмет" (id: text: my_item)
+#\ row: "текстура" (texture: text: textures/item/my_item.png)
+#\ row: "макс. стак" (maxStack: number: 64)
+#\ row: "имя" (displayName: text: )
+#\ row: "вкладка креатива" (tab: text: )
+#\
+#\ code: var lines = ['create item ' + String(_getVal('id') || '').trim() + ' {'];
+#\ code: function q(v) { return String(v || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
+#\ code: function addStr(k, v) { v = String(v || '').trim(); if (v) lines.push('    ' + k + ' = "' + q(v) + '"'); }
+#\ code: addStr('texture', _getVal('texture'));
+#\ code: var ms = String(_getVal('maxStack') || '').trim();
+#\ code: if (ms) lines.push('    maxStackSize = ' + ms);
+#\ code: addStr('name', _getVal('displayName'));
+#\ code: addStr('tab', _getVal('tab'));
+#\ code: lines.push('}');
+#\ code: return lines.join('\n') + '\n';
+
+#\ block: create_tab
+#\ category: Ресурсы
+#\ color: #c084fc
+#\ shape: statement
+#\
+#\ row: "вкладка креатива" (id: text: my_tab)
+#\ row: "иконка" (icon: text: minecraft:diamond)
+#\ row: "предметы" (items: textmultiline: )
+#\ row: "по одному id на строку"
+#\
+#\ code: var lines = ['create tab ' + String(_getVal('id') || '').trim() + ' {'];
+#\ code: function q(v) { return String(v || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
+#\ code: var icon = String(_getVal('icon') || 'minecraft:stone').trim();
+#\ code: lines.push('    icon = "' + q(icon) + '"');
+#\ code: var raw = String(_getVal('items') || '').trim();
+#\ code: if (raw) {
+#\ code:   var list = raw.split(/[\n,;]+/).map(function(s){ return s.trim(); }).filter(Boolean);
+#\ code:   if (list.length) {
+#\ code:     lines.push('    items = [' + list.map(function(i){ return '"' + q(i) + '"'; }).join(', ') + ']');
+#\ code:   }
+#\ code: }
+#\ code: lines.push('}');
+#\ code: return lines.join('\n') + '\n';
+
+#\ block: create_craft
+#\ category: Ресурсы
+#\ color: #c084fc
+#\ shape: statement
+#\
+#\ row: "крафт" (id: text: my_recipe)
+#\ row: [mode: dropdown(сетка 3×3: grid, без формы: shapeless, печь: smelting, плавильня: blasting, коптильня: smoking, костёр: campfire_cooking)]
+#\
+#\ if mode == "grid":
+#\   row: "1" (s1: text: ) "2" (s2: text: ) "3" (s3: text: )
+#\   row: "4" (s4: text: ) "5" (s5: text: ) "6" (s6: text: )
+#\   row: "7" (s7: text: ) "8" (s8: text: ) "9" (s9: text: )
+#\   row: "пустой слот — оставить пустым"
+#\
+#\ if mode == "shapeless":
+#\   row: "ингредиенты" (ingredients: textmultiline: )
+#\   row: "по одному id на строку"
+#\
+#\ if mode == "smelting" or mode == "blasting" or mode == "smoking" or mode == "campfire_cooking":
+#\   row: "ингредиент" (ingredient: text: minecraft:iron_ore)
+#\   row: "опыт" (xp: number: 0.7)
+#\   row: "время" (time: number: 200) "тиков"
+#\
+#\ row: "результат" (result: text: my_item)
+#\ if mode == "grid" or mode == "shapeless":
+#\   row: "кол-во" (count: number: 1)
+#\
+#\ code: var id = String(_getVal('id') || '').trim();
+#\ code: var mode = _getVal('mode');
+#\ code: var result = String(_getVal('result') || '').trim();
+#\ code: function q(v) { return String(v || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
+#\ code: var lines = ['create craft ' + id + ' {'];
+#\ code: var isCook = mode === 'smelting' || mode === 'blasting' || mode === 'smoking' || mode === 'campfire_cooking';
+#\ code: if (isCook) {
+#\ code:   lines.push('    type = "' + mode + '"');
+#\ code:   lines.push('    ingredient = "' + q(_getVal('ingredient')) + '"');
+#\ code:   lines.push('    result = "' + q(result) + '"');
+#\ code:   var xp = String(_getVal('xp') || '0.1').trim();
+#\ code:   var time = String(_getVal('time') || '200').trim();
+#\ code:   lines.push('    xp = ' + xp);
+#\ code:   lines.push('    time = ' + time);
+#\ code: } else if (mode === 'shapeless') {
+#\ code:   lines.push('    type = "shapeless"');
+#\ code:   var raw = String(_getVal('ingredients') || '').trim();
+#\ code:   var list = raw ? raw.split(/[\n,;]+/).map(function(s){ return s.trim(); }).filter(Boolean) : [];
+#\ code:   lines.push('    ingredients = [' + list.map(function(i){ return '"' + q(i) + '"'; }).join(', ') + ']');
+#\ code:   lines.push('    result = "' + q(result) + '"');
+#\ code:   lines.push('    count = ' + (String(_getVal('count') || '1').trim() || '1'));
+#\ code: } else {
+#\ code:   lines.push('    type = "slots"');
+#\ code:   for (var i = 1; i <= 9; i++) {
+#\ code:     var v = String(_getVal('s' + i) || '').trim();
+#\ code:     if (v) lines.push('    slot_' + i + ' = "' + q(v) + '"');
+#\ code:   }
+#\ code:   lines.push('    result = "' + q(result) + '"');
+#\ code:   lines.push('    count = ' + (String(_getVal('count') || '1').trim() || '1'));
+#\ code: }
+#\ code: lines.push('}');
+#\ code: return lines.join('\n') + '\n';

@@ -1,0 +1,338 @@
+#\ block: set_camera
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "камера для" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [runMode: dropdown(запустить: play, ждать конца: await)]
+#\ row: [mode: dropdown(позиция: position, с удержанием: hold, смотреть на точку: lookCoords, смотреть на цель: lookEntity)]
+#\ if mode == "position" or mode == "hold":
+#\   row: "позиция" (x: number: 0) (y: number: 70) (z: number: 0)
+#\   row: "yaw" (yaw: number: 0) "pitch" (pitch: number: 0) "плавно" (smooth: number: 0.5) "сек"
+#\ if mode == "hold":
+#\   row: "удержать" (hold: number: 3) "сек"
+#\ if mode == "lookCoords" or mode == "lookEntity":
+#\   row: "позиция камеры" (cx: number: 0) (cy: number: 80) (cz: number: 0)
+#\ if mode == "lookCoords":
+#\   row: "смотрит на" (lx: number: 0) (ly: number: 64) (lz: number: 0)
+#\   row: "удержать" (hold: number: 0) "сек" "плавно" (smooth: number: 0.8)
+#\ if mode == "lookEntity":
+#\   row: "смотрит на" [target: dropdown(НИП: npc_ref, игрока: player, моба: mob)]
+#\   if target == "npc_ref":
+#\     row: [npc: dropdown_npc]
+#\   row: "удержать" (hold: number: 0) "сек" "плавно" (smooth: number: 0.8) "следить" [track: checkbox]
+#\ row: "блокировать ходьбу" [lockMovement: checkbox(true)]
+#\ row: "скрыть GUI" [hideGui: dropdown(майнкрафт: minecraft, не скрывать: none, всё: all)]
+#\
+#\ if mode == "position" and runMode == "play" and who == "event":
+#\   template: setCamera(_eventPlayer, {x}, {y}, {z}, {yaw}, {pitch}, 0, {smooth}, {lockMovement}, "{hideGui}")
+#\ if mode == "position" and runMode == "play" and who == "first":
+#\   template: setCamera(getFirstPlayer(), {x}, {y}, {z}, {yaw}, {pitch}, 0, {smooth}, {lockMovement}, "{hideGui}")
+#\ if mode == "position" and runMode == "play" and who == "custom":
+#\   template: setCamera({player}, {x}, {y}, {z}, {yaw}, {pitch}, 0, {smooth}, {lockMovement}, "{hideGui}")
+#\ if mode == "position" and runMode == "await" and who == "event":
+#\   template: await time(setCamera(_eventPlayer, {x}, {y}, {z}, {yaw}, {pitch}, 0, {smooth}, {lockMovement}, "{hideGui}"))
+#\ if mode == "position" and runMode == "await" and who == "first":
+#\   template: await time(setCamera(getFirstPlayer(), {x}, {y}, {z}, {yaw}, {pitch}, 0, {smooth}, {lockMovement}, "{hideGui}"))
+#\ if mode == "position" and runMode == "await" and who == "custom":
+#\   template: await time(setCamera({player}, {x}, {y}, {z}, {yaw}, {pitch}, 0, {smooth}, {lockMovement}, "{hideGui}"))
+#\
+#\ if mode == "hold" and runMode == "play" and who == "event":
+#\   template: setCamera(_eventPlayer, {x}, {y}, {z}, {yaw}, {pitch}, {hold}, {smooth}, {lockMovement}, "{hideGui}")
+#\ if mode == "hold" and runMode == "play" and who == "first":
+#\   template: setCamera(getFirstPlayer(), {x}, {y}, {z}, {yaw}, {pitch}, {hold}, {smooth}, {lockMovement}, "{hideGui}")
+#\ if mode == "hold" and runMode == "play" and who == "custom":
+#\   template: setCamera({player}, {x}, {y}, {z}, {yaw}, {pitch}, {hold}, {smooth}, {lockMovement}, "{hideGui}")
+#\ if mode == "hold" and runMode == "await" and who == "event":
+#\   template: await time(setCamera(_eventPlayer, {x}, {y}, {z}, {yaw}, {pitch}, {hold}, {smooth}, {lockMovement}, "{hideGui}"))
+#\ if mode == "hold" and runMode == "await" and who == "first":
+#\   template: await time(setCamera(getFirstPlayer(), {x}, {y}, {z}, {yaw}, {pitch}, {hold}, {smooth}, {lockMovement}, "{hideGui}"))
+#\ if mode == "hold" and runMode == "await" and who == "custom":
+#\   template: await time(setCamera({player}, {x}, {y}, {z}, {yaw}, {pitch}, {hold}, {smooth}, {lockMovement}, "{hideGui}"))
+#\
+#\ if mode == "lookCoords" and runMode == "play" and who == "event":
+#\   template: setCameraLookAt(_eventPlayer, {cx}, {cy}, {cz}, {lx}, {ly}, {lz}, {hold}, {smooth}, false, {lockMovement}, "{hideGui}")
+#\ if mode == "lookCoords" and runMode == "play" and who == "first":
+#\   template: setCameraLookAt(getFirstPlayer(), {cx}, {cy}, {cz}, {lx}, {ly}, {lz}, {hold}, {smooth}, false, {lockMovement}, "{hideGui}")
+#\ if mode == "lookCoords" and runMode == "play" and who == "custom":
+#\   template: setCameraLookAt({player}, {cx}, {cy}, {cz}, {lx}, {ly}, {lz}, {hold}, {smooth}, false, {lockMovement}, "{hideGui}")
+#\ if mode == "lookCoords" and runMode == "await" and who == "event":
+#\   template: await time(setCameraLookAt(_eventPlayer, {cx}, {cy}, {cz}, {lx}, {ly}, {lz}, {hold}, {smooth}, false, {lockMovement}, "{hideGui}"))
+#\ if mode == "lookCoords" and runMode == "await" and who == "first":
+#\   template: await time(setCameraLookAt(getFirstPlayer(), {cx}, {cy}, {cz}, {lx}, {ly}, {lz}, {hold}, {smooth}, false, {lockMovement}, "{hideGui}"))
+#\ if mode == "lookCoords" and runMode == "await" and who == "custom":
+#\   template: await time(setCameraLookAt({player}, {cx}, {cy}, {cz}, {lx}, {ly}, {lz}, {hold}, {smooth}, false, {lockMovement}, "{hideGui}"))
+#\
+#\ if mode == "lookEntity" and target == "npc_ref" and runMode == "play" and who == "event":
+#\   template: setCameraLookAt(_eventPlayer, {cx}, {cy}, {cz}, {npc}, {hold}, {smooth}, {track}, {lockMovement}, "{hideGui}")
+#\ if mode == "lookEntity" and target == "npc_ref" and runMode == "play" and who == "first":
+#\   template: setCameraLookAt(getFirstPlayer(), {cx}, {cy}, {cz}, {npc}, {hold}, {smooth}, {track}, {lockMovement}, "{hideGui}")
+#\ if mode == "lookEntity" and target == "npc_ref" and runMode == "play" and who == "custom":
+#\   template: setCameraLookAt({player}, {cx}, {cy}, {cz}, {npc}, {hold}, {smooth}, {track}, {lockMovement}, "{hideGui}")
+#\ if mode == "lookEntity" and target == "npc_ref" and runMode == "await" and who == "event":
+#\   template: await time(setCameraLookAt(_eventPlayer, {cx}, {cy}, {cz}, {npc}, {hold}, {smooth}, {track}, {lockMovement}, "{hideGui}"))
+#\ if mode == "lookEntity" and target == "npc_ref" and runMode == "await" and who == "first":
+#\   template: await time(setCameraLookAt(getFirstPlayer(), {cx}, {cy}, {cz}, {npc}, {hold}, {smooth}, {track}, {lockMovement}, "{hideGui}"))
+#\ if mode == "lookEntity" and target == "npc_ref" and runMode == "await" and who == "custom":
+#\   template: await time(setCameraLookAt({player}, {cx}, {cy}, {cz}, {npc}, {hold}, {smooth}, {track}, {lockMovement}, "{hideGui}"))
+#\ if mode == "lookEntity" and target != "npc_ref" and runMode == "play" and who == "event":
+#\   template: setCameraLookAt(_eventPlayer, {cx}, {cy}, {cz}, "{target}", {hold}, {smooth}, {track}, {lockMovement}, "{hideGui}")
+#\ if mode == "lookEntity" and target != "npc_ref" and runMode == "play" and who == "first":
+#\   template: setCameraLookAt(getFirstPlayer(), {cx}, {cy}, {cz}, "{target}", {hold}, {smooth}, {track}, {lockMovement}, "{hideGui}")
+#\ if mode == "lookEntity" and target != "npc_ref" and runMode == "play" and who == "custom":
+#\   template: setCameraLookAt({player}, {cx}, {cy}, {cz}, "{target}", {hold}, {smooth}, {track}, {lockMovement}, "{hideGui}")
+#\ if mode == "lookEntity" and target != "npc_ref" and runMode == "await" and who == "event":
+#\   template: await time(setCameraLookAt(_eventPlayer, {cx}, {cy}, {cz}, "{target}", {hold}, {smooth}, {track}, {lockMovement}, "{hideGui}"))
+#\ if mode == "lookEntity" and target != "npc_ref" and runMode == "await" and who == "first":
+#\   template: await time(setCameraLookAt(getFirstPlayer(), {cx}, {cy}, {cz}, "{target}", {hold}, {smooth}, {track}, {lockMovement}, "{hideGui}"))
+#\ if mode == "lookEntity" and target != "npc_ref" and runMode == "await" and who == "custom":
+#\   template: await time(setCameraLookAt({player}, {cx}, {cy}, {cz}, "{target}", {hold}, {smooth}, {track}, {lockMovement}, "{hideGui}"))
+
+#\ block: animate_camera
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "камера для" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [runMode: dropdown(запустить: play, ждать конца: await)]
+#\ row: [mode: dropdown(к позиции: position, смотреть на: lookAt)]
+#\ row: "позиция" (x: number: 0) (y: number: 70) (z: number: 0)
+#\ if mode == "position":
+#\   row: "yaw" (yaw: number: 0) "pitch" (pitch: number: 0) "за" (smooth: number: 0.8) "сек"
+#\ if mode == "lookAt":
+#\   row: "смотря на" [target: dropdown(точку: coords, НИП: npc_ref, игрока: player, моба: mob)]
+#\   if target == "coords":
+#\     row: "точка" (lx: number: 0) (ly: number: 64) (lz: number: 0)
+#\   if target == "npc_ref":
+#\     row: [npc: dropdown_npc]
+#\   row: "за" (smooth: number: 0.8) "сек" "следить" [track: checkbox]
+#\ row: "блокировать ходьбу" [lockMovement: checkbox(true)]
+#\ row: "скрыть GUI" [hideGui: dropdown(майнкрафт: minecraft, не скрывать: none, всё: all)]
+#\
+#\ if mode == "position" and runMode == "play" and who == "event":
+#\   template: animateCamera(_eventPlayer, {x}, {y}, {z}, {yaw}, {pitch}, {smooth}, {lockMovement}, "{hideGui}")
+#\ if mode == "position" and runMode == "play" and who == "first":
+#\   template: animateCamera(getFirstPlayer(), {x}, {y}, {z}, {yaw}, {pitch}, {smooth}, {lockMovement}, "{hideGui}")
+#\ if mode == "position" and runMode == "play" and who == "custom":
+#\   template: animateCamera({player}, {x}, {y}, {z}, {yaw}, {pitch}, {smooth}, {lockMovement}, "{hideGui}")
+#\ if mode == "position" and runMode == "await" and who == "event":
+#\   template: await time(animateCamera(_eventPlayer, {x}, {y}, {z}, {yaw}, {pitch}, {smooth}, {lockMovement}, "{hideGui}"))
+#\ if mode == "position" and runMode == "await" and who == "first":
+#\   template: await time(animateCamera(getFirstPlayer(), {x}, {y}, {z}, {yaw}, {pitch}, {smooth}, {lockMovement}, "{hideGui}"))
+#\ if mode == "position" and runMode == "await" and who == "custom":
+#\   template: await time(animateCamera({player}, {x}, {y}, {z}, {yaw}, {pitch}, {smooth}, {lockMovement}, "{hideGui}"))
+#\
+#\ if mode == "lookAt" and target == "coords" and runMode == "play" and who == "event":
+#\   template: animateCameraLookAt(_eventPlayer, {x}, {y}, {z}, {lx}, {ly}, {lz}, {smooth}, {track}, {lockMovement}, "{hideGui}")
+#\ if mode == "lookAt" and target == "coords" and runMode == "play" and who == "first":
+#\   template: animateCameraLookAt(getFirstPlayer(), {x}, {y}, {z}, {lx}, {ly}, {lz}, {smooth}, {track}, {lockMovement}, "{hideGui}")
+#\ if mode == "lookAt" and target == "coords" and runMode == "play" and who == "custom":
+#\   template: animateCameraLookAt({player}, {x}, {y}, {z}, {lx}, {ly}, {lz}, {smooth}, {track}, {lockMovement}, "{hideGui}")
+#\ if mode == "lookAt" and target == "coords" and runMode == "await" and who == "event":
+#\   template: await time(animateCameraLookAt(_eventPlayer, {x}, {y}, {z}, {lx}, {ly}, {lz}, {smooth}, {track}, {lockMovement}, "{hideGui}"))
+#\ if mode == "lookAt" and target == "coords" and runMode == "await" and who == "first":
+#\   template: await time(animateCameraLookAt(getFirstPlayer(), {x}, {y}, {z}, {lx}, {ly}, {lz}, {smooth}, {track}, {lockMovement}, "{hideGui}"))
+#\ if mode == "lookAt" and target == "coords" and runMode == "await" and who == "custom":
+#\   template: await time(animateCameraLookAt({player}, {x}, {y}, {z}, {lx}, {ly}, {lz}, {smooth}, {track}, {lockMovement}, "{hideGui}"))
+#\
+#\ if mode == "lookAt" and target == "npc_ref" and runMode == "play" and who == "event":
+#\   template: animateCameraLookAt(_eventPlayer, {x}, {y}, {z}, {npc}, {smooth}, {track}, {lockMovement}, "{hideGui}")
+#\ if mode == "lookAt" and target == "npc_ref" and runMode == "play" and who == "first":
+#\   template: animateCameraLookAt(getFirstPlayer(), {x}, {y}, {z}, {npc}, {smooth}, {track}, {lockMovement}, "{hideGui}")
+#\ if mode == "lookAt" and target == "npc_ref" and runMode == "play" and who == "custom":
+#\   template: animateCameraLookAt({player}, {x}, {y}, {z}, {npc}, {smooth}, {track}, {lockMovement}, "{hideGui}")
+#\ if mode == "lookAt" and target == "npc_ref" and runMode == "await" and who == "event":
+#\   template: await time(animateCameraLookAt(_eventPlayer, {x}, {y}, {z}, {npc}, {smooth}, {track}, {lockMovement}, "{hideGui}"))
+#\ if mode == "lookAt" and target == "npc_ref" and runMode == "await" and who == "first":
+#\   template: await time(animateCameraLookAt(getFirstPlayer(), {x}, {y}, {z}, {npc}, {smooth}, {track}, {lockMovement}, "{hideGui}"))
+#\ if mode == "lookAt" and target == "npc_ref" and runMode == "await" and who == "custom":
+#\   template: await time(animateCameraLookAt({player}, {x}, {y}, {z}, {npc}, {smooth}, {track}, {lockMovement}, "{hideGui}"))
+#\
+#\ if mode == "lookAt" and target != "coords" and target != "npc_ref" and runMode == "play" and who == "event":
+#\   template: animateCameraLookAt(_eventPlayer, {x}, {y}, {z}, "{target}", {smooth}, {track}, {lockMovement}, "{hideGui}")
+#\ if mode == "lookAt" and target != "coords" and target != "npc_ref" and runMode == "play" and who == "first":
+#\   template: animateCameraLookAt(getFirstPlayer(), {x}, {y}, {z}, "{target}", {smooth}, {track}, {lockMovement}, "{hideGui}")
+#\ if mode == "lookAt" and target != "coords" and target != "npc_ref" and runMode == "play" and who == "custom":
+#\   template: animateCameraLookAt({player}, {x}, {y}, {z}, "{target}", {smooth}, {track}, {lockMovement}, "{hideGui}")
+#\ if mode == "lookAt" and target != "coords" and target != "npc_ref" and runMode == "await" and who == "event":
+#\   template: await time(animateCameraLookAt(_eventPlayer, {x}, {y}, {z}, "{target}", {smooth}, {track}, {lockMovement}, "{hideGui}"))
+#\ if mode == "lookAt" and target != "coords" and target != "npc_ref" and runMode == "await" and who == "first":
+#\   template: await time(animateCameraLookAt(getFirstPlayer(), {x}, {y}, {z}, "{target}", {smooth}, {track}, {lockMovement}, "{hideGui}"))
+#\ if mode == "lookAt" and target != "coords" and target != "npc_ref" and runMode == "await" and who == "custom":
+#\   template: await time(animateCameraLookAt({player}, {x}, {y}, {z}, "{target}", {smooth}, {track}, {lockMovement}, "{hideGui}"))
+
+#\ block: camera_lookat
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "камера для" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "смотрит на" [target: dropdown(точку: coords, НИП: npc_ref, игрока: player, моба: mob)]
+#\ if target == "coords":
+#\   row: (lx: number: 0) (ly: number: 64) (lz: number: 0)
+#\ if target == "npc_ref":
+#\   row: [npc: dropdown_npc]
+#\ row: "следить" [track: checkbox]
+#\
+#\ if target == "coords" and who == "event":
+#\   template: cameraLookAt(_eventPlayer, {lx}, {ly}, {lz}, {track})
+#\ if target == "coords" and who == "first":
+#\   template: cameraLookAt(getFirstPlayer(), {lx}, {ly}, {lz}, {track})
+#\ if target == "coords" and who == "custom":
+#\   template: cameraLookAt({player}, {lx}, {ly}, {lz}, {track})
+#\ if target == "npc_ref" and who == "event":
+#\   template: cameraLookAt(_eventPlayer, {npc}, {track})
+#\ if target == "npc_ref" and who == "first":
+#\   template: cameraLookAt(getFirstPlayer(), {npc}, {track})
+#\ if target == "npc_ref" and who == "custom":
+#\   template: cameraLookAt({player}, {npc}, {track})
+#\ if target != "coords" and target != "npc_ref" and who == "event":
+#\   template: cameraLookAt(_eventPlayer, "{target}", {track})
+#\ if target != "coords" and target != "npc_ref" and who == "first":
+#\   template: cameraLookAt(getFirstPlayer(), "{target}", {track})
+#\ if target != "coords" and target != "npc_ref" and who == "custom":
+#\   template: cameraLookAt({player}, "{target}", {track})
+
+#\ block: stop_camera
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "камера для" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [mode: dropdown(вернуть плавно: stopSmooth, вернуть: stop, отключить мгновенно: reset)]
+#\ if mode == "stopSmooth":
+#\   row: [runMode: dropdown(запустить: play, ждать конца: await)]
+#\   row: "плавно за" (smooth: number: 0.8) "сек"
+#\ if mode == "stop" and who == "event":
+#\   template: stopCamera(_eventPlayer)
+#\ if mode == "stop" and who == "first":
+#\   template: stopCamera(getFirstPlayer())
+#\ if mode == "stop" and who == "custom":
+#\   template: stopCamera({player})
+#\ if mode == "stopSmooth" and runMode == "play" and who == "event":
+#\   template: stopCamera(_eventPlayer, {smooth})
+#\ if mode == "stopSmooth" and runMode == "play" and who == "first":
+#\   template: stopCamera(getFirstPlayer(), {smooth})
+#\ if mode == "stopSmooth" and runMode == "play" and who == "custom":
+#\   template: stopCamera({player}, {smooth})
+#\ if mode == "stopSmooth" and runMode == "await" and who == "event":
+#\   template: await time(stopCamera(_eventPlayer, {smooth}))
+#\ if mode == "stopSmooth" and runMode == "await" and who == "first":
+#\   template: await time(stopCamera(getFirstPlayer(), {smooth}))
+#\ if mode == "stopSmooth" and runMode == "await" and who == "custom":
+#\   template: await time(stopCamera({player}, {smooth}))
+#\ if mode == "reset" and who == "event":
+#\   template: resetCamera(_eventPlayer)
+#\ if mode == "reset" and who == "first":
+#\   template: resetCamera(getFirstPlayer())
+#\ if mode == "reset" and who == "custom":
+#\   template: resetCamera({player})
+
+#\ block: camera_route_at_point
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "ждать точки" (point: number: 2) "маршрута" (route: text: intro)
+#\ row: [stopMode: dropdown(продолжить: continue, остановить мгновенно: stop, вернуть игроку: return)]
+#\ if stopMode != "continue":
+#\   row: "для" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\   if who == "custom":
+#\     input: player (type: value)
+#\ if stopMode == "return":
+#\   row: "плавно за" (smooth: number: 0.8) "сек"
+#\
+#\ if stopMode == "continue":
+#\   template: await time(cameraWaypointTime("{route}", {point}))
+#\ if stopMode == "stop" and who == "event":
+#\   template: await time(cameraRouteStopAtPoint(_eventPlayer, "{route}", {point}, 0))
+#\ if stopMode == "stop" and who == "first":
+#\   template: await time(cameraRouteStopAtPoint(getFirstPlayer(), "{route}", {point}, 0))
+#\ if stopMode == "stop" and who == "custom":
+#\   template: await time(cameraRouteStopAtPoint({player}, "{route}", {point}, 0))
+#\ if stopMode == "return" and who == "event":
+#\   template: await time(cameraRouteStopAtPoint(_eventPlayer, "{route}", {point}, {smooth}))
+#\ if stopMode == "return" and who == "first":
+#\   template: await time(cameraRouteStopAtPoint(getFirstPlayer(), "{route}", {point}, {smooth}))
+#\ if stopMode == "return" and who == "custom":
+#\   template: await time(cameraRouteStopAtPoint({player}, "{route}", {point}, {smooth}))
+
+#\ block: play_camera_route
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "маршрут камеры для" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "файл" (route: text: intro)
+#\ row: [runMode: dropdown(запустить: play, ждать окончания: await)]
+#\ row: "пролёт за" (totalTime: number: 0) "сек" "0 = из файла"
+#\ row: [afterEnd: dropdown(вернуться к игроку: return, остановиться: stay)]
+#\ if afterEnd == "return":
+#\   row: "возврат за" (returnSmooth: number: 0.8) "сек"
+#\ row: "блокировать ходьбу" [lockMovement: checkbox(true)]
+#\ row: "скрыть GUI" [hideGui: dropdown(майнкрафт: minecraft, не скрывать: none, всё: all)]
+#\ row: [lookMode: dropdown(из маршрута: route, перезаписать взгляд: lookAt)]
+#\ if lookMode == "lookAt":
+#\   row: "смотреть на" (lookX: number: 0) (lookY: number: 64) (lookZ: number: 0)
+#\ row: "интерполяция" [interp: dropdown(из файла: route, по линиям: linear, плавная кривая: smooth, плавная камера: smooth_camera)]
+#\ row: "переход за" (transition: number: 0) "сек (0 = мгновенно)"
+#\
+#\ if runMode == "play" and afterEnd == "return" and lookMode == "route" and who == "event":
+#\   template: playCameraRoute(_eventPlayer, "{route}", {lockMovement}, "{hideGui}", {returnSmooth}, {totalTime}, "return", "interp", "{interp}", "transition", {transition})
+#\ if runMode == "play" and afterEnd == "return" and lookMode == "route" and who == "first":
+#\   template: playCameraRoute(getFirstPlayer(), "{route}", {lockMovement}, "{hideGui}", {returnSmooth}, {totalTime}, "return", "interp", "{interp}", "transition", {transition})
+#\ if runMode == "play" and afterEnd == "return" and lookMode == "route" and who == "custom":
+#\   template: playCameraRoute({player}, "{route}", {lockMovement}, "{hideGui}", {returnSmooth}, {totalTime}, "return", "interp", "{interp}", "transition", {transition})
+#\ if runMode == "play" and afterEnd == "return" and lookMode == "lookAt" and who == "event":
+#\   template: playCameraRoute(_eventPlayer, "{route}", {lockMovement}, "{hideGui}", {returnSmooth}, {totalTime}, "return", "lookAt", {lookX}, {lookY}, {lookZ}, "interp", "{interp}", "transition", {transition})
+#\ if runMode == "play" and afterEnd == "return" and lookMode == "lookAt" and who == "first":
+#\   template: playCameraRoute(getFirstPlayer(), "{route}", {lockMovement}, "{hideGui}", {returnSmooth}, {totalTime}, "return", "lookAt", {lookX}, {lookY}, {lookZ}, "interp", "{interp}", "transition", {transition})
+#\ if runMode == "play" and afterEnd == "return" and lookMode == "lookAt" and who == "custom":
+#\   template: playCameraRoute({player}, "{route}", {lockMovement}, "{hideGui}", {returnSmooth}, {totalTime}, "return", "lookAt", {lookX}, {lookY}, {lookZ}, "interp", "{interp}", "transition", {transition})
+#\ if runMode == "play" and afterEnd == "stay" and lookMode == "route" and who == "event":
+#\   template: playCameraRoute(_eventPlayer, "{route}", {lockMovement}, "{hideGui}", 0, {totalTime}, "stay", "interp", "{interp}", "transition", {transition})
+#\ if runMode == "play" and afterEnd == "stay" and lookMode == "route" and who == "first":
+#\   template: playCameraRoute(getFirstPlayer(), "{route}", {lockMovement}, "{hideGui}", 0, {totalTime}, "stay", "interp", "{interp}", "transition", {transition})
+#\ if runMode == "play" and afterEnd == "stay" and lookMode == "route" and who == "custom":
+#\   template: playCameraRoute({player}, "{route}", {lockMovement}, "{hideGui}", 0, {totalTime}, "stay", "interp", "{interp}", "transition", {transition})
+#\ if runMode == "play" and afterEnd == "stay" and lookMode == "lookAt" and who == "event":
+#\   template: playCameraRoute(_eventPlayer, "{route}", {lockMovement}, "{hideGui}", 0, {totalTime}, "stay", "lookAt", {lookX}, {lookY}, {lookZ}, "interp", "{interp}", "transition", {transition})
+#\ if runMode == "play" and afterEnd == "stay" and lookMode == "lookAt" and who == "first":
+#\   template: playCameraRoute(getFirstPlayer(), "{route}", {lockMovement}, "{hideGui}", 0, {totalTime}, "stay", "lookAt", {lookX}, {lookY}, {lookZ}, "interp", "{interp}", "transition", {transition})
+#\ if runMode == "play" and afterEnd == "stay" and lookMode == "lookAt" and who == "custom":
+#\   template: playCameraRoute({player}, "{route}", {lockMovement}, "{hideGui}", 0, {totalTime}, "stay", "lookAt", {lookX}, {lookY}, {lookZ}, "interp", "{interp}", "transition", {transition})
+#\
+#\ if runMode == "await" and afterEnd == "return" and lookMode == "route" and who == "event":
+#\   template: await cameraRoute(_eventPlayer, "{route}", {lockMovement}, "{hideGui}", {returnSmooth}, {totalTime}, "return", "interp", "{interp}", "transition", {transition})
+#\ if runMode == "await" and afterEnd == "return" and lookMode == "route" and who == "first":
+#\   template: await cameraRoute(getFirstPlayer(), "{route}", {lockMovement}, "{hideGui}", {returnSmooth}, {totalTime}, "return", "interp", "{interp}", "transition", {transition})
+#\ if runMode == "await" and afterEnd == "return" and lookMode == "route" and who == "custom":
+#\   template: await cameraRoute({player}, "{route}", {lockMovement}, "{hideGui}", {returnSmooth}, {totalTime}, "return", "interp", "{interp}", "transition", {transition})
+#\ if runMode == "await" and afterEnd == "return" and lookMode == "lookAt" and who == "event":
+#\   template: await cameraRoute(_eventPlayer, "{route}", {lockMovement}, "{hideGui}", {returnSmooth}, {totalTime}, "return", "lookAt", {lookX}, {lookY}, {lookZ}, "interp", "{interp}", "transition", {transition})
+#\ if runMode == "await" and afterEnd == "return" and lookMode == "lookAt" and who == "first":
+#\   template: await cameraRoute(getFirstPlayer(), "{route}", {lockMovement}, "{hideGui}", {returnSmooth}, {totalTime}, "return", "lookAt", {lookX}, {lookY}, {lookZ}, "interp", "{interp}", "transition", {transition})
+#\ if runMode == "await" and afterEnd == "return" and lookMode == "lookAt" and who == "custom":
+#\   template: await cameraRoute({player}, "{route}", {lockMovement}, "{hideGui}", {returnSmooth}, {totalTime}, "return", "lookAt", {lookX}, {lookY}, {lookZ}, "interp", "{interp}", "transition", {transition})
+#\ if runMode == "await" and afterEnd == "stay" and lookMode == "route" and who == "event":
+#\   template: await cameraRoute(_eventPlayer, "{route}", {lockMovement}, "{hideGui}", 0, {totalTime}, "stay", "interp", "{interp}", "transition", {transition})
+#\ if runMode == "await" and afterEnd == "stay" and lookMode == "route" and who == "first":
+#\   template: await cameraRoute(getFirstPlayer(), "{route}", {lockMovement}, "{hideGui}", 0, {totalTime}, "stay", "interp", "{interp}", "transition", {transition})
+#\ if runMode == "await" and afterEnd == "stay" and lookMode == "route" and who == "custom":
+#\   template: await cameraRoute({player}, "{route}", {lockMovement}, "{hideGui}", 0, {totalTime}, "stay", "interp", "{interp}", "transition", {transition})
+#\ if runMode == "await" and afterEnd == "stay" and lookMode == "lookAt" and who == "event":
+#\   template: await cameraRoute(_eventPlayer, "{route}", {lockMovement}, "{hideGui}", 0, {totalTime}, "stay", "lookAt", {lookX}, {lookY}, {lookZ}, "interp", "{interp}", "transition", {transition})
+#\ if runMode == "await" and afterEnd == "stay" and lookMode == "lookAt" and who == "first":
+#\   template: await cameraRoute(getFirstPlayer(), "{route}", {lockMovement}, "{hideGui}", 0, {totalTime}, "stay", "lookAt", {lookX}, {lookY}, {lookZ}, "interp", "{interp}", "transition", {transition})
+#\ if runMode == "await" and afterEnd == "stay" and lookMode == "lookAt" and who == "custom":
+#\   template: await cameraRoute({player}, "{route}", {lockMovement}, "{hideGui}", 0, {totalTime}, "stay", "lookAt", {lookX}, {lookY}, {lookZ}, "interp", "{interp}", "transition", {transition})

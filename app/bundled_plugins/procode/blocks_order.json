@@ -1,4 +1,29 @@
 {
+  "НПС": [
+    "npc_create",
+    "npc_ref",
+    "npc_anim",
+    "npc_moveto",
+    "npc_fly",
+    "npc_lookat",
+    "npc_setitem",
+    "npc_removeitem",
+    "npc_setprop",
+    "npc_getprop",
+    "npc_setflying",
+    "npc_hitbox",
+    "npc_bone_hitbox",
+    "npc_teleport",
+    "npc_remove"
+  ],
+  "НПС Группы": [
+    "npc_group_create",
+    "npc_group_add",
+    "npc_group_size",
+    "npc_group_move",
+    "npc_group_anim",
+    "npc_group_cmd"
+  ],
   "Игрок": [
     "get_player",
     "get_player_stmt",
@@ -17,6 +42,8 @@
     "players_near",
     "entities_in_radius",
     "entities_near",
+    "entity_glow",
+    "is_entity_glowing",
     "aoe_damage_players",
     "get_player_movement_speed",
     "set_player_movement_speed",
@@ -65,10 +92,60 @@
     "set_item_name",
     "get_item_lore",
     "set_item_lore",
+    "append_item_lore",
     "get_item_attack_damage",
     "set_item_attack_damage",
     "get_item_nbt",
-    "set_item_nbt"
+    "set_item_nbt",
+    "forbid_item",
+    "allow_item",
+    "clear_item_restrictions",
+    "is_item_forbidden",
+    "await_inventory"
+  ],
+  "События": [
+    "on_interact",
+    "on_inventory",
+    "event_inventory_item",
+    "event_inventory_count",
+    "on_chat",
+    "on_kill",
+    "on_action",
+    "on_pickup",
+    "on_uiinput",
+    "on_uitouch",
+    "on_jump",
+    "on_position",
+    "on_keybind",
+    "on_death",
+    "on_breakblock",
+    "on_clickblock",
+    "on_placeblock",
+    "on_orbpickup",
+    "on_uiclick",
+    "on_uiclose"
+  ],
+  "Ожидание": [
+    "await_interact",
+    "await_inventory",
+    "await_chat",
+    "await_action",
+    "await_uiinput",
+    "await_uitouch",
+    "await_jump",
+    "await_kill",
+    "await_task",
+    "await_next",
+    "await_pickup",
+    "await_position",
+    "await_keybind",
+    "await_death",
+    "await_breakblock",
+    "await_clickblock",
+    "await_placeblock",
+    "await_orb",
+    "await_uiclick",
+    "await_uiclose"
   ],
   "Мир": [
     "set_block",
@@ -76,5 +153,28 @@
     "spawn_orb",
     "execute_cmd",
     "start_script"
+  ],
+  "Измерения": [
+    "create_world",
+    "get_world_id",
+    "teleport_to_world",
+    "on_dimension",
+    "await_dimension",
+    "event_dimension",
+    "event_from_dimension"
+  ],
+  "Камера": [
+    "set_camera",
+    "animate_camera",
+    "camera_lookat",
+    "stop_camera",
+    "play_camera_route",
+    "camera_route_at_point"
+  ],
+  "Ресурсы": [
+    "create_block",
+    "create_item",
+    "create_tab",
+    "create_craft"
   ]
 }

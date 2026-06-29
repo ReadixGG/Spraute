@@ -136,6 +136,15 @@
 #\ row: "строки" input: lore (type: value) "список"
 #\ template: setItemLore({player}, {slot}, {lore})
 
+#\ block: append_item_lore
+#\ category: Инвентарь
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "добавить к описанию" input: player (type: value) "у игрока" (slot: number: 0) "слот"
+#\ row: "строки" input: lore (type: value) "список"
+#\ template: appendItemLore({player}, {slot}, {lore})
+
 #\ block: get_item_attack_damage
 #\ category: Инвентарь
 #\ color: #f59e0b

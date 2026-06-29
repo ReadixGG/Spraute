@@ -1,0 +1,43 @@
+#\ block: npc_fly
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "НИП" [npc: dropdown_npc] [mode: dropdown(лететь к: flyTo, ждать полёт: flyToAwait, всегда лететь к: alwaysFlyTo, выключить полёт: setFlyingOff)]
+#\ if mode == "setFlyingOff":
+#\   template: {npc}.setFlying(false)
+#\ if mode == "flyTo" or mode == "flyToAwait" or mode == "alwaysFlyTo":
+#\   row: "к" [target_type: dropdown(координаты: coords, НИП: npc, игрок: player, моб: mob)]
+#\   if target_type == "coords":
+#\     row: "X" (x: number: 0) "Y" (y: number: 70) "Z" (z: number: 0) "скорость" (speed: number: 1)
+#\   if target_type == "npc":
+#\     row: [goal: dropdown_npc] "скорость" (speed: number: 1)
+#\   if target_type == "player":
+#\     input: target_player (type: value)
+#\     row: "скорость" (speed: number: 1)
+#\   if target_type == "mob":
+#\     row: "скорость" (speed: number: 1)
+#\ if mode == "flyTo" and target_type == "coords":
+#\   template: {npc}.flyTo({x}, {y}, {z}, {speed})
+#\ if mode == "flyToAwait" and target_type == "coords":
+#\   template: await {npc}.flyTo({x}, {y}, {z}, {speed})
+#\ if mode == "alwaysFlyTo" and target_type == "coords":
+#\   template: {npc}.alwaysFlyTo({x}, {y}, {z}, {speed})
+#\ if mode == "flyTo" and target_type == "npc":
+#\   template: {npc}.flyTo({goal}, {speed})
+#\ if mode == "flyToAwait" and target_type == "npc":
+#\   template: await {npc}.flyTo({goal}, {speed})
+#\ if mode == "alwaysFlyTo" and target_type == "npc":
+#\   template: {npc}.alwaysFlyTo({goal}, {speed})
+#\ if mode == "flyTo" and target_type == "player":
+#\   template: {npc}.flyTo({target_player}, {speed})
+#\ if mode == "flyToAwait" and target_type == "player":
+#\   template: await {npc}.flyTo({target_player}, {speed})
+#\ if mode == "alwaysFlyTo" and target_type == "player":
+#\   template: {npc}.alwaysFlyTo({target_player}, {speed})
+#\ if mode == "flyTo" and target_type == "mob":
+#\   template: {npc}.flyTo("mob", {speed})
+#\ if mode == "flyToAwait" and target_type == "mob":
+#\   template: await {npc}.flyTo("mob", {speed})
+#\ if mode == "alwaysFlyTo" and target_type == "mob":
+#\   template: {npc}.alwaysFlyTo("mob", {speed})

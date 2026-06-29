@@ -3,14 +3,14 @@
 #\ color: #22c55e
 #\ shape: value
 #\
-#\ row: "вектор движения" input: player (type: value) "игрока"
-#\ template: getPlayerMotion({player})
+#\ row: "вектор движения" [targetKind: dropdown(игрок: player, НИП: npc, моб: mob)] input: target (type: value)
+#\ template: getPlayerMotion({target})
 
 #\ block: set_player_motion
 #\ category: Игрок
 #\ color: #22c55e
 #\ shape: statement
 #\
-#\ row: "задать вектор движения" input: player (type: value) "игроку"
+#\ row: "задать вектор движения" [targetKind: dropdown(игроку: player, НИП: npc, мобу: mob)] input: target (type: value)
 #\ row: "vx" (vx: number: 0) "vy" (vy: number: 0) "vz" (vz: number: 0)
-#\ template: setPlayerMotion({player}, {vx}, {vy}, {vz})
+#\ template: setPlayerMotion({target}, {vx}, {vy}, {vz})

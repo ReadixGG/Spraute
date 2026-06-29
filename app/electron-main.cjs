@@ -288,24 +288,67 @@ async function migrateProcodeBlockCategories(pluginRoot) {
   await fs.writeFile(catPath, JSON.stringify(newCats, null, 2), 'utf8');
 }
 
-/** Синхронизирует bundled-блоки procode и мигрирует категории. */
-async function ensureBundledProcodeBlocks() {
-  const bundledRoot = path.join(__dirname, 'bundled_plugins', 'procode');
-  const pluginRoot = path.join(getPluginsRoot(), 'procode');
+/** Категории, где при синхронизации дополняем список блоков, а не заменяем целиком. */
+const PROCODE_APPEND_BLOCK_CATEGORIES = new Set([
+  'НПС', 'НПС Группы', 'Камера', 'Экономика', 'Квесты',
+]);
+
+function mergeProcodeCategories(bundledCats, destCats) {
+  const result = {};
+  for (const key of Object.keys(bundledCats)) {
+    result[key] = bundledCats[key];
+  }
+  for (const key of Object.keys(destCats)) {
+    if (!(key in result)) result[key] = destCats[key];
+  }
+  delete result['Игрок и Мир'];
+  delete result['Слоты'];
+  return result;
+}
+
+function reorderProcodeBlocksOrder(bundledOrder, destOrder) {
+  const ordered = {};
+  for (const key of Object.keys(bundledOrder)) {
+    if (destOrder[key]) ordered[key] = destOrder[key];
+  }
+  for (const key of Object.keys(destOrder)) {
+    if (!(key in ordered)) ordered[key] = destOrder[key];
+  }
+  return ordered;
+}
+
+/** Все папки плагина ProCode (ProCode, procode и т.д.). */
+async function findProcodePluginDirs() {
+  const root = getPluginsRoot();
+  const entries = await fs.readdir(root, { withFileTypes: true }).catch(() => []);
+  const dirs = [];
+  for (const e of entries) {
+    if (!e.isDirectory()) continue;
+    if (e.name.toLowerCase() === 'procode') dirs.push(path.join(root, e.name));
+  }
+  return dirs;
+}
+
+/** Синхронизирует bundled-блоки в одну папку плагина procode. */
+async function syncBundledProcodeToDir(pluginRoot, bundledRoot) {
   const bundledBlocks = path.join(bundledRoot, 'blocks');
   const destBlocks = path.join(pluginRoot, 'blocks');
 
-  if (!(await pathExists(bundledBlocks))) return;
-  if (!(await pathExists(pluginRoot))) return;
-
   await migrateProcodeBlockCategories(pluginRoot);
-
   await fs.mkdir(destBlocks, { recursive: true });
 
   const files = await fs.readdir(bundledBlocks).catch(() => []);
   for (const name of files) {
     if (!name.endsWith('.spr')) continue;
     await fs.copyFile(path.join(bundledBlocks, name), path.join(destBlocks, name));
+  }
+
+  const destFiles = await fs.readdir(destBlocks).catch(() => []);
+  for (const name of destFiles) {
+    if (!name.endsWith('.spr')) continue;
+    if (REMOVED_PROCODE_BLOCK_FILES.has(name)) {
+      await fs.unlink(path.join(destBlocks, name)).catch(() => {});
+    }
   }
 
   const bundledCatsPath = path.join(bundledRoot, 'categories.json');
@@ -319,7 +362,7 @@ async function ensureBundledProcodeBlocks() {
       }
       delete destCats['Игрок и Мир'];
       delete destCats['Слоты'];
-      Object.assign(destCats, bundledCats);
+      destCats = mergeProcodeCategories(bundledCats, destCats);
       await fs.writeFile(destCatsPath, JSON.stringify(destCats, null, 2), 'utf8');
     } catch (e) {
       console.error('procode categories merge failed:', e);
@@ -343,7 +386,15 @@ async function ensureBundledProcodeBlocks() {
     let changed = false;
     for (const [cat, ids] of Object.entries(bundledOrder)) {
       if (!Array.isArray(ids)) continue;
-      destOrder[cat] = [...ids];
+      const existing = Array.isArray(destOrder[cat]) ? [...destOrder[cat]] : [];
+      if (cat === 'НПС' || cat === 'Камера') {
+        for (const id of ids) {
+          if (!existing.includes(id)) existing.push(id);
+        }
+        destOrder[cat] = existing;
+      } else {
+        destOrder[cat] = [...ids];
+      }
       changed = true;
     }
     if (changed) {
@@ -351,6 +402,24 @@ async function ensureBundledProcodeBlocks() {
     }
   } catch (e) {
     console.error('procode blocks_order merge failed:', e);
+  }
+}
+
+/** Синхронизирует bundled-блоки procode и мигрирует категории. */
+async function ensureBundledProcodeBlocks() {
+  const bundledRoot = path.join(__dirname, 'bundled_plugins', 'procode');
+  const bundledBlocks = path.join(bundledRoot, 'blocks');
+  if (!(await pathExists(bundledBlocks))) return;
+
+  let pluginDirs = await findProcodePluginDirs();
+  if (pluginDirs.length === 0) {
+    const defaultRoot = path.join(getPluginsRoot(), 'procode');
+    await fs.mkdir(defaultRoot, { recursive: true });
+    pluginDirs = [defaultRoot];
+  }
+
+  for (const pluginRoot of pluginDirs) {
+    await syncBundledProcodeToDir(pluginRoot, bundledRoot);
   }
 }
 
