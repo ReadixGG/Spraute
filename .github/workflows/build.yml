@@ -1,4 +1,4 @@
-name: Build Spraute
+name: Build Spraute Studio
 
 on:
   push:
@@ -11,40 +11,6 @@ permissions:
   contents: write
 
 jobs:
-  build-mod:
-    name: Build mod (MC ${{ matrix.mc }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        mc: ['1.19.2', '1.20.1']
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Build mod
-        run: ./gradlew :${{ matrix.mc }}:build -x test --no-daemon
-
-      - name: Prepare mod artifact
-        shell: bash
-        run: |
-          mkdir -p mod-artifact
-          JAR=$(ls -t "versions/${{ matrix.mc }}/build/libs/"spraute_engine-*.jar | head -1)
-          cp "$JAR" "mod-artifact/$(basename "$JAR")"
-
-      - name: Upload mod artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mod-${{ matrix.mc }}
-          path: mod-artifact/*.jar
-          retention-days: 14
-
   build-studio:
     name: Build Studio (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -115,7 +81,7 @@ jobs:
   release:
     name: Publish GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build-mod, build-studio]
+    needs: [build-studio]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts

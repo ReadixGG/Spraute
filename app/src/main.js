@@ -19,6 +19,22 @@ import { SprauteGenerator, generateWorkspaceCode, SprauteTheme, applyBlocklyThem
 import { visualBlocksDocs } from './docs.js';
 import { initGuiEditor, setupGuiEditorBridge } from './gui-editor.js';
 
+function formatStudioVersion(raw) {
+  if (!raw) return 'v?';
+  const m = String(raw).match(/^(\d+)\.(\d+)(?:\.(\d+))?/);
+  if (!m) return `v${raw}`;
+  if (!m[3] || m[3] === '0') return `v${m[1]}.${m[2]}`;
+  return `v${m[1]}.${m[2]}.${m[3]}`;
+}
+
+function applyStudioVersionLabel() {
+  const el = document.getElementById('studio-version-label');
+  if (!el) return;
+  el.textContent = formatStudioVersion(typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null);
+}
+
+applyStudioVersionLabel();
+
 const sprauteLanguage = StreamLanguage.define({
   token(stream, state) {
     if (stream.eatSpace()) return null;
