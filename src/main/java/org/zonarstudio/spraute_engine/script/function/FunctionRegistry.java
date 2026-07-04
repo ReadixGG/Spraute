@@ -10,6 +10,7 @@ public class FunctionRegistry {
 
     static {
         register(new ChatFunction());
+        register(new LogFunction());
         register(new NpcFunction());
         register(new SayFunction());
         register(new GetNearestPlayerFunction());
@@ -85,6 +86,7 @@ public class FunctionRegistry {
         register(new DropFunctions.AddBlockDropFunction());
         register(new ScriptManagementFunctions.StartScriptFunction());
         register(new ScriptManagementFunctions.StopScriptFunction());
+        register(new FadeInFunction());
         register(new FadeOutFunction());
         register(new StopCameraFunction());
         register(new ResetCameraFunction());
@@ -126,6 +128,12 @@ public class FunctionRegistry {
         register(new EntityUtilFunctions.SetBillboardTexture());
         register(new EntityUtilFunctions.TeleportEntity());
         register(new EntityUtilFunctions.GetEntityPos());
+        register(new EntityUtilFunctions.GetNpc());
+        register(new EntityUtilFunctions.RegisterNpc());
+        register(new EntityUtilFunctions.GetNearestNpc());
+        registerAlias("get_npc", new EntityUtilFunctions.GetNpc());
+        registerAlias("register_npc", new EntityUtilFunctions.RegisterNpc());
+        registerAlias("get_nearest_npc", new EntityUtilFunctions.GetNearestNpc());
         // NPC groups
         register(new NpcGroupFunctions.CreateGroup());
         register(new NpcGroupFunctions.GetGroup());

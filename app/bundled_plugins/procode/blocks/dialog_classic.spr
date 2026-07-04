@@ -1,0 +1,63 @@
+#\ block: dialog_answers
+#\ category: Диалоги
+#\ color: #d946ef
+#\ shape: value
+#\
+#\ row: "ответы диалога" [count: dropdown(1: 1, 2: 2, 3: 3)]
+#\ if count == "1":
+#\   row: "1:" (a1: text: Да)
+#\   template: list("{a1}")
+#\ if count == "2":
+#\   row: "1:" (a1: text: Да) "2:" (a2: text: Нет)
+#\   template: list("{a1}", "{a2}")
+#\ if count == "3":
+#\   row: "1:" (a1: text: Да) "2:" (a2: text: Нет) "3:" (a3: text: Может)
+#\   template: list("{a1}", "{a2}", "{a3}")
+
+#\ block: dialog_classic
+#\ category: Диалоги
+#\ color: #d946ef
+#\ shape: value
+#\ write_start: import("dialog_classic")
+#\
+#\ row: "классический диалог"
+#\ row: "игрок" [playerMode: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if playerMode == "custom":
+#\   input: player (type: value)
+#\ row: "НИП" [hasNpc: dropdown(есть: yes, нет: no)]
+#\ if hasNpc == "yes":
+#\   row: [npc: dropdown_npc]
+#\ row: "вопрос" (question: text: Что вы выберете?)
+#\ row: "ответы"
+#\ input: answers (type: value)
+#\ code: var pm = String(_getVal('playerMode') || 'event');
+#\ code: var pl = '_eventPlayer';
+#\ code: if (pm === 'first') { pl = 'getFirstPlayer()'; }
+#\ code: if (pm === 'custom') { var cp = String(_getVal('player') || '').trim(); if (cp) { pl = cp; } }
+#\ code: var q = _str('question');
+#\ code: var ans = _getVal('answers');
+#\ code: var hasNpc = String(_getVal('hasNpc') || 'yes');
+#\ code: var npc = hasNpc === 'yes' ? _getVal('npc') : 'null';
+#\ code: return 'dialogClassic(' + pl + ', ' + npc + ', ' + q + ', ' + ans + ')';
+
+#\ block: dialog_pick_index
+#\ category: Диалоги
+#\ color: #d946ef
+#\ shape: value
+#\ write_start: import("dialog_classic")
+#\
+#\ row: "индекс выбора в диалоге"
+#\ input: pick (type: value)
+#\ template: dialogPickIndex({pick})
+
+#\ block: dialog_pick_text
+#\ category: Диалоги
+#\ color: #d946ef
+#\ shape: value
+#\ write_start: import("dialog_classic")
+#\
+#\ row: "текст выбора в диалоге"
+#\ input: pick (type: value)
+#\ row: "из"
+#\ input: answers (type: value)
+#\ template: dialogPickText({pick}, {answers})

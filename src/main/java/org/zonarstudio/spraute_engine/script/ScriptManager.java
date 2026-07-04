@@ -53,6 +53,10 @@ public class ScriptManager {
     }
 
     public static void init(Path gameDir) {
+        if (INSTANCE != null) {
+            INSTANCE.stopAll();
+            INSTANCE.clearGlobalVariables();
+        }
         INSTANCE = new ScriptManager(gameDir);
         INSTANCE.ensureDirectoryExists();
         INSTANCE.copyDefaultScripts();
@@ -215,6 +219,10 @@ public class ScriptManager {
     /** Клик по кнопке UI или закрытие экрана (ESC). */
     public void onUiAction(net.minecraft.server.level.ServerPlayer player, String widgetId, boolean closed) {
         executor.onUiAction(player, widgetId, closed);
+    }
+
+    public void onUiAction(net.minecraft.server.level.ServerPlayer player, byte action, String widgetId, int mouseButton) {
+        executor.onUiAction(player, action, widgetId, mouseButton);
     }
 
     public void onUiOverlapAction(net.minecraft.server.level.ServerPlayer player, String id1, String id2, boolean overlapping) {

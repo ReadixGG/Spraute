@@ -48,6 +48,12 @@ public class DebugOverlay {
         return panelY + 25;
     }
 
+    /** Fallback when lang JSON is missing from the mod jar (I18n returns the key unchanged). */
+    private static String tr(String key, String fallback) {
+        String value = I18n.get(key);
+        return value.equals(key) ? fallback : value;
+    }
+
     public static void updateState(List<SyncDebugStatePacket.ScriptDebugData> scripts, List<String> all) {
         debugData = scripts;
         allScripts = all;
@@ -134,7 +140,7 @@ public class DebugOverlay {
 
         // Title
         //? if >=1.20.1 {
-        guiGraphics.drawString(font, "§l" + I18n.get("spraute_engine.debug.title") + "§r", panelX + 10, panelY + 10, 0xFFFFFF, true);
+        guiGraphics.drawString(font, "§l" + tr("spraute_engine.debug.title", "Отладка Spraute") + "§r", panelX + 10, panelY + 10, 0xFFFFFF, true);
         //?} else {
         /*font.drawShadow(poseStack, "§l" + I18n.get("spraute_engine.debug.title") + "§r", panelX + 10, panelY + 10, 0xFFFFFF);
         *///?}
@@ -153,8 +159,8 @@ public class DebugOverlay {
         int reloadTextBlockH = font.lineHeight * 2;
         int reloadTextY = reloadBtnY + (reloadBtnH - reloadTextBlockH) / 2;
         //? if >=1.20.1 {
-        guiGraphics.drawCenteredString(font, "§e" + I18n.get("spraute_engine.debug.reload.1"), reloadBtnX + reloadBtnW / 2, reloadTextY, 0xFFFFFF);
-        guiGraphics.drawCenteredString(font, "§e" + I18n.get("spraute_engine.debug.reload.2"), reloadBtnX + reloadBtnW / 2, reloadTextY + font.lineHeight, 0xFFFFFF);
+        guiGraphics.drawCenteredString(font, "§e" + tr("spraute_engine.debug.reload.1", "Перезагрузить все"), reloadBtnX + reloadBtnW / 2, reloadTextY, 0xFFFFFF);
+        guiGraphics.drawCenteredString(font, "§e" + tr("spraute_engine.debug.reload.2", "скрипты"), reloadBtnX + reloadBtnW / 2, reloadTextY + font.lineHeight, 0xFFFFFF);
         //?} else {
         /*GuiComponent.drawCenteredString(poseStack, font, "§e" + I18n.get("spraute_engine.debug.reload.1"), reloadBtnX + reloadBtnW / 2, reloadTextY, 0xFFFFFF);
         GuiComponent.drawCenteredString(poseStack, font, "§e" + I18n.get("spraute_engine.debug.reload.2"), reloadBtnX + reloadBtnW / 2, reloadTextY + font.lineHeight, 0xFFFFFF);
@@ -246,7 +252,7 @@ public class DebugOverlay {
                 int btnColor = running ? (btnHovered ? 0xFFFF5555 : 0xFFAA0000) : (btnHovered ? 0xFF55FF55 : 0xFF00AA00);
                 //? if >=1.20.1 {
                 guiGraphics.fill(btnX, btnY, btnX + btnW, btnY + btnH, btnColor);
-                guiGraphics.drawCenteredString(font, I18n.get(running ? "spraute_engine.debug.stop" : "spraute_engine.debug.start"), btnX + btnW / 2, btnY + 3, 0xFFFFFF);
+                guiGraphics.drawCenteredString(font, tr(running ? "spraute_engine.debug.stop" : "spraute_engine.debug.start", running ? "Стоп" : "Старт"), btnX + btnW / 2, btnY + 3, 0xFFFFFF);
                 //?} else {
                 /*GuiComponent.fill(poseStack, btnX, btnY, btnX + btnW, btnY + btnH, btnColor);
                 GuiComponent.drawCenteredString(poseStack, font, I18n.get(running ? "spraute_engine.debug.stop" : "spraute_engine.debug.start"), btnX + btnW / 2, btnY + 3, 0xFFFFFF);

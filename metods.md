@@ -503,6 +503,7 @@ create particle my_magic_spark {
 - `directional` (true/false) — поворачивать блок при установке по взгляду игрока (по умолчанию `true`). Кастомный `hitbox` тоже крутится вместе с блоком.
 - `light` (число) — уровень свечения от 0 до 15.
 - `hardness` (число) — прочность блока (по умолчанию `1.5`).
+- `name` (строка) — отображаемое имя блока в инвентаре (поддерживает `§` / `&` для цвета).
 - `drop` (строка) — id предмета при ломании (`spraute_engine:battery`, `minecraft:raw_iron`, `none` — ничего). По умолчанию выпадает сам блок.
 - `drop_count` (число) — количество для `drop` (по умолчанию `1`).
 - `drop_replace` (true/false) — если `true`, сам блок не выпадает, только кастомный дроп. Автоматически `true` при указании `drop` или `drops`.
@@ -514,6 +515,7 @@ create particle my_magic_spark {
   - `ore_max` (число) — максимальная высота (по умолчанию `64`).
   - `ore_chances` (число) — попыток генерации на чанк (по умолчанию `10`).
   - `ore_dimension` (строка) — `"minecraft:overworld"`, `"minecraft:the_nether"`, `"minecraft:the_end"`.
+- `tab` (строка) — id вкладки креатива из `create tab`.
 
 **Пример руды с кастомным дропом:**
 ```
@@ -549,7 +551,43 @@ create drop stone_coal {
 Свойства (через `=`):
 - `model` (строка) — путь к кастомной 3D-модели (опционально).
 - `texture` (строка) — путь к текстуре предмета (если модели нет, сгенерируется плоский предмет как ванильные).
+- `name` (строка) — отображаемое имя (поддерживает `§` / `&` для цвета).
+- `tab` (строка) — id вкладки креатива из `create tab`.
 - `maxStackSize` (число) — максимальный размер стака (от 1 до 64, по умолчанию `64`).
+- `tool_type` (строка) — тип инструмента: `sword`, `pickaxe`, `axe`, `shovel`, `hoe` (или `меч`, `кирка`, …). Вместо этого можно задать флаги `sword = true`, `pickaxe = true` и т.д.
+- `damage` (число) — бонус урона в ближнем бою (как в подсказке ванильного предмета: меч железа = `5`). Для обычного предмета без `tool_type` добавляет урон через атрибуты.
+- `attack_speed` (число) — модификатор скорости атаки (меч железа: `-2.4`).
+- `durability` (число) — прочность инструмента (по умолчанию `250` для инструментов).
+- `mining_speed` (число) — скорость копания для кирки/топора/лопаты/мотыги (по умолчанию `6`, как железо).
+- `mining_level` (число) — уровень добычи: `0` = дерево, `1` = камень, `2` = железо, `3` = алмаз (по умолчанию `2`).
+
+Пример меча:
+
+```text
+create item iron_dagger {
+    texture = "textures/item/iron_dagger.png"
+    name = "§7Железный кинжал"
+    tool_type = "sword"
+    damage = 5
+    attack_speed = -2.4
+    durability = 200
+    tab = "weapons"
+}
+```
+
+Пример кирки:
+
+```text
+create item copper_pick {
+    texture = "textures/item/copper_pick.png"
+    name = "Медная кирка"
+    pickaxe = true
+    damage = 3
+    mining_speed = 5
+    mining_level = 1
+    durability = 180
+}
+```
 
 ---
 
@@ -667,10 +705,12 @@ knight.alwaysLookAt(readix_avatar)
 
 ```
 create tab my_tab {
+    name = "§dМагические предметы"
     icon = "minecraft:diamond"
 }
 
 create item magic_stick {
+    name = "§eМагическая палочка"
     model = "spraute_engine:item/stick"
     texture = "spraute_engine:item/stick"
     maxStackSize = 1
@@ -678,6 +718,7 @@ create item magic_stick {
 }
 
 create block magic_stone {
+    name = "§bМагический камень"
     model = "spraute_engine:block/stone"
     texture = "spraute_engine:block/stone"
     collision = true

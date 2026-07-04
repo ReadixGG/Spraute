@@ -42,6 +42,9 @@ public class OverlayOpenFunction implements ScriptFunction {
         String json;
         if (args.get(1) instanceof UiTemplate ut) {
             json = ut.getJson();
+        } else if (args.get(1) == null) {
+            LOGGER.warn("[Script] overlay_open: UI template is null");
+            return null;
         } else {
             json = String.valueOf(args.get(1));
         }

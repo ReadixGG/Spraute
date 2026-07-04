@@ -4,6 +4,7 @@
 #\ shape: statement
 #\
 #\ row: "создать блок" (id: text: my_block)
+#\ row: "имя" (displayName: text: )
 #\ row: [kind: dropdown(текстура: texture, 3D-модель: model, руда: ore)]
 #\
 #\ if kind == "texture":
@@ -65,6 +66,7 @@
 #\ code: function q(v) { return String(v || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
 #\ code: function addStr(k, v) { v = String(v || '').trim(); if (v) lines.push('    ' + k + ' = "' + q(v) + '"'); }
 #\ code: function addNum(k, v) { v = String(v || '').trim(); if (v) lines.push('    ' + k + ' = ' + v); }
+#\ code: function addBool(k, v) { v = String(v || '').trim(); if (v === 'true' || v === 'false') lines.push('    ' + k + ' = ' + v); }
 #\ code: function addBlockTex(texMode) {
 #\ code:   if (texMode === 'top_sides') {
 #\ code:     addStr('texture_up', _getVal('textureUp'));
@@ -85,14 +87,14 @@
 #\ code:   var texMode = _getVal('texMode') || 'single';
 #\ code:   addBlockTex(texMode);
 #\ code:   addNum('hardness', _getVal('hardness'));
-#\ code:   addStr('collision', _getVal('collision'));
+#\ code:   addBool('collision', _getVal('collision'));
 #\ code: } else if (kind === 'model') {
 #\ code:   addStr('model', _getVal('model'));
 #\ code:   addStr('texture', _getVal('texture'));
 #\ code:   lines.push('    size = [' + (_getVal('sizeW') || 1) + ', ' + (_getVal('sizeD') || 1) + ', ' + (_getVal('sizeH') || 1) + ']');
-#\ code:   addStr('directional', _getVal('directional'));
+#\ code:   addBool('directional', _getVal('directional'));
 #\ code:   addNum('hardness', _getVal('hardness'));
-#\ code:   addStr('collision', _getVal('collision'));
+#\ code:   addBool('collision', _getVal('collision'));
 #\ code:   var hb = String(_getVal('hitbox') || '').trim();
 #\ code:   if (hb) lines.push('    hitbox = [' + hb + ']');
 #\ code: } else if (kind === 'ore') {
@@ -114,6 +116,7 @@
 #\ code:   addNum('drop_count', _getVal('dropCount') || '1');
 #\ code:   lines.push('    drop_replace = true');
 #\ code: }
+#\ code: addStr('name', _getVal('displayName'));
 #\ code: addStr('tab', _getVal('tab'));
 #\ code: lines.push('}');
 #\ code: return lines.join('\n') + '\n';
@@ -125,18 +128,33 @@
 #\
 #\ row: "создать предмет" (id: text: my_item)
 #\ row: "текстура" (texture: text: textures/item/my_item.png)
+#\ row: "модель" (model: text: ) "необязательно"
 #\ row: "макс. стак" (maxStack: number: 64)
 #\ row: "имя" (displayName: text: )
 #\ row: "вкладка креатива" (tab: text: )
+#\ row: "тип инструмента" (toolType: dropdown(нет: , меч: sword, кирка: pickaxe, топор: axe, лопата: shovel, мотыга: hoe))
+#\ row: "урон" (damage: number: ) "бонус атаки, как у меча +5"
+#\ row: "скорость атаки" (attackSpeed: number: ) "напр. -2.4"
+#\ row: "прочность" (durability: number: 250)
+#\ row: "скорость копания" (miningSpeed: number: 6) "для кирки/топора"
+#\ row: "уровень добычи" (miningLevel: number: 2) "0=дерево, 2=железо"
 #\
 #\ code: var lines = ['create item ' + String(_getVal('id') || '').trim() + ' {'];
 #\ code: function q(v) { return String(v || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
 #\ code: function addStr(k, v) { v = String(v || '').trim(); if (v) lines.push('    ' + k + ' = "' + q(v) + '"'); }
 #\ code: addStr('texture', _getVal('texture'));
+#\ code: addStr('model', _getVal('model'));
 #\ code: var ms = String(_getVal('maxStack') || '').trim();
 #\ code: if (ms) lines.push('    maxStackSize = ' + ms);
 #\ code: addStr('name', _getVal('displayName'));
 #\ code: addStr('tab', _getVal('tab'));
+#\ code: addStr('tool_type', _getVal('toolType'));
+#\ code: function addNum(k, v) { v = String(v || '').trim(); if (v) lines.push('    ' + k + ' = ' + v); }
+#\ code: addNum('damage', _getVal('damage'));
+#\ code: addNum('attack_speed', _getVal('attackSpeed'));
+#\ code: addNum('durability', _getVal('durability'));
+#\ code: addNum('mining_speed', _getVal('miningSpeed'));
+#\ code: addNum('mining_level', _getVal('miningLevel'));
 #\ code: lines.push('}');
 #\ code: return lines.join('\n') + '\n';
 
@@ -146,12 +164,15 @@
 #\ shape: statement
 #\
 #\ row: "вкладка креатива" (id: text: my_tab)
+#\ row: "название" (displayName: text: Моя вкладка)
 #\ row: "иконка" (icon: text: minecraft:diamond)
 #\ row: "предметы" (items: textmultiline: )
 #\ row: "по одному id на строку"
 #\
 #\ code: var lines = ['create tab ' + String(_getVal('id') || '').trim() + ' {'];
 #\ code: function q(v) { return String(v || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
+#\ code: function addStr(k, v) { v = String(v || '').trim(); if (v) lines.push('    ' + k + ' = "' + q(v) + '"'); }
+#\ code: addStr('name', _getVal('displayName'));
 #\ code: var icon = String(_getVal('icon') || 'minecraft:stone').trim();
 #\ code: lines.push('    icon = "' + q(icon) + '"');
 #\ code: var raw = String(_getVal('items') || '').trim();
@@ -161,6 +182,31 @@
 #\ code:     lines.push('    items = [' + list.map(function(i){ return '"' + q(i) + '"'; }).join(', ') + ']');
 #\ code:   }
 #\ code: }
+#\ code: lines.push('}');
+#\ code: return lines.join('\n') + '\n';
+
+#\ block: create_drop
+#\ category: Ресурсы
+#\ color: #c084fc
+#\ shape: statement
+#\
+#\ row: "дроп блока" (id: text: stone_coal)
+#\ row: "блок" (block: text: minecraft:stone)
+#\ row: "предмет" (item: text: minecraft:coal)
+#\ row: "мин" (min: number: 1) "макс" (max: number: 1) "шанс %" (chance: number: 100)
+#\ row: "заменить ванильный дроп" [replace: dropdown(нет: false, да: true)]
+#\
+#\ code: var lines = ['create drop ' + String(_getVal('id') || '').trim() + ' {'];
+#\ code: function q(v) { return String(v || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
+#\ code: function addStr(k, v) { v = String(v || '').trim(); if (v) lines.push('    ' + k + ' = "' + q(v) + '"'); }
+#\ code: function addNum(k, v) { v = String(v || '').trim(); if (v) lines.push('    ' + k + ' = ' + v); }
+#\ code: function addBool(k, v) { v = String(v || '').trim(); if (v === 'true' || v === 'false') lines.push('    ' + k + ' = ' + v); }
+#\ code: addStr('block', _getVal('block'));
+#\ code: addStr('item', _getVal('item'));
+#\ code: addNum('min', _getVal('min') || '1');
+#\ code: addNum('max', _getVal('max') || '1');
+#\ code: addNum('chance', _getVal('chance') || '100');
+#\ code: addBool('replace', _getVal('replace') || 'false');
 #\ code: lines.push('}');
 #\ code: return lines.join('\n') + '\n';
 

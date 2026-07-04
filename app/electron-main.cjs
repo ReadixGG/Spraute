@@ -114,6 +114,7 @@ app.whenReady().then(async () => {
   initStore();
   await ensurePluginsMigrated();
   await ensureBundledProcodeBlocks();
+  await ensureBundledOptionalPlugins();
   createWindow();
 
   app.on('activate', () => {
@@ -426,6 +427,42 @@ async function ensureBundledProcodeBlocks() {
 
   for (const pluginRoot of pluginDirs) {
     await syncBundledProcodeToDir(pluginRoot, bundledRoot);
+  }
+}
+
+/** WChoice, Raya и др. — копируем bundled в %APPDATA%/plugins при каждом запуске Studio. */
+async function ensureBundledOptionalPlugins() {
+  const bundledRoot = path.join(__dirname, 'bundled_plugins');
+  const entries = await fs.readdir(bundledRoot, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const name = entry.name;
+    if (name.toLowerCase() === 'procode') continue;
+    const src = path.join(bundledRoot, name);
+    const dest = path.join(getPluginsRoot(), name);
+    await syncBundledPluginToDir(src, dest);
+  }
+}
+
+async function syncBundledPluginToDir(bundledRoot, pluginRoot) {
+  const srcBlocks = path.join(bundledRoot, 'blocks');
+  if (!(await pathExists(srcBlocks))) return;
+
+  await fs.mkdir(pluginRoot, { recursive: true });
+  const destBlocks = path.join(pluginRoot, 'blocks');
+  await fs.mkdir(destBlocks, { recursive: true });
+
+  const files = await fs.readdir(srcBlocks).catch(() => []);
+  for (const name of files) {
+    if (!name.endsWith('.spr')) continue;
+    await fs.copyFile(path.join(srcBlocks, name), path.join(destBlocks, name));
+  }
+
+  for (const meta of ['plugin.json', 'categories.json', 'blocks_order.json']) {
+    const srcMeta = path.join(bundledRoot, meta);
+    if (await pathExists(srcMeta)) {
+      await fs.copyFile(srcMeta, path.join(pluginRoot, meta));
+    }
   }
 }
 

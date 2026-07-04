@@ -1,0 +1,11 @@
+#\ block: async_run
+#\ category: Асинхронность
+#\ color: #6366f1
+#\ shape: wrapper
+#\
+#\ row: "async" [named: dropdown(без id: no, с id: yes)]
+#\ if named == "no":
+#\   template: async {\n{DO}}
+#\ if named == "yes":
+#\   row: "id задачи" (taskId: text: task_id)
+#\   template: async "{taskId}" {\n{DO}}

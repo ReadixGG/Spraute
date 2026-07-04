@@ -1,0 +1,7 @@
+#\ block: ui_hover_is
+#\ category: Логика
+#\ color: #6366f1
+#\ shape: value
+#\
+#\ row: "наведение UI" [state: dropdown(навели: enter, убрали: leave)] "?"
+#\ code: return _eventHover == _getVal("state");

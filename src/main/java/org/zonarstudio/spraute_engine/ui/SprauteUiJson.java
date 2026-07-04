@@ -41,6 +41,23 @@ public final class SprauteUiJson {
         return root.toString();
     }
 
+    private static void applyModelRef(JsonObject w, String entityRef) {
+        String payload = entityRef.substring(6);
+        String[] parts = payload.split("\\|", -1);
+        if (parts.length > 0 && !parts[0].isEmpty()) {
+            w.addProperty("modelGeo", parts[0]);
+        }
+        if (parts.length > 1 && !parts[1].isEmpty()) {
+            w.addProperty("modelTexture", parts[1]);
+        }
+        if (parts.length > 2 && !parts[2].isEmpty()) {
+            w.addProperty("modelAnim", parts[2]);
+        }
+        if (parts.length > 3 && !parts[3].isEmpty()) {
+            w.addProperty("modelIdle", parts[3]);
+        }
+    }
+
     private static void resolveEntitiesRecursive(JsonArray widgets, ServerLevel level, CommandSourceStack source) {
         for (JsonElement el : widgets) {
             if (!el.isJsonObject()) continue;
@@ -48,7 +65,9 @@ public final class SprauteUiJson {
             String type = w.has("type") ? w.get("type").getAsString() : "";
             if ("entity".equalsIgnoreCase(type) && w.has("entity")) {
                 String entityRef = w.get("entity").getAsString();
-                if (!"avatar".equalsIgnoreCase(entityRef) && !entityRef.startsWith("chat:")) {
+                if (entityRef.startsWith("model:")) {
+                    applyModelRef(w, entityRef);
+                } else if (!"avatar".equalsIgnoreCase(entityRef) && !entityRef.startsWith("chat:")) {
                     Entity resolved = resolveEntity(level, source, entityRef);
                     if (resolved != null) {
                         w.addProperty("entityUuid", resolved.getUUID().toString());

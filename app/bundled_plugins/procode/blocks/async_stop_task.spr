@@ -1,0 +1,7 @@
+#\ block: async_stop_task
+#\ category: Асинхронность
+#\ color: #6366f1
+#\ shape: statement
+#\
+#\ row: "остановить async-задачу" (taskId: text: task_id)
+#\ template: stopTask("{taskId}")

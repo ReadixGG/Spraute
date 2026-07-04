@@ -1,0 +1,7 @@
+#\ block: async_task_done
+#\ category: Асинхронность
+#\ color: #6366f1
+#\ shape: statement
+#\
+#\ row: "async-задача завершена?" (taskId: text: task_id)
+#\ template: taskDone("{taskId}")

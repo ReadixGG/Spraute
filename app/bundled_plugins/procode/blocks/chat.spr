@@ -1,0 +1,7 @@
+#\ block: chat
+#\ category: Диалоги
+#\ color: #d946ef
+#\ shape: statement
+#\
+#\ row: "в чат" (message: text: Привет!)
+#\ template: chat("{message}")

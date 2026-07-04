@@ -1,0 +1,11 @@
+#\ block: on_uiclose
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда закрыли UI" [filter: dropdown(любой: any, у игрока: player)] "→" (handler: text: h_uiclose)
+#\ if filter == "any":
+#\   template: on uiClose() -> {handler} {\n{DO}}
+#\ if filter == "player":
+#\   input: player (type: value)
+#\   template: on uiClose({player}) -> {handler} {\n{DO}}

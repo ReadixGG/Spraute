@@ -1,0 +1,8 @@
+{
+  "name": "WChoice",
+  "author": "ZonarStudio",
+  "version": "1.0.0",
+  "mc_version": "1.20.1",
+  "description": "Кинематографические диалоги с выбором (dialog_cinematic.spr)",
+  "enabled": true
+}

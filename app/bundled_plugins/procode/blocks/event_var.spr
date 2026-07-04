@@ -3,5 +3,5 @@
 #\ color: #a855f7
 #\ shape: value
 #\
-#\ row: "из события:" [v: dropdown(игрок: _eventPlayer, НИП: _eventNpc, сущность: _eventEntity, убийца: _eventKiller, бросивший: _eventDropper, виджет: _eventWidget, ввод UI: _eventInput, блок: _eventBlock, X: _eventX, Y: _eventY, Z: _eventZ, действие: _eventAction, сообщение: _eventMessage, предмет id: _eventItemId, предмет стек: _eventItem, кол-во инв.: _eventItemCount, кол-во подбора: count, кол-во сферы: _eventAmount, текстура: _eventTexture, цена: _eventPrice, измерение: _eventDimension, откуда изм.: _eventFromDimension, UI закрыт: _ui_closed)]
+#\ row: "из события:" [v: dropdown(игрок: _eventPlayer, НИП: _eventNpc, сущность: _eventEntity, убийца: _eventKiller, бросивший: _eventDropper, виджет: _eventWidget, ввод UI: _eventInput, кнопка мыши UI: _eventMouseButton, наведение UI: _eventHover, блок: _eventBlock, X: _eventX, Y: _eventY, Z: _eventZ, действие: _eventAction, сообщение: _eventMessage, предмет id: _eventItemId, предмет стек: _eventItem, кол-во инв.: _eventItemCount, кол-во подбора: count, кол-во сферы: _eventAmount, текстура: _eventTexture, цена: _eventPrice, измерение: _eventDimension, откуда изм.: _eventFromDimension, UI закрыт: _ui_closed)]
 #\ code: return _getVal("v");

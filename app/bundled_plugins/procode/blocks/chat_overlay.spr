@@ -1,0 +1,36 @@
+#\ block: chat_overlay
+#\ category: Диалоги
+#\ color: #d946ef
+#\ shape: statement
+#\ write_start: import("spraute_chat")
+#\
+#\ row: "чат по центру" [mode: dropdown(от НИПа: npc, от игрока: from_player)]
+#\ row: "игрок" [playerMode: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if playerMode == "custom":
+#\   input: viewer (type: value)
+#\ if mode == "npc":
+#\   row: "НИП" [npc: dropdown_npc]
+#\ row: "текст" (message: text: Привет!)
+#\ row: "цвет" (color: text: #FFFFFF)
+#\ row: "секунд" (seconds: number: 5)
+#\ if mode == "npc":
+#\   row: "настройки головы" [advanced: dropdown(по умолчанию: no, своё: yes)]
+#\ if advanced == "yes" and mode == "npc":
+#\   row: "масштаб" (headScale: number: 4) "anchor Y" (anchorY: number: 0.5)
+#\ code: var mode = String(_getVal('mode') || 'npc');
+#\ code: var pm = String(_getVal('playerMode') || 'event');
+#\ code: var viewer = '_eventPlayer';
+#\ code: if (pm === 'first') { viewer = 'getFirstPlayer()'; }
+#\ code: if (pm === 'custom') { var cv = String(_getVal('viewer') || '').trim(); if (cv) { viewer = cv; } }
+#\ code: var msg = _str('message');
+#\ code: var col = _str('color');
+#\ code: var sec = _getVal('seconds');
+#\ code: if (mode === 'from_player') {
+#\ code:   return 'playerChat(' + viewer + ', ' + msg + ', ' + col + ', ' + sec + ')\n';
+#\ code: }
+#\ code: var npc = _getVal('npc');
+#\ code: var adv = String(_getVal('advanced') || 'no');
+#\ code: if (adv === 'yes') {
+#\ code:   return 'npcChat(' + viewer + ', ' + npc + ', ' + msg + ', ' + col + ', ' + sec + ', ' + _getVal('headScale') + ', ' + _getVal('anchorY') + ')\n';
+#\ code: }
+#\ code: return 'npcChat(' + viewer + ', ' + npc + ', ' + msg + ', ' + col + ', ' + sec + ')\n';

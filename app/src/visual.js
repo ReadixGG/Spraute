@@ -698,8 +698,31 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
       js += `var row = self.appendDummyInput(${JSON.stringify(inputName)});\n`;
       js += `self.dynamicInputNames_.push(${JSON.stringify(inputName)});\n`;
       
-      const realTokens = rowStr.match(/"[^"]*"|\[[^\]]+\]|\([^)]+\)/g) || [];
-      for (const tok of realTokens) {
+      const rowTokenRe = /input:\s*(\w+)\s*\(type:\s*(value|statement)\)|"[^"]*"|\[[^\]]+\]|\([^)]+\)/gi;
+      let tailCounter = 0;
+      let afterValueInput = false;
+      let tm;
+      while ((tm = rowTokenRe.exec(rowStr)) !== null) {
+        const tok = tm[0];
+        if (/^input:/i.test(tok)) {
+          afterValueInput = true;
+          const iname = tm[1];
+          const itype = tm[2].toLowerCase();
+          if (itype === 'value') {
+            valueInputNames.add(iname);
+            js += `row = self.appendValueInput(${JSON.stringify(iname)});\n`;
+          } else {
+            js += `row = self.appendStatementInput(${JSON.stringify(iname)});\n`;
+          }
+          js += `self.dynamicInputNames_.push(${JSON.stringify(iname)});\n`;
+          continue;
+        }
+        if (afterValueInput) {
+          const tailName = inputName + '_tail_' + tailCounter++;
+          js += `row = self.appendDummyInput(${JSON.stringify(tailName)});\n`;
+          js += `self.dynamicInputNames_.push(${JSON.stringify(tailName)});\n`;
+          afterValueInput = false;
+        }
         if (tok.startsWith('"')) {
           js += `row.appendField(${tok});\n`;
         } else if (tok.startsWith('[')) {
@@ -738,10 +761,8 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
             const optsMatch = typeDef.match(/^dropdown\((.*)\)$/s);
             if (optsMatch) {
               const optsArr = optsMatch[1].split(',').map(o => {
-                const trimmed = o.trim();
-                const colonIdx = trimmed.indexOf(':');
-                if (colonIdx === -1) return [trimmed, trimmed];
-                return [trimmed.slice(0, colonIdx).trim(), trimmed.slice(colonIdx + 1).trim()];
+                const parts = o.split(':').map(s => s.trim());
+                return [parts[0], parts.length > 1 ? parts[1] : parts[0]];
               });
               js += `  row.appendField(new Blockly.FieldDropdown(${JSON.stringify(optsArr)}, function(v){ self.validateField(${JSON.stringify(name)}, v); return v; }), ${JSON.stringify(name)});\n`;
             }
@@ -1416,29 +1437,35 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
         } catch (e) {}
       }
 
-      if (shape === 'wrapper' && self.getInput("DO") && !self.workspace?._sprauteRestoringBlocks) {
-         var doConn = self.getInput("DO").connection.targetConnection;
-         self.removeInput("DO", true);
-         var doInp = self.appendStatementInput("DO");
-         if (doConn) doInp.connection.connect(doConn);
-         const doChain = savedStmtChains.DO;
-         if (doChain && doChain.length > 1 && ws) {
-           for (let ci = 0; ci < doChain.length - 1; ci++) {
-             const a = ws.getBlockById(doChain[ci]);
-             const b = ws.getBlockById(doChain[ci + 1]);
-             if (a?.nextConnection && b?.previousConnection && !a.nextConnection.targetConnection) {
-               a.nextConnection.connect(b.previousConnection);
+      // DO создаётся в init() до динамических полей; всегда переносим в конец (и при загрузке .sprv).
+      if (shape === 'wrapper' && self.getInput("DO")) {
+         const doIdx = self.inputList.findIndex(i => i.name === 'DO');
+         if (doIdx >= 0 && doIdx < self.inputList.length - 1) {
+           var doConn = self.getInput("DO").connection.targetConnection;
+           self.removeInput("DO", true);
+           var doInp = self.appendStatementInput("DO");
+           if (doConn) doInp.connection.connect(doConn);
+           const doChain = savedStmtChains.DO;
+           if (doChain && doChain.length > 1 && ws) {
+             for (let ci = 0; ci < doChain.length - 1; ci++) {
+               const a = ws.getBlockById(doChain[ci]);
+               const b = ws.getBlockById(doChain[ci + 1]);
+               if (a?.nextConnection && b?.previousConnection && !a.nextConnection.targetConnection) {
+                 a.nextConnection.connect(b.previousConnection);
+               }
              }
            }
          }
       }
 
-      // 5. Восстанавливаем значения полей из val_* (важно при загрузке XML и round-trip)
+      // 5. Восстанавливаем значения полей из val_* (не трогаем value-слоты — только dropdown/text)
       self._restoringShape_ = true;
       try {
+        const skipNames = new Set(self.dynamicValueInputNames_ || []);
         for (const key of Object.getOwnPropertyNames(self)) {
           if (!key.startsWith('val_')) continue;
           const fname = key.slice(4);
+          if (skipNames.has(fname)) continue;
           const fval = self[key];
           if (fval == null || fval === '') continue;
           try { self.setFieldValue(fval, fname); } catch(e) {}
@@ -1593,6 +1620,19 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
 
 // ================= КАСТОМНОЕ КОНТЕКСТНОЕ МЕНЮ BLOCKLY =================
 let _ctxBlock = null;
+
+/** Blockly 12+: duplicate() удалён — копируем через clipboard API. */
+function duplicateBlocklyBlock(block, dx = 30, dy = 30) {
+  if (!block || typeof block.toCopyData !== 'function') return null;
+  if (typeof block.isDuplicatable === 'function' && !block.isDuplicatable()) return null;
+  const copyData = block.toCopyData();
+  if (!copyData) return null;
+  const ws = block.workspace;
+  if (!ws) return null;
+  const xy = block.getRelativeToSurfaceXY();
+  const coord = new Blockly.utils.Coordinate(xy.x + dx, xy.y + dy);
+  return Blockly.clipboard.paste(copyData, ws, coord);
+}
 let _ctxCloseHandler = null;
 
 function hideBlocklyCtxMenu() {
@@ -1630,8 +1670,7 @@ function showBlocklyCtxMenu(block, x, y) {
         const ws = block.workspace;
         beginBlocklyRestore(ws);
         try {
-          const dup = block.duplicate();
-          dup && dup.moveBy(30, 30);
+          duplicateBlocklyBlock(block);
         } finally {
           setTimeout(() => endBlocklyRestore(ws), 0);
         }

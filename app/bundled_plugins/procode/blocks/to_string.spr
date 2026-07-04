@@ -1,0 +1,7 @@
+#\ block: to_string
+#\ category: Текст
+#\ color: #10b981
+#\ shape: value
+#\
+#\ row: "строка из" input: val (type: value)
+#\ template: ({val}).toString()

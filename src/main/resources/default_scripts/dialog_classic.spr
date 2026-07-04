@@ -1,0 +1,123 @@
+# ================================================================
+#  Диалог с выбором — классическое окно по центру
+#  import("dialog_classic")
+#
+#  async {
+#      val pick = dialogClassic(player, npc, "Вопрос?", list("Да", "Нет", "Может"))
+#      val idx = dialogPickIndex(pick)
+#  }
+#
+#  pick = id кнопки: dlg_ans_0, dlg_ans_1, dlg_ans_2 или "__close__"
+# ================================================================
+
+import("spraute_chat")
+
+fun dialogPickIndex(pick) {
+    if (pick == null) { return -1 }
+    if (pick == "__close__") { return -1 }
+    if (pick.contains("dlg_ans_")) {
+        return pick.replace("dlg_ans_", "").toInt()
+    }
+    return -1
+}
+
+fun dialogPickText(pick, answers) {
+    val idx = dialogPickIndex(pick)
+    if (idx < 0) { return "" }
+    if (answers == null) { return "" }
+    if (idx >= answers.size()) { return "" }
+    return answers[idx]
+}
+
+fun dialogClassic(player, target, question, answers) {
+    if (player == null) { return "__close__" }
+    if (question == null) { question = "" }
+    if (answers == null) { return "__close__" }
+
+    var count = answers.size()
+    if (count < 1) { return "__close__" }
+    if (count > 3) { count = 3 }
+
+    if (target != null) {
+        target.alwaysLookAt(player)
+    }
+
+    val panel_w = 420
+    val btn_h = 34
+    val btn_gap = 36
+    val panel_h = 130 + count * btn_gap
+    val plaque_x = 268
+    val plaque_y = 10
+    val plaque_w = 128
+    val plaque_h = panel_h - 20
+    val portrait_w = plaque_w - 8
+    val portrait_h = plaque_h - 8
+
+    var npc_ent = "avatar"
+    if (target != null) {
+        npc_ent = chat_entity_ref(target)
+    }
+
+    create ui dlg_classic {
+        size = [panel_w, panel_h]
+        pos = ["center", "center"]
+        background = "#F0181828"
+        can_close = true
+
+        text("q_text", question) {
+            pos = [14, 14]
+            color = "#EAEAEA"
+            wrap = 238
+            align = "left"
+            scale = 1.0
+            layer = 1
+        }
+
+        rect("npc_plaque") {
+            pos = [plaque_x, plaque_y]
+            size = [plaque_w, plaque_h]
+            color = "#CC243044"
+            layer = 0
+        }
+
+        if (target != null) {
+            clip("npc_clip") {
+                pos = [plaque_x + 4, plaque_y + 4]
+                size = [portrait_w, portrait_h]
+                layer = 1
+
+                entity(npc_ent) {
+                    id = "dlg_npc"
+                    pos = [0, 0]
+                    size = [portrait_w, portrait_h]
+                    scale = 1.15
+                    anchor_y = -1
+                    feetCrop = 0.55
+                    nameTag = false
+                    noHurtAnim = true
+                    animation = "idle"
+                }
+            }
+        }
+
+        var ai = 0
+        while (ai < count) {
+            val label = answers[ai]
+            button("dlg_ans_" + ai.toInt(), label) {
+                pos = [14, 78 + ai * btn_gap]
+                size = [238, btn_h]
+                color = "#00000000"
+                hover = "#18FFFFFF"
+                labelWrap = 228
+                labelScale = 1.0
+                layer = 2
+            }
+            ai = ai + 1
+        }
+    }
+
+    uiOpen(player, dlg_classic)
+    val pick = await uiClick(player)
+    uiClose(player)
+    return pick
+}

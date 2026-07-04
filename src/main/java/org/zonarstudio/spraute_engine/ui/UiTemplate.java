@@ -93,6 +93,11 @@ public final class UiTemplate {
             boolean canClose = !(v instanceof Boolean b) || b;
             root.addProperty("canClose", canClose);
         }
+        if (rootProps.containsKey("dimBackground") || rootProps.containsKey("dim_background")) {
+            Object v = eval.apply(rootProps.get(rootProps.containsKey("dimBackground") ? "dimBackground" : "dim_background"));
+            boolean dim = !(v instanceof Boolean b) || b;
+            root.addProperty("dimBackground", dim);
+        }
 
         JsonArray arr = new JsonArray();
         Map<String, List<CompiledScript.Instruction>> handlers = new HashMap<>();
@@ -262,7 +267,13 @@ public final class UiTemplate {
 
     private static JsonObject buildEntity(RuntimeWidget rw, int pw, int ph, int order) {
         if (rw.evaluatedArgs.isEmpty()) return null;
-        String entity = String.valueOf(rw.evaluatedArgs.get(0));
+        Object entityArg = rw.evaluatedArgs.get(0);
+        String entity;
+        if (entityArg instanceof net.minecraft.world.entity.Entity ent) {
+            entity = ent.getUUID().toString();
+        } else {
+            entity = String.valueOf(entityArg);
+        }
         JsonObject o = new JsonObject();
         o.addProperty("type", "entity");
         String defaultId = rw.evaluatedArgs.size() >= 2 ? String.valueOf(rw.evaluatedArgs.get(1)) : "entity_" + order;
@@ -271,6 +282,29 @@ public final class UiTemplate {
         putXY(o, rw.evaluatedProps, "pos", pw, ph);
         putWH(o, rw.evaluatedProps, "size", 64, 96, pw, ph);
         o.addProperty("entity", entity);
+        // Model spec — lets the client render the NPC even when the live entity is unloaded (chat history).
+        if (entityArg instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc) {
+            if (npc.getModel() != null) o.addProperty("modelGeo", npc.getModel());
+            if (npc.getTexture() != null) o.addProperty("modelTexture", npc.getTexture());
+            if (npc.getAnimation() != null) o.addProperty("modelAnim", npc.getAnimation());
+            if (npc.getIdleAnim() != null) o.addProperty("modelIdle", npc.getIdleAnim());
+        }
+        if (rw.evaluatedProps.containsKey("modelGeo") || rw.evaluatedProps.containsKey("model_geo")) {
+            o.addProperty("modelGeo", propStr(rw.evaluatedProps,
+                    rw.evaluatedProps.containsKey("modelGeo") ? "modelGeo" : "model_geo", null));
+        }
+        if (rw.evaluatedProps.containsKey("modelTexture") || rw.evaluatedProps.containsKey("model_texture")) {
+            o.addProperty("modelTexture", propStr(rw.evaluatedProps,
+                    rw.evaluatedProps.containsKey("modelTexture") ? "modelTexture" : "model_texture", null));
+        }
+        if (rw.evaluatedProps.containsKey("modelAnim") || rw.evaluatedProps.containsKey("model_anim")) {
+            o.addProperty("modelAnim", propStr(rw.evaluatedProps,
+                    rw.evaluatedProps.containsKey("modelAnim") ? "modelAnim" : "model_anim", null));
+        }
+        if (rw.evaluatedProps.containsKey("modelIdle") || rw.evaluatedProps.containsKey("model_idle")) {
+            o.addProperty("modelIdle", propStr(rw.evaluatedProps,
+                    rw.evaluatedProps.containsKey("modelIdle") ? "modelIdle" : "model_idle", null));
+        }
         o.addProperty("scale", propFloat(rw.evaluatedProps, "scale", 1f));
         o.addProperty("feetCrop", propFloat(rw.evaluatedProps,
                 rw.evaluatedProps.containsKey("feetCrop") ? "feetCrop" : "feet_crop", 0.38f));
@@ -319,6 +353,10 @@ public final class UiTemplate {
                     o.addProperty("skinPlayer", s);
                 }
             }
+        }
+        if (rw.evaluatedProps.containsKey("clip") || rw.evaluatedProps.containsKey("clipEntity")) {
+            String key = rw.evaluatedProps.containsKey("clip") ? "clip" : "clipEntity";
+            o.addProperty("clipEntity", propBool(rw.evaluatedProps, key, false));
         }
         o.addProperty("layer", propInt(rw.evaluatedProps, "layer", 0));
         o.addProperty("order", order);
@@ -715,7 +753,7 @@ public final class UiTemplate {
         try {
             o.addProperty(axis, Integer.parseInt(s));
         } catch (NumberFormatException e) {
-            o.addProperty(axis, 0);
+            o.addProperty(axis, s);
         }
     }
 

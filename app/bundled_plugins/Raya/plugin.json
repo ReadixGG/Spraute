@@ -1,0 +1,8 @@
+{
+  "name": "Raya",
+  "author": "ZonarStudio",
+  "version": "1.0.0",
+  "mc_version": "1.20.1",
+  "description": "Визуальные блоки для компаньона Райя (raya.spr)",
+  "enabled": true
+}

@@ -1,7 +1,9 @@
 package org.zonarstudio.spraute_engine.entity;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.HitResult;
@@ -13,8 +15,12 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
 import org.zonarstudio.spraute_engine.compat.SprauteEntityCompat;
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 
 public class SprauteNpcEntity extends PathfinderMob {
+
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     // ========== Synced data (model/texture/animation file) ==========
     private static final net.minecraft.network.syncher.EntityDataAccessor<String> MODEL_RES =
@@ -172,6 +178,23 @@ public class SprauteNpcEntity extends PathfinderMob {
 
     private static final double SEPARATION_RADIUS = 1.1;
     private static final double SEPARATION_STRENGTH = 0.12;
+
+    /** Max horizontal leg for one ground path request (avoids pathfinder edge oscillation). */
+    private static final double GROUND_STEP_HORIZONTAL = 12.0;
+    private static final int GROUND_PATH_RECALC_COOLDOWN = 20;
+    private static final int MAX_FORCED_PATH_CHUNKS = 10;
+    private static final int MOVE_STUCK_THRESHOLD = 60;
+
+    private int groundPathRecalcCooldown = 0;
+    private Vec3 activeMoveGoal = null;
+    /** When false during scripted moveTo/alwaysMoveTo, body keeps its yaw instead of turning toward the path. */
+    private boolean walkFaceDirection = true;
+    private final java.util.Set<ChunkPos> forcedPathChunks = new java.util.HashSet<>();
+    private boolean pathFailedFlag = false;
+    private int moveStuckTicks = 0;
+    private int walkLogCooldown = 0;
+    private double moveProgressAnchorX;
+    private double moveProgressAnchorZ;
 
     public SprauteNpcEntity(EntityType<? extends PathfinderMob> type, Level level) {
         super(type, level);
@@ -792,16 +815,103 @@ public class SprauteNpcEntity extends PathfinderMob {
         return stack.isEmpty();
     }
 
+    public boolean isPathFailed() {
+        return pathFailedFlag;
+    }
+
+    public void clearPathFailed() {
+        pathFailedFlag = false;
+        moveStuckTicks = 0;
+        moveProgressAnchorX = this.getX();
+        moveProgressAnchorZ = this.getZ();
+    }
+
+    /** Whether a ground path to the block can be built (loads chunks on the way first). */
+    public boolean canReach(double x, double y, double z) {
+        if (SprauteEntityCompat.level(this).isClientSide) return true;
+        if (isFlying()) return true;
+        ensureChunksToward(new Vec3(x, y, z));
+        var path = this.getNavigation().createPath(x, y, z, 1);
+        return path != null && path.canReach();
+    }
+
+    public Vec3 getScriptedMoveGoal() {
+        return activeMoveGoal;
+    }
+
+    public void clearScriptedMoveGoal() {
+        activeMoveGoal = null;
+    }
+
+    /** Snap body yaw toward a scripted move target before pathing starts. */
+    private void snapBodyToward(double tx, double tz) {
+        float yaw = calcTargetYaw(tx, tz);
+        setBodyYaw(yaw);
+        syncBodyYaw(yaw);
+        this.setYRot(yaw);
+        this.yHeadRot = yaw;
+    }
+
+    /** Integer block coords → center of block; fractional coords kept as-is. */
+    private static double scriptedGoalCoord(double c) {
+        double floored = net.minecraft.util.Mth.floor(c + 1.0e-4);
+        if (Math.abs(c - floored) < 1.0e-3) {
+            return floored + 0.5;
+        }
+        return c;
+    }
+
     public void moveTo(double x, double y, double z, double speed) {
-        this.getNavigation().moveTo(x, y, z, speed);
+        moveTo(x, y, z, speed, true);
+    }
+
+    public void moveTo(double x, double y, double z, double speed, boolean faceWalkDirection) {
+        double gx = scriptedGoalCoord(x);
+        double gz = scriptedGoalCoord(z);
+        double standY = resolveStandY(gx, y, gz);
+        activeMoveGoal = new Vec3(gx, standY, gz);
+        walkFaceDirection = faceWalkDirection;
+        clearPathFailed();
+        moveStuckTicks = 0;
+        if (faceWalkDirection) {
+            snapBodyToward(gx, gz);
+        }
+        logWalk("moveTo START goal=" + fmtPos(gx, standY, gz) + " speed=" + speed
+                + " faceWalk=" + faceWalkDirection
+                + (Math.abs(standY - y) > 0.01 || gx != x || gz != z ? " (from " + x + "," + y + "," + z + ")" : ""));
+        issueGroundNavigation(gx, standY, gz, speed, true);
+    }
+
+    /** Re-issue navigation during scripted move_to wait without resetting failure tracking. */
+    public void retryMoveTo(double x, double y, double z, double speed) {
+        double gx = scriptedGoalCoord(x);
+        double gz = scriptedGoalCoord(z);
+        double standY = resolveStandY(gx, y, gz);
+        activeMoveGoal = new Vec3(gx, standY, gz);
+        moveStuckTicks = 0;
+        clearPathFailed();
+        double dx = getX() - gx;
+        double dz = getZ() - gz;
+        double distH = Math.sqrt(dx * dx + dz * dz);
+        double retrySpeed = (distH > 0.6 && distH < 1.5) ? Math.max(speed, 1.2) : speed;
+        logWalk("retryMoveTo goal=" + fmtPos(gx, standY, gz) + " speed=" + retrySpeed
+                + " navDone=" + this.getNavigation().isDone()
+                + " stuck=" + this.getNavigation().isStuck()
+                + " pathFailed=" + pathFailedFlag);
+        issueGroundNavigation(gx, standY, gz, retrySpeed, false);
     }
 
     /** Включить полёт и лететь к точке. */
     public void flyTo(double x, double y, double z, double speed) {
+        double gx = scriptedGoalCoord(x);
+        double gz = scriptedGoalCoord(z);
         setFlying(true);
         activeFlySpeed = speed;
         flightPathRecalcCooldown = 0;
-        this.getNavigation().moveTo(x, y, z, speed);
+        activeMoveGoal = new Vec3(gx, y, gz);
+        clearPathFailed();
+        moveStuckTicks = 0;
+        this.getNavigation().moveTo(gx, y, gz, speed);
     }
 
     /** Включить полёт и лететь к сущности. */
@@ -832,24 +942,40 @@ public class SprauteNpcEntity extends PathfinderMob {
     private double alwaysMoveSpeed = 1.0;
 
     public void alwaysMoveTo(double x, double y, double z, double speed) {
+        alwaysMoveTo(x, y, z, speed, true);
+    }
+
+    public void alwaysMoveTo(double x, double y, double z, double speed, boolean faceWalkDirection) {
         this.alwaysMovePoint = new Vec3(x, y, z);
         this.alwaysMoveEntity = null;
         this.alwaysMoveSpeed = speed;
+        this.walkFaceDirection = faceWalkDirection;
         this.activeFlySpeed = speed;
         this.flightPathRecalcCooldown = 0;
+        this.groundPathRecalcCooldown = 0;
+        clearPathFailed();
     }
 
     public void alwaysMoveToEntity(net.minecraft.world.entity.Entity e, double speed) {
+        alwaysMoveToEntity(e, speed, true);
+    }
+
+    public void alwaysMoveToEntity(net.minecraft.world.entity.Entity e, double speed, boolean faceWalkDirection) {
         this.alwaysMoveEntity = e;
         this.alwaysMovePoint = null;
         this.alwaysMoveSpeed = speed;
+        this.walkFaceDirection = faceWalkDirection;
         this.activeFlySpeed = speed;
         this.flightPathRecalcCooldown = 0;
+        this.groundPathRecalcCooldown = 0;
+        clearPathFailed();
     }
 
     public void stopMove() {
         this.alwaysMoveEntity = null;
         this.alwaysMovePoint = null;
+        this.activeMoveGoal = null;
+        releaseForcedPathChunks();
         this.getNavigation().stop();
     }
 
@@ -888,8 +1014,160 @@ public class SprauteNpcEntity extends PathfinderMob {
             steerFlightToTarget(target);
         } else {
             flightSteering = false;
-            if (this.tickCount % 2 == 0) {
-                this.getNavigation().moveTo(target.x, target.y, target.z, alwaysMoveSpeed);
+            ensureChunksToward(target);
+            Vec3 step = resolveGroundStepTarget(target);
+            var nav = this.getNavigation();
+            boolean needRecalc = groundPathRecalcCooldown <= 0
+                    || nav.isDone()
+                    || nav.isStuck()
+                    || nav.getPath() == null;
+            if (needRecalc) {
+                nav.moveTo(step.x, step.y, step.z, alwaysMoveSpeed);
+                groundPathRecalcCooldown = GROUND_PATH_RECALC_COOLDOWN;
+            } else {
+                groundPathRecalcCooldown--;
+            }
+            trackMoveProgress(target);
+        }
+    }
+
+    private void issueGroundNavigation(double x, double y, double z, double speed, boolean resetCooldown) {
+        if (isFlying()) {
+            this.getNavigation().moveTo(x, y, z, speed);
+            logWalk("fly nav goal=" + fmtPos(x, y, z));
+            return;
+        }
+        Vec3 goal = new Vec3(x, y, z);
+        ensureChunksToward(goal);
+        var nav = this.getNavigation();
+        var path = nav.createPath(x, y, z, 1);
+        boolean reachable = path != null && path.canReach();
+        nav.moveTo(x, y, z, speed);
+        logWalk("ground nav goal=" + fmtPos(x, y, z)
+                + " reachable=" + reachable
+                + " pathLen=" + (path != null ? path.getNodeCount() : 0));
+        if (resetCooldown) {
+            groundPathRecalcCooldown = GROUND_PATH_RECALC_COOLDOWN;
+        }
+    }
+
+    /** Snap scripted move target to a standable block top near the requested Y. */
+    private double resolveStandY(double x, double y, double z) {
+        Level level = SprauteEntityCompat.level(this);
+        if (!(level instanceof ServerLevel)) return y;
+        net.minecraft.core.BlockPos.MutableBlockPos pos = new net.minecraft.core.BlockPos.MutableBlockPos(
+                net.minecraft.util.Mth.floor(x), net.minecraft.util.Mth.floor(y) + 2, net.minecraft.util.Mth.floor(z));
+        for (int i = 0; i < 14; i++) {
+            if (pos.getY() < level.getMinBuildHeight()) break;
+            net.minecraft.world.level.block.state.BlockState below = level.getBlockState(pos.below());
+            net.minecraft.world.level.block.state.BlockState feet = level.getBlockState(pos);
+            net.minecraft.world.level.block.state.BlockState head = level.getBlockState(pos.above());
+            //? if >=1.20.1 {
+            if (below.isSolid() && !feet.isSolid() && !head.isSolid()) {
+            //?} else {
+            /*if (below.getMaterial().isSolid() && !feet.getMaterial().isSolid() && !head.getMaterial().isSolid()) {
+            *///?}
+                return pos.getY();
+            }
+            pos.move(net.minecraft.core.Direction.DOWN);
+        }
+        return y;
+    }
+
+    private String npcLabel() {
+        if (getCustomName() != null) return getCustomName().getString();
+        return String.valueOf(getUUID());
+    }
+
+    private static String fmtPos(double x, double y, double z) {
+        return String.format("(%.1f, %.1f, %.1f)", x, y, z);
+    }
+
+    private void logWalk(String msg) {
+        LOGGER.info("[NPC-WALK] {} pos={} {}", npcLabel(), fmtPos(getX(), getY(), getZ()), msg);
+    }
+
+    private Vec3 resolveGroundStepTarget(Vec3 goal) {
+        double dx = goal.x - this.getX();
+        double dz = goal.z - this.getZ();
+        double horiz = Math.sqrt(dx * dx + dz * dz);
+        if (horiz <= GROUND_STEP_HORIZONTAL) {
+            return goal;
+        }
+        double scale = GROUND_STEP_HORIZONTAL / horiz;
+        return new Vec3(this.getX() + dx * scale, goal.y, this.getZ() + dz * scale);
+    }
+
+    private void ensureChunksToward(Vec3 target) {
+        Level level = SprauteEntityCompat.level(this);
+        if (!(level instanceof ServerLevel server)) return;
+
+        ChunkPos from = new ChunkPos(this.blockPosition());
+        ChunkPos to = new ChunkPos(new BlockPos(
+                net.minecraft.util.Mth.floor(target.x),
+                net.minecraft.util.Mth.floor(target.y),
+                net.minecraft.util.Mth.floor(target.z)));
+        int steps = Math.max(Math.abs(to.x - from.x), Math.abs(to.z - from.z));
+        if (steps == 0) {
+            forcePathChunk(server, from.x, from.z);
+            return;
+        }
+        int limit = Math.min(steps, MAX_FORCED_PATH_CHUNKS);
+        for (int i = 0; i <= limit; i++) {
+            double t = (double) i / limit;
+            int cx = from.x + (int) Math.round((to.x - from.x) * t);
+            int cz = from.z + (int) Math.round((to.z - from.z) * t);
+            forcePathChunk(server, cx, cz);
+        }
+    }
+
+    private void forcePathChunk(ServerLevel server, int chunkX, int chunkZ) {
+        ChunkPos pos = new ChunkPos(chunkX, chunkZ);
+        if (forcedPathChunks.add(pos)) {
+            server.setChunkForced(chunkX, chunkZ, true);
+        }
+    }
+
+    private void releaseForcedPathChunks() {
+        if (forcedPathChunks.isEmpty()) return;
+        Level level = SprauteEntityCompat.level(this);
+        if (level instanceof ServerLevel server) {
+            for (ChunkPos pos : forcedPathChunks) {
+                server.setChunkForced(pos.x, pos.z, false);
+            }
+        }
+        forcedPathChunks.clear();
+    }
+
+    private void tickPathChunkTickets() {
+        boolean longMove = activeMoveGoal != null
+                && !isFlying()
+                && this.position().distanceToSqr(activeMoveGoal) > 4.0;
+        boolean following = alwaysMovePoint != null || alwaysMoveEntity != null;
+        if (!longMove && !following) {
+            releaseForcedPathChunks();
+        }
+    }
+
+    private void trackMoveProgress(Vec3 goal) {
+        if (SprauteEntityCompat.level(this).isClientSide) return;
+        if (this.position().distanceToSqr(goal) <= 4.0) {
+            moveStuckTicks = 0;
+            return;
+        }
+        double dx = this.getX() - moveProgressAnchorX;
+        double dz = this.getZ() - moveProgressAnchorZ;
+        if (dx * dx + dz * dz > 0.25) {
+            moveStuckTicks = 0;
+            moveProgressAnchorX = this.getX();
+            moveProgressAnchorZ = this.getZ();
+        } else if (!this.getNavigation().isDone()) {
+            moveStuckTicks++;
+            if (moveStuckTicks >= MOVE_STUCK_THRESHOLD) {
+                pathFailedFlag = true;
+                logWalk("STUCK goal=" + fmtPos(goal.x, goal.y, goal.z)
+                        + " stuckTicks=" + moveStuckTicks
+                        + " navDone=" + this.getNavigation().isDone());
             }
         }
     }
@@ -1012,6 +1290,8 @@ public class SprauteNpcEntity extends PathfinderMob {
     /** Separation steering — мягко расталкивает НПС друг от друга при сближении. */
     private void tickSeparation() {
         if (SprauteEntityCompat.level(this).isClientSide) return;
+        // Scripted move_to: no lateral push — it causes left/right wobble and path failures
+        if (activeMoveGoal != null && alwaysMovePoint == null && alwaysMoveEntity == null) return;
         // Применяем только если НПС активно движется
         boolean isMoving = !this.getNavigation().isDone() || alwaysMovePoint != null || alwaysMoveEntity != null;
         if (!isMoving) return;
@@ -1057,6 +1337,20 @@ public class SprauteNpcEntity extends PathfinderMob {
         tickAlwaysMove();
         tickPassiveFlightSteering();
         tickSeparation();
+        if (activeMoveGoal != null && alwaysMovePoint == null && alwaysMoveEntity == null) {
+            trackMoveProgress(activeMoveGoal);
+            if (--walkLogCooldown <= 0) {
+                walkLogCooldown = 40;
+                double dx = getX() - activeMoveGoal.x;
+                double dz = getZ() - activeMoveGoal.z;
+                logWalk("tick goal=" + fmtPos(activeMoveGoal.x, activeMoveGoal.y, activeMoveGoal.z)
+                        + " distH=" + String.format("%.1f", Math.sqrt(dx * dx + dz * dz))
+                        + " navDone=" + this.getNavigation().isDone()
+                        + " stuck=" + this.getNavigation().isStuck()
+                        + " pathFailed=" + pathFailedFlag);
+            }
+        }
+        tickPathChunkTickets();
         isMoving();
         tickLookSystem();
         fixBodyYawSamplingContinuity();
@@ -1069,20 +1363,26 @@ public class SprauteNpcEntity extends PathfinderMob {
 
     private void tickLookSystem() {
         boolean moving = isMoving();
-        boolean trackEntity = lookActive && lookEntity != null;
-        boolean trackPoint = lookActive && lookPoint != null;
 
         Vec3 target = resolveLookTarget();
 
-        if (moving && !trackEntity && !trackPoint && !(isFlying() && flightSteering)) {
-            tickBodyWalking();
+        // While walking the BODY always faces the movement direction (even with an active
+        // look target) — only the head tracks the target. When standing still the body
+        // turns to the look target as before.
+        if (moving && !(isFlying() && flightSteering)) {
+            boolean scriptedMove = activeMoveGoal != null && alwaysMovePoint == null && alwaysMoveEntity == null;
+            boolean alwaysMove = alwaysMovePoint != null || alwaysMoveEntity != null;
+            if ((!scriptedMove && !alwaysMove) || walkFaceDirection) {
+                float turnSpeed = scriptedMove ? BODY_TURN_SPEED * 4f : BODY_TURN_SPEED;
+                tickBodyWalking(turnSpeed);
+            }
         }
 
         if (target != null) {
             float targetYaw = calcTargetYaw(target.x, target.z);
             float targetPitch = calcTargetPitch(target.y, target.x, target.z);
 
-            if (!moving || trackEntity || trackPoint) {
+            if (!moving) {
                 tickBodyLookAtTarget(targetYaw);
             }
 
@@ -1108,11 +1408,23 @@ public class SprauteNpcEntity extends PathfinderMob {
     }
 
     private void tickBodyWalking() {
+        tickBodyWalking(BODY_TURN_SPEED);
+    }
+
+    private void tickBodyWalking(float turnSpeed) {
+        Vec3 faceTarget = null;
         var path = this.getNavigation().getPath();
         if (path != null && !path.isDone()) {
             BlockPos next = path.getNextNodePos();
-            float walkYaw = calcTargetYaw(next.getX() + 0.5, next.getZ() + 0.5);
-            float nextBody = net.minecraft.util.Mth.approachDegrees(this.yBodyRot, walkYaw, BODY_TURN_SPEED);
+            faceTarget = new Vec3(next.getX() + 0.5, next.getY(), next.getZ() + 0.5);
+        } else if (alwaysMovePoint != null) {
+            faceTarget = resolveGroundStepTarget(alwaysMovePoint);
+        } else if (activeMoveGoal != null) {
+            faceTarget = activeMoveGoal;
+        }
+        if (faceTarget != null) {
+            float walkYaw = calcTargetYaw(faceTarget.x, faceTarget.z);
+            float nextBody = net.minecraft.util.Mth.approachDegrees(this.yBodyRot, walkYaw, turnSpeed);
             setBodyYaw(nextBody);
             syncBodyYaw(nextBody);
         }
@@ -1334,6 +1646,7 @@ public class SprauteNpcEntity extends PathfinderMob {
 
     @Override
     public void remove(net.minecraft.world.entity.Entity.RemovalReason reason) {
+        releaseForcedPathChunks();
         NpcBonePoseSolver.remove(this.getUUID());
         super.remove(reason);
     }

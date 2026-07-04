@@ -34,9 +34,10 @@ public class LoadScreenOverlay {
     private static int color = 0x000000;
     private static float timeIn = 1.0f;
     private static float visibleTime = 2.0f;
-    private static boolean autoFadeOut = true;
+    private static boolean autoFadeOut = false;
     private static boolean manualFadeOutTriggered = false;
     private static long manualFadeOutStartTime = 0;
+    private static float manualFadeOutStartAlpha = 1.0f;
 
     public static void triggerLogin() {
         active = true;
@@ -45,10 +46,16 @@ public class LoadScreenOverlay {
     }
 
     public static void triggerFadeIn(Map<String, Object> props) {
+        if (props != null && Boolean.TRUE.equals(props.get("triggerFadeOut"))) {
+            triggerFadeOut();
+            return;
+        }
+
         active = true;
         isLogin = false;
         startTime = System.currentTimeMillis();
         manualFadeOutTriggered = false;
+        manualFadeOutStartAlpha = 1.0f;
         
         text = props.containsKey("text") ? String.valueOf(props.get("text")) : null;
         subtitle = props.containsKey("subtitle") ? String.valueOf(props.get("subtitle")) : null;
@@ -63,7 +70,7 @@ public class LoadScreenOverlay {
         visibleTime = props.containsKey("visibleTime") && props.get("visibleTime") instanceof Number n ? n.floatValue()
                 : props.containsKey("visible_time") && props.get("visible_time") instanceof Number n2 ? n2.floatValue() : 2.0f;
         
-        autoFadeOut = true;
+        autoFadeOut = false;
         if (props.containsKey("fadeout") && props.get("fadeout") instanceof Boolean b) {
             autoFadeOut = b;
         } else if (props.containsKey("fadeout") && props.get("fadeout") instanceof String s) {
@@ -72,10 +79,18 @@ public class LoadScreenOverlay {
     }
 
     public static void triggerFadeOut() {
-        if (active && !isLogin && !autoFadeOut && !manualFadeOutTriggered) {
-            manualFadeOutTriggered = true;
-            manualFadeOutStartTime = System.currentTimeMillis();
+        if (!active || isLogin) return;
+        if (manualFadeOutTriggered) return;
+
+        long elapsed = System.currentTimeMillis() - startTime;
+        manualFadeOutStartAlpha = computeFadeAlpha(elapsed);
+        if (manualFadeOutStartAlpha <= 0.001f) {
+            active = false;
+            return;
         }
+
+        manualFadeOutTriggered = true;
+        manualFadeOutStartTime = System.currentTimeMillis();
     }
 
     public static void cancel() {
@@ -165,45 +180,70 @@ public class LoadScreenOverlay {
     }
     
     private static void renderFadeInScreen(RenderGuiOverlayEvent.Post event, long elapsed) {
-        long timeInMs = (long) (timeIn * 1000);
-        long visibleTimeMs = (long) (visibleTime * 1000);
-        
-        float alpha = 0.0f;
-        
-        if (timeInMs <= 0) {
-            alpha = 1.0f;
-            if (autoFadeOut && elapsed >= visibleTimeMs) {
-                active = false;
-                return;
-            }
-        } else {
-            if (elapsed < timeInMs) {
-                alpha = (float) elapsed / timeInMs;
-            } else if (!autoFadeOut || elapsed < timeInMs + visibleTimeMs) {
-                alpha = 1.0f;
-            } else {
-                long fadeOutStart = timeInMs + visibleTimeMs;
-                if (elapsed < fadeOutStart + timeInMs) {
-                    alpha = 1.0f - ((elapsed - fadeOutStart) / (float) timeInMs);
-                } else {
-                    active = false;
-                    return;
-                }
-            }
-        }
-        
         if (manualFadeOutTriggered) {
+            long fadeOutDurationMs = Math.max(1L, (long) (timeIn * 1000));
             long fadeOutElapsed = System.currentTimeMillis() - manualFadeOutStartTime;
-            if (timeInMs <= 0 || fadeOutElapsed >= timeInMs) {
+            if (fadeOutElapsed >= fadeOutDurationMs) {
                 active = false;
                 return;
-            } else {
-                alpha = 1.0f - ((float) fadeOutElapsed / timeInMs);
             }
+            float alpha = manualFadeOutStartAlpha * (1.0f - (float) fadeOutElapsed / fadeOutDurationMs);
+            renderFadeOverlay(event, alpha);
+            return;
         }
-        
-        // Clamp alpha just in case
+
+        float alpha = computeFadeAlpha(elapsed);
+        if (alpha <= 0.001f && shouldDeactivateAfterAutoFade(elapsed)) {
+            active = false;
+            return;
+        }
+
+        renderFadeOverlay(event, alpha);
+    }
+
+    /** Darkening amount: 0 = clear screen, 1 = fully dark. */
+    private static float computeFadeAlpha(long elapsed) {
+        long timeInMs = Math.max(0L, (long) (timeIn * 1000));
+        long visibleTimeMs = Math.max(0L, (long) (visibleTime * 1000));
+
+        if (timeInMs <= 0) {
+            if (autoFadeOut && elapsed >= visibleTimeMs) {
+                long fadeOutElapsed = elapsed - visibleTimeMs;
+                if (fadeOutElapsed >= 500) return 0f;
+                return 1.0f - (fadeOutElapsed / 500f);
+            }
+            return 1.0f;
+        }
+
+        if (elapsed < timeInMs) {
+            return (float) elapsed / timeInMs;
+        }
+
+        if (!autoFadeOut || elapsed < timeInMs + visibleTimeMs) {
+            return 1.0f;
+        }
+
+        long fadeOutStart = timeInMs + visibleTimeMs;
+        long fadeOutDurationMs = timeInMs;
+        if (elapsed < fadeOutStart + fadeOutDurationMs) {
+            return 1.0f - ((elapsed - fadeOutStart) / (float) fadeOutDurationMs);
+        }
+        return 0f;
+    }
+
+    private static boolean shouldDeactivateAfterAutoFade(long elapsed) {
+        if (!autoFadeOut) return false;
+        long timeInMs = Math.max(0L, (long) (timeIn * 1000));
+        long visibleTimeMs = Math.max(0L, (long) (visibleTime * 1000));
+        if (timeInMs <= 0) {
+            return elapsed >= visibleTimeMs + 500;
+        }
+        return elapsed >= timeInMs + visibleTimeMs + timeInMs;
+    }
+
+    private static void renderFadeOverlay(RenderGuiOverlayEvent.Post event, float alpha) {
         alpha = Math.max(0.0f, Math.min(1.0f, alpha));
+        if (alpha <= 0.001f) return;
         
         int width = event.getWindow().getGuiScaledWidth();
         int height = event.getWindow().getGuiScaledHeight();

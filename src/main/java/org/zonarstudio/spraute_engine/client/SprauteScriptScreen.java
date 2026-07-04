@@ -48,8 +48,12 @@ import net.minecraftforge.fml.common.Mod;
 import org.zonarstudio.spraute_engine.Spraute_engine;
 
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
+import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.ScreenEvent;
+import net.minecraftforge.event.TickEvent;
+import org.lwjgl.glfw.GLFW;
 import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
+import net.minecraftforge.eventbus.api.EventPriority;
 
 /**
  * Script-driven overlay: panels, images, text, buttons, entity preview.
@@ -57,6 +61,11 @@ import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 @Mod.EventBusSubscriber(modid = Spraute_engine.MODID, value = Dist.CLIENT)
 @OnlyIn(Dist.CLIENT)
 public class SprauteScriptScreen extends Screen {
+
+    private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
+    /** Last hovered widget id sent to server (HUD overlays). */
+    private static String clientHoverWidgetId = null;
+    private static int hoverTickCounter = 0;
 
     private static final java.util.Map<String, SprauteScriptScreen> activeOverlays = new java.util.LinkedHashMap<>();
     /** Patches received before overlay widgets exist (race with overlayOpen packet). */
@@ -70,6 +79,8 @@ public class SprauteScriptScreen extends Screen {
     private final int panelW;
     private final int panelH;
     private final int bgArgb;
+    /** When false, skip the vanilla Screen background dimming (used for cinematic dialogs). */
+    private boolean dimBackground = true;
     private final List<Widget> widgets = new ArrayList<>();
     private int left;
     private int top;
@@ -80,6 +91,8 @@ public class SprauteScriptScreen extends Screen {
     private boolean suppressClosePacket;
     private boolean canClose = true;
     public float currentAlpha = 1.0f;
+    /** True for HUD chat overlays ({@link #openOverlay}); false for full {@link #open} screens. */
+    private final boolean hudOverlay;
 
     //? if >=1.20.1 {
     private static GuiGraphics scissorGuiGraphics;
@@ -94,8 +107,13 @@ public class SprauteScriptScreen extends Screen {
     }
 
     public SprauteScriptScreen(JsonObject root) {
+        this(root, false);
+    }
+
+    private SprauteScriptScreen(JsonObject root, boolean hudOverlay) {
         super(Component.empty());
         this.root = root;
+        this.hudOverlay = hudOverlay;
         Minecraft mc = Minecraft.getInstance();
         int sw = 854;
         int sh = 480;
@@ -107,6 +125,10 @@ public class SprauteScriptScreen extends Screen {
         this.panelH = readRootExtent(root, "h", sh, 150);
         this.bgArgb = parseColor(root.has("bg") ? root.get("bg").getAsString() : "#C0101010");
         this.canClose = !root.has("canClose") || root.get("canClose").getAsBoolean();
+        this.dimBackground = !root.has("dimBackground") || root.get("dimBackground").getAsBoolean();
+        if (root.has("dim_background")) {
+            this.dimBackground = root.get("dim_background").getAsBoolean();
+        }
         parseWidgets();
     }
 
@@ -215,18 +237,15 @@ public class SprauteScriptScreen extends Screen {
         }
         if (!applied) {
             pendingWidgetPatches.add(new PendingWidgetPatch(widgetId, field, value));
+            if ("chat_clip".equals(widgetId)) {
+                LOGGER.info("[CHAT-CLIENT] patch PENDING (no overlay yet) widget='{}' field='{}' value='{}'", widgetId, field, value);
+            }
         }
     }
 
     private static void flushPendingWidgetPatches(SprauteScriptScreen target) {
         if (pendingWidgetPatches.isEmpty()) return;
-        java.util.Iterator<PendingWidgetPatch> it = pendingWidgetPatches.iterator();
-        while (it.hasNext()) {
-            PendingWidgetPatch p = it.next();
-            if (target.applyWidgetPatch(p.widgetId, p.field, p.value)) {
-                it.remove();
-            }
-        }
+        pendingWidgetPatches.removeIf(p -> target.applyWidgetPatch(p.widgetId, p.field, p.value));
     }
 
     private boolean applyWidgetPatch(String widgetId, String field, String value) {
@@ -243,9 +262,18 @@ public class SprauteScriptScreen extends Screen {
                 Widget targetWidget = findWidgetById(widgetId);
                 if (targetWidget != null) {
                     float startVal = getWidgetFieldAsFloat(targetWidget, f);
+                    // Replace any in-flight animation on the same widget field.
                     animations.computeIfAbsent(widgetId, k -> new java.util.concurrent.CopyOnWriteArrayList<>())
+                            .removeIf(a -> f.equals(a.field));
+                    animations.get(widgetId)
                             .add(new AnimState(f, startVal, endVal, (long) (durationSec * 1000L), easing));
+                    if ("chat_clip".equals(widgetId)) {
+                        LOGGER.info("[CHAT-CLIENT] anim ADD widget='{}' field='{}' {}->{} dur={}s", widgetId, f, startVal, endVal, durationSec);
+                    }
                     return true;
+                }
+                if ("chat_clip".equals(widgetId)) {
+                    LOGGER.warn("[CHAT-CLIENT] anim ADD FAILED — widget '{}' not found (field={})", widgetId, f);
                 }
             } catch (Exception e) {
             }
@@ -609,6 +637,9 @@ public class SprauteScriptScreen extends Screen {
         }
     }
 
+    /** Bedrock-px offset of a humanoid head centre above the model origin (feet), for renderBones="Head". */
+    private static final float HEAD_ONLY_ORIGIN_OFFSET_PX = 26f;
+
     private final Map<String, List<AnimState>> animations = new java.util.concurrent.ConcurrentHashMap<>();
 
     private float getWidgetFieldAsFloat(Widget w, String field) {
@@ -683,6 +714,9 @@ public class SprauteScriptScreen extends Screen {
                 applyWidgetPatch(widgetId, anim.field, String.valueOf(current));
                 if (anim.isDone()) {
                     toRemove.add(anim);
+                    if ("chat_clip".equals(widgetId)) {
+                        LOGGER.info("[CHAT-CLIENT] anim DONE widget='{}' field='{}' final={}", widgetId, anim.field, current);
+                    }
                 }
             }
             list.removeAll(toRemove);
@@ -762,23 +796,23 @@ public class SprauteScriptScreen extends Screen {
             }
             if (w instanceof EntityW ew) {
                 return switch (field) {
-                    case "x" -> new EntityW((int)Float.parseFloat(value.trim()), ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
-                    case "y" -> new EntityW(ew.x, (int)Float.parseFloat(value.trim()), ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
-                    case "w" -> new EntityW(ew.x, ew.y, (int)Float.parseFloat(value.trim()), ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
-                    case "h" -> new EntityW(ew.x, ew.y, ew.w, (int)Float.parseFloat(value.trim()), ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
-                    case "scale" -> new EntityW(ew.x, ew.y, ew.w, ew.h, Float.parseFloat(value.trim()), ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
-                    case "feetCrop" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, Float.parseFloat(value.trim()), ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
-                    case "anchorX" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, clamp01(Float.parseFloat(value.trim())), ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
-                    case "anchorY" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, parseAnchorYPatch(value), ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
+                    case "x" -> new EntityW((int)Float.parseFloat(value.trim()), ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
+                    case "y" -> new EntityW(ew.x, (int)Float.parseFloat(value.trim()), ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
+                    case "w" -> new EntityW(ew.x, ew.y, (int)Float.parseFloat(value.trim()), ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
+                    case "h" -> new EntityW(ew.x, ew.y, ew.w, (int)Float.parseFloat(value.trim()), ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
+                    case "scale" -> new EntityW(ew.x, ew.y, ew.w, ew.h, Float.parseFloat(value.trim()), ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
+                    case "feetCrop" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, Float.parseFloat(value.trim()), ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
+                    case "anchorX" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, clamp01(Float.parseFloat(value.trim())), ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
+                    case "anchorY" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, parseAnchorYPatch(value), ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
                     case "crop" -> {
                         float[] c = parseCropPatch(value);
-                        yield c != null ? new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, c[0], c[1], c[2], c[3], ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid) : w;
+                        yield c != null ? new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, c[0], c[1], c[2], c[3], ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity) : w;
                     }
                     case "viewport" -> {
                         float[] vp = parseViewportPatch(value);
                         if (vp != null) {
                             float[] c = viewportCornersToCrop(vp);
-                            yield new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, c[0], c[1], c[2], c[3], ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid);
+                            yield new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, c[0], c[1], c[2], c[3], ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
                         }
                         yield w;
                     }
@@ -968,11 +1002,17 @@ public class SprauteScriptScreen extends Screen {
             }
             case "entity" -> {
                 UUID uuid = null;
+                // Server sends field "entity" (UUID string or "npc:name"), also check legacy "entityUuid"
+                String _entityRef = null;
                 if (w.has("entityUuid")) {
-                    try {
-                        uuid = UUID.fromString(w.get("entityUuid").getAsString());
-                    } catch (Exception ignored) {}
+                    _entityRef = w.get("entityUuid").getAsString();
+                } else if (w.has("entity")) {
+                    _entityRef = w.get("entity").getAsString();
                 }
+                if (_entityRef != null) {
+                    try { uuid = UUID.fromString(_entityRef); } catch (Exception ignored) {}
+                }
+                LOGGER.info("[CHAT-CLIENT] entity parse: ref='{}' uuid={}", _entityRef, uuid);
                 float scale = w.has("scale") ? w.get("scale").getAsFloat() : 1f;
                 float feetCrop = w.has("feetCrop") ? w.get("feetCrop").getAsFloat() : 0.38f;
                 float[] crop = new float[]{0f, 0f, 0f, 0f};
@@ -1005,14 +1045,12 @@ public class SprauteScriptScreen extends Screen {
                     JsonArray a = w.getAsJsonArray("anchor");
                     if (a.size() >= 2) {
                         anchorX = clamp01(a.get(0).getAsFloat());
-                        float ay = a.get(1).getAsFloat();
-                        anchorY = ay < 0f ? -1f : ay;
+                        anchorY = a.get(1).getAsFloat(); // unrestricted: <0 = above box, >1 = below box
                     }
                 } else {
                     if (w.has("anchorX")) anchorX = clamp01(w.get("anchorX").getAsFloat());
                     if (w.has("anchorY")) {
-                        float ay = w.get("anchorY").getAsFloat();
-                        anchorY = ay < 0f ? -1f : ay;
+                        anchorY = w.get("anchorY").getAsFloat(); // unrestricted
                     }
                 }
                 boolean disableAnim = false;
@@ -1044,7 +1082,22 @@ public class SprauteScriptScreen extends Screen {
                         skinPlayerUuid = UUID.fromString(w.get("skinPlayerUuid").getAsString());
                     } catch (IllegalArgumentException ignored) {}
                 }
-                yield new EntityW(x, y, ww, hh, scale, uuid, feetCrop, tooltip, wid, crop[0], crop[1], crop[2], crop[3], anchorX, anchorY, disableAnim, hideNameTag, noLookAt, noFollowCursor, noHurtAnim, renderBones, skinPlayerUuid);
+                String modelGeo = w.has("modelGeo") ? w.get("modelGeo").getAsString() : null;
+                String modelTexture = w.has("modelTexture") ? w.get("modelTexture").getAsString() : null;
+                String modelAnim = w.has("modelAnim") ? w.get("modelAnim").getAsString() : null;
+                String modelIdle = w.has("modelIdle") ? w.get("modelIdle").getAsString() : null;
+                if ((modelGeo == null || modelGeo.isEmpty()) && w.has("entity")) {
+                    String entRef = w.get("entity").getAsString();
+                    if (entRef.startsWith("model:")) {
+                        String[] parts = entRef.substring(6).split("\\|", -1);
+                        if (parts.length > 0 && !parts[0].isEmpty()) modelGeo = parts[0];
+                        if (parts.length > 1 && !parts[1].isEmpty()) modelTexture = parts[1];
+                        if (parts.length > 2 && !parts[2].isEmpty()) modelAnim = parts[2];
+                        if (parts.length > 3 && !parts[3].isEmpty()) modelIdle = parts[3];
+                    }
+                }
+                boolean clipEntity = w.has("clipEntity") && w.get("clipEntity").getAsBoolean();
+                yield new EntityW(x, y, ww, hh, scale, uuid, feetCrop, tooltip, wid, crop[0], crop[1], crop[2], crop[3], anchorX, anchorY, disableAnim, hideNameTag, noLookAt, noFollowCursor, noHurtAnim, renderBones, skinPlayerUuid, modelGeo, modelTexture, modelAnim, modelIdle, clipEntity);
             }
             case "scroll" -> {
                 int contentH = readCoord(w, "contentH", ph);
@@ -1420,10 +1473,14 @@ public class SprauteScriptScreen extends Screen {
 
     //? if >=1.20.1 {
     @Override
+    public void renderBackground(GuiGraphics guiGraphics) {
+        if (dimBackground) super.renderBackground(guiGraphics);
+    }
+
+    @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         scissorGuiGraphics = guiGraphics;
         processAnimations();
-        renderBackground(guiGraphics);
         int ax0 = left;
         int ay0 = top;
         SprauteGuiDraw.fill(guiGraphics, ax0, ay0, ax0 + panelW, ay0 + panelH, bgArgb);
@@ -1475,12 +1532,17 @@ public class SprauteScriptScreen extends Screen {
         if (hoveredWithPanel != null) {
             renderButtonHoverPanel(guiGraphics, hoveredWithPanel, mouseX, mouseY);
         }
+        // Full (non-HUD) screens like the chat history draw ABOVE the HUD chat overlays,
+        // so don't paint the chat bars on top of them.
+        if (hudOverlay) {
+            renderActiveOverlays(Minecraft.getInstance(), partialTick, guiGraphics);
+        }
     }
     //?} else {
     /*@Override
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
         processAnimations();
-        renderBackground(poseStack);
+        if (dimBackground) renderBackground(poseStack);
         int ax0 = left;
         int ay0 = top;
         GuiComponent.fill(poseStack, ax0, ay0, ax0 + panelW, ay0 + panelH, bgArgb);
@@ -1533,12 +1595,202 @@ public class SprauteScriptScreen extends Screen {
     }
     *///?}
 
+    private void layoutPosition(int sw, int sh) {
+        left = (sw - panelW) / 2;
+        top = (sh - panelH) / 2;
+        if (root.has("x")) {
+            int rawX = readRootExtent(root, "x", sw, left);
+            left = rawX < 0 ? sw + rawX - panelW : rawX;
+        }
+        if (root.has("y")) {
+            int rawY = readRootExtent(root, "y", sh, top);
+            top = rawY < 0 ? sh + rawY - panelH : rawY;
+        }
+    }
+
+    /** Topmost button under cursor in this panel (includes scroll children). */
+    private String findButtonAt(double mouseX, double mouseY) {
+        int ax0 = left;
+        int ay0 = top;
+        for (int i = widgets.size() - 1; i >= 0; i--) {
+            Widget w = widgets.get(i);
+            if (w instanceof ScrollW sw) {
+                int sx = ax0 + sw.x;
+                int sy = ay0 + sw.y;
+                if (mouseX >= sx && mouseX < sx + sw.w && mouseY >= sy && mouseY < sy + sw.h) {
+                    for (int j = sw.children.size() - 1; j >= 0; j--) {
+                        Widget child = sw.children.get(j);
+                        if (child instanceof ButtonW bw && bw.id != null && !bw.id.isEmpty()) {
+                            int bx = sx + bw.x;
+                            int by = sy + bw.y - (int) sw.scrollOffset;
+                            if (mouseX >= bx && mouseX < bx + bw.w && mouseY >= by && mouseY < by + bw.h) {
+                                return bw.id;
+                            }
+                        }
+                    }
+                }
+            }
+            if (w instanceof ButtonW bw && bw.id != null && !bw.id.isEmpty()) {
+                int bx = ax0 + bw.x;
+                int by = ay0 + bw.y;
+                if (mouseX >= bx && mouseX < bx + bw.w && mouseY >= by && mouseY < by + bw.h) {
+                    return bw.id;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Hover target: button or input with id. */
+    private String findHoverTargetAt(double mouseX, double mouseY) {
+        int ax0 = left;
+        int ay0 = top;
+        for (int i = widgets.size() - 1; i >= 0; i--) {
+            Widget w = widgets.get(i);
+            if (w instanceof ScrollW sw) {
+                int sx = ax0 + sw.x;
+                int sy = ay0 + sw.y;
+                if (mouseX >= sx && mouseX < sx + sw.w && mouseY >= sy && mouseY < sy + sw.h) {
+                    for (int j = sw.children.size() - 1; j >= 0; j--) {
+                        Widget child = sw.children.get(j);
+                        String id = hoverTargetId(child, sx, sy - (int) sw.scrollOffset, mouseX, mouseY);
+                        if (id != null) return id;
+                    }
+                }
+            }
+            String id = hoverTargetId(w, ax0, ay0, mouseX, mouseY);
+            if (id != null) return id;
+        }
+        return null;
+    }
+
+    private static String hoverTargetId(Widget w, int ax0, int ay0, double mouseX, double mouseY) {
+        if (w instanceof ButtonW bw && bw.id != null && !bw.id.isEmpty()) {
+            int bx = ax0 + bw.x;
+            int by = ay0 + bw.y;
+            if (mouseX >= bx && mouseX < bx + bw.w && mouseY >= by && mouseY < by + bw.h) return bw.id;
+        } else if (w instanceof InputW inpw && inpw.id != null && !inpw.id.isEmpty()) {
+            int bx = ax0 + inpw.x;
+            int by = ay0 + inpw.y;
+            if (mouseX >= bx && mouseX < bx + inpw.w && mouseY >= by && mouseY < by + inpw.h) return inpw.id;
+        }
+        return null;
+    }
+
+    private static void sendUiClick(String widgetId, int mouseButton) {
+        ModNetwork.CHANNEL.sendToServer(new SprauteUiActionPacket(
+                SprauteUiActionPacket.ACTION_CLICK, widgetId, mouseButton));
+    }
+
+    private static double[] scaledMouse(Minecraft mc) {
+        double mouseX = mc.mouseHandler.xpos() * (double) mc.getWindow().getGuiScaledWidth() / (double) mc.getWindow().getScreenWidth();
+        double mouseY = mc.mouseHandler.ypos() * (double) mc.getWindow().getGuiScaledHeight() / (double) mc.getWindow().getScreenHeight();
+        return new double[]{mouseX, mouseY};
+    }
+
+    private static String findTopmostButtonAcrossOverlays(double mouseX, double mouseY, int sw, int sh) {
+        var entries = new java.util.ArrayList<>(activeOverlays.entrySet());
+        for (int i = entries.size() - 1; i >= 0; i--) {
+            SprauteScriptScreen overlay = entries.get(i).getValue();
+            overlay.layoutPosition(sw, sh);
+            String id = overlay.findButtonAt(mouseX, mouseY);
+            if (id != null) return id;
+        }
+        return null;
+    }
+
+    private static String findTopmostHoverAcrossOverlays(double mouseX, double mouseY, int sw, int sh) {
+        var entries = new java.util.ArrayList<>(activeOverlays.entrySet());
+        for (int i = entries.size() - 1; i >= 0; i--) {
+            SprauteScriptScreen overlay = entries.get(i).getValue();
+            overlay.layoutPosition(sw, sh);
+            String id = overlay.findHoverTargetAt(mouseX, mouseY);
+            if (id != null) return id;
+        }
+        return null;
+    }
+
+    private static String findTopmostHover(double mouseX, double mouseY, int sw, int sh) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc != null && mc.screen instanceof SprauteScriptScreen screen && !screen.hudOverlay) {
+            screen.layoutPosition(sw, sh);
+            return screen.findHoverTargetAt(mouseX, mouseY);
+        }
+        return findTopmostHoverAcrossOverlays(mouseX, mouseY, sw, sh);
+    }
+
+    private static void tickOverlayHover() {
+        if (++hoverTickCounter < 2) return;
+        hoverTickCounter = 0;
+
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.player == null || mc.getWindow() == null) return;
+
+        boolean hasUi = !activeOverlays.isEmpty()
+                || (mc.screen instanceof SprauteScriptScreen screen && !screen.hudOverlay);
+        if (!hasUi) {
+            if (clientHoverWidgetId != null) {
+                ModNetwork.CHANNEL.sendToServer(new SprauteUiActionPacket(
+                        SprauteUiActionPacket.ACTION_HOVER_LEAVE, clientHoverWidgetId, -1));
+                clientHoverWidgetId = null;
+            }
+            return;
+        }
+
+        double[] m = scaledMouse(mc);
+        int sw = mc.getWindow().getGuiScaledWidth();
+        int sh = mc.getWindow().getGuiScaledHeight();
+        String hovered = findTopmostHover(m[0], m[1], sw, sh);
+        if (java.util.Objects.equals(hovered, clientHoverWidgetId)) return;
+
+        if (clientHoverWidgetId != null) {
+            ModNetwork.CHANNEL.sendToServer(new SprauteUiActionPacket(
+                    SprauteUiActionPacket.ACTION_HOVER_LEAVE, clientHoverWidgetId, -1));
+        }
+        if (hovered != null) {
+            ModNetwork.CHANNEL.sendToServer(new SprauteUiActionPacket(
+                    SprauteUiActionPacket.ACTION_HOVER_ENTER, hovered, -1));
+        }
+        clientHoverWidgetId = hovered;
+    }
+
+    @SubscribeEvent
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+        tickOverlayHover();
+    }
+
+    @SubscribeEvent
+    public static void onGlobalMouseClick(InputEvent.MouseButton.Pre event) {
+        if (event.getAction() != GLFW.GLFW_PRESS) return;
+        int button = event.getButton();
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT && button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return;
+
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.player == null || activeOverlays.isEmpty()) return;
+        if (mc.screen instanceof SprauteScriptScreen screen && !screen.hudOverlay) return;
+
+        double[] m = scaledMouse(mc);
+        int sw = mc.getWindow().getGuiScaledWidth();
+        int sh = mc.getWindow().getGuiScaledHeight();
+        String widgetId = findTopmostButtonAcrossOverlays(m[0], m[1], sw, sh);
+        if (widgetId != null) {
+            sendUiClick(widgetId, button);
+            event.setCanceled(true);
+        }
+    }
+
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) {
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
             int ax0 = left;
             int ay0 = top;
             boolean clickedInput = false;
+            String clickedButton = findButtonAt(mouseX, mouseY);
+            if (clickedButton != null) {
+                sendUiClick(clickedButton, button);
+                return true;
+            }
             for (int i = widgets.size() - 1; i >= 0; i--) {
                 Widget w = widgets.get(i);
                 if (w instanceof ScrollW sw) {
@@ -1547,14 +1799,7 @@ public class SprauteScriptScreen extends Screen {
                     if (mouseX >= sx && mouseX < sx + sw.w && mouseY >= sy && mouseY < sy + sw.h) {
                         for (int j = sw.children.size() - 1; j >= 0; j--) {
                             Widget child = sw.children.get(j);
-                            if (child instanceof ButtonW bw && bw.id != null && !bw.id.isEmpty()) {
-                                int bx = sx + bw.x;
-                                int by = sy + bw.y - (int) sw.scrollOffset;
-                                if (mouseX >= bx && mouseX < bx + bw.w && mouseY >= by && mouseY < by + bw.h) {
-                                    ModNetwork.CHANNEL.sendToServer(new SprauteUiActionPacket(bw.id, false));
-                                    return true;
-                                }
-                            } else if (child instanceof InputW inpw && inpw.id != null && !inpw.id.isEmpty()) {
+                            if (child instanceof InputW inpw && inpw.id != null && !inpw.id.isEmpty()) {
                                 int bx = sx + inpw.x;
                                 int by = sy + inpw.y - (int) sw.scrollOffset;
                                 if (mouseX >= bx && mouseX < bx + inpw.w && mouseY >= by && mouseY < by + inpw.h) {
@@ -1563,14 +1808,6 @@ public class SprauteScriptScreen extends Screen {
                                 }
                             }
                         }
-                    }
-                }
-                if (w instanceof ButtonW bw && bw.id != null && !bw.id.isEmpty()) {
-                    int bx = ax0 + bw.x;
-                    int by = ay0 + bw.y;
-                    if (mouseX >= bx && mouseX < bx + bw.w && mouseY >= by && mouseY < by + bw.h) {
-                        ModNetwork.CHANNEL.sendToServer(new SprauteUiActionPacket(bw.id, false));
-                        return true;
                     }
                 } else if (w instanceof InputW inpw && inpw.id != null && !inpw.id.isEmpty()) {
                     int bx = ax0 + inpw.x;
@@ -1582,6 +1819,7 @@ public class SprauteScriptScreen extends Screen {
                 }
             }
             if (!clickedInput) activeInputId = null;
+            if (clickedInput) return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
@@ -1653,7 +1891,9 @@ public class SprauteScriptScreen extends Screen {
     @Override
     public void onClose() {
         if (!suppressClosePacket) {
-            org.zonarstudio.spraute_engine.network.ModNetwork.CHANNEL.sendToServer(new org.zonarstudio.spraute_engine.network.SprauteUiActionPacket("", true));
+            org.zonarstudio.spraute_engine.network.ModNetwork.CHANNEL.sendToServer(
+                    new org.zonarstudio.spraute_engine.network.SprauteUiActionPacket(
+                            org.zonarstudio.spraute_engine.network.SprauteUiActionPacket.ACTION_CLOSE, "", -1));
         }
         monitorOverlaps.clear();
         overlapState.clear();
@@ -2504,6 +2744,41 @@ public class SprauteScriptScreen extends Screen {
         return getOrCreateDummy(source, null, noLookAt, disableAnim, noHurt, skinPlayerUuid);
     }
 
+    /**
+     * Build (or fetch from cache) a render-only NPC dummy directly from a model+texture spec.
+     * Lets the GUI show any NPC's model even when the live entity isn't loaded (e.g. chat history).
+     */
+    private static org.zonarstudio.spraute_engine.entity.SprauteNpcEntity getOrCreateDummyFromSpec(
+            String geo, String texture, String anim, String idle, boolean noLookAt) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) return null;
+        String safeGeo = geo != null ? geo : "geo/defolt.geo.json";
+        String safeTex = texture != null ? texture : "textures/entity/defolt.png";
+        String safeAnim = anim != null && !anim.isEmpty() ? anim : "animations/npc_classic.animation.json";
+        String safeIdle = idle != null && !idle.isEmpty() ? idle : "idle";
+        UUID key = UUID.nameUUIDFromBytes(("spec:" + safeGeo + "|" + safeTex + "|" + safeAnim + "|" + safeIdle).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        org.zonarstudio.spraute_engine.entity.SprauteNpcEntity dummy = uiDummyCache.get(key);
+        if (dummy == null) {
+            dummy = new org.zonarstudio.spraute_engine.entity.SprauteNpcEntity(
+                    org.zonarstudio.spraute_engine.entity.ModEntities.SPRAUTE_NPC.get(), mc.level);
+            dummy.setModel(safeGeo);
+            dummy.setTexture(safeTex);
+            dummy.setAnimation(safeAnim);
+            dummy.setIdleAnim(safeIdle);
+            dummy.setWalkAnim("");
+            uiDummyCache.put(key, dummy);
+        }
+        float yaw = noLookAt ? 180f : dummy.getYRot();
+        dummy.setYRot(yaw); dummy.yRotO = yaw;
+        dummy.yHeadRot = yaw; dummy.yHeadRotO = yaw;
+        dummy.yBodyRot = yaw; dummy.yBodyRotO = yaw;
+        dummy.setXRot(0f); dummy.xRotO = 0f;
+        dummy.hurtTime = 0; dummy.deathTime = 0;
+        dummy.setCustomNameVisible(false);
+        dummy.clearPlayerSkinOverlay();
+        return dummy;
+    }
+
     private static org.zonarstudio.spraute_engine.entity.SprauteNpcEntity getOrCreateDummy(
             LivingEntity source, UUID cacheKey, boolean noLookAt, boolean disableAnim, boolean noHurt,
             UUID skinPlayerUuid) {
@@ -2760,6 +3035,21 @@ public class SprauteScriptScreen extends Screen {
         *///?}
     }
 
+    /** 3D entity draw uses ModelViewStack and ignores nested GUI scissors — release them temporarily. */
+    private static void runWithoutScissor(Runnable action) {
+        java.util.List<int[]> saved = new java.util.ArrayList<>(scissorStack);
+        while (!scissorStack.isEmpty()) {
+            popScissor();
+        }
+        try {
+            action.run();
+        } finally {
+            for (int[] r : saved) {
+                pushScissor(r[0], r[1], r[2], r[3]);
+            }
+        }
+    }
+
     /**
      * @param cropL..cropB доли 0–1 — сколько срезать слева, сверху, справа, снизу от ячейки {@code size}.
      * @param feetCrop при отрицательном вертикальном якоре — старая формула вертикали.
@@ -2772,7 +3062,9 @@ public class SprauteScriptScreen extends Screen {
             float cropL, float cropT, float cropR, float cropB,
             float anchorX, float anchorY, boolean disableAnim,
             boolean hideNameTag, boolean noLookAt, boolean noFollowCursor,
-            boolean noHurtAnim, String[] renderBones, UUID skinPlayerUuid
+            boolean noHurtAnim, String[] renderBones, UUID skinPlayerUuid,
+            String modelGeo, String modelTexture, String modelAnim, String modelIdle,
+            boolean clipEntity
     ) implements Widget {
         @Override
         public String tooltip() {
@@ -2809,22 +3101,35 @@ public class SprauteScriptScreen extends Screen {
                 }
                 renderTarget = avatar;
                 useDummy = true;
-            } else if (entityUuid == null) {
-                SprauteGuiDraw.fill(guiGraphics, left, top, right, bottom, 0x66000000);
-                return;
             } else {
-                Entity e = findEntityByUuid(mc.level, entityUuid);
-                if (!(e instanceof LivingEntity living)) {
+                Entity e = entityUuid != null ? findEntityByUuid(mc.level, entityUuid) : null;
+                if (e instanceof LivingEntity living) {
+                    if (useDummy && living instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity) {
+                        renderTarget = getOrCreateDummy(living, noLookAt, disableAnim, noHurtAnim, skinPlayerUuid);
+                    } else {
+                        renderTarget = living;
+                    }
+                } else if (modelGeo != null && !modelGeo.isEmpty()) {
+                    // Live entity not loaded — render from the stored model/texture spec.
+                    org.zonarstudio.spraute_engine.entity.SprauteNpcEntity spec =
+                            getOrCreateDummyFromSpec(modelGeo, modelTexture, modelAnim, modelIdle, noLookAt);
+                    if (spec == null) {
+                        SprauteGuiDraw.fill(guiGraphics, left, top, right, bottom, 0x66000000);
+                        return;
+                    }
+                    renderTarget = spec;
+                    useDummy = true;
+                } else {
                     SprauteGuiDraw.fill(guiGraphics, left, top, right, bottom, 0x66000000);
                     return;
                 }
-                if (useDummy && living instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity) {
-                    renderTarget = getOrCreateDummy(living, noLookAt, disableAnim, noHurtAnim, skinPlayerUuid);
-                } else {
-                    renderTarget = living;
-                }
             }
 
+            // Only scissor when there is actual crop or clipEntity is explicitly requested.
+            // Without crop the scissor equals the widget box and will clip head-only renders
+            // whose cy intentionally overflows the widget bounds.
+            boolean hasCrop = cropL > 0f || cropT > 0f || cropR > 0f || cropB > 0f;
+            boolean doScissor = hasCrop || clipEntity;
             float sx0f = left + w * cropL;
             float sy0f = top + h * cropT;
             float sx1f = left + w * (1f - cropR);
@@ -2833,7 +3138,7 @@ public class SprauteScriptScreen extends Screen {
             int sy0 = (int) Math.floor(sy0f);
             int sx1 = (int) Math.ceil(sx1f);
             int sy1 = (int) Math.ceil(sy1f);
-            pushScissor(sx0, sy0, sx1, sy1);
+            if (doScissor) pushScissor(sx0, sy0, sx1, sy1);
             try {
                 if (renderTarget instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc) {
                     npc.uiRenderBones = renderBones;
@@ -2841,14 +3146,27 @@ public class SprauteScriptScreen extends Screen {
 
                 int cx = (int) (left + w * anchorX);
                 int cy;
-                if (anchorY >= 0f) {
-                    cy = (int) (top + h * anchorY);
-                } else {
+                if (anchorY == -1f) {
+                    // Legacy feetCrop auto-mode (no anchor_y specified)
                     float t = Math.min(1f, Math.max(0f, feetCrop));
                     float anchorFrac = 0.48f + t * 0.20f;
                     cy = top + (int) (h * anchorFrac);
+                } else {
+                    // anchor_y is unrestricted: 0=top, 1=bottom, <0=above box, >1=below box
+                    cy = (int) (top + h * anchorY);
                 }
-                int sc = Math.max(8, (int) (Math.min(w, h) * 0.44f * scale));
+                boolean headOnly = renderBones != null && renderBones.length > 0;
+                float cell = Math.min(w, h);
+                int sc = headOnly
+                        ? Math.max(10, (int) (cell * 0.35f * scale))
+                        : Math.max(8, (int) (cell * 0.44f * scale));
+                if (headOnly) {
+                    // The head bone sits ~26 bedrock-px above the model origin (feet), so with only the
+                    // head rendered the visible head lands far above `cy`. Push cy down by that offset
+                    // (scaled) so the head starts inside the box and anchor_y (0=top .. 1=bottom) actually
+                    // moves it across the visible area.
+                    cy += Math.round(HEAD_ONLY_ORIGIN_OFFSET_PX / 16f * sc);
+                }
 
                 boolean prevDisable = SprauteScriptScreen.disableEntityAnimations;
                 boolean prevHideName = SprauteScriptScreen.hideEntityNameTag;
@@ -2859,18 +3177,34 @@ public class SprauteScriptScreen extends Screen {
                 float lookX = dontFollow ? 0f : (float) cx - mouseX;
                 float lookY = dontFollow ? 0f : (float) (cy - 50) - mouseY;
 
-                // Dummy entities (chat head: noLookAt etc.) use the manual ModelViewStack path, which is
-                // self-contained and works inside a HUD overlay (RenderGuiOverlayEvent) — exactly as on 1.19.2.
-                // InventoryScreen.renderEntityInInventory is GuiGraphics-bound and corrupts the framebuffer
-                // when called from the HUD overlay, so it is only used for the live-entity (in-screen) case.
-                if (useDummy) {
-                    renderEntityDirect(guiGraphics, cx, cy, sc, lookX, lookY, renderTarget);
+                final int drawCx = cx;
+                final int drawCy = cy;
+                final int drawSc = sc;
+                final LivingEntity drawTarget = renderTarget;
+                final boolean drawDummy = useDummy;
+                final boolean useDirectRender = drawDummy
+                        || headOnly
+                        || (modelGeo != null && !modelGeo.isEmpty())
+                        || skinPlayerUuid != null;
+
+                Runnable drawEntity = () -> {
+                    if (useDirectRender) {
+                        renderEntityDirect(guiGraphics, drawCx, drawCy, drawSc, lookX, lookY, drawTarget);
+                    } else {
+                        float f = (float) Math.atan(lookX / 40.0f);
+                        float g = (float) Math.atan(lookY / 40.0f);
+                        Quaternionf pose = new Quaternionf().rotateZYX(0.0f, (float) Math.PI - f * 20.0f * ((float) Math.PI / 180.0f), (float) Math.PI);
+                        Quaternionf camera = new Quaternionf().rotateX(g * 20.0f * ((float) Math.PI / 180.0f));
+                        InventoryScreen.renderEntityInInventory(guiGraphics, drawCx, drawCy, drawSc, pose, camera, drawTarget);
+                    }
+                };
+
+                // clipEntity keeps the active GL scissor so the head is cropped to its box
+                // (used by chat history rows); otherwise the entity is allowed to overflow.
+                if (clipEntity) {
+                    drawEntity.run();
                 } else {
-                    float f = (float) Math.atan(lookX / 40.0f);
-                    float g = (float) Math.atan(lookY / 40.0f);
-                    Quaternionf pose = new Quaternionf().rotateZYX(0.0f, (float) Math.PI - f * 20.0f * ((float) Math.PI / 180.0f), (float) Math.PI);
-                    Quaternionf camera = new Quaternionf().rotateX(g * 20.0f * ((float) Math.PI / 180.0f));
-                    InventoryScreen.renderEntityInInventory(guiGraphics, cx, cy, sc, pose, camera, renderTarget);
+                    runWithoutScissor(drawEntity);
                 }
 
                 SprauteScriptScreen.disableEntityAnimations = prevDisable;
@@ -2879,7 +3213,7 @@ public class SprauteScriptScreen extends Screen {
                 if (renderTarget instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc) {
                     npc.uiRenderBones = null;
                 }
-                popScissor();
+                if (doScissor) popScissor();
             }
         }
         //?} else {
@@ -2981,21 +3315,44 @@ public class SprauteScriptScreen extends Screen {
     public static void openOverlay(String overlayId, String json) {
         try {
             JsonObject root = JsonParser.parseString(json).getAsJsonObject();
-            SprauteScriptScreen overlay = new SprauteScriptScreen(root);
-            Minecraft mc = Minecraft.getInstance();
-            overlay.init(mc, mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
             String id = (overlayId != null && !overlayId.isEmpty()) ? overlayId : "";
             if (id.isEmpty() && root.has("id")) {
                 id = root.get("id").getAsString();
             }
+            boolean chatOverlay = "spraute_chat_bar".equals(id)
+                    || "spraute_chat".equals(id)
+                    || id.startsWith("spraute_chat_");
+            if (chatOverlay) {
+                activeOverlays.entrySet().removeIf(e ->
+                        "spraute_chat_bar".equals(e.getKey())
+                                || "spraute_chat".equals(e.getKey())
+                                || e.getKey().startsWith("spraute_chat_"));
+                // Drop only stale fade-OUT patches; keep fade-in (~ANIM:...:1.0).
+                pendingWidgetPatches.removeIf(p ->
+                        "chat_clip".equals(p.widgetId)
+                                && p.field != null && "alpha".equalsIgnoreCase(p.field.trim())
+                                && p.value != null && p.value.startsWith("~ANIM:")
+                                && (p.value.endsWith(":0.0") || p.value.endsWith(":0")));
+            } else if (!id.isEmpty()) {
+                activeOverlays.remove(id);
+            }
+            SprauteScriptScreen overlay = new SprauteScriptScreen(root, true);
+            Minecraft mc = Minecraft.getInstance();
+            overlay.init(mc, mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
             if (id.isEmpty()) id = "_default";
             activeOverlays.put(id, overlay);
             activeOverlay = overlay;
+            LOGGER.info("[CHAT-CLIENT] openOverlay id='{}' chatOverlay={} activeOverlays={} pending={} screen={}",
+                    id, chatOverlay, activeOverlays.keySet(), pendingWidgetPatches.size(),
+                    mc.screen != null ? mc.screen.getClass().getSimpleName() : "null");
             flushPendingWidgetPatches(overlay);
         } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger("SprauteOverlay").error(
+                    "[Spraute] openOverlay failed (id={}): {}", overlayId, json, e);
             if (Minecraft.getInstance().player != null) {
                 Minecraft.getInstance().player.displayClientMessage(
-                        Component.literal("[Spraute] Invalid Overlay JSON: " + e.getMessage()), false);
+                        Component.literal("[Spraute] Overlay error: " + e.getClass().getSimpleName()
+                                + (e.getMessage() != null ? " " + e.getMessage() : "")), false);
             }
         }
     }
@@ -3007,6 +3364,7 @@ public class SprauteScriptScreen extends Screen {
     }
 
     public static void closeOverlay(String overlayId) {
+        LOGGER.info("[CHAT-CLIENT] closeOverlay id='{}' activeOverlaysBefore={}", overlayId, activeOverlays.keySet());
         if (overlayId == null || overlayId.isEmpty()) {
             closeOverlayIfActive();
             return;
@@ -3022,13 +3380,18 @@ public class SprauteScriptScreen extends Screen {
     //? if >=1.20.1 {
     private static void renderActiveOverlays(Minecraft mc, float partialTick, GuiGraphics guiGraphics) {
         if (activeOverlays.isEmpty()) return;
-        if (mc.screen instanceof SprauteScriptScreen) return;
+
+        double mouseX = mc.mouseHandler.xpos() * (double) mc.getWindow().getGuiScaledWidth() / (double) mc.getWindow().getScreenWidth();
+        double mouseY = mc.mouseHandler.ypos() * (double) mc.getWindow().getGuiScaledHeight() / (double) mc.getWindow().getScreenHeight();
+        int imx = (int) mouseX;
+        int imy = (int) mouseY;
 
         int sw = mc.getWindow().getGuiScaledWidth();
         int sh = mc.getWindow().getGuiScaledHeight();
         scissorGuiGraphics = guiGraphics;
 
-        for (SprauteScriptScreen overlay : activeOverlays.values()) {
+        for (Map.Entry<String, SprauteScriptScreen> e : activeOverlays.entrySet()) {
+            SprauteScriptScreen overlay = e.getValue();
             overlay.left = (sw - overlay.panelW) / 2;
             overlay.top = (sh - overlay.panelH) / 2;
             if (overlay.root.has("x")) {
@@ -3047,7 +3410,7 @@ public class SprauteScriptScreen extends Screen {
             }
 
             for (Widget w : overlay.widgets) {
-                w.render(overlay, guiGraphics, overlay.left, overlay.top, 0, 0, partialTick);
+                w.render(overlay, guiGraphics, overlay.left, overlay.top, imx, imy, partialTick);
             }
         }
     }
@@ -3084,7 +3447,7 @@ public class SprauteScriptScreen extends Screen {
     }
     *///?}
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onRenderOverlay(RenderGuiOverlayEvent.Post event) {
         if (CameraHandler.shouldHideScriptGui()) return;
         if (!event.getOverlay().id().equals(VanillaGuiOverlay.CHAT_PANEL.id())) return;
@@ -3093,6 +3456,8 @@ public class SprauteScriptScreen extends Screen {
         Minecraft mc = Minecraft.getInstance();
         // ChatScreen draws after HUD — overlay is rendered in onChatScreenRender instead.
         if (mc.screen instanceof ChatScreen) return;
+        // SprauteScriptScreen renders overlays at the end of its own render() pass.
+        if (mc.screen instanceof SprauteScriptScreen) return;
 
         //? if >=1.20.1 {
         renderActiveOverlays(mc, event.getPartialTick(), event.getGuiGraphics());
@@ -3101,7 +3466,7 @@ public class SprauteScriptScreen extends Screen {
         *///?}
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onChatScreenRender(ScreenEvent.Render.Post event) {
         if (CameraHandler.shouldHideScriptGui()) return;
         if (activeOverlays.isEmpty()) return;

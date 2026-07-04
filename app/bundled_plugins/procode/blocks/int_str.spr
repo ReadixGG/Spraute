@@ -1,0 +1,7 @@
+#\ block: int_str
+#\ category: Текст
+#\ color: #10b981
+#\ shape: value
+#\
+#\ row: "число в строку" input: val (type: value)
+#\ template: intStr({val})

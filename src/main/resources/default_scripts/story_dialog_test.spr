@@ -1,0 +1,225 @@
+# ================================================================
+#  Тест диалогов: случайный НПС + Райя + выборы
+#  Запуск: /spraute run story_dialog_test
+#  Затем ПКМ по случайному НПС рядом с игроком.
+#
+#  1) Классическое окно — игрок представляется случайному НПС
+#  2) Райя уже знает игрока (без представления)
+#  3) Кинематографический диалог с Райей — выбор влияет на реплики
+# ================================================================
+
+import("spraute_chat")
+import("dialog_classic")
+import("dialog_cinematic")
+import("raya")
+
+chat_frame_texture = "textures/gui/UI_Hologram_ramka_texta.png"
+chat_text_color    = "#CCEEFF"
+chat_history_clear()
+
+val RAYA_CHAT_COLOR = "#B8E4FF"
+val STRANGER_CHAT_COLOR = "#B0B0B0"
+val NARRATOR_COLOR = "#FFAA55"
+val STORY_ADVANCE_KEY = "f"
+
+val STRANGER_PROFILES = list(
+    dict("name", "§7Странник Кай", "tex", "textures/entity/defolt.png"),
+    dict("name", "§7Путник Нора", "tex", "textures/entity/defolt.png"),
+    dict("name", "§7Охотник Век", "tex", "textures/entity/defolt.png")
+)
+
+var story_scene_done = false
+var story_scene_running = false
+
+fun storyFindRaya(p) {
+    spawnRaya(p)
+    return findRayaNpc(p)
+}
+
+val STORY_CHAT_SEC = 6
+val STORY_HINT_SEC = 10
+
+fun storyNpcSay(p, speaker, text) {
+    npcChat(p, speaker, text, STRANGER_CHAT_COLOR, STORY_CHAT_SEC)
+    await time(0.2)
+    await keybind(STORY_ADVANCE_KEY)
+}
+
+fun storyRayaSay(p, rayaRef, text) {
+    npcChat(p, rayaRef, text, RAYA_CHAT_COLOR, STORY_CHAT_SEC, 0.25, 0.30)
+    await time(0.2)
+    await keybind(STORY_ADVANCE_KEY)
+}
+
+fun storyHint(p, text) {
+    playerChat(p, text, NARRATOR_COLOR, STORY_HINT_SEC)
+}
+
+fun storyHintWait(p, text) {
+    playerChat(p, text, NARRATOR_COLOR, STORY_HINT_SEC)
+    await keybind(STORY_ADVANCE_KEY)
+}
+
+fun storyRunScene(p) {
+    chat_history_clear()
+    stranger.alwaysLookAt(p)
+
+    # ── 1. Представление (классический диалог) ─────────────────
+    val intro_q = "Стой. Кто ты такой и зачем на этой тропе?"
+    val intro_answers = list(
+        "Меня зовут " + p.name + ". Я путешественник, ищу дорогу.",
+        "Я местный. Просто прохожу мимо — без вредных намерений.",
+        "Не твоё дело. Отойди."
+    )
+
+    val intro_pick = dialogClassic(p, stranger, intro_q, intro_answers)
+    val intro_idx = dialogPickIndex(intro_pick)
+
+    if (intro_idx == 2) {
+        stranger.playOnce("angry")
+        storyNpcSay(p, stranger, "Грубовато... но ладно. Следи за языком.")
+    } else if (intro_idx == 0) {
+        stranger.playOnce("hello")
+        storyNpcSay(p, stranger, "Путешественник, значит... Хорошо, " + p.name + ".")
+    } else if (intro_idx == 1) {
+        stranger.playOnce("hello")
+        storyNpcSay(p, stranger, "Честно сказано. Мне это нравится.")
+    } else {
+        storyNpcSay(p, stranger, "...")
+    }
+
+    # ── 2. Райя (знает игрока, представляться не нужно) ───────
+    val scene_raya = storyFindRaya(p)
+    if (scene_raya != null) {
+        scene_raya.alwaysLookAt(stranger)
+        scene_raya.setFlying(true)
+
+        var raya_line = p.name + ", я зафиксировала контакт. Вероятность эскалации — 28%."
+        if (intro_idx == 2) {
+            raya_line = p.name + ", твой тон повысил вероятность конфликта до 41%. Рекомендую смягчить ситуацию."
+        } else if (intro_idx == 0) {
+            raya_line = p.name + ", представление прошло штатно. Он воспринял тебя нейтрально."
+        }
+        storyRayaSay(p, scene_raya, raya_line)
+    }
+
+    # ── 3. Завязка конфликта ───────────────────────────────────
+    stranger.playLoop("talking1")
+    storyNpcSay(p, stranger, "Кстати! Вчера кто-то расхитил мой лагерь. Уверен — это местный житель!")
+    stranger.stop("talking1")
+
+    if (scene_raya != null) {
+        storyRayaSay(p, scene_raya, "Тон собеседника эскалирует. Жизни людей в приоритете — нужно снизить напряжение.")
+    }
+
+    # ── 4. Выбор с Райей (кинематографический диалог) ─────────
+    if (scene_raya == null) {
+        storyNpcSay(p, stranger, "Ну? Что скажешь?")
+        storyHintWait(p, "§c[Тест] Кинематический диалог пропущен — нет Райи.")
+        story_scene_running = false
+        return
+    }
+
+    val peace_q = "Как поступим, " + p.name + "? Я рассчитала три сценария с разной вероятностью успеха."
+    val peace_answers = list(
+        "Предложить мирный разговор",
+        "Сначала составить подробный план",
+        "Потребовать доказательства прямо сейчас"
+    )
+
+    val peace_pick = dialogCinematic(p, scene_raya, peace_q, peace_answers)
+    val peace_idx = dialogCinePickIndex(peace_pick)
+
+    scene_raya.alwaysLookAt(stranger)
+
+    # ── 5. Реплики зависят от выбора ───────────────────────────
+    if (peace_idx == 0) {
+        storyRayaSay(p, scene_raya, "Вероятность урегулирования: §a78%§f. Мирный путь оптимален — жизни людей важнее спора.")
+        stranger.playOnce("hello")
+        storyNpcSay(p, stranger, "Хм... ладно. Давайте поговорим спокойно. Я не хочу ссор.")
+    } else if (peace_idx == 1) {
+        storyRayaSay(p, scene_raya, "Вероятность успеха при планировании: §a84%§f. Расчёт и проработка вариантов — верный приоритет.")
+        stranger.playOnce("talking1")
+        storyNpcSay(p, stranger, "План? Если вы всё продумали — я готов слушать. Только без фокусов.")
+        stranger.stop("talking1")
+    } else if (peace_idx == 2) {
+        storyRayaSay(p, scene_raya, p.name + ", поспешность поднимает риск столкновения до §c61%§f. Но я с вами — попробуем деэскалировать.")
+        stranger.playOnce("angry")
+        storyNpcSay(p, stranger, "Доказательства?! Вы ещё и обвиняете меня?! Это уже слишком!")
+    } else {
+        storyNpcSay(p, stranger, "...Тишина. Ладно, забудем.")
+    }
+
+    # ── 6. Финал ───────────────────────────────────────────────
+    if (scene_raya != null) {
+        if (peace_idx == 0) {
+            storyRayaSay(p, scene_raya, "Конфликт снят мирно. Именно так я и рассчитывала — человечность превыше выгоды.")
+        } else if (peace_idx == 1) {
+            storyRayaSay(p, scene_raya, "Следующий шаг: зафиксировать условия письменно. Я подготовлю варианты формулировок.")
+        } else if (peace_idx == 2) {
+            storyRayaSay(p, scene_raya, "Ситуация напряжённая, но обошлось без насилия. В следующий раз — сначала план, " + p.name + ".")
+        }
+    }
+
+    story_scene_done = true
+    story_scene_running = false
+    storyHintWait(p, "§d[Тест диалогов] §aСцена завершена. §7Повтор: §e/spraute reload§7 и снова §e/spraute run story_dialog_test")
+}
+
+# ── Случайный НПС ────────────────────────────────────────────────
+val story_prof_idx = random(0, 2)
+val story_prof = listGet(STRANGER_PROFILES, story_prof_idx)
+val story_stranger_name = story_prof["name"]
+val story_stranger_tex = story_prof["tex"]
+
+val story_spawn = findSafeBlock("player", 12, 4)
+if (story_spawn == null) {
+    val fp0 = getFirstPlayer()
+    if (fp0 != null) {
+        storyHint(fp0, "§c[story_dialog_test] Не нашёл место для НПС. Встань на землю и запусти снова.")
+    }
+} else {
+    val sx = listGet(story_spawn, 0)
+    val sy = listGet(story_spawn, 1)
+    val sz = listGet(story_spawn, 2)
+
+    create npc stranger {
+        name = story_stranger_name
+        hp = 20
+        speed = 0.22
+        pos = sx, sy, sz
+        showName = true
+        model = "geo/defolt.geo.json"
+        texture = story_stranger_tex
+        animation = "animations/npc_classic.animation.json"
+        idleAnim = "idle"
+        walkAnim = "idle"
+    }
+
+    val fp = getFirstPlayer()
+    if (fp != null) {
+        storyHint(fp, "§d[Тест диалогов] §fРядом появился §7" + story_stranger_name + "§f. Подойди и нажми §eПКМ§f. §7Райя должна быть рядом — сцена стартует по клику на НПС.")
+    }
+
+    on interact(stranger) -> story_test_interact {
+        val p = _eventPlayer
+        if (p == null) { return }
+
+        if (story_scene_done) {
+            storyHint(p, "§7[Тест] Сцена уже пройдена. §e/spraute reload §7и §e/spraute run story_dialog_test")
+            return
+        }
+        if (story_scene_running) {
+            return
+        }
+
+        story_scene_running = true
+
+        async "story_dialog_test_run" {
+            storyRunScene(p)
+            if (!story_scene_done) {
+                story_scene_running = false
+            }
+        }
+    }
+}

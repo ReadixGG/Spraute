@@ -27,6 +27,7 @@ public class ScriptExecutor {
             case "fly_walk_anim" -> "flyWalkAnim";
             case "swim_idle_anim" -> "swimIdleAnim";
             case "swim_walk_anim" -> "swimWalkAnim";
+            case "death_anim" -> "deathAnim";
             case "max_hp" -> "maxHp";
             case "drop_item" -> "dropItem";
             case "drop_min" -> "dropMin";
@@ -130,11 +131,18 @@ public class ScriptExecutor {
     }
 
     public void onUiAction(net.minecraft.server.level.ServerPlayer player, String widgetId, boolean closed) {
+        onUiAction(player, closed
+                ? org.zonarstudio.spraute_engine.network.SprauteUiActionPacket.ACTION_CLOSE
+                : org.zonarstudio.spraute_engine.network.SprauteUiActionPacket.ACTION_CLICK,
+                widgetId, closed ? -1 : 0);
+    }
+
+    public void onUiAction(net.minecraft.server.level.ServerPlayer player, byte action, String widgetId, int mouseButton) {
         for (ActiveScript script : activeScripts) {
-            script.onUiAction(player, widgetId, closed);
+            script.onUiAction(player, action, widgetId, mouseButton);
         }
         for (ActiveScript script : scriptsToAdd) {
-            script.onUiAction(player, widgetId, closed);
+            script.onUiAction(player, action, widgetId, mouseButton);
         }
     }
 
@@ -287,7 +295,7 @@ public class ScriptExecutor {
     /** Stop all running scripts and clear state. */
     public void stopAll() {
         for (ActiveScript script : activeScripts) {
-            script.cleanup();
+            script.cleanupAndCloseOverlays();
         }
         activeScripts.clear();
         scriptsToAdd.clear();
@@ -308,7 +316,7 @@ public class ScriptExecutor {
             ActiveScript script = it.next();
             if (script.getScriptName().equals(scriptName)) {
                 script.forceStop();
-                script.cleanup();
+                script.cleanupAndCloseOverlays();
                 it.remove();
                 return true;
             }
@@ -339,6 +347,24 @@ public class ScriptExecutor {
         }
         for (ActiveScript s : scriptsToAdd) {
             if (!s.getScriptName().equals(name) || s.isFinished()) continue;
+            best = preferDonor(best, s, functionName);
+        }
+        return best;
+    }
+
+    /** Running instance first; library scripts that finished after registering {@code fun} are still valid donors. */
+    private ActiveScript findDonorScript(String name, String functionName) {
+        ActiveScript running = findBestDonorScript(name, functionName);
+        if (running != null) return running;
+        ActiveScript best = null;
+        for (ActiveScript s : activeScripts) {
+            if (!s.getScriptName().equals(name) || !s.isFinished()) continue;
+            if (functionName != null && !functionName.isEmpty() && !s.userFunctions.containsKey(functionName)) continue;
+            best = preferDonor(best, s, functionName);
+        }
+        for (ActiveScript s : scriptsToAdd) {
+            if (!s.getScriptName().equals(name) || !s.isFinished()) continue;
+            if (functionName != null && !functionName.isEmpty() && !s.userFunctions.containsKey(functionName)) continue;
             best = preferDonor(best, s, functionName);
         }
         return best;
@@ -595,6 +621,7 @@ public class ScriptExecutor {
         private boolean uiClickMet = false;
         private String uiClickWidgetId = "";
         private boolean uiClickClosed = false;
+        private int uiClickMouseButton = 0;
 
         /** create ui: template bound while UI is open (click handlers). */
         private org.zonarstudio.spraute_engine.ui.UiTemplate boundUiTemplate;
@@ -639,10 +666,19 @@ public class ScriptExecutor {
             asyncTasks.values().forEach(t -> t.cancelled = true);
         }
 
-        /** Cleanup when script is stopped (e.g. /spraute stop). */
+        /**
+         * Lightweight cleanup run when a script finishes naturally each tick.
+         * Must NOT close overlays — many short-lived scripts finish every tick and a blanket
+         * close-all would nuke unrelated overlays (e.g. the chat bar) a frame after they open.
+         */
         public void cleanup() {
             clearNpcPickupMax(waitPickupNpcId);
             waitPickupNpcUuid = null;
+        }
+
+        /** Full cleanup for explicit stops (/spraute stop, stopAll): also closes overlays. */
+        public void cleanupAndCloseOverlays() {
+            cleanup();
             if (source.getServer() != null) {
                 org.zonarstudio.spraute_engine.network.ModNetwork.CHANNEL.send(net.minecraftforge.network.PacketDistributor.ALL.noArg(), new org.zonarstudio.spraute_engine.network.CloseSprauteOverlayPacket());
             }
@@ -894,6 +930,8 @@ public class ScriptExecutor {
                 } else {
                     return;
                 }
+            } else if (waitType == WaitType.NEXT) {
+                waitType = WaitType.NONE;
             } else if (waitType == WaitType.INTERACT) {
                 if (interactionMet) {
                     waitType = WaitType.NONE;
@@ -953,15 +991,19 @@ public class ScriptExecutor {
                         waitUiPlayerUuid = null;
                         if (pendingVarName != null) {
                             variables.put(pendingVarName, uiClickWidgetId != null ? uiClickWidgetId : "");
+                            variables.put("_eventMouseButton",
+                                    org.zonarstudio.spraute_engine.network.SprauteUiActionPacket.mouseButtonLabel(uiClickMouseButton));
                         }
                         variables.put("_ui_closed", uiClickClosed);
                         pendingVarName = null;
                         uiClickWidgetId = "";
                         uiClickClosed = false;
+                        uiClickMouseButton = 0;
                     } else if (waitType == WaitType.UI_CLOSE && uiClickMet) {
                         uiClickMet = false;
                         uiClickWidgetId = "";
                         uiClickClosed = false;
+                        uiClickMouseButton = 0;
                         return;
                     } else {
                         return;
@@ -1079,17 +1121,21 @@ public class ScriptExecutor {
                         waitEntityUuid = null;
                     } else if (entity instanceof net.minecraft.world.entity.Mob mob) {
                         if (isCloseToMoveTarget(mob, waitMoveTargetX, waitMoveTargetY, waitMoveTargetZ)) {
+                            if (mob instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity snpc) {
+                                snpc.clearScriptedMoveGoal();
+                            }
                             waitType = WaitType.NONE;
                             waitEntityUuid = null;
                         } else {
                             var nav = mob.getNavigation();
-                            if (nav.isDone() && nav.getPath() == null) {
-                                // Р•СЃР»Рё РЅР°РІРёРіР°С†РёСЏ РґСѓРјР°РµС‚, С‡С‚Рѕ РґРѕС€Р»Р°, РЅРѕ isCloseToMoveTarget = false
-                                // (Р·Р°СЃС‚СЂСЏР» РёР»Рё РЅРµ РґРѕС€РµР» РёРґРµР°Р»СЊРЅС‹Рµ РїРѕР»Р±Р»РѕРєР°) - РїРµСЂРµР·Р°РїСѓСЃРєР°РµРј РїСѓС‚СЊ
-                                mob.getNavigation().moveTo(waitMoveTargetX, waitMoveTargetY, waitMoveTargetZ, waitMoveSpeed);
-                            } else if (nav.isStuck()) {
-                                // Р•СЃР»Рё Р·Р°СЃС‚СЂСЏР» - С‚РѕР¶Рµ РїС‹С‚Р°РµРјСЃСЏ РїРµСЂРµСЃС‚СЂРѕРёС‚СЊ
-                                mob.getNavigation().moveTo(waitMoveTargetX, waitMoveTargetY, waitMoveTargetZ, waitMoveSpeed);
+                            if (mob instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity snpc) {
+                                if (nav.isDone() || nav.isStuck()) {
+                                    snpc.retryMoveTo(waitMoveTargetX, waitMoveTargetY, waitMoveTargetZ, waitMoveSpeed);
+                                }
+                            } else {
+                                if (nav.isDone() || nav.isStuck()) {
+                                    mob.getNavigation().moveTo(waitMoveTargetX, waitMoveTargetY, waitMoveTargetZ, waitMoveSpeed);
+                                }
                             }
                             return;
                         }
@@ -1117,7 +1163,11 @@ public class ScriptExecutor {
                             waitFollowTargetUuid = null;
                         } else {
                             if (npcEntity instanceof net.minecraft.world.entity.Mob mob) {
-                                mob.getNavigation().moveTo(targetEntity.getX(), targetEntity.getY(), targetEntity.getZ(), 1.0);
+                                if (npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity snpc) {
+                                    snpc.retryMoveTo(targetEntity.getX(), targetEntity.getY(), targetEntity.getZ(), 1.0);
+                                } else {
+                                    mob.getNavigation().moveTo(targetEntity.getX(), targetEntity.getY(), targetEntity.getZ(), 1.0);
+                                }
                             }
                             return;
                         }
@@ -1283,15 +1333,22 @@ public class ScriptExecutor {
                             task.ip++;
                         } else if (entity instanceof net.minecraft.world.entity.Mob mob) {
                             if (isCloseToMoveTarget(mob, task.waitMoveTargetX, task.waitMoveTargetY, task.waitMoveTargetZ)) {
+                                if (mob instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity snpc) {
+                                    snpc.clearScriptedMoveGoal();
+                                }
                                 task.waitType = WaitType.NONE;
                                 task.waitEntityUuid = null;
                                 task.ip++;
                             } else {
                                 var nav = mob.getNavigation();
-                                if (nav.isDone() && nav.getPath() == null) {
-                                    mob.getNavigation().moveTo(task.waitMoveTargetX, task.waitMoveTargetY, task.waitMoveTargetZ, task.waitMoveSpeed);
-                                } else if (nav.isStuck()) {
-                                    mob.getNavigation().moveTo(task.waitMoveTargetX, task.waitMoveTargetY, task.waitMoveTargetZ, task.waitMoveSpeed);
+                                if (mob instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity snpc) {
+                                    if (nav.isDone() || nav.isStuck()) {
+                                        snpc.retryMoveTo(task.waitMoveTargetX, task.waitMoveTargetY, task.waitMoveTargetZ, task.waitMoveSpeed);
+                                    }
+                                } else {
+                                    if (nav.isDone() || nav.isStuck()) {
+                                        mob.getNavigation().moveTo(task.waitMoveTargetX, task.waitMoveTargetY, task.waitMoveTargetZ, task.waitMoveSpeed);
+                                    }
                                 }
                                 continue;
                             }
@@ -1323,7 +1380,11 @@ public class ScriptExecutor {
                                 task.ip++;
                             } else {
                                 if (npcEntity instanceof net.minecraft.world.entity.Mob mob) {
-                                    mob.getNavigation().moveTo(targetEntity.getX(), targetEntity.getY(), targetEntity.getZ(), 1.0);
+                                    if (npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity snpc) {
+                                        snpc.retryMoveTo(targetEntity.getX(), targetEntity.getY(), targetEntity.getZ(), 1.0);
+                                    } else {
+                                        mob.getNavigation().moveTo(targetEntity.getX(), targetEntity.getY(), targetEntity.getZ(), 1.0);
+                                    }
                                 }
                                 continue;
                             }
@@ -1340,12 +1401,15 @@ public class ScriptExecutor {
                         task.waitUiPlayerUuid = null;
                         if (task.pendingUiClickVarName != null) {
                             putVariable(task.pendingUiClickVarName, task.uiClickWidgetId != null ? task.uiClickWidgetId : "");
+                            putVariable("_eventMouseButton",
+                                    org.zonarstudio.spraute_engine.network.SprauteUiActionPacket.mouseButtonLabel(task.uiClickMouseButton));
                         }
                         variables.put("_ui_closed", task.uiClickClosed);
                         task.pendingUiClickVarName = null;
                         task.uiClickMet = false;
                         task.uiClickWidgetId = "";
                         task.uiClickClosed = false;
+                        task.uiClickMouseButton = 0;
                         task.ip++;
                     } else if (task.waitType == WaitType.UI_CLOSE && task.uiClickMet) {
                         task.uiClickMet = false;
@@ -1467,12 +1531,158 @@ public class ScriptExecutor {
                     } else {
                         continue;
                     }
+                } else if (task.waitType == WaitType.NEXT) {
+                    task.waitType = WaitType.NONE;
+                    task.ip++;
+                } else if (task.waitType == WaitType.WAIT_TASK) {
+                    if (task.waitTaskId != null) {
+                        AsyncTask other = asyncTasks.get(task.waitTaskId);
+                        if (other == null || other.finished || other.cancelled) {
+                            task.waitType = WaitType.NONE;
+                            task.waitTaskId = null;
+                            task.ip++;
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        task.waitType = WaitType.NONE;
+                        task.ip++;
+                    }
+                } else if (task.waitType == WaitType.INTERACT) {
+                    if (task.interactionMet) {
+                        task.waitType = WaitType.NONE;
+                        task.interactionMet = false;
+                        task.waitEntityUuid = null;
+                        if (task.pendingUiClickVarName != null && task.waitResult != null) {
+                            putVariable(task.pendingUiClickVarName, task.waitResult);
+                        }
+                        task.waitResult = null;
+                        task.pendingUiClickVarName = null;
+                        task.ip++;
+                    } else {
+                        continue;
+                    }
+                } else if (task.waitType == WaitType.KEYBIND) {
+                    if (task.keybindMet) {
+                        task.waitType = WaitType.NONE;
+                        task.keybindMet = false;
+                        if (task.pendingUiClickVarName != null && task.keybindPlayer != null) {
+                            putVariable(task.pendingUiClickVarName, task.keybindPlayer);
+                        }
+                        task.keybindPlayer = null;
+                        task.pendingUiClickVarName = null;
+                        task.ip++;
+                    } else {
+                        continue;
+                    }
+                } else if (task.waitType == WaitType.DEATH) {
+                    if (task.deathMet) {
+                        task.waitType = WaitType.NONE;
+                        task.deathMet = false;
+                        if (task.pendingUiClickVarName != null && task.deathKiller != null) {
+                            putVariable(task.pendingUiClickVarName, task.deathKiller);
+                        }
+                        task.deadEntity = null;
+                        task.deathKiller = null;
+                        task.pendingUiClickVarName = null;
+                        task.ip++;
+                    } else {
+                        continue;
+                    }
+                } else if (task.waitType == WaitType.KILL) {
+                    if (task.killMet) {
+                        task.waitType = WaitType.NONE;
+                        task.killMet = false;
+                        if (task.pendingUiClickVarName != null && task.deadEntity != null) {
+                            putVariable(task.pendingUiClickVarName, task.deadEntity);
+                        }
+                        task.deadEntity = null;
+                        task.deathKiller = null;
+                        task.waitKillKillerTarget = null;
+                        task.waitKillVictimTarget = null;
+                        task.pendingUiClickVarName = null;
+                        task.ip++;
+                    } else {
+                        continue;
+                    }
+                } else if (task.waitType == WaitType.PICKUP) {
+                    if ((task.waitPickupNpcUuid != null || task.waitPickupNpcId != null) && source.getLevel() != null) {
+                        net.minecraft.world.entity.Entity entity = task.waitPickupNpcUuid != null
+                                ? source.getLevel().getEntity(task.waitPickupNpcUuid) : null;
+                        if (entity == null && task.waitPickupNpcId != null) {
+                            entity = org.zonarstudio.spraute_engine.entity.NpcManager.getEntity(task.waitPickupNpcId, source.getLevel());
+                        }
+                        if (entity == null || !entity.isAlive()) {
+                            clearNpcPickupMax(task.waitPickupNpcId);
+                            task.waitType = WaitType.NONE;
+                            task.waitPickupNpcUuid = null;
+                            task.waitPickupNpcId = null;
+                            task.waitPickupItemId = null;
+                            task.waitPickupTag = null;
+                            task.waitPickupBaseCount = 0;
+                            task.waitPickupMaxCount = -1;
+                            task.pendingUiClickVarName = null;
+                            task.ip++;
+                        } else if (entity instanceof net.minecraft.world.entity.Mob mob) {
+                            int currentCount = countMatchingItems(mob, task.waitPickupItemId, task.waitPickupTag);
+                            int pickedUp = currentCount - task.waitPickupBaseCount;
+                            boolean done = false;
+                            if (task.waitPickupMaxCount >= 0) {
+                                if (pickedUp >= task.waitPickupMaxCount) {
+                                    pickedUp = task.waitPickupMaxCount;
+                                    done = true;
+                                }
+                            } else if (pickedUp > 0) {
+                                done = true;
+                            }
+                            if (done) {
+                                if (task.pendingUiClickVarName != null) {
+                                    putVariable(task.pendingUiClickVarName, pickedUp);
+                                    task.pendingUiClickVarName = null;
+                                }
+                                clearNpcPickupMax(task.waitPickupNpcId);
+                                task.waitType = WaitType.NONE;
+                                task.waitPickupNpcUuid = null;
+                                task.waitPickupNpcId = null;
+                                task.waitPickupItemId = null;
+                                task.waitPickupTag = null;
+                                task.waitPickupBaseCount = 0;
+                                task.waitPickupMaxCount = -1;
+                                task.ip++;
+                            } else {
+                                continue;
+                            }
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        task.waitType = WaitType.NONE;
+                        task.waitPickupNpcUuid = null;
+                        task.waitPickupNpcId = null;
+                        task.ip++;
+                    }
+                } else if (task.waitType == WaitType.ORB_PICKUP) {
+                    continue;
+                } else if (task.waitType == WaitType.UI_OVERLAP) {
+                    if (task.uiOverlapMet) {
+                        task.waitType = WaitType.NONE;
+                        task.waitUiOverlapPlayerUuid = null;
+                        task.waitUiOverlapId1 = "";
+                        task.waitUiOverlapId2 = "";
+                        task.uiOverlapMet = false;
+                        task.ip++;
+                    } else {
+                        continue;
+                    }
                 }
                 while (task.ip < task.instructions.size() && !task.cancelled) {
                     try {
                         boolean paused = executeTaskInstruction(task);
                         if (paused) break;
-                        task.ip++;
+                        if (!task.skipIpIncrement) {
+                            task.ip++;
+                        }
+                        task.skipIpIncrement = false;
                     } catch (ReturnException e) {
                         task.finished = true;
                         break;
@@ -1483,12 +1693,239 @@ public class ScriptExecutor {
                     }
                 }
                 if (task.ip >= task.instructions.size()) {
-                    task.finished = true;
+                    if (task.leaveUserFunction(null, variables)) {
+                        // resumed parent function frame
+                    } else {
+                        task.finished = true;
+                    }
                 }
                 } finally {
                     this.currentTaskScope = null;
                 }
             }
+        }
+
+        /** Starts await from `val x = await fn(...)` / `x = await fn(...)` inside an async task. */
+        private boolean beginTaskAwaitFromCall(AsyncTask task, String varName, ScriptNode.FunctionCallNode call) {
+            String fn = call.getFunctionName();
+            if (fn.equals("time") && !call.getArgs().isEmpty()) {
+                Object sec = evaluateExpression(call.getArgs().get(0));
+                task.waitTimer = coerceSeconds(sec, task.id);
+                task.waitType = WaitType.TIME;
+                return true;
+            } else if (fn.equals("next")) {
+                task.waitType = WaitType.NEXT;
+                return true;
+            } else if (fn.equals("interact")) {
+                if (call.getArgs().isEmpty()) return false;
+                Object val = evaluateExpression(call.getArgs().get(0));
+                net.minecraft.world.entity.Entity targetEntity = resolveEntity(val);
+                if (targetEntity != null) {
+                    task.waitEntityUuid = targetEntity.getUUID();
+                    task.waitType = WaitType.INTERACT;
+                    task.interactionMet = false;
+                    task.pendingUiClickVarName = varName;
+                    return true;
+                }
+            } else if (fn.equals("death")) {
+                if (call.getArgs().isEmpty()) return false;
+                task.waitDeathTarget = String.valueOf(evaluateExpression(call.getArgs().get(0)));
+                task.deathMet = false;
+                task.waitType = WaitType.DEATH;
+                task.pendingUiClickVarName = varName;
+                return true;
+            } else if (fn.equals("kill")) {
+                if (call.getArgs().isEmpty()) return false;
+                task.waitKillKillerTarget = String.valueOf(evaluateExpression(call.getArgs().get(0)));
+                task.waitKillVictimTarget = call.getArgs().size() > 1
+                        ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : "any";
+                task.killMet = false;
+                task.waitType = WaitType.KILL;
+                task.pendingUiClickVarName = varName;
+                return true;
+            } else if (fn.equals("keybind")) {
+                if (call.getArgs().isEmpty()) return false;
+                task.waitKeybindKey = String.valueOf(evaluateExpression(call.getArgs().get(0)));
+                task.keybindMet = false;
+                task.waitType = WaitType.KEYBIND;
+                task.pendingUiClickVarName = varName;
+                return true;
+            } else if (fn.equals("pickup")) {
+                if (call.getArgs().size() < 3) return false;
+                Object pickupNpcArg = evaluateExpression(call.getArgs().get(0));
+                net.minecraft.world.entity.Entity pickupNpcEntity = resolveEntity(pickupNpcArg);
+                task.waitPickupNpcId = pickupNpcArg instanceof String s ? s : null;
+                task.waitPickupNpcUuid = pickupNpcEntity != null ? pickupNpcEntity.getUUID() : null;
+                Object amountVal = evaluateExpression(call.getArgs().get(1));
+                task.waitPickupMaxCount = amountVal instanceof Number n ? n.intValue() : 0;
+                task.waitPickupItemId = String.valueOf(evaluateExpression(call.getArgs().get(2)));
+                task.waitPickupTag = call.getArgs().size() >= 4 ? String.valueOf(evaluateExpression(call.getArgs().get(3))) : null;
+                if ("null".equals(task.waitPickupTag) || (task.waitPickupTag != null && task.waitPickupTag.isEmpty())) task.waitPickupTag = null;
+                task.waitPickupBaseCount = 0;
+                if (source.getLevel() != null) {
+                    net.minecraft.world.entity.Entity e = pickupNpcEntity;
+                    if (e == null && task.waitPickupNpcId != null) {
+                        e = org.zonarstudio.spraute_engine.entity.NpcManager.getEntity(task.waitPickupNpcId, source.getLevel());
+                    }
+                    if (e instanceof net.minecraft.world.entity.Mob mob) {
+                        task.waitPickupBaseCount = countMatchingItems(mob, task.waitPickupItemId, task.waitPickupTag);
+                        if (task.waitPickupMaxCount >= 0 && e instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity sprauteNpc) {
+                            sprauteNpc.setPickupMaxCount(task.waitPickupItemId, task.waitPickupTag, task.waitPickupBaseCount + task.waitPickupMaxCount);
+                        }
+                    }
+                }
+                task.waitType = WaitType.PICKUP;
+                for (var he : eventHandlers.entrySet()) {
+                    if (!he.getValue().active || !"pickup".equals(he.getValue().eventName) || he.getValue().eventArgs.size() < 2) continue;
+                    net.minecraft.world.entity.Entity handlerNpc = resolveEntity(he.getValue().eventArgs.get(0));
+                    if (handlerNpc != null && task.waitPickupNpcUuid != null
+                            && handlerNpc.getUUID().equals(task.waitPickupNpcUuid)
+                            && String.valueOf(he.getValue().eventArgs.get(1)).equals(task.waitPickupItemId)) {
+                        pickupHandlerLastCount.put(he.getKey(), task.waitPickupBaseCount);
+                    }
+                }
+                task.pendingUiClickVarName = varName;
+                return true;
+            } else if (fn.equals("orbPickup") || fn.equals("orb_pickup")) {
+                if (call.getArgs().size() < 2) return false;
+                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                if (sp != null) {
+                    task.waitOrbPickupPlayerUuid = sp.getUUID();
+                    task.waitOrbPickupTargetCount = ((Number) evaluateExpression(call.getArgs().get(1))).intValue();
+                    task.waitOrbPickupTexture = call.getArgs().size() >= 3 && call.getArgs().get(2) != null
+                            ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
+                    task.waitOrbPickupCurrentCount = 0;
+                    task.waitType = WaitType.ORB_PICKUP;
+                    task.pendingUiClickVarName = varName;
+                    return true;
+                }
+            } else if (fn.equals("tradeBuy") || fn.equals("trade_buy")) {
+                if (call.getArgs().isEmpty()) return false;
+                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                if (sp != null) {
+                    task.waitTradePlayerUuid = sp.getUUID();
+                    task.waitTradeItemId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                            ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                    task.waitType = WaitType.TRADE_BUY;
+                    task.pendingUiClickVarName = varName;
+                    return true;
+                }
+            } else if (fn.equals("tradeSell") || fn.equals("trade_sell")) {
+                if (call.getArgs().isEmpty()) return false;
+                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                if (sp != null) {
+                    task.waitTradePlayerUuid = sp.getUUID();
+                    task.waitTradeItemId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                            ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                    task.waitType = WaitType.TRADE_SELL;
+                    task.pendingUiClickVarName = varName;
+                    return true;
+                }
+            } else if (fn.equals("uiClick") || fn.equals("uiclick")) {
+                if (call.getArgs().isEmpty()) return false;
+                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                if (sp != null) {
+                    task.waitUiPlayerUuid = sp.getUUID();
+                    task.waitType = WaitType.UI_CLICK;
+                    task.pendingUiClickVarName = varName;
+                    return true;
+                }
+            } else if (fn.equals("uiClose") || fn.equals("uiclose")) {
+                if (call.getArgs().isEmpty()) return false;
+                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                if (sp != null) {
+                    task.waitUiPlayerUuid = sp.getUUID();
+                    task.waitType = WaitType.UI_CLOSE;
+                    task.pendingUiClickVarName = varName;
+                    return true;
+                }
+            } else if (fn.equals("uiInput")) {
+                if (call.getArgs().isEmpty()) return false;
+                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                if (sp != null) {
+                    task.waitUiPlayerUuid = sp.getUUID();
+                    task.uiInputWidgetId = call.getArgs().size() > 1 ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                    task.waitType = WaitType.UI_INPUT;
+                    task.pendingUiClickVarName = varName;
+                    return true;
+                }
+            } else if (fn.equals("position")) {
+                if (call.getArgs().size() < 4) return false;
+                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                if (sp != null) {
+                    task.waitPositionPlayerUuid = sp.getUUID();
+                    task.waitPositionX = ((Number) evaluateExpression(call.getArgs().get(1))).doubleValue();
+                    task.waitPositionY = ((Number) evaluateExpression(call.getArgs().get(2))).doubleValue();
+                    task.waitPositionZ = ((Number) evaluateExpression(call.getArgs().get(3))).doubleValue();
+                    task.waitPositionRadius = call.getArgs().size() > 4 ? ((Number) evaluateExpression(call.getArgs().get(4))).doubleValue() : 1.5;
+                    task.waitType = WaitType.POSITION;
+                    task.pendingUiClickVarName = varName;
+                    return true;
+                }
+            } else if (fn.equals("inventory") || fn.equals("hasItem")) {
+                if (call.getArgs().size() < 2) return false;
+                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                if (sp != null) {
+                    task.waitInventoryPlayerUuid = sp.getUUID();
+                    task.waitInventoryItemId = String.valueOf(evaluateExpression(call.getArgs().get(1)));
+                    task.waitInventoryCount = call.getArgs().size() > 2 ? ((Number) evaluateExpression(call.getArgs().get(2))).intValue() : 0;
+                    task.waitType = WaitType.INVENTORY;
+                    task.pendingUiClickVarName = varName;
+                    return true;
+                }
+            } else if (fn.equals("clickBlock") || fn.equals("breakBlock") || fn.equals("placeBlock")
+                    || fn.equals("openChest") || fn.equals("openDoor")) {
+                if (call.getArgs().isEmpty()) return false;
+                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                if (sp != null) {
+                    task.waitBlockPlayerUuid = sp.getUUID();
+                    task.waitBlockId = null;
+                    task.waitBlockPos = null;
+                    if (call.getArgs().size() == 2) {
+                        task.waitBlockId = String.valueOf(evaluateExpression(call.getArgs().get(1)));
+                    } else if (call.getArgs().size() >= 4) {
+                        task.waitBlockPos = new net.minecraft.core.BlockPos(
+                                ((Number) evaluateExpression(call.getArgs().get(1))).intValue(),
+                                ((Number) evaluateExpression(call.getArgs().get(2))).intValue(),
+                                ((Number) evaluateExpression(call.getArgs().get(3))).intValue());
+                        if (call.getArgs().size() >= 5) task.waitBlockId = String.valueOf(evaluateExpression(call.getArgs().get(4)));
+                    }
+                    if (fn.equals("clickBlock")) task.waitType = WaitType.CLICK_BLOCK;
+                    else if (fn.equals("breakBlock")) task.waitType = WaitType.BREAK_BLOCK;
+                    else if (fn.equals("placeBlock")) task.waitType = WaitType.PLACE_BLOCK;
+                    else if (fn.equals("openChest")) task.waitType = WaitType.OPEN_CHEST;
+                    else task.waitType = WaitType.OPEN_DOOR;
+                    task.blockEventMet = false;
+                    task.pendingUiClickVarName = varName;
+                    return true;
+                }
+            } else if (fn.equals("jump")) {
+                if (call.getArgs().isEmpty()) return false;
+                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                if (sp != null) {
+                    task.waitPlayerActionPlayerUuid = sp.getUUID();
+                    task.waitPlayerActionType = "jump";
+                    task.waitPlayerActionTarget = null;
+                    task.playerActionMet = false;
+                    task.waitType = WaitType.PLAYER_ACTION;
+                    task.pendingUiClickVarName = varName;
+                    return true;
+                }
+            } else if (fn.equals("action") || fn.equals("playerAction")) {
+                if (call.getArgs().size() < 2) return false;
+                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
+                if (sp != null) {
+                    task.waitPlayerActionPlayerUuid = sp.getUUID();
+                    task.waitPlayerActionType = String.valueOf(evaluateExpression(call.getArgs().get(1)));
+                    task.waitPlayerActionTarget = call.getArgs().size() > 2 && call.getArgs().get(2) != null
+                            ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
+                    task.playerActionMet = false;
+                    task.waitType = WaitType.PLAYER_ACTION;
+                    task.pendingUiClickVarName = varName;
+                    return true;
+                }
+            }
+            return false;
         }
 
         private boolean executeTaskInstruction(AsyncTask task) {
@@ -1505,39 +1942,56 @@ public class ScriptExecutor {
                 }
                 case VAR_ASSIGN -> {
                     String name = (String) instr.getArg(0);
-                    putVariable(name, evaluateExpression((ScriptNode) instr.getArg(1)));
+                    ScriptNode valueNode = (ScriptNode) instr.getArg(1);
+                    if (valueNode instanceof ScriptNode.FunctionCallNode fcall) {
+                        UserFunction uf = resolveFunction(fcall.getFunctionName());
+                        if (uf != null) {
+                            beginTaskUserFunction(task, uf, evaluateCallArgs(fcall.getArgs()), name, "local");
+                            return false;
+                        }
+                    }
+                    if (valueNode instanceof ScriptNode.AwaitNode awaitNode) {
+                        if (beginTaskAwaitFromCall(task, name, awaitNode.getCall())) return true;
+                    }
+                    putVariable(name, evaluateExpression(valueNode));
                 }
                 case VAR_DECL -> {
                     String name = (String) instr.getArg(0);
                     ScriptNode init = (ScriptNode) instr.getArg(1);
                     String scope = instr.getArgCount() >= 3 ? String.valueOf(instr.getArg(2)) : "local";
+                    if (init instanceof ScriptNode.FunctionCallNode fcall) {
+                        UserFunction uf = resolveFunction(fcall.getFunctionName());
+                        if (uf != null) {
+                            beginTaskUserFunction(task, uf, evaluateCallArgs(fcall.getArgs()), name, scope);
+                            return false;
+                        }
+                    }
                     if (init instanceof ScriptNode.AwaitNode awaitNode) {
-                        ScriptNode.FunctionCallNode call = awaitNode.getCall();
-                        String fn = call.getFunctionName();
-                        if ("time".equals(fn) && !call.getArgs().isEmpty()) {
-                            Object sec = evaluateExpression(call.getArgs().get(0));
-                            if (sec instanceof Number n) {
-                                task.waitTimer = n.doubleValue();
-                                task.waitType = WaitType.TIME;
+                        if (beginTaskAwaitFromCall(task, name, awaitNode.getCall())) {
+                            if ("time".equals(awaitNode.getCall().getFunctionName())) {
                                 putVariable(name, 0, scope);
-                                return true;
                             }
-                        } else if ("uiClick".equals(fn) && !call.getArgs().isEmpty()) {
-                            Object playerArg = evaluateExpression(call.getArgs().get(0));
-                            net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(playerArg);
-                            LOGGER.info("[Script: {}] await uiClick: playerArg={} ({}), sp={}", script.getName(), playerArg, playerArg != null ? playerArg.getClass().getSimpleName() : "null", sp);
-                            if (sp != null) {
-                                task.waitUiPlayerUuid = sp.getUUID();
-                                task.waitType = WaitType.UI_CLICK;
-                                task.pendingUiClickVarName = name;
-                                return true;
-                            }
+                            return true;
                         }
                     }
                     Object val = evaluateExpression(init);
                     putVariable(name, val, scope);
                 }
-                case CALL -> executeCall(instr);
+                case CALL -> {
+                    String functionName = (String) instr.getArg(0);
+                    @SuppressWarnings("unchecked")
+                    List<ScriptNode> argsNodes = (List<ScriptNode>) instr.getArg(1);
+                    UserFunction uf = resolveFunction(functionName);
+                    if (uf != null) {
+                        if (findDonorForFunction(functionName) != null) {
+                            callUserFunction(functionName, evaluateCallArgs(argsNodes));
+                        } else {
+                            beginTaskUserFunction(task, uf, evaluateCallArgs(argsNodes), null, "local");
+                        }
+                        return false;
+                    }
+                    executeCall(instr);
+                }
                 case CALL_METHOD -> {
                     if (executeCallMethod(instr, false, task)) return true;
                 }
@@ -1550,11 +2004,9 @@ public class ScriptExecutor {
                 case SET_PROPERTY -> executeSetProperty(instr);
                 case AWAIT_TIME -> {
                     Object sec = evaluateExpression((ScriptNode) instr.getArg(0));
-                    if (sec instanceof Number n) {
-                        task.waitTimer = n.doubleValue();
-                        task.waitType = WaitType.TIME;
-                        return true;
-                    }
+                    task.waitTimer = coerceSeconds(sec, task.id);
+                    task.waitType = WaitType.TIME;
+                    return true;
                 }
                 case AWAIT_CAMERA_ROUTE -> {
                     Double sec = awaitCameraRouteDuration(instr);
@@ -1716,7 +2168,107 @@ public class ScriptExecutor {
                         return true;
                     }
                 }
-                case RETURN -> throw new ReturnException(null);
+                case AWAIT_NEXT -> {
+                    task.waitType = WaitType.NEXT;
+                    return true;
+                }
+                case AWAIT_INTERACT -> {
+                    Object val = evaluateExpression((ScriptNode) instr.getArg(0));
+                    net.minecraft.world.entity.Entity targetEntity = resolveEntity(val);
+                    if (targetEntity != null) {
+                        task.waitEntityUuid = targetEntity.getUUID();
+                        task.interactionMet = false;
+                        task.waitType = WaitType.INTERACT;
+                        return true;
+                    }
+                    LOGGER.warn("[Script: {}] await interact (async): unknown target '{}'", script.getName(), String.valueOf(val));
+                }
+                case AWAIT_KEYBIND -> {
+                    task.waitKeybindKey = String.valueOf(evaluateExpression((ScriptNode) instr.getArg(0)));
+                    task.keybindMet = false;
+                    task.waitType = WaitType.KEYBIND;
+                    return true;
+                }
+                case AWAIT_DEATH -> {
+                    task.waitDeathTarget = String.valueOf(evaluateExpression((ScriptNode) instr.getArg(0)));
+                    task.deathMet = false;
+                    task.waitType = WaitType.DEATH;
+                    return true;
+                }
+                case AWAIT_KILL -> {
+                    task.waitKillKillerTarget = String.valueOf(evaluateExpression((ScriptNode) instr.getArg(0)));
+                    ScriptNode victimNode = instr.getArgCount() >= 2 ? (ScriptNode) instr.getArg(1) : null;
+                    task.waitKillVictimTarget = victimNode != null ? String.valueOf(evaluateExpression(victimNode)) : "any";
+                    task.killMet = false;
+                    task.waitType = WaitType.KILL;
+                    return true;
+                }
+                case AWAIT_PICKUP -> {
+                    Object pickupNpcArg = evaluateExpression((ScriptNode) instr.getArg(0));
+                    net.minecraft.world.entity.Entity pickupNpcEntity = resolveEntity(pickupNpcArg);
+                    task.waitPickupNpcId = pickupNpcArg instanceof String s ? s : null;
+                    task.waitPickupNpcUuid = pickupNpcEntity != null ? pickupNpcEntity.getUUID() : null;
+                    Object amountVal = evaluateExpression((ScriptNode) instr.getArg(1));
+                    task.waitPickupMaxCount = amountVal instanceof Number n ? n.intValue() : 0;
+                    task.waitPickupItemId = String.valueOf(evaluateExpression((ScriptNode) instr.getArg(2)));
+                    ScriptNode nbtNode = instr.getArgCount() >= 4 ? (ScriptNode) instr.getArg(3) : null;
+                    task.waitPickupTag = nbtNode != null ? String.valueOf(evaluateExpression(nbtNode)) : null;
+                    if ("null".equals(task.waitPickupTag) || (task.waitPickupTag != null && task.waitPickupTag.isEmpty())) task.waitPickupTag = null;
+                    task.waitPickupBaseCount = 0;
+                    if (source.getLevel() != null) {
+                        net.minecraft.world.entity.Entity e = pickupNpcEntity;
+                        if (e == null && task.waitPickupNpcId != null) {
+                            e = org.zonarstudio.spraute_engine.entity.NpcManager.getEntity(task.waitPickupNpcId, source.getLevel());
+                        }
+                        if (e instanceof net.minecraft.world.entity.Mob mob) {
+                            task.waitPickupBaseCount = countMatchingItems(mob, task.waitPickupItemId, task.waitPickupTag);
+                            if (task.waitPickupMaxCount >= 0 && e instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity sprauteNpc) {
+                                sprauteNpc.setPickupMaxCount(task.waitPickupItemId, task.waitPickupTag, task.waitPickupMaxCount);
+                            }
+                        }
+                    }
+                    task.waitType = WaitType.PICKUP;
+                    return true;
+                }
+                case AWAIT_ORB_PICKUP -> {
+                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression((ScriptNode) instr.getArg(0)));
+                    if (sp != null) {
+                        task.waitOrbPickupPlayerUuid = sp.getUUID();
+                        task.waitOrbPickupTargetCount = ((Number) evaluateExpression((ScriptNode) instr.getArg(1))).intValue();
+                        ScriptNode texNode = instr.getArgCount() >= 3 && instr.getArg(2) != null ? (ScriptNode) instr.getArg(2) : null;
+                        task.waitOrbPickupTexture = texNode != null ? String.valueOf(evaluateExpression(texNode)) : null;
+                        task.waitOrbPickupCurrentCount = 0;
+                        task.waitType = WaitType.ORB_PICKUP;
+                        return true;
+                    }
+                }
+                case AWAIT_TASK -> {
+                    task.waitTaskId = String.valueOf(evaluateExpression((ScriptNode) instr.getArg(0)));
+                    task.waitType = WaitType.WAIT_TASK;
+                    return true;
+                }
+                case AWAIT_UI_TOUCH -> {
+                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression((ScriptNode) instr.getArg(0)));
+                    if (sp != null) {
+                        task.waitUiOverlapPlayerUuid = sp.getUUID();
+                        task.waitUiOverlapId1 = String.valueOf(evaluateExpression((ScriptNode) instr.getArg(1)));
+                        task.waitUiOverlapId2 = String.valueOf(evaluateExpression((ScriptNode) instr.getArg(2)));
+                        task.uiOverlapMet = false;
+                        org.zonarstudio.spraute_engine.network.ModNetwork.CHANNEL.send(
+                                net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sp),
+                                new org.zonarstudio.spraute_engine.network.SprauteUiMonitorOverlapPacket(task.waitUiOverlapId1, task.waitUiOverlapId2, true));
+                        task.waitType = WaitType.UI_OVERLAP;
+                        return true;
+                    }
+                }
+                case RETURN -> {
+                    ScriptNode valueNode = instr.getArgCount() > 0 ? (ScriptNode) instr.getArg(0) : null;
+                    Object result = valueNode != null ? evaluateExpression(valueNode) : null;
+                    if (task.leaveUserFunction(result, variables)) {
+                        return false;
+                    }
+                    throw new ReturnException(result);
+                }
                 default -> executeStatementInstruction(instr);
             }
             return false;
@@ -1728,6 +2280,14 @@ public class ScriptExecutor {
                 if (target.getUUID().equals(waitEntityUuid)) {
                     interactionMet = true;
                     asyncResult = interactor;
+                }
+            }
+
+            for (AsyncTask task : asyncTasks.values()) {
+                if (task.waitType == WaitType.INTERACT && task.waitEntityUuid != null
+                        && target.getUUID().equals(task.waitEntityUuid)) {
+                    task.interactionMet = true;
+                    task.waitResult = interactor;
                 }
             }
 
@@ -1773,6 +2333,14 @@ public class ScriptExecutor {
             if (waitType == WaitType.KEYBIND && waitKeybindKey != null && waitKeybindKey.equalsIgnoreCase(key)) {
                 keybindMet = true;
                 keybindPlayer = player;
+            }
+
+            for (AsyncTask task : asyncTasks.values()) {
+                if (task.waitType == WaitType.KEYBIND && task.waitKeybindKey != null
+                        && task.waitKeybindKey.equalsIgnoreCase(key)) {
+                    task.keybindMet = true;
+                    task.keybindPlayer = player;
+                }
             }
 
             // Fire "keybind" event handlers
@@ -1900,6 +2468,25 @@ public class ScriptExecutor {
                 }
             }
 
+            for (AsyncTask task : asyncTasks.values()) {
+                if (task.waitType == WaitType.DEATH && task.waitDeathTarget != null
+                        && matchesDeathTarget(entity, task.waitDeathTarget)) {
+                    task.deathMet = true;
+                    task.deathKiller = killer;
+                    task.deadEntity = entity;
+                }
+                if (task.waitType == WaitType.KILL && task.waitKillKillerTarget != null && killer != null) {
+                    if (matchesKillFilter(killer, task.waitKillKillerTarget)) {
+                        String victimFilter = task.waitKillVictimTarget != null ? task.waitKillVictimTarget : "any";
+                        if (matchesDeathTarget(entity, victimFilter)) {
+                            task.killMet = true;
+                            task.deathKiller = killer;
+                            task.deadEntity = entity;
+                        }
+                    }
+                }
+            }
+
             // Fire "death" event handlers
             for (var entry : eventHandlers.entrySet()) {
                 EventHandler handler = entry.getValue();
@@ -2019,34 +2606,49 @@ public class ScriptExecutor {
         }
 
         public void onUiAction(net.minecraft.server.level.ServerPlayer player, String widgetId, boolean closed) {
-            String wid = widgetId != null ? widgetId : "";
-            
-            if ((waitType == WaitType.UI_CLICK || waitType == WaitType.UI_CLOSE) && waitUiPlayerUuid != null && waitUiPlayerUuid.equals(player.getUUID())) {
-                if (waitType == WaitType.UI_CLICK && wid.contains(":")) return; // Skip input events for await uiClick
-                if (waitType == WaitType.UI_CLOSE && !closed) return;
-                uiClickMet = true;
-                uiClickWidgetId = wid;
-                uiClickClosed = closed;
-            }
-            if (waitType == WaitType.UI_INPUT && waitUiPlayerUuid != null && waitUiPlayerUuid.equals(player.getUUID())) {
-                if (wid.startsWith("input:") && (uiInputWidgetId == null || wid.equals("input:" + uiInputWidgetId))) {
-                    uiClickMet = true;
-                    uiInputText = wid.substring(wid.indexOf(":", 6) + 1);
-                }
-            }
+            onUiAction(player, closed
+                    ? org.zonarstudio.spraute_engine.network.SprauteUiActionPacket.ACTION_CLOSE
+                    : org.zonarstudio.spraute_engine.network.SprauteUiActionPacket.ACTION_CLICK,
+                    widgetId, closed ? -1 : 0);
+        }
 
-            for (AsyncTask t : asyncTasks.values()) {
-                if ((t.waitType == WaitType.UI_CLICK || t.waitType == WaitType.UI_CLOSE) && t.waitUiPlayerUuid != null && t.waitUiPlayerUuid.equals(player.getUUID())) {
-                    if (t.waitType == WaitType.UI_CLICK && wid.contains(":")) continue; // Skip input events for await uiClick
-                    if (t.waitType == WaitType.UI_CLOSE && !closed) continue;
-                    t.uiClickMet = true;
-                    t.uiClickWidgetId = wid;
-                    t.uiClickClosed = closed;
+        public void onUiAction(net.minecraft.server.level.ServerPlayer player, byte action, String widgetId, int mouseButton) {
+            String wid = widgetId != null ? widgetId : "";
+            boolean closed = action == org.zonarstudio.spraute_engine.network.SprauteUiActionPacket.ACTION_CLOSE;
+            boolean isClick = action == org.zonarstudio.spraute_engine.network.SprauteUiActionPacket.ACTION_CLICK;
+            boolean isHoverEnter = action == org.zonarstudio.spraute_engine.network.SprauteUiActionPacket.ACTION_HOVER_ENTER;
+            boolean isHoverLeave = action == org.zonarstudio.spraute_engine.network.SprauteUiActionPacket.ACTION_HOVER_LEAVE;
+
+            if (isClick || closed) {
+                if ((waitType == WaitType.UI_CLICK || waitType == WaitType.UI_CLOSE) && waitUiPlayerUuid != null && waitUiPlayerUuid.equals(player.getUUID())) {
+                    if (waitType == WaitType.UI_CLICK && (wid.contains(":") || !isClick)) return;
+                    if (waitType == WaitType.UI_CLOSE && !closed) return;
+                    uiClickMet = true;
+                    uiClickWidgetId = wid;
+                    uiClickClosed = closed;
+                    uiClickMouseButton = mouseButton;
                 }
-                if (t.waitType == WaitType.UI_INPUT && t.waitUiPlayerUuid != null && t.waitUiPlayerUuid.equals(player.getUUID())) {
-                    if (wid.startsWith("input:") && (t.uiInputWidgetId == null || wid.equals("input:" + t.uiInputWidgetId))) {
+                if (waitType == WaitType.UI_INPUT && isClick && waitUiPlayerUuid != null && waitUiPlayerUuid.equals(player.getUUID())) {
+                    if (wid.startsWith("input:") && (uiInputWidgetId == null || wid.equals("input:" + uiInputWidgetId))) {
+                        uiClickMet = true;
+                        uiInputText = wid.substring(wid.indexOf(":", 6) + 1);
+                    }
+                }
+
+                for (AsyncTask t : asyncTasks.values()) {
+                    if ((t.waitType == WaitType.UI_CLICK || t.waitType == WaitType.UI_CLOSE) && t.waitUiPlayerUuid != null && t.waitUiPlayerUuid.equals(player.getUUID())) {
+                        if (t.waitType == WaitType.UI_CLICK && (wid.contains(":") || !isClick)) continue;
+                        if (t.waitType == WaitType.UI_CLOSE && !closed) continue;
                         t.uiClickMet = true;
-                        t.uiInputText = wid.substring(wid.indexOf(":", 6) + 1);
+                        t.uiClickWidgetId = wid;
+                        t.uiClickClosed = closed;
+                        t.uiClickMouseButton = mouseButton;
+                    }
+                    if (t.waitType == WaitType.UI_INPUT && isClick && t.waitUiPlayerUuid != null && t.waitUiPlayerUuid.equals(player.getUUID())) {
+                        if (wid.startsWith("input:") && (t.uiInputWidgetId == null || wid.equals("input:" + t.uiInputWidgetId))) {
+                            t.uiClickMet = true;
+                            t.uiInputText = wid.substring(wid.indexOf(":", 6) + 1);
+                        }
                     }
                 }
             }
@@ -2056,26 +2658,36 @@ public class ScriptExecutor {
                 boolean isUiClick = handler.eventName.equals("uiClick") || handler.eventName.equals("uiclick");
                 boolean isUiClose = handler.eventName.equals("uiClose") || handler.eventName.equals("uiclose");
                 boolean isUiInput = handler.eventName.equals("uiInput") || handler.eventName.equals("uiinput");
-                
-                if (!handler.active || (!isUiClick && !isUiClose && !isUiInput)) continue;
-                
-                if (isUiInput && (!wid.startsWith("input:") || closed)) continue;
-                if (isUiClick && (closed || wid.startsWith("input:"))) continue;
-                if (isUiClose && !closed) continue;
+                boolean isUiHover = handler.eventName.equals("uiHover") || handler.eventName.equals("uihover");
+
+                if (!handler.active || (!isUiClick && !isUiClose && !isUiInput && !isUiHover)) continue;
+
+                if (isUiHover) {
+                    if (!isHoverEnter && !isHoverLeave) continue;
+                    if (wid.isEmpty()) continue;
+                } else if (isUiInput && (!wid.startsWith("input:") || closed || !isClick)) continue;
+                else if (isUiClick && (closed || !isClick || wid.startsWith("input:"))) continue;
+                else if (isUiClose && !closed) continue;
 
                 if (!handler.eventArgs.isEmpty()) {
                     net.minecraft.world.entity.Entity targetPlayer = resolveEntity(handler.eventArgs.get(0));
                     if (targetPlayer == null || !player.getUUID().equals(targetPlayer.getUUID())) continue;
                 }
-                
+
                 if (isUiInput && handler.eventArgs.size() > 1) {
                     String reqWid = String.valueOf(handler.eventArgs.get(1));
                     if (!wid.startsWith("input:" + reqWid + ":")) continue;
+                }
+                if (isUiHover && handler.eventArgs.size() > 1) {
+                    String reqWid = String.valueOf(handler.eventArgs.get(1));
+                    if (!reqWid.equals(wid)) continue;
                 }
 
                 Object prevPlayer = variables.get("_eventPlayer");
                 Object prevWidget = variables.get("_eventWidget");
                 Object prevInput = variables.get("_eventInput");
+                Object prevMouseButton = variables.get("_eventMouseButton");
+                Object prevHover = variables.get("_eventHover");
                 variables.put("_eventPlayer", player);
                 if (isUiInput) {
                     String[] parts = wid.split(":", 3);
@@ -2084,7 +2696,14 @@ public class ScriptExecutor {
                 } else {
                     variables.put("_eventWidget", wid);
                 }
-                
+                if (isUiClick) {
+                    variables.put("_eventMouseButton",
+                            org.zonarstudio.spraute_engine.network.SprauteUiActionPacket.mouseButtonLabel(mouseButton));
+                }
+                if (isUiHover) {
+                    variables.put("_eventHover", isHoverEnter ? "enter" : "leave");
+                }
+
                 try {
                     executeInstructionBlock(handler.bodyInstructions);
                 } catch (ReturnException e) {
@@ -2092,23 +2711,30 @@ public class ScriptExecutor {
                 } catch (Exception e) {
                     LOGGER.error("[Script: {}] Event handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
                 }
-                
+
                 if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer);
                 else variables.remove("_eventPlayer");
                 if (prevWidget != null) variables.put("_eventWidget", prevWidget);
                 else variables.remove("_eventWidget");
                 if (prevInput != null) variables.put("_eventInput", prevInput);
                 else variables.remove("_eventInput");
+                if (prevMouseButton != null) variables.put("_eventMouseButton", prevMouseButton);
+                else variables.remove("_eventMouseButton");
+                if (prevHover != null) variables.put("_eventHover", prevHover);
+                else variables.remove("_eventHover");
             }
 
             if (boundUiTemplate != null && boundUiPlayerUuid != null && boundUiPlayerUuid.equals(player.getUUID())) {
-                if (!closed && widgetId != null && !widgetId.isEmpty()) {
+                if (isClick && widgetId != null && !widgetId.isEmpty() && !wid.contains(":")) {
                     java.util.List<CompiledScript.Instruction> h = boundUiTemplate.getClickHandlers().get(widgetId);
                     if (h != null && !h.isEmpty()) {
                         Object prevPlayer = variables.get("_eventPlayer");
                         Object prevWidget = variables.get("_eventWidget");
+                        Object prevMouseButton = variables.get("_eventMouseButton");
                         variables.put("_eventPlayer", player);
                         variables.put("_eventWidget", widgetId);
+                        variables.put("_eventMouseButton",
+                                org.zonarstudio.spraute_engine.network.SprauteUiActionPacket.mouseButtonLabel(mouseButton));
                         try {
                             executeInstructionBlock(h);
                         } catch (Exception e) {
@@ -2118,6 +2744,8 @@ public class ScriptExecutor {
                             else variables.remove("_eventPlayer");
                             if (prevWidget != null) variables.put("_eventWidget", prevWidget);
                             else variables.remove("_eventWidget");
+                            if (prevMouseButton != null) variables.put("_eventMouseButton", prevMouseButton);
+                            else variables.remove("_eventMouseButton");
                         }
                     }
                 }
@@ -2440,6 +3068,10 @@ public class ScriptExecutor {
                 if (waitOrbPickupTexture == null || waitOrbPickupTexture.equals(texture)) {
                     waitOrbPickupCurrentCount += amount;
                     if (waitOrbPickupCurrentCount >= waitOrbPickupTargetCount) {
+                        if (pendingVarName != null) {
+                            variables.put(pendingVarName, waitOrbPickupCurrentCount);
+                            pendingVarName = null;
+                        }
                         waitType = WaitType.NONE;
                     }
                 }
@@ -2450,7 +3082,12 @@ public class ScriptExecutor {
                     if (task.waitOrbPickupTexture == null || task.waitOrbPickupTexture.equals(texture)) {
                         task.waitOrbPickupCurrentCount += amount;
                         if (task.waitOrbPickupCurrentCount >= task.waitOrbPickupTargetCount) {
+                            if (task.pendingUiClickVarName != null) {
+                                putVariable(task.pendingUiClickVarName, task.waitOrbPickupCurrentCount);
+                                task.pendingUiClickVarName = null;
+                            }
                             task.waitType = WaitType.NONE;
+                            task.ip++;
                         }
                     }
                 }
@@ -2748,14 +3385,39 @@ public class ScriptExecutor {
         private UserFunction resolveFunction(String name) {
             UserFunction f = userFunctions.get(name);
             if (f != null) return f;
-            for (String importName : importedScripts) {
-                ActiveScript donor = ScriptExecutor.this.findBestDonorScript(importName, name);
-                if (donor != null) {
-                    f = donor.userFunctions.get(name);
-                    if (f != null) return f;
-                }
+            ActiveScript donor = findDonorForFunction(name);
+            if (donor != null) {
+                return donor.userFunctions.get(name);
             }
             return null;
+        }
+
+        private List<Object> evaluateCallArgs(List<ScriptNode> argNodes) {
+            List<Object> args = new ArrayList<>();
+            for (ScriptNode argNode : argNodes) {
+                args.add(evaluateExpression(argNode));
+            }
+            return args;
+        }
+
+        private boolean beginTaskUserFunction(AsyncTask task, UserFunction func, List<Object> args, String returnVar, String returnScope) {
+            task.enterUserFunction(func, args, returnVar, returnScope, variables);
+            return true;
+        }
+
+        /**
+         * Coerce an `await time(x)` argument to seconds. Never returns a "skip" — a broken
+         * (non-numeric) value falls back to a safe default so a chat/overlay never disappears
+         * within a single frame because the wait was silently skipped.
+         */
+        private double coerceSeconds(Object sec, String taskId) {
+            if (sec instanceof Number n) return n.doubleValue();
+            if (sec instanceof String s) {
+                try { return Double.parseDouble(s.trim()); } catch (NumberFormatException ignored) {}
+            }
+            LOGGER.warn("[Script: {}] await time() (task '{}') expected number, got {} — using 5s fallback",
+                    script.getName(), taskId, sec);
+            return 5.0;
         }
 
         private Object getVariable(String name) {
@@ -2775,7 +3437,6 @@ public class ScriptExecutor {
         private void putVariable(String name, Object value) {
             if (currentTaskScope != null && currentTaskScope.taskLocals.containsKey(name)) {
                 currentTaskScope.taskLocals.put(name, value);
-                return;
             }
             if (variables.containsKey(name)) { variables.put(name, value); return; }
             if (globalVariables.containsKey(name)) { globalVariables.put(name, value); return; }
@@ -2784,11 +3445,9 @@ public class ScriptExecutor {
                 ScriptWorldData world = ScriptWorldData.get(level);
                 if (world.has(name)) { world.put(name, value); return; }
             }
-            if (currentTaskScope != null) {
-                currentTaskScope.taskLocals.put(name, value);
-            } else {
-                variables.put(name, value);
-            }
+            // New variables always go to variables (not task locals),
+            // so they don't accidentally pollute the parent task scope.
+            variables.put(name, value);
         }
 
         private void putVariable(String name, Object value, String scope) {
@@ -2960,7 +3619,10 @@ public class ScriptExecutor {
                     ScriptNode idNode = (ScriptNode) instruction.getArg(0);
                     String id = String.valueOf(evaluateExpression(idNode));
                     AsyncTask t = asyncTasks.get(id);
-                    if (t != null) t.cancelled = true;
+                    if (t != null) {
+                        t.cancelled = true;
+                        asyncTasks.remove(id);
+                    }
                 }
                 case UI_WIDGET -> executeUiWidget(instruction);
                 default -> {}
@@ -3447,11 +4109,9 @@ public class ScriptExecutor {
                 case AWAIT_TIME -> {
                     ScriptNode secondsNode = (ScriptNode) instruction.getArg(0);
                     Object val = evaluateExpression(secondsNode);
-                    if (val instanceof Number n) {
-                        waitTimer = n.doubleValue();
-                        waitType = WaitType.TIME;
-                        return true;
-                    }
+                    waitTimer = coerceSeconds(val, "main");
+                    waitType = WaitType.TIME;
+                    return true;
                 }
                 case AWAIT_CAMERA_ROUTE -> {
                     Double sec = awaitCameraRouteDuration(instruction);
@@ -3748,7 +4408,10 @@ public class ScriptExecutor {
                     ScriptNode idNode = (ScriptNode) instruction.getArg(0);
                     String id = String.valueOf(evaluateExpression(idNode));
                     AsyncTask t = asyncTasks.get(id);
-                    if (t != null) t.cancelled = true;
+                    if (t != null) {
+                        t.cancelled = true;
+                        asyncTasks.remove(id);
+                    }
                 }
                 case FUN_DEF -> {
                     String name = (String) instruction.getArg(0);
@@ -3982,21 +4645,21 @@ public class ScriptExecutor {
                             double z = ((Number) args.get(2)).doubleValue();
                             double speed = args.size() >= 4 ? ((Number) args.get(3)).doubleValue() : 1.0;
                             npc.flyTo(x, y, z, speed);
-                            if (blocking) {
-                                waitEntityUuid = npc.getUUID();
-                                waitMoveTargetX = x;
-                                waitMoveTargetY = y;
-                                waitMoveTargetZ = z;
-                                waitMoveSpeed = speed;
-                                waitType = WaitType.MOVE_TO;
-                                return true;
-                            } else if (taskScope != null) {
+                            if (taskScope != null) {
                                 taskScope.waitEntityUuid = npc.getUUID();
                                 taskScope.waitMoveTargetX = x;
                                 taskScope.waitMoveTargetY = y;
                                 taskScope.waitMoveTargetZ = z;
                                 taskScope.waitMoveSpeed = speed;
                                 taskScope.waitType = WaitType.MOVE_TO;
+                                return true;
+                            } else if (blocking) {
+                                waitEntityUuid = npc.getUUID();
+                                waitMoveTargetX = x;
+                                waitMoveTargetY = y;
+                                waitMoveTargetZ = z;
+                                waitMoveSpeed = speed;
+                                waitType = WaitType.MOVE_TO;
                                 return true;
                             }
                         } else if (!args.isEmpty()) {
@@ -4066,23 +4729,28 @@ public class ScriptExecutor {
                             double x = ((Number) args.get(0)).doubleValue();
                             double y = ((Number) args.get(1)).doubleValue();
                             double z = ((Number) args.get(2)).doubleValue();
-                            double speed = args.size() >= 4 ? ((Number) args.get(3)).doubleValue() : 1.0;
-                            npc.moveTo(x, y, z, speed);
-                            if (blocking) {
-                                waitEntityUuid = npc.getUUID();
-                                waitMoveTargetX = x;
-                                waitMoveTargetY = y;
-                                waitMoveTargetZ = z;
-                                waitMoveSpeed = speed;
-                                waitType = WaitType.MOVE_TO;
-                                return true;
-                            } else if (taskScope != null) {
+                            double speed = args.size() >= 4 && args.get(3) instanceof Number n
+                                    ? n.doubleValue() : 1.0;
+                            boolean faceWalk = args.size() < 5 || isTruthy(args.get(4));
+                            LOGGER.info("[NPC-WALK] script {} moveTo goal=({},{},{}) speed={} faceWalk={} blocking={}",
+                                    npc.getCustomName() != null ? npc.getCustomName().getString() : npc.getUUID(),
+                                    x, y, z, speed, faceWalk, blocking);
+                            npc.moveTo(x, y, z, speed, faceWalk);
+                            if (taskScope != null) {
                                 taskScope.waitEntityUuid = npc.getUUID();
                                 taskScope.waitMoveTargetX = x;
                                 taskScope.waitMoveTargetY = y;
                                 taskScope.waitMoveTargetZ = z;
                                 taskScope.waitMoveSpeed = speed;
                                 taskScope.waitType = WaitType.MOVE_TO;
+                                return true;
+                            } else if (blocking) {
+                                waitEntityUuid = npc.getUUID();
+                                waitMoveTargetX = x;
+                                waitMoveTargetY = y;
+                                waitMoveTargetZ = z;
+                                waitMoveSpeed = speed;
+                                waitType = WaitType.MOVE_TO;
                                 return true;
                             }
                         }
@@ -4093,12 +4761,14 @@ public class ScriptExecutor {
                             double lx = ((Number) args.get(0)).doubleValue();
                             double ly = ((Number) args.get(1)).doubleValue();
                             double lz = ((Number) args.get(2)).doubleValue();
-                            if (args.size() >= 4 && args.get(3) instanceof Number) speed = ((Number) args.get(3)).doubleValue();
-                            npc.alwaysMoveTo(lx, ly, lz, speed);
+                            if (args.size() >= 4 && args.get(3) instanceof Number n) speed = n.doubleValue();
+                            boolean faceWalk = args.size() < 5 || isTruthy(args.get(4));
+                            npc.alwaysMoveTo(lx, ly, lz, speed, faceWalk);
                         } else if (!args.isEmpty()) {
                             net.minecraft.world.entity.Entity target = resolveEntity(args.get(0));
-                            if (args.size() >= 2 && args.get(1) instanceof Number) speed = ((Number) args.get(1)).doubleValue();
-                            if (target != null) npc.alwaysMoveToEntity(target, speed);
+                            if (args.size() >= 2 && args.get(1) instanceof Number n) speed = n.doubleValue();
+                            boolean faceWalk = args.size() < 3 || isTruthy(args.get(2));
+                            if (target != null) npc.alwaysMoveToEntity(target, speed, faceWalk);
                         }
                     }
                     case "stopMove", "stopmove" -> npc.stopMove();
@@ -4416,23 +5086,36 @@ public class ScriptExecutor {
 
         /**
          * Call a user-defined function, returning its result (or null).
-         * Р¤СѓРЅРєС†РёРё РёР· import() РІС‹РїРѕР»РЅСЏСЋС‚СЃСЏ РІ РєРѕРЅС‚РµРєСЃС‚Рµ СЃРєСЂРёРїС‚Р°-Р±РёР±Р»РёРѕС‚РµРєРё (РёС… РїРµСЂРµРјРµРЅРЅС‹Рµ Рё UI).
+         * Imported library functions run in the donor script's variable context (not the caller's).
          */
+        private ActiveScript findDonorForFunction(String name) {
+            for (String importName : importedScripts) {
+                ScriptExecutor.this.ensureImportedScriptRunning(importName, source, script.getName());
+                ActiveScript donor = ScriptExecutor.this.findDonorScript(importName, name);
+                if (donor != null && donor.userFunctions.containsKey(name)) {
+                    return donor;
+                }
+            }
+            return null;
+        }
+
         private Object callUserFunction(String name, List<Object> args) {
+            ActiveScript donor = findDonorForFunction(name);
+            if (donor != null) {
+                return donor.executeUserFunctionBody(donor.userFunctions.get(name), args);
+            }
             UserFunction func = userFunctions.get(name);
             if (func != null) {
                 return executeUserFunctionBody(func, args);
-            }
-            for (String importName : importedScripts) {
-                ActiveScript donor = ScriptExecutor.this.findBestDonorScript(importName, name);
-                if (donor != null && donor.userFunctions.containsKey(name)) {
-                    return donor.executeUserFunctionBody(donor.userFunctions.get(name), args);
-                }
             }
             throw new RuntimeException("Unknown function: " + name);
         }
 
         private Object executeUserFunctionBody(UserFunction func, List<Object> args) {
+            // User functions must not inherit the caller's async task locals (e.g. story dialogue
+            // task overwriting chat_fade's hold timer with unrelated values).
+            AsyncTask savedScope = this.currentTaskScope;
+            this.currentTaskScope = null;
             // Save existing variables and set params
             Map<String, Object> savedVars = new HashMap<>();
             for (int i = 0; i < func.params.size(); i++) {
@@ -4448,15 +5131,16 @@ public class ScriptExecutor {
                 executeInstructionBlock(func.bodyInstructions);
             } catch (ReturnException e) {
                 result = e.value;
-            }
-
-            // Restore saved variables
-            for (String paramName : func.params) {
-                if (savedVars.containsKey(paramName)) {
-                    variables.put(paramName, savedVars.get(paramName));
-                } else {
-                    variables.remove(paramName);
+            } finally {
+                // Restore saved variables
+                for (String paramName : func.params) {
+                    if (savedVars.containsKey(paramName)) {
+                        variables.put(paramName, savedVars.get(paramName));
+                    } else {
+                        variables.remove(paramName);
+                    }
                 }
+                this.currentTaskScope = savedScope;
             }
 
             return result;
@@ -4600,6 +5284,7 @@ public class ScriptExecutor {
                                 case "flyWalkAnim" -> npc.setFlyWalkAnim(String.valueOf(value));
                                 case "swimIdleAnim" -> npc.setSwimIdleAnim(String.valueOf(value));
                                 case "swimWalkAnim" -> npc.setSwimWalkAnim(String.valueOf(value));
+                                case "deathAnim" -> npc.setDeathAnim(String.valueOf(value));
                                 case "animation" -> npc.setAnimation(String.valueOf(value));
                                 case "dropItem" -> {
                                     if (npc.customDrops.isEmpty()) npc.customDrops.add(new org.zonarstudio.spraute_engine.registry.CustomDropRegistry.DropRule(String.valueOf(value), 1, 1, 100, false, null));
@@ -4651,11 +5336,16 @@ public class ScriptExecutor {
                 org.zonarstudio.spraute_engine.ui.UiTemplate t =
                         org.zonarstudio.spraute_engine.ui.UiTemplate.buildFromRuntime(this::evaluateExpression, rootProps, collector);
                 variables.put(varName, t);
+                if (currentTaskScope != null) {
+                    currentTaskScope.taskLocals.put(varName, t);
+                }
             } catch (ReturnException re) {
                 uiWidgetStack.poll();
                 throw re;
             } catch (Exception e) {
                 uiWidgetStack.poll();
+                if (currentTaskScope != null) currentTaskScope.taskLocals.remove(varName);
+                variables.remove(varName);
                 LOGGER.error("[Script] create ui '{}' failed: {} ({})", varName, e.getMessage(), e.getClass().getSimpleName(), e);
             }
         }
@@ -5083,7 +5773,9 @@ public class ScriptExecutor {
             if (node instanceof ScriptNode.IdentifierNode id) {
                 String name = id.getName();
                 if (name == null || "null".equals(name)) return null;
-                if (currentTaskScope != null && currentTaskScope.taskLocals.containsKey(name)) return currentTaskScope.taskLocals.get(name);
+                if (currentTaskScope != null && currentTaskScope.taskLocals.containsKey(name)) {
+                    return currentTaskScope.taskLocals.get(name);
+                }
                 if (variables.containsKey(name)) return variables.get(name);
                 if (globalVariables.containsKey(name)) return globalVariables.get(name);
                 net.minecraft.server.level.ServerLevel level = source.getLevel();
@@ -5191,6 +5883,8 @@ public class ScriptExecutor {
                         case "yaw" -> npcEntity.getYRot();
                         case "pitch" -> npcEntity.getXRot();
                         case "uuid" -> npcEntity.getUUID().toString();
+                        case "pathfailed", "path_failed" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? npc.isPathFailed() : false;
+                        case "isAlive", "alive" -> npcEntity.isAlive();
                         case "java" -> npcEntity;
                         case "model" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? npc.getModel() : "";
                         case "texture" -> npcEntity instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc ? npc.getTexture() : "";
@@ -5311,6 +6005,12 @@ public class ScriptExecutor {
                         }
                         return 0;
                     }
+                    if ("canreach".equals(m) && methodArgs.size() >= 3) {
+                        return npc.canReach(
+                                ((Number) methodArgs.get(0)).doubleValue(),
+                                ((Number) methodArgs.get(1)).doubleValue(),
+                                ((Number) methodArgs.get(2)).doubleValue());
+                    }
                 }
 
                 if (obj instanceof net.minecraft.world.entity.player.Player player
@@ -5321,7 +6021,18 @@ public class ScriptExecutor {
 
                 if (obj instanceof String str) {
                     return switch (method) {
-                        case "toInt" -> { try { yield Integer.parseInt(str); } catch(Exception e){ yield null; } }
+                        case "toInt" -> {
+                            String trimmed = str.trim();
+                            try {
+                                yield Integer.parseInt(trimmed);
+                            } catch (Exception e) {
+                                try {
+                                    yield (int) Double.parseDouble(trimmed);
+                                } catch (Exception e2) {
+                                    yield null;
+                                }
+                            }
+                        }
                         case "toDouble" -> { try { yield Double.parseDouble(str); } catch(Exception e){ yield null; } }
                         case "toString" -> str;
                         case "length" -> str.length();
@@ -5786,21 +6497,58 @@ public class ScriptExecutor {
 
         /** True when the mob is close enough to the scripted move_to point (not the same as {@code Navigation#isDone()}). */
         private static boolean isCloseToMoveTarget(net.minecraft.world.entity.Mob mob, double tx, double ty, double tz) {
+            if (mob instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity snpc) {
+                net.minecraft.world.phys.Vec3 goal = snpc.getScriptedMoveGoal();
+                if (goal != null) {
+                    tx = goal.x;
+                    ty = goal.y;
+                    tz = goal.z;
+                }
+            }
             double dx = mob.getX() - tx;
             double dy = mob.getY() - ty;
             double dz = mob.getZ() - tz;
-            // ╨Ф╨╛╨┐╤Г╤Б╨║: 1.0 ╨▒╨╗╨╛╨║╨░ ╨┐╨╛ ╨│╨╛╤А╨╕╨╖╨╛╨╜╤В╨░╨╗╨╕ (╤З╤В╨╛╨▒╤Л ╤Г╤З╨╕╤В╤Л╨▓╨░╤В╤М ╤А╨░╨╖╨╜╨╕╤Ж╤Г ╨╝╨╡╨╢╨┤╤Г ╤Ж╨╡╨╜╤В╤А╨╛╨╝ ╨╕ ╤Г╨│╨╗╨╛╨╝ ╨▒╨╗╨╛╨║╨░ + ╤Е╨╕╤В╨▒╨╛╨║╤Б), 1.5 ╨▒╨╗╨╛╨║╨░ ╨┐╨╛ ╨▓╨╡╤А╤В╨╕╨║╨░╨╗╨╕
-            double horizTol = 1.0;
-            return dx * dx + dz * dz <= horizTol * horizTol && Math.abs(dy) <= 1.5;
+            double horizTol = 0.6;
+            boolean close = dx * dx + dz * dz <= horizTol * horizTol && Math.abs(dy) <= 1.5;
+            if (close) {
+                LOGGER.info("[NPC-WALK] ARRIVED {} at ({},{},{}) target=({},{},{}) distH={}",
+                        mob.getCustomName() != null ? mob.getCustomName().getString() : mob.getUUID(),
+                        mob.getX(), mob.getY(), mob.getZ(), tx, ty, tz,
+                        String.format("%.2f", Math.sqrt(dx * dx + dz * dz)));
+            }
+            return close;
         }
 
         /** Async task state. Shares variables with parent. */
         private class AsyncTask {
+            private static final class SavedCallFrame {
+                final List<CompiledScript.Instruction> instructions;
+                final int returnIp;
+                final String returnVar;
+                final String returnScope;
+                final Map<String, Object> savedParamValues;
+                final List<String> paramNames;
+
+                SavedCallFrame(List<CompiledScript.Instruction> instructions, int returnIp,
+                                 String returnVar, String returnScope,
+                                 Map<String, Object> savedParamValues, List<String> paramNames) {
+                    this.instructions = instructions;
+                    this.returnIp = returnIp;
+                    this.returnVar = returnVar;
+                    this.returnScope = returnScope;
+                    this.savedParamValues = savedParamValues;
+                    this.paramNames = paramNames;
+                }
+            }
+
             final String id;
-            final List<CompiledScript.Instruction> instructions;
+            final List<CompiledScript.Instruction> rootInstructions;
+            List<CompiledScript.Instruction> instructions;
             int ip;
             boolean finished;
             boolean cancelled;
+            boolean skipIpIncrement;
+            final Deque<SavedCallFrame> callFrames = new ArrayDeque<>();
             WaitType waitType = WaitType.NONE;
             double waitTimer;
             UUID waitEntityUuid;
@@ -5816,6 +6564,7 @@ public class ScriptExecutor {
             boolean uiClickMet;
             String uiClickWidgetId = "";
             boolean uiClickClosed;
+            int uiClickMouseButton = 0;
 
             UUID waitPositionPlayerUuid;
             double waitPositionX, waitPositionY, waitPositionZ, waitPositionRadius;
@@ -5859,15 +6608,72 @@ public class ScriptExecutor {
             String waitDimensionId = null;
             boolean dimensionEventMet = false;
 
+            boolean interactionMet = false;
+            Object waitResult = null;
+            String waitKeybindKey = null;
+            boolean keybindMet = false;
+            net.minecraft.world.entity.player.Player keybindPlayer = null;
+            String waitDeathTarget = null;
+            String waitKillKillerTarget = null;
+            String waitKillVictimTarget = null;
+            boolean deathMet = false;
+            boolean killMet = false;
+            net.minecraft.world.entity.LivingEntity deadEntity = null;
+            net.minecraft.world.entity.Entity deathKiller = null;
+            String waitPickupNpcId = null;
+            UUID waitPickupNpcUuid = null;
+            String waitPickupItemId = null;
+            String waitPickupTag = null;
+            int waitPickupBaseCount = 0;
+            int waitPickupMaxCount = -1;
+            String waitTaskId = null;
+
             final Map<String, Object> taskLocals = new HashMap<>();
 
             AsyncTask(String id, List<CompiledScript.Instruction> instructions) {
                 this.id = id;
+                this.rootInstructions = instructions;
                 this.instructions = instructions;
                 this.taskLocals.putAll(variables);
                 if (currentTaskScope != null) {
                     this.taskLocals.putAll(currentTaskScope.taskLocals);
                 }
+            }
+
+            void enterUserFunction(UserFunction func, List<Object> args, String returnVar, String returnScope,
+                                   Map<String, Object> scriptVars) {
+                Map<String, Object> saved = new HashMap<>();
+                for (String param : func.params) {
+                    if (scriptVars.containsKey(param)) {
+                        saved.put(param, scriptVars.get(param));
+                    }
+                }
+                callFrames.push(new SavedCallFrame(instructions, ip + 1, returnVar, returnScope, saved, func.params));
+                for (int i = 0; i < func.params.size(); i++) {
+                    scriptVars.put(func.params.get(i), i < args.size() ? args.get(i) : null);
+                }
+                instructions = func.bodyInstructions;
+                ip = 0;
+                skipIpIncrement = true;
+            }
+
+            boolean leaveUserFunction(Object returnValue, Map<String, Object> scriptVars) {
+                if (callFrames.isEmpty()) return false;
+                SavedCallFrame frame = callFrames.pop();
+                for (String param : frame.paramNames) {
+                    if (frame.savedParamValues.containsKey(param)) {
+                        scriptVars.put(param, frame.savedParamValues.get(param));
+                    } else {
+                        scriptVars.remove(param);
+                    }
+                }
+                if (frame.returnVar != null) {
+                    ActiveScript.this.putVariable(frame.returnVar, returnValue, frame.returnScope);
+                }
+                instructions = frame.instructions;
+                ip = frame.returnIp;
+                skipIpIncrement = true;
+                return true;
             }
         }
     }

@@ -13,17 +13,9 @@ public class ScriptCustomItem extends Item {
         this.displayName = displayName;
     }
 
-    private Component buildName() {
-        if (displayName != null && !displayName.isEmpty()) {
-            return Component.literal(displayName.replace("&", "§"));
-        }
-        return null;
-    }
-
     @Override
     public Component getName(ItemStack stack) {
-        Component c = buildName();
-        return c != null ? c : super.getName(stack);
+        return ScriptItemNames.resolveName(displayName, stack, () -> super.getName(stack));
     }
 
     /**
@@ -36,15 +28,13 @@ public class ScriptCustomItem extends Item {
             net.minecraft.world.level.Level level,
             net.minecraft.world.entity.player.Player player,
             net.minecraft.world.InteractionHand hand) {
-        ItemStack stack = player.getItemInHand(hand);
-        return net.minecraft.world.InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+        return ScriptItemNames.scriptUse(level, player, hand);
     }
 
     //? if >=1.20.1 {
     @Override
     public Component getDescription() {
-        Component c = buildName();
-        return c != null ? c : super.getDescription();
+        return ScriptItemNames.resolveName(displayName, ItemStack.EMPTY, () -> super.getDescription());
     }
     //?}
 }

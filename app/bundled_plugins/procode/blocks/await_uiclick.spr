@@ -1,0 +1,8 @@
+#\ block: await_uiclick
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать клик в UI"
+#\ input: player (type: value)
+#\ template: await uiClick({player})

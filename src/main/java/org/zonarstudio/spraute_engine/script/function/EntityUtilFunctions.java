@@ -142,4 +142,77 @@ public class EntityUtilFunctions {
             return pos;
         }
     }
+
+    /** getNpc(scriptId) — tracked script NPC still alive in the world */
+    public static class GetNpc implements ScriptFunction {
+        @Override public String getName() { return "getNpc"; }
+        @Override public int getArgCount() { return 1; }
+        @Override public Class<?>[] getArgTypes() { return new Class<?>[]{String.class}; }
+
+        @Override
+        public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
+            if (args.isEmpty()) return null;
+            String id = String.valueOf(args.get(0));
+            Entity e = org.zonarstudio.spraute_engine.entity.NpcManager.getEntity(id, source.getLevel());
+            return e != null && e.isAlive() ? e : null;
+        }
+    }
+
+    /** registerNpc(scriptId, entity) — adopt an existing NPC entity under a script id */
+    public static class RegisterNpc implements ScriptFunction {
+        @Override public String getName() { return "registerNpc"; }
+        @Override public int getArgCount() { return 2; }
+        @Override public Class<?>[] getArgTypes() { return new Class<?>[]{String.class, Object.class}; }
+
+        @Override
+        public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
+            if (args.size() < 2) return null;
+            String id = String.valueOf(args.get(0));
+            Entity e = resolveEntity(args.get(1), source);
+            if (e instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc && npc.isAlive()) {
+                org.zonarstudio.spraute_engine.entity.NpcManager.track(id, npc.getUUID());
+                return npc;
+            }
+            return null;
+        }
+    }
+
+    /** getNearestNpc(anchor, radius, [modelOrTextureHint]) — nearest Spraute NPC; hint matches model/texture substring */
+    public static class GetNearestNpc implements ScriptFunction {
+        @Override public String getName() { return "getNearestNpc"; }
+        @Override public int getArgCount() { return -1; }
+        @Override public Class<?>[] getArgTypes() { return new Class<?>[0]; }
+
+        @Override
+        public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
+            if (source.getLevel() == null || args.size() < 2 || !(args.get(1) instanceof Number radiusNum)) {
+                return null;
+            }
+            Entity anchor = resolveEntity(args.get(0), source);
+            if (anchor == null) return null;
+            String hint = args.size() > 2 ? String.valueOf(args.get(2)).toLowerCase() : "";
+            double radius = radiusNum.doubleValue();
+            double r2 = radius * radius;
+            org.zonarstudio.spraute_engine.entity.SprauteNpcEntity nearest = null;
+            double best = Double.MAX_VALUE;
+            for (Entity e : source.getLevel().getEntities(anchor, anchor.getBoundingBox().inflate(radius),
+                    ent -> ent instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity sn
+                            && sn.isAlive() && matchesHint(sn, hint))) {
+                double d = anchor.distanceToSqr(e);
+                if (d <= r2 && d < best) {
+                    best = d;
+                    nearest = (org.zonarstudio.spraute_engine.entity.SprauteNpcEntity) e;
+                }
+            }
+            return nearest;
+        }
+
+        private static boolean matchesHint(org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc, String hint) {
+            if (hint == null || hint.isEmpty() || "any".equals(hint)) return true;
+            String model = npc.getModel() != null ? npc.getModel().toLowerCase() : "";
+            String texture = npc.getTexture() != null ? npc.getTexture().toLowerCase() : "";
+            String name = npc.getCustomName() != null ? npc.getCustomName().getString().toLowerCase() : "";
+            return model.contains(hint) || texture.contains(hint) || name.contains(hint);
+        }
+    }
 }

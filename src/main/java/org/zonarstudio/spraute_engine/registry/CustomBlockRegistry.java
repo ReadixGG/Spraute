@@ -1,9 +1,9 @@
 package org.zonarstudio.spraute_engine.registry;
 
 import com.mojang.logging.LogUtils;
+import net.minecraft.network.chat.Component;
 //? if >=1.20.1 {
 import net.minecraft.core.registries.Registries;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
 //?} else {
 /*import net.minecraft.core.Registry;
@@ -61,6 +61,7 @@ public class CustomBlockRegistry {
         public boolean hasCollision = true;
         public int lightEmission = 0;
         public float hardness = 1.5f;
+        public String displayName;
         public String dropItem;
         public int dropCount = 1;
         /** When true, the block itself does not drop (only custom drop(s)). */
@@ -96,6 +97,19 @@ public class CustomBlockRegistry {
         public String displayName;
         public int maxStackSize = 64;
         public String tab;
+        /** {@code sword} / {@code pickaxe} / {@code axe} / {@code shovel} / {@code hoe} */
+        public String toolType;
+        public boolean sword;
+        public boolean pickaxe;
+        public boolean axe;
+        public boolean shovel;
+        public boolean hoe;
+        /** Bonus attack damage (tooltip value, like iron sword +5). */
+        public Float damage;
+        public Float attackSpeed;
+        public Integer durability;
+        public Float miningSpeed;
+        public Integer miningLevel;
     }
 
     public static final Map<String, String> CUSTOM_RECIPES_JSON = new HashMap<>();
@@ -113,6 +127,8 @@ public class CustomBlockRegistry {
     //?}
     /** Extra items listed in {@code create tab} (both versions). */
     public static final Map<String, List<String>> TAB_EXTRA_ITEMS = new HashMap<>();
+    /** Display names from {@code name = "..."} in {@code create tab} (both versions). */
+    public static final Map<String, String> TAB_DISPLAY_NAMES = new HashMap<>();
     public static final Map<String, net.minecraft.world.item.CreativeModeTab> CUSTOM_TABS = new HashMap<>();
 
     /** Ensures {@code create item/block/craft} from .spr scripts are parsed (safe to call multiple times). */
@@ -135,8 +151,8 @@ public class CustomBlockRegistry {
     private static void parseScriptDirectory(Path scriptsDir) {
         if (!Files.exists(scriptsDir)) return;
 
-        Pattern tabPattern = Pattern.compile("create\\s+tab\\s+([a-zA-Z0-9_]+)\\s*\\{([^}]*)\\}");
-        Pattern craftPattern = Pattern.compile("create\\s+craft\\s+([a-zA-Z0-9_]+)\\s*\\{([^}]*)\\}");
+        Pattern tabPattern = Pattern.compile("create\\s+tab\\s+([a-zA-Z0-9_]+)\\s*\\{");
+        Pattern craftPattern = Pattern.compile("create\\s+craft\\s+([a-zA-Z0-9_]+)\\s*\\{");
         Pattern craftTypePattern = Pattern.compile("type\\s*=\\s*\"([^\"]+)\"");
         Pattern craftResultPattern = Pattern.compile("result\\s*=\\s*\"([^\"]+)\"");
         Pattern craftCountPattern = Pattern.compile("count\\s*=\\s*(\\d+)");
@@ -148,9 +164,9 @@ public class CustomBlockRegistry {
         Pattern craftIngPattern = Pattern.compile("ingredient\\s*=\\s*\"([^\"]+)\"");
         Pattern craftXpPattern = Pattern.compile("xp\\s*=\\s*([0-9.]+)");
         Pattern craftTimePattern = Pattern.compile("time\\s*=\\s*(\\d+)");
-        Pattern craftIngsPattern = Pattern.compile("\"([^\"]+)\"");
-        Pattern blockPattern = Pattern.compile("create\\s+block\\s+([a-zA-Z0-9_]+)\\s*\\{([^}]*)\\}");
-        Pattern itemPattern = Pattern.compile("create\\s+item\\s+([a-zA-Z0-9_]+)\\s*\\{([^}]*)\\}");
+        Pattern blockPattern = Pattern.compile("create\\s+block\\s+([a-zA-Z0-9_]+)\\s*\\{");
+        Pattern itemPattern = Pattern.compile("create\\s+item\\s+([a-zA-Z0-9_]+)\\s*\\{");
+        Pattern createDropPattern = Pattern.compile("create\\s+drop\\s+([a-zA-Z0-9_]+)\\s*\\{");
         Pattern modelPattern = Pattern.compile("model\\s*=\\s*\"([^\"]+)\"");
         Pattern texturePattern = Pattern.compile("texture\\s*=\\s*\"([^\"]+)\"");
         Pattern iconPattern = Pattern.compile("icon\\s*=\\s*\"([^\"]+)\"");
@@ -162,27 +178,27 @@ public class CustomBlockRegistry {
         Pattern textureSouthPattern = Pattern.compile("texture_south\\s*=\\s*\"([^\"]+)\"");
         Pattern textureWestPattern = Pattern.compile("texture_west\\s*=\\s*\"([^\"]+)\"");
         Pattern textureEastPattern = Pattern.compile("texture_east\\s*=\\s*\"([^\"]+)\"");
-        Pattern collisionPattern = Pattern.compile("collision\\s*=\\s*(true|false)");
-        Pattern directionalPattern = Pattern.compile("directional\\s*=\\s*(true|false)");
         Pattern hitboxPattern = Pattern.compile("hitbox\\s*=\\s*\\[([^\\]]*)\\]");
         Pattern sizePattern = Pattern.compile("size\\s*=\\s*\\[([^\\]]*)\\]");
         Pattern maxStackPattern = Pattern.compile("maxStackSize\\s*=\\s*(\\d+)");
         Pattern itemNamePattern = Pattern.compile("name\\s*=\\s*\"([^\"]+)\"");
+        Pattern toolTypePattern = Pattern.compile("tool_type\\s*=\\s*\"([^\"]+)\"");
+        Pattern damagePattern = Pattern.compile("damage\\s*=\\s*([0-9.]+)");
+        Pattern attackSpeedPattern = Pattern.compile("attack_speed\\s*=\\s*(-?[0-9.]+)");
+        Pattern durabilityPattern = Pattern.compile("durability\\s*=\\s*(\\d+)");
+        Pattern miningSpeedPattern = Pattern.compile("mining_speed\\s*=\\s*([0-9.]+)");
+        Pattern miningLevelPattern = Pattern.compile("mining_level\\s*=\\s*(\\d+)");
         Pattern lightPattern = Pattern.compile("light\\s*=\\s*(\\d+)");
         Pattern hardnessPattern = Pattern.compile("hardness\\s*=\\s*([0-9.]+)");
         Pattern dropPattern = Pattern.compile("drop\\s*=\\s*\"([^\"]+)\"");
         Pattern dropCountPattern = Pattern.compile("drop_count\\s*=\\s*(\\d+)");
-        Pattern dropReplacePattern = Pattern.compile("drop_replace\\s*=\\s*(true|false)");
         Pattern blockDropRowPattern = Pattern.compile("\\[\\s*\"([^\"]+)\"\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\]");
-        Pattern createDropPattern = Pattern.compile("create\\s+drop\\s+([a-zA-Z0-9_]+)\\s*\\{([^}]*)\\}");
         Pattern dropBlockPattern = Pattern.compile("block\\s*=\\s*\"([^\"]+)\"");
         Pattern dropItemPattern = Pattern.compile("item\\s*=\\s*\"([^\"]+)\"");
         Pattern dropMinPattern = Pattern.compile("min\\s*=\\s*(\\d+)");
         Pattern dropMaxPattern = Pattern.compile("max\\s*=\\s*(\\d+)");
         Pattern dropChancePattern = Pattern.compile("chance\\s*=\\s*(\\d+)");
-        Pattern dropDeclReplacePattern = Pattern.compile("replace\\s*=\\s*(true|false)");
         Pattern dropNbtPattern = Pattern.compile("nbt\\s*=\\s*\"([^\"]+)\"");
-        Pattern isOrePattern = Pattern.compile("is_ore\\s*=\\s*(true|false)");
         Pattern oreVeinPattern = Pattern.compile("ore_vein\\s*=\\s*(\\d+)");
         Pattern oreMinPattern = Pattern.compile("ore_min\\s*=\\s*(-?\\d+)");
         Pattern oreMaxPattern = Pattern.compile("ore_max\\s*=\\s*(-?\\d+)");
@@ -197,11 +213,15 @@ public class CustomBlockRegistry {
                     Matcher tabM = tabPattern.matcher(content);
                     while (tabM.find()) {
                         String id = tabM.group(1);
-                        String body = tabM.group(2);
+                        String body = extractCreateBody(content, tabM);
                         Matcher iconM = iconPattern.matcher(body);
                         String iconStr = iconM.find() ? iconM.group(1) : "minecraft:stone";
                         String tabItemsBody = extractBracketArrayValue(body, "items");
                         List<String> tabItemIds = tabItemsBody != null ? parseQuotedStrings(tabItemsBody) : List.of();
+                        Matcher tabNameM = itemNamePattern.matcher(body);
+                        if (tabNameM.find()) {
+                            TAB_DISPLAY_NAMES.put(id, tabNameM.group(1));
+                        }
 
                         //? if >=1.20.1 {
                         CustomTabDef tabDef = new CustomTabDef();
@@ -211,6 +231,11 @@ public class CustomBlockRegistry {
                         TAB_DEFS.put(id, tabDef);
                         //?} else {
                         /*net.minecraft.world.item.CreativeModeTab customTab = new net.minecraft.world.item.CreativeModeTab("spraute_" + id) {
+                            @Override
+                            public net.minecraft.network.chat.Component getDisplayName() {
+                                return creativeTabTitle(id);
+                            }
+
                             @Override
                             public net.minecraft.world.item.ItemStack makeIcon() {
                                 return makeTabIcon(iconStr);
@@ -240,7 +265,7 @@ public class CustomBlockRegistry {
                     Matcher craftM = craftPattern.matcher(content);
                     while (craftM.find()) {
                         String id = craftM.group(1);
-                        String body = craftM.group(2);
+                        String body = extractCreateBody(content, craftM);
                         
                         Matcher typeM = craftTypePattern.matcher(body);
                         String type = normalizeCraftType(typeM.find() ? typeM.group(1) : "shaped");
@@ -332,7 +357,7 @@ public class CustomBlockRegistry {
 
                     Matcher createDropM = createDropPattern.matcher(content);
                     while (createDropM.find()) {
-                        String body = createDropM.group(2);
+                        String body = extractCreateBody(content, createDropM);
                         Matcher blockM = dropBlockPattern.matcher(body);
                         Matcher itemM = dropItemPattern.matcher(body);
                         if (!blockM.find() || !itemM.find()) continue;
@@ -347,8 +372,7 @@ public class CustomBlockRegistry {
                         if (maxM.find()) max = Integer.parseInt(maxM.group(1));
                         Matcher chanceM = dropChancePattern.matcher(body);
                         if (chanceM.find()) chance = Integer.parseInt(chanceM.group(1));
-                        Matcher replM = dropDeclReplacePattern.matcher(body);
-                        if (replM.find()) replace = Boolean.parseBoolean(replM.group(1));
+                        replace = parseBoolField(body, "replace", false);
                         Matcher nbtM = dropNbtPattern.matcher(body);
                         if (nbtM.find()) nbt = nbtM.group(1);
                         if (!blockId.contains(":")) blockId = Spraute_engine.MODID + ":" + blockId;
@@ -360,7 +384,7 @@ public class CustomBlockRegistry {
                     while (m.find()) {
                         CustomBlockDef def = new CustomBlockDef();
                         def.id = m.group(1);
-                        String body = m.group(2);
+                        String body = extractCreateBody(content, m);
                         
                         Matcher modelM = modelPattern.matcher(body);
                         if (modelM.find()) def.model = modelM.group(1);
@@ -383,8 +407,7 @@ public class CustomBlockRegistry {
                         Matcher tEastM = textureEastPattern.matcher(body);
                         if (tEastM.find()) def.textureEast = tEastM.group(1);
 
-                        Matcher colM = collisionPattern.matcher(body);
-                        if (colM.find()) def.hasCollision = Boolean.parseBoolean(colM.group(1));
+                        def.hasCollision = parseBoolField(body, "collision", true);
 
                         Matcher lightM = lightPattern.matcher(body);
                         if (lightM.find()) def.lightEmission = Integer.parseInt(lightM.group(1));
@@ -392,24 +415,34 @@ public class CustomBlockRegistry {
                         Matcher hardM = hardnessPattern.matcher(body);
                         if (hardM.find()) def.hardness = Float.parseFloat(hardM.group(1));
                         
-                        Matcher dirM = directionalPattern.matcher(body);
-                        if (dirM.find()) def.directional = Boolean.parseBoolean(dirM.group(1));
+                        def.directional = parseBoolField(body, "directional", true);
 
-                        Matcher hitM = hitboxPattern.matcher(body);
-                        if (hitM.find()) {
-                            def.hitbox = parseBlockHitbox(hitM.group(1));
+                        Matcher nameM = itemNamePattern.matcher(body);
+                        if (nameM.find()) def.displayName = nameM.group(1);
+
+                        String hitboxBody = extractBracketArrayValue(body, "hitbox");
+                        if (hitboxBody != null) {
+                            def.hitbox = parseBlockHitbox(hitboxBody);
+                        } else {
+                            Matcher hitM = hitboxPattern.matcher(body);
+                            if (hitM.find()) {
+                                def.hitbox = parseBlockHitbox(hitM.group(1));
+                            }
                         }
 
-                        Matcher sizeM = sizePattern.matcher(body);
-                        if (sizeM.find()) {
-                            int[] size = parseBlockSize(sizeM.group(1));
+                        String sizeBody = extractBracketArrayValue(body, "size");
+                        if (sizeBody != null) {
+                            int[] size = parseBlockSize(sizeBody);
                             def.sizeW = size[0];
                             def.sizeD = size[1];
                             def.sizeH = size[2];
-                            if (def.hitbox == null && size[0] == 1 && size[1] == 1 && size[2] == 1) {
-                                // default cube
-                            } else if (def.hitbox == null && (size[0] > 1 || size[1] > 1 || size[2] > 1)) {
-                                // single-cell visual hitbox for non-multiblock preview; multiblock uses per-cell collision
+                        } else {
+                            Matcher sizeM = sizePattern.matcher(body);
+                            if (sizeM.find()) {
+                                int[] size = parseBlockSize(sizeM.group(1));
+                                def.sizeW = size[0];
+                                def.sizeD = size[1];
+                                def.sizeH = size[2];
                             }
                         }
 
@@ -422,8 +455,7 @@ public class CustomBlockRegistry {
                         Matcher dropCountM = dropCountPattern.matcher(body);
                         if (dropCountM.find()) def.dropCount = Integer.parseInt(dropCountM.group(1));
 
-                        Matcher dropReplaceM = dropReplacePattern.matcher(body);
-                        if (dropReplaceM.find()) def.dropReplace = Boolean.parseBoolean(dropReplaceM.group(1));
+                        def.dropReplace = parseBoolField(body, "drop_replace", def.dropReplace);
 
                         String dropsBody = extractBracketArrayValue(body, "drops");
                         if (dropsBody != null) {
@@ -442,8 +474,7 @@ public class CustomBlockRegistry {
                         Matcher tabIdM = tabIdPattern.matcher(body);
                         if (tabIdM.find()) def.tab = tabIdM.group(1);
                         
-                        Matcher isOreM = isOrePattern.matcher(body);
-                        if (isOreM.find()) def.isOre = Boolean.parseBoolean(isOreM.group(1));
+                        def.isOre = parseBoolField(body, "is_ore", false);
 
                         Matcher oreVeinM = oreVeinPattern.matcher(body);
                         if (oreVeinM.find()) def.oreVeinSize = Integer.parseInt(oreVeinM.group(1));
@@ -468,7 +499,7 @@ public class CustomBlockRegistry {
                     while (im.find()) {
                         CustomItemDef def = new CustomItemDef();
                         def.id = im.group(1);
-                        String body = im.group(2);
+                        String body = extractCreateBody(content, im);
 
                         Matcher modelM = modelPattern.matcher(body);
                         if (modelM.find()) def.model = modelM.group(1);
@@ -484,6 +515,30 @@ public class CustomBlockRegistry {
 
                         Matcher tabIdM2 = tabIdPattern.matcher(body);
                         if (tabIdM2.find()) def.tab = tabIdM2.group(1);
+
+                        Matcher toolTypeM = toolTypePattern.matcher(body);
+                        if (toolTypeM.find()) def.toolType = toolTypeM.group(1);
+
+                        def.sword = parseBoolField(body, "sword", false);
+                        def.pickaxe = parseBoolField(body, "pickaxe", false);
+                        def.axe = parseBoolField(body, "axe", false);
+                        def.shovel = parseBoolField(body, "shovel", false);
+                        def.hoe = parseBoolField(body, "hoe", false);
+
+                        Matcher damageM = damagePattern.matcher(body);
+                        if (damageM.find()) def.damage = Float.parseFloat(damageM.group(1));
+
+                        Matcher attackSpeedM = attackSpeedPattern.matcher(body);
+                        if (attackSpeedM.find()) def.attackSpeed = Float.parseFloat(attackSpeedM.group(1));
+
+                        Matcher durabilityM = durabilityPattern.matcher(body);
+                        if (durabilityM.find()) def.durability = Integer.parseInt(durabilityM.group(1));
+
+                        Matcher miningSpeedM = miningSpeedPattern.matcher(body);
+                        if (miningSpeedM.find()) def.miningSpeed = Float.parseFloat(miningSpeedM.group(1));
+
+                        Matcher miningLevelM = miningLevelPattern.matcher(body);
+                        if (miningLevelM.find()) def.miningLevel = Integer.parseInt(miningLevelM.group(1));
 
                         ITEMS.put(def.id, def);
                         LOGGER.info("[Spraute Engine] Found custom item declaration: {}", def.id);
@@ -510,6 +565,14 @@ public class CustomBlockRegistry {
         if (!itemId.contains(":")) itemId = Spraute_engine.MODID + ":" + itemId;
         Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(new ResourceLocation(itemId));
         return item != null ? new ItemStack(item) : ItemStack.EMPTY;
+    }
+
+    private static Component creativeTabTitle(String tabId) {
+        String raw = TAB_DISPLAY_NAMES.get(tabId);
+        if (raw != null && !raw.isBlank()) {
+            return Component.literal(raw.replace("&", "§"));
+        }
+        return Component.literal(tabId.replace('_', ' '));
     }
 
     //? if >=1.20.1 {
@@ -553,7 +616,7 @@ public class CustomBlockRegistry {
                 final String icon = tabDef.icon;
                 event.register(Registries.CREATIVE_MODE_TAB, new ResourceLocation(Spraute_engine.MODID, "spraute_" + tabId), () -> {
                     CreativeModeTab tab = CreativeModeTab.builder()
-                            .title(Component.literal(tabId.replace('_', ' ')))
+                            .title(creativeTabTitle(tabId))
                             .icon(() -> makeTabIcon(icon))
                             .displayItems((params, output) -> populateCreativeTab(tabId, output))
                             .build();
@@ -630,13 +693,19 @@ public class CustomBlockRegistry {
                 final Item.Properties finalProps = props;
                 Block block = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getValue(new ResourceLocation(Spraute_engine.MODID, def.id));
                 if (block != null) {
+                    final String blockDisplayName = def.displayName;
                     event.register(
                             //? if >=1.20.1 {
                             Registries.ITEM
                             //?} else {
                             /*Registry.ITEM_REGISTRY*/
                             //?}
-                    , new ResourceLocation(Spraute_engine.MODID, def.id), () -> new BlockItem(block, finalProps));
+                    , new ResourceLocation(Spraute_engine.MODID, def.id), () -> {
+                        if (blockDisplayName != null && !blockDisplayName.isEmpty()) {
+                            return new org.zonarstudio.spraute_engine.item.ScriptBlockItem(block, finalProps, blockDisplayName);
+                        }
+                        return new BlockItem(block, finalProps);
+                    });
                 }
             }
             
@@ -656,7 +725,7 @@ public class CustomBlockRegistry {
                         /*Registry.ITEM_REGISTRY*/
                         //?}
                 , new ResourceLocation(Spraute_engine.MODID, def.id),
-                        () -> new org.zonarstudio.spraute_engine.item.ScriptCustomItem(finalProps, itemDisplayName));
+                        () -> org.zonarstudio.spraute_engine.item.ScriptCustomItemFactory.create(def, finalProps, itemDisplayName));
             }
         }
         
@@ -861,6 +930,33 @@ public class CustomBlockRegistry {
         Matcher m = Pattern.compile("\"([^\"]+)\"").matcher(listContent);
         while (m.find()) out.add(m.group(1));
         return out;
+    }
+
+    /** Balanced-brace body of a {@code create kind id { ... }} declaration. */
+    private static String extractCreateBody(String content, Matcher headerMatch) {
+        int bracePos = headerMatch.end() - 1;
+        int depth = 0;
+        int i = bracePos;
+        while (i < content.length()) {
+            char c = content.charAt(i++);
+            if (c == '{') depth++;
+            else if (c == '}') {
+                depth--;
+                if (depth == 0) {
+                    return content.substring(bracePos + 1, i - 1);
+                }
+            }
+        }
+        return "";
+    }
+
+    /** Reads {@code field = true/false} or {@code field = "true"/"false"} from a static create block body. */
+    private static boolean parseBoolField(String body, String field, boolean defaultValue) {
+        Pattern p = Pattern.compile(Pattern.quote(field) + "\\s*=\\s*(?:\"(true|false)\"|(true|false))");
+        Matcher m = p.matcher(body);
+        if (!m.find()) return defaultValue;
+        String v = m.group(1) != null ? m.group(1) : m.group(2);
+        return Boolean.parseBoolean(v);
     }
 
     /** Извлекает содержимое массива после {@code key = [}, учитывая вложенные скобки. */

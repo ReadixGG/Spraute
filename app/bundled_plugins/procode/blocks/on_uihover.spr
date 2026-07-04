@@ -1,0 +1,15 @@
+#\ block: on_uihover
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда наведение на UI" [filter: dropdown(любой: any, у игрока: player, виджет: widget)] "→" (handler: text: h_uihover)
+#\ if filter == "any":
+#\   template: on uiHover() -> {handler} {\n{DO}}
+#\ if filter == "player":
+#\   input: player (type: value)
+#\   template: on uiHover({player}) -> {handler} {\n{DO}}
+#\ if filter == "widget":
+#\   input: player (type: value)
+#\   row: "id виджета" (widgetId: text: my_button)
+#\   template: on uiHover({player}, "{widgetId}") -> {handler} {\n{DO}}

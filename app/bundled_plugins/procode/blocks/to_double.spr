@@ -1,0 +1,7 @@
+#\ block: to_double
+#\ category: Математика
+#\ color: #ef4444
+#\ shape: value
+#\
+#\ row: "дробное из" input: val (type: value)
+#\ template: ({val}).toDouble()

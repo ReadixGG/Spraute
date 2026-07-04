@@ -1,0 +1,21 @@
+#\ block: npc_anim_cfg
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "НИП" [npc: dropdown_npc] [mode: dropdown(простой: idle, ходьба: walk, смерть: death, полёт-стой: flyIdle, полёт-ход: flyWalk, плав-стой: swimIdle, плав-ход: swimWalk)]
+#\ row: "анимация" (anim: text: idle)
+#\ if mode == "idle":
+#\   template: {npc}.setIdleAnim("{anim}")
+#\ if mode == "walk":
+#\   template: {npc}.setWalkAnim("{anim}")
+#\ if mode == "death":
+#\   template: {npc}.setDeathAnim("{anim}")
+#\ if mode == "flyIdle":
+#\   template: {npc}.setFlyIdleAnim("{anim}")
+#\ if mode == "flyWalk":
+#\   template: {npc}.setFlyWalkAnim("{anim}")
+#\ if mode == "swimIdle":
+#\   template: {npc}.setSwimIdleAnim("{anim}")
+#\ if mode == "swimWalk":
+#\   template: {npc}.setSwimWalkAnim("{anim}")

@@ -1,0 +1,12 @@
+{
+  "Райя": [
+    "raya_spawn",
+    "raya_find",
+    "raya_open_shop",
+    "raya_follow_enabled",
+    "raya_follow_mode",
+    "raya_pm_get",
+    "raya_pm_add",
+    "raya_pm_sub"
+  ]
+}

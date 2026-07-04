@@ -1,0 +1,80 @@
+#\ block: raya_spawn
+#\ category: Райя
+#\ color: #c026d3
+#\ shape: statement
+#\ write_start: import("raya")
+#\
+#\ row: "создать / найти Райю у"
+#\ input: player (type: value)
+#\ template: spawnRaya({player})
+
+#\ block: raya_find
+#\ category: Райя
+#\ color: #c026d3
+#\ shape: value
+#\ write_start: import("raya")
+#\
+#\ row: "найти Райю рядом с"
+#\ input: player (type: value)
+#\ template: findRayaNpc({player})
+
+#\ block: raya_open_shop
+#\ category: Райя
+#\ color: #c026d3
+#\ shape: statement
+#\ write_start: import("raya")
+#\
+#\ row: "открыть магазин Райи для"
+#\ input: player (type: value)
+#\ template: rayaOpenShop({player})
+
+#\ block: raya_follow_enabled
+#\ category: Райя
+#\ color: #c026d3
+#\ shape: statement
+#\ write_start: import("raya")
+#\
+#\ row: "следование Райи за игроком" [on: dropdown(включить: true, выключить: false)]
+#\ if on == "true":
+#\   template: rayaFollowEnabled = true
+#\ if on == "false":
+#\   template: rayaFollowEnabled = false
+
+#\ block: raya_follow_mode
+#\ category: Райя
+#\ color: #c026d3
+#\ shape: statement
+#\ write_start: import("raya")
+#\
+#\ row: "режим следования Райи" [mode: dropdown(авто: auto, за спиной: back, спереди: front)]
+#\ template: rayaFollowMode = "{mode}"
+
+#\ block: raya_pm_get
+#\ category: Райя
+#\ color: #c026d3
+#\ shape: value
+#\ write_start: import("raya")
+#\
+#\ row: "баланс ПМ у"
+#\ input: player (type: value)
+#\ template: pmGet({player})
+
+#\ block: raya_pm_add
+#\ category: Райя
+#\ color: #c026d3
+#\ shape: statement
+#\ write_start: import("raya")
+#\
+#\ row: "добавить ПМ" (amount: number: 10) "игроку"
+#\ input: player (type: value)
+#\ template: pmAdd({player}, {amount})
+
+#\ block: raya_pm_sub
+#\ category: Райя
+#\ color: #c026d3
+#\ shape: statement
+#\ write_start: import("raya")
+#\
+#\ row: "списать ПМ" (amount: number: 10) "у игрока"
+#\ input: player (type: value)
+#\ template: pmSub({player}, {amount})

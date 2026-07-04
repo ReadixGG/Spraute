@@ -1,0 +1,8 @@
+#\ block: await_uiclose
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать закрытие UI"
+#\ input: player (type: value)
+#\ template: await uiClose({player})

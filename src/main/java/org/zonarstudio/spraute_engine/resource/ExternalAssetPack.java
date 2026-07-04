@@ -50,15 +50,29 @@ public class ExternalAssetPack extends AbstractPackResources {
 
     private static String buildTexRef(String rawTexture) {
         if (rawTexture == null || rawTexture.isEmpty()) return null;
-        if (rawTexture.contains(":")) return rawTexture;
-        String path = rawTexture.replace('\\', '/');
+        String path = rawTexture.replace('\\', '/').trim();
+        String namespace = NAMESPACE;
+        int colon = path.indexOf(':');
+        if (colon > 0) {
+            namespace = path.substring(0, colon);
+            path = path.substring(colon + 1);
+        }
+        // assets/spraute_engine/textures/item/foo.png
+        if (path.startsWith("assets/")) {
+            String[] parts = path.split("/");
+            if (parts.length >= 2) {
+                namespace = parts[1];
+                path = String.join("/", java.util.Arrays.copyOfRange(parts, 2, parts.length));
+            }
+        }
         if (path.startsWith("textures/")) {
             path = path.substring("textures/".length());
         }
         if (path.endsWith(".png")) {
             path = path.substring(0, path.length() - 4);
         }
-        return NAMESPACE + ":" + path;
+        if (path.isEmpty()) return null;
+        return namespace + ":" + path;
     }
 
     /**
@@ -143,16 +157,24 @@ public class ExternalAssetPack extends AbstractPackResources {
             String id = resourcePath.substring(("assets/" + NAMESPACE + "/textures/item/").length(), resourcePath.length() - 4);
             org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomItemDef def =
                     org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.ITEMS.get(id);
-            if (def != null && def.texture != null && !def.texture.isEmpty()) {
-                String tex = def.texture.replace('\\', '/');
-                if (tex.startsWith("textures/")) {
-                    resolved = resolveDiskPath(rootDir.resolve(tex));
-                } else {
-                    resolved = resolveDiskPath(rootDir.resolve("textures").resolve(tex));
+            if (def != null) {
+                if (def.texture != null && !def.texture.isEmpty()) {
+                    String tex = def.texture.replace('\\', '/');
+                    if (tex.startsWith("textures/")) {
+                        resolved = resolveDiskPath(rootDir.resolve(tex));
+                    } else {
+                        resolved = resolveDiskPath(rootDir.resolve("textures").resolve(tex));
+                    }
+                    if (resolved != null) {
+                        return resolved;
+                    }
                 }
+                resolved = resolveDiskPath(rootDir.resolve("textures/item/" + id + ".png"));
                 if (resolved != null) {
                     return resolved;
                 }
+                LOGGER.warn("[Spraute Engine] Texture not found for item '{}': expected {} or texture = \"...\" in create item",
+                        id, rootDir.resolve("textures/item/" + id + ".png"));
             }
         }
         return null;

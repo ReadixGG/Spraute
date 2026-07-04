@@ -1,0 +1,22 @@
+#\ block: say_who
+#\ category: Диалоги
+#\ color: #d946ef
+#\ shape: statement
+#\
+#\ row: "сказать от лица" [who: dropdown(НИП: npc, игрок: player)]
+#\ if who == "npc":
+#\   row: [npc: dropdown_npc]
+#\ if who == "player":
+#\   row: "игрок" [playerMode: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "player" and playerMode == "custom":
+#\   input: player (type: value)
+#\ row: "сказать"
+#\ input: message (type: value)
+#\ if who == "npc":
+#\   template: say({npc}, {message})
+#\ if who == "player" and playerMode == "event":
+#\   template: say(_eventPlayer, {message})
+#\ if who == "player" and playerMode == "first":
+#\   template: say(getFirstPlayer(), {message})
+#\ if who == "player" and playerMode == "custom":
+#\   template: say({player}, {message})

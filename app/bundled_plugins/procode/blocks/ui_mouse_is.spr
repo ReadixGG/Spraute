@@ -1,0 +1,7 @@
+#\ block: ui_mouse_is
+#\ category: Логика
+#\ color: #6366f1
+#\ shape: value
+#\
+#\ row: "кнопка мыши UI" [btn: dropdown(ЛКМ: left, ПКМ: right, СКМ: middle)] "?"
+#\ code: return _eventMouseButton == _getVal("btn");

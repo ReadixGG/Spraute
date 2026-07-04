@@ -84,6 +84,7 @@ const ON_EVENTS = [
   { type: 'spraute_on_pickup', label: 'При поднятии предмета', args: ['NPC', 'ITEM_ID'], defaultArgs: ['npc', '"item_id"'], text: 'on pickup' },
   { type: 'spraute_on_uiClick', label: 'При клике в UI', args: ['PLAYER'], defaultArgs: ['player'], text: 'on uiClick' },
   { type: 'spraute_on_uiClose', label: 'При закрытии UI', args: ['PLAYER'], defaultArgs: ['player'], text: 'on uiClose' },
+  { type: 'spraute_on_uiHover', label: 'При наведении на UI', args: ['PLAYER', 'WIDGET_ID'], defaultArgs: ['player', '"widget_id"'], text: 'on uiHover' },
   { type: 'spraute_on_uiInput', label: 'При вводе в UI', args: ['PLAYER', 'WIDGET_ID'], defaultArgs: ['player', '"widget_id"'], text: 'on uiInput' },
   { type: 'spraute_on_position', label: 'В позиции', args: ['PLAYER', 'X', 'Y', 'Z', 'RADIUS'], defaultArgs: ['player', '0', '64', '0', '5'], text: 'on position' },
   { type: 'spraute_on_inventory', label: 'Предмет в инвентаре', args: ['PLAYER', 'ITEM_ID', 'COUNT'], defaultArgs: ['player', '"item_id"', '1'], text: 'on inventory' },

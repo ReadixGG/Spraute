@@ -1,0 +1,7 @@
+#\ block: to_int
+#\ category: Математика
+#\ color: #ef4444
+#\ shape: value
+#\
+#\ row: "целое из" input: val (type: value)
+#\ template: ({val}).toInt()
