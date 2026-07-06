@@ -8,6 +8,7 @@ import net.minecraftforge.network.PacketDistributor;
 import org.slf4j.Logger;
 import org.zonarstudio.spraute_engine.network.CloseSprauteUiPacket;
 import org.zonarstudio.spraute_engine.network.ModNetwork;
+import org.zonarstudio.spraute_engine.script.ItemStackScriptUtil;
 import org.zonarstudio.spraute_engine.script.ScriptContext;
 
 import java.util.List;
@@ -46,15 +47,12 @@ public class UiCloseFunction implements ScriptFunction {
             return null;
         }
         ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> sp), new CloseSprauteUiPacket());
+        org.zonarstudio.spraute_engine.ui.UiTracker.markClosed(sp.getUUID());
         context.notifyUiClosed(player);
         return null;
     }
 
     private static Player resolvePlayer(Object target, CommandSourceStack source) {
-        if (target instanceof Player p) return p;
-        if (target instanceof String name && source.getLevel() != null) {
-            return source.getLevel().getServer().getPlayerList().getPlayerByName(name);
-        }
-        return null;
+        return ItemStackScriptUtil.resolvePlayer(target, source);
     }
 }

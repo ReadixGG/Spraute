@@ -14,6 +14,8 @@ public class SprauteUiActionPacket {
     public static final byte ACTION_CLOSE = 1;
     public static final byte ACTION_HOVER_ENTER = 2;
     public static final byte ACTION_HOVER_LEAVE = 3;
+    /** C2S: scrollOffset изменился (mouseButton = offset в px). */
+    public static final byte ACTION_SCROLL = 4;
 
     private final byte action;
     private final String widgetId;
@@ -56,6 +58,19 @@ public class SprauteUiActionPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player != null) {
+                if (msg.action == ACTION_CLOSE) {
+                    org.zonarstudio.spraute_engine.ui.UiTracker.markClosed(player.getUUID());
+                } else if (msg.action == ACTION_SCROLL) {
+                    org.zonarstudio.spraute_engine.ui.UiTracker.setScroll(
+                            player.getUUID(), msg.widgetId, msg.mouseButton);
+                } else if (msg.action == ACTION_CLICK && msg.widgetId != null && msg.widgetId.contains(":")) {
+                    int colon = msg.widgetId.indexOf(':');
+                    String inputId = msg.widgetId.substring(0, colon);
+                    String text = msg.widgetId.substring(colon + 1);
+                    if (!inputId.isEmpty() && !inputId.startsWith("input:")) {
+                        org.zonarstudio.spraute_engine.ui.UiTracker.setInput(player.getUUID(), inputId, text);
+                    }
+                }
                 org.zonarstudio.spraute_engine.script.ScriptManager.getInstance()
                         .onUiAction(player, msg.action, msg.widgetId, msg.mouseButton);
             }

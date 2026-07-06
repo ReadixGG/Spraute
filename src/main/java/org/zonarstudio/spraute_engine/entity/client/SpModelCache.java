@@ -5,7 +5,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
 import org.slf4j.Logger;
-import org.zonarstudio.spraute_engine.Spraute_engine;
+import org.zonarstudio.spraute_engine.util.SprauteResourcePath;
 import org.zonarstudio.spraute_engine.core.model.SpGeoModel;
 import org.zonarstudio.spraute_engine.core.parser.SpGeoParser;
 
@@ -45,7 +45,14 @@ public final class SpModelCache {
     }
 
     private static SpGeoModel loadModel(String modelPath) {
-        ResourceLocation loc = modelPath.contains(":") ? new ResourceLocation(modelPath) : new ResourceLocation(Spraute_engine.MODID, modelPath);
+        SprauteResourcePath.Result parsed = SprauteResourcePath.parse(modelPath, SprauteResourcePath.Kind.MODEL);
+        if (!parsed.ok()) {
+            LOGGER.warn("[Spraute Engine] Invalid model path '{}': {}", modelPath, parsed.invalidChars());
+            SprauteResourcePath.warnClientPlayerOnce("model:" + modelPath, parsed);
+            CACHE.put(modelPath, EMPTY);
+            return EMPTY;
+        }
+        ResourceLocation loc = parsed.location();
         try {
             Optional<Resource> res = Minecraft.getInstance().getResourceManager().getResource(loc);
             if (res.isPresent()) {

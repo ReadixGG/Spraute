@@ -35,9 +35,22 @@ public final class ItemStackScriptUtil {
     public static Player resolvePlayer(Object target, CommandSourceStack source) {
         if (target instanceof Player p) return p;
         if (target instanceof String name && source.getLevel() != null && source.getLevel().getServer() != null) {
-            return source.getLevel().getServer().getPlayerList().getPlayerByName(name);
+            String trimmed = name.trim();
+            if (isAnyPlayerKeyword(trimmed)) {
+                if (source.getEntity() instanceof Player p) return p;
+                var players = source.getLevel().getServer().getPlayerList().getPlayers();
+                return players.isEmpty() ? null : players.get(0);
+            }
+            return source.getLevel().getServer().getPlayerList().getPlayerByName(trimmed);
         }
         return null;
+    }
+
+    static boolean isAnyPlayerKeyword(String value) {
+        return "any".equalsIgnoreCase(value)
+                || "all".equalsIgnoreCase(value)
+                || "*".equals(value)
+                || "любой".equalsIgnoreCase(value);
     }
 
     /** Slots 0–40, or hand aliases: main/right/hand, offhand/left. */

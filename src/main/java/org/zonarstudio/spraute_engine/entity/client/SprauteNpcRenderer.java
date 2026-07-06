@@ -12,7 +12,7 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import org.slf4j.Logger;
-import org.zonarstudio.spraute_engine.Spraute_engine;
+import org.zonarstudio.spraute_engine.util.SprauteResourcePath;
 import org.zonarstudio.spraute_engine.core.math.SpVec3;
 import org.zonarstudio.spraute_engine.core.model.SpGeoModel;
 import org.zonarstudio.spraute_engine.core.model.SpModelInstance;
@@ -64,6 +64,9 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
         }
     }
 
+    private static final ResourceLocation FALLBACK_TEXTURE =
+            new ResourceLocation("minecraft", "textures/misc/unknown_pack.png");
+
     @Override
     public ResourceLocation getTextureLocation(SprauteNpcEntity entity) {
         String overlay = entity.getPlayerSkinOverlayUuid();
@@ -80,7 +83,13 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
             ResourceLocation skin = org.zonarstudio.spraute_engine.client.PlayerSkinTextures.resolveFromTextureKey(tex);
             if (skin != null) return skin;
         }
-        return tex.contains(":") ? new ResourceLocation(tex) : new ResourceLocation(Spraute_engine.MODID, tex);
+        if (tex == null || tex.isEmpty()) return FALLBACK_TEXTURE;
+        SprauteResourcePath.Result parsed = SprauteResourcePath.parse(tex, SprauteResourcePath.Kind.TEXTURE);
+        if (!parsed.ok()) {
+            SprauteResourcePath.warnClientPlayerOnce("tex:" + entity.getUUID(), parsed);
+            return FALLBACK_TEXTURE;
+        }
+        return parsed.location();
     }
 
     @Override
@@ -183,6 +192,13 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
                 LOGGER.error("[Spraute Engine] Failed to render NPC '{}': {}",
                         entity.getCustomName() != null ? entity.getCustomName().getString() : entity.getStringUUID(),
                         e.getMessage(), e);
+                String modelPath = entity.getModel();
+                if (modelPath != null && !modelPath.isEmpty()) {
+                    SprauteResourcePath.Result parsed = SprauteResourcePath.parse(modelPath, SprauteResourcePath.Kind.MODEL);
+                    if (!parsed.ok()) {
+                        SprauteResourcePath.warnClientPlayerOnce("render:" + entity.getUUID(), parsed);
+                    }
+                }
             }
         }
     }

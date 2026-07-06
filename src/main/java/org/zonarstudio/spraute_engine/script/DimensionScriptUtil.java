@@ -1,6 +1,8 @@
 package org.zonarstudio.spraute_engine.script;
 
 import org.zonarstudio.spraute_engine.registry.CustomWorldRegistry;
+import org.zonarstudio.spraute_engine.compat.SprauteEntityCompat;
+import org.zonarstudio.spraute_engine.util.SprauteResourcePath;
 
 /** Normalizes dimension ids from scripts ({@code overworld}, {@code lobby}, {@code minecraft:the_nether}). */
 public final class DimensionScriptUtil {
@@ -15,9 +17,13 @@ public final class DimensionScriptUtil {
             case "overworld" -> "minecraft:overworld";
             case "nether", "the_nether" -> "minecraft:the_nether";
             case "end", "the_end" -> "minecraft:the_end";
-            default -> CustomWorldRegistry.WORLDS.containsKey(s)
-                    ? CustomWorldRegistry.dimensionId(s)
-                    : "minecraft:" + s;
+            default -> {
+                String canon = SprauteResourcePath.canonicalSimpleId(s);
+                if (CustomWorldRegistry.hasWorld(canon)) {
+                    yield CustomWorldRegistry.dimensionId(canon);
+                }
+                yield "minecraft:" + canon;
+            }
         };
     }
 
@@ -29,5 +35,13 @@ public final class DimensionScriptUtil {
         if (e.equals(a)) return true;
         if (!expected.contains(":") && a.endsWith(":" + expected.trim())) return true;
         return normalizeDimensionId(expected).equals(normalizeDimensionId(actual));
+    }
+
+    /** Full dimension id for scripts, e.g. {@code minecraft:overworld} or {@code spraute_engine:lobby}. */
+    public static String getDimensionId(net.minecraft.world.entity.Entity entity) {
+        if (entity == null) return "";
+        net.minecraft.world.level.Level level = SprauteEntityCompat.level(entity);
+        if (level == null) return "";
+        return level.dimension().location().toString();
     }
 }

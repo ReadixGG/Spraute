@@ -1,0 +1,47 @@
+#\ block: teleport_player
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "телепорт" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "мир" [dim: dropdown(текущий: current, верхний мир: overworld, ад: nether, энд: end, свой: custom)]
+#\ if dim == "custom":
+#\   row: "id мира" (worldId: text: lobby)
+#\ row: "x" (x: number: 0) "y" (y: number: 64) "z" (z: number: 0)
+#\
+#\ if dim == "current" and who == "event":
+#\   template: teleportPlayer(_eventPlayer, {x}, {y}, {z})
+#\ if dim == "current" and who == "first":
+#\   template: teleportPlayer(getFirstPlayer(), {x}, {y}, {z})
+#\ if dim == "current" and who == "custom":
+#\   template: teleportPlayer({player}, {x}, {y}, {z})
+#\
+#\ if dim == "overworld" and who == "event":
+#\   template: teleportPlayer(_eventPlayer, "minecraft:overworld", {x}, {y}, {z})
+#\ if dim == "overworld" and who == "first":
+#\   template: teleportPlayer(getFirstPlayer(), "minecraft:overworld", {x}, {y}, {z})
+#\ if dim == "overworld" and who == "custom":
+#\   template: teleportPlayer({player}, "minecraft:overworld", {x}, {y}, {z})
+#\
+#\ if dim == "nether" and who == "event":
+#\   template: teleportPlayer(_eventPlayer, "minecraft:the_nether", {x}, {y}, {z})
+#\ if dim == "nether" and who == "first":
+#\   template: teleportPlayer(getFirstPlayer(), "minecraft:the_nether", {x}, {y}, {z})
+#\ if dim == "nether" and who == "custom":
+#\   template: teleportPlayer({player}, "minecraft:the_nether", {x}, {y}, {z})
+#\
+#\ if dim == "end" and who == "event":
+#\   template: teleportPlayer(_eventPlayer, "minecraft:the_end", {x}, {y}, {z})
+#\ if dim == "end" and who == "first":
+#\   template: teleportPlayer(getFirstPlayer(), "minecraft:the_end", {x}, {y}, {z})
+#\ if dim == "end" and who == "custom":
+#\   template: teleportPlayer({player}, "minecraft:the_end", {x}, {y}, {z})
+#\
+#\ if dim == "custom" and who == "event":
+#\   template: teleportPlayer(_eventPlayer, "{worldId}", {x}, {y}, {z})
+#\ if dim == "custom" and who == "first":
+#\   template: teleportPlayer(getFirstPlayer(), "{worldId}", {x}, {y}, {z})
+#\ if dim == "custom" and who == "custom":
+#\   template: teleportPlayer({player}, "{worldId}", {x}, {y}, {z})

@@ -305,10 +305,10 @@ public class ScriptLexer {
         if (value.equals("command")) {
             return new ScriptToken(ScriptToken.TokenType.COMMAND, value, line, start - lineStart);
         }
-        if (value.equals("true")) {
+        if (value.equalsIgnoreCase("true")) {
             return new ScriptToken(ScriptToken.TokenType.TRUE, value, line, start - lineStart);
         }
-        if (value.equals("false")) {
+        if (value.equalsIgnoreCase("false")) {
             return new ScriptToken(ScriptToken.TokenType.FALSE, value, line, start - lineStart);
         }
         if (value.equals("null")) {

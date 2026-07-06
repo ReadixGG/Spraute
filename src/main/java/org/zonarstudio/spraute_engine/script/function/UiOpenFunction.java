@@ -8,6 +8,7 @@ import net.minecraftforge.network.PacketDistributor;
 import org.slf4j.Logger;
 import org.zonarstudio.spraute_engine.network.ModNetwork;
 import org.zonarstudio.spraute_engine.network.OpenSprauteUiPacket;
+import org.zonarstudio.spraute_engine.script.ItemStackScriptUtil;
 import org.zonarstudio.spraute_engine.script.ScriptContext;
 import org.zonarstudio.spraute_engine.ui.SprauteUiJson;
 import org.zonarstudio.spraute_engine.ui.UiTemplate;
@@ -52,8 +53,29 @@ public class UiOpenFunction implements ScriptFunction {
         }
         try {
             String prepared = SprauteUiJson.prepareAndSerialize(source.getLevel(), source, json);
-            LOGGER.info("[Script] uiOpen sending to {}, json length={}", sp.getName().getString(), prepared.length());
-            ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> sp), new OpenSprauteUiPacket(prepared));
+            boolean isContainer = false;
+            try {
+                com.google.gson.JsonObject root = com.google.gson.JsonParser.parseString(prepared).getAsJsonObject();
+                isContainer = root.has("type") && "container".equals(root.get("type").getAsString());
+            } catch (Exception ignored) {}
+            if (isContainer) {
+                // UI со слотами открывается как контейнер-меню (иначе слоты не работают)
+                net.minecraftforge.network.NetworkHooks.openScreen(sp, new net.minecraft.world.MenuProvider() {
+                    @Override
+                    public net.minecraft.network.chat.Component getDisplayName() {
+                        return net.minecraft.network.chat.Component.empty();
+                    }
+
+                    @Override
+                    public net.minecraft.world.inventory.AbstractContainerMenu createMenu(int id, net.minecraft.world.entity.player.Inventory inv, Player p2) {
+                        return new org.zonarstudio.spraute_engine.ui.SprauteContainerMenu(id, inv, prepared);
+                    }
+                }, buf -> buf.writeUtf(prepared));
+            } else {
+                LOGGER.info("[Script] uiOpen sending to {}, json length={}", sp.getName().getString(), prepared.length());
+                ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> sp), new OpenSprauteUiPacket(prepared));
+                org.zonarstudio.spraute_engine.ui.UiTracker.markOpen(sp.getUUID());
+            }
             if (args.get(1) instanceof UiTemplate ut) {
                 context.notifyUiOpened(player, ut);
             }
@@ -64,10 +86,6 @@ public class UiOpenFunction implements ScriptFunction {
     }
 
     private static Player resolvePlayer(Object target, CommandSourceStack source) {
-        if (target instanceof Player p) return p;
-        if (target instanceof String name && source.getLevel() != null) {
-            return source.getLevel().getServer().getPlayerList().getPlayerByName(name);
-        }
-        return null;
+        return ItemStackScriptUtil.resolvePlayer(target, source);
     }
 }

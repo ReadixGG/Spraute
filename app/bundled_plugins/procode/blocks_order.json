@@ -80,6 +80,8 @@
     "get_player",
     "get_player_stmt",
     "get_players",
+    "player_list",
+    "players_any",
     "get_player_by",
     "get_nearest_player",
     "player_count",

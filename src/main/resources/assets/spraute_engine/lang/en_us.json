@@ -29,5 +29,14 @@
   "spraute_engine.debug.reload.1": "Reload all",
   "spraute_engine.debug.reload.2": "scripts",
   "spraute_engine.debug.start": "Start",
-  "spraute_engine.debug.stop": "Stop"
+  "spraute_engine.debug.stop": "Stop",
+  "spraute_engine.error.resource_kind.model": "model",
+  "spraute_engine.error.resource_kind.texture": "texture",
+  "spraute_engine.error.resource_kind.animation": "animation",
+  "spraute_engine.error.resource_kind.world": "world",
+  "spraute_engine.error.resource_kind.resource": "resource",
+  "spraute_engine.error.invalid_resource_path": "§c[Spraute]§r Invalid %s name: §f%s§r. Only lowercase letters (a-z), digits, and / . _ - are allowed. Invalid characters: §e%s",
+  "spraute_engine.error.invalid_world_id": "§c[Spraute]§r Invalid world id: §f%s§r. Use lowercase letters (a-z), digits, and _ only. Invalid characters: §e%s",
+  "spraute_engine.error.world_not_found": "§c[Spraute]§r World not found: §f%s§r. Check create world in scripts (id must be lowercase).",
+  "spraute_engine.error.dimension_not_loaded": "§c[Spraute]§r Dimension not loaded: §f%s"
 }

@@ -155,18 +155,25 @@ public class ScriptExecutor {
         }
     }
 
-    /** Р Р°Р·СЂРµС€РёС‚СЊ ServerLevel РїРѕ СЃС‚СЂРѕРєРµ РІРёРґР° "overworld" / "minecraft:the_nether" / "the_end". */
+    /** Разрешить ServerLevel по строке вида "overworld" / "minecraft:the_nether" / "the_end". */
     public static net.minecraft.server.level.ServerLevel resolveLevel(net.minecraft.server.MinecraftServer server, String dimId) {
         if (server == null || dimId == null || dimId.isBlank()) return null;
         String full = dimId.contains(":") ? dimId : "minecraft:" + dimId;
+        org.zonarstudio.spraute_engine.util.SprauteResourcePath.Result parsed =
+                org.zonarstudio.spraute_engine.util.SprauteResourcePath.parse(full,
+                        org.zonarstudio.spraute_engine.util.SprauteResourcePath.Kind.RESOURCE);
+        if (!parsed.ok()) {
+            LOGGER.warn("[Script] Invalid dimension id '{}': {}", dimId, parsed.invalidChars());
+            return null;
+        }
         //? if >=1.20.1 {
         net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> key =
             net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,
-                new net.minecraft.resources.ResourceLocation(full));
+                parsed.location());
         //?} else {
         /*net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> key =
             net.minecraft.resources.ResourceKey.create(net.minecraft.core.Registry.DIMENSION_REGISTRY,
-                new net.minecraft.resources.ResourceLocation(full));
+                parsed.location());
         *///?}
         return server.getLevel(key);
     }
@@ -544,12 +551,12 @@ public class ScriptExecutor {
         /** Max items to pick up (cap). -1 = no cap. */
         private int waitPickupMaxCount = -1;
         
-        private UUID waitOrbPickupPlayerUuid = null;
+        private PlayerFilter waitOrbPickupPlayers = null;
         private String waitOrbPickupTexture = null;
         private int waitOrbPickupTargetCount = 0;
         private int waitOrbPickupCurrentCount = 0;
 
-        private UUID waitTradePlayerUuid = null;
+        private PlayerFilter waitTradePlayers = null;
         private String waitTradeItemId = null;
 
         /** Target for MOVE_TO wait вЂ” completion is distance-based; navigation alone is unreliable (path null = isDone). */
@@ -559,12 +566,12 @@ public class ScriptExecutor {
         private double waitMoveSpeed = 1.0;
 
         // New waits: position, inventory, clickBlock, breakBlock, placeBlock, uiInput, chat
-        private UUID waitPositionPlayerUuid = null;
+        private PlayerFilter waitPositionPlayers = null;
         private double waitPositionX, waitPositionY, waitPositionZ, waitPositionRadius;
-        private UUID waitInventoryPlayerUuid = null;
+        private PlayerFilter waitInventoryPlayers = null;
         private String waitInventoryItemId = null;
         private int waitInventoryCount = 0;
-        private UUID waitBlockPlayerUuid = null;
+        private PlayerFilter waitBlockPlayers = null;
         private String waitBlockId = null;
         private net.minecraft.core.BlockPos waitBlockPos = null;
         private String waitBlockDim = null;
@@ -573,12 +580,12 @@ public class ScriptExecutor {
         private String uiInputText = "";
 
         // UI overlap
-        private UUID waitUiOverlapPlayerUuid = null;
+        private PlayerFilter waitUiOverlapPlayers = null;
         private String waitUiOverlapId1 = "";
         private String waitUiOverlapId2 = "";
         private boolean uiOverlapMet = false;
         
-        private UUID waitChatPlayerUuid = null;
+        private PlayerFilter waitChatPlayers = null;
         private List<String> waitChatMessages = null;
         private boolean waitChatIgnoreCase = true;
         private boolean waitChatIgnorePunct = true;
@@ -586,12 +593,12 @@ public class ScriptExecutor {
         private String chatMatchedMessage = "";
         
         // Player Action
-        private UUID waitPlayerActionPlayerUuid = null;
+        private PlayerFilter waitPlayerActionPlayers = null;
         private String waitPlayerActionType = "";
         private String waitPlayerActionTarget = null;
         private boolean playerActionMet = false;
 
-        private UUID waitDimensionPlayerUuid = null;
+        private PlayerFilter waitDimensionPlayers = null;
         private String waitDimensionId = null;
         private boolean dimensionEventMet = false;
 
@@ -617,7 +624,7 @@ public class ScriptExecutor {
         private final java.util.Stack<TryBlock> tryStack = new java.util.Stack<>();
         private String waitTaskId = null;
         /** {@link #onUiAction} */
-        private UUID waitUiPlayerUuid = null;
+        private PlayerFilter waitUiPlayers = null;
         private boolean uiClickMet = false;
         private String uiClickWidgetId = "";
         private boolean uiClickClosed = false;
@@ -988,7 +995,7 @@ public class ScriptExecutor {
                     if (uiClickMet && (waitType == WaitType.UI_CLICK || uiClickClosed)) {
                         waitType = WaitType.NONE;
                         uiClickMet = false;
-                        waitUiPlayerUuid = null;
+                        waitUiPlayers = null;
                         if (pendingVarName != null) {
                             variables.put(pendingVarName, uiClickWidgetId != null ? uiClickWidgetId : "");
                             variables.put("_eventMouseButton",
@@ -1012,7 +1019,7 @@ public class ScriptExecutor {
                     if (uiClickMet) {
                         waitType = WaitType.NONE;
                         uiClickMet = false;
-                        waitUiPlayerUuid = null;
+                        waitUiPlayers = null;
                         if (pendingVarName != null) {
                             variables.put(pendingVarName, uiInputText != null ? uiInputText : "");
                         }
@@ -1028,7 +1035,7 @@ public class ScriptExecutor {
                     if (chatEventMet) {
                         waitType = WaitType.NONE;
                         chatEventMet = false;
-                        waitChatPlayerUuid = null;
+                        waitChatPlayers = null;
                         if (pendingVarName != null) {
                             variables.put(pendingVarName, chatMatchedMessage);
                         }
@@ -1039,11 +1046,11 @@ public class ScriptExecutor {
                         return;
                     }
                 } else if (waitType == WaitType.POSITION) {
-                    if (waitPositionPlayerUuid != null && source.getLevel() != null) {
-                        net.minecraft.server.level.ServerPlayer sp = source.getLevel().getServer().getPlayerList().getPlayer(waitPositionPlayerUuid);
-                        if (sp != null && sp.distanceToSqr(waitPositionX, waitPositionY, waitPositionZ) <= waitPositionRadius * waitPositionRadius) {
+                    if (waitPositionPlayers != null && source.getLevel() != null) {
+                        net.minecraft.server.level.ServerPlayer sp = findOnlinePlayerAtPosition(waitPositionPlayers, waitPositionX, waitPositionY, waitPositionZ, waitPositionRadius);
+                        if (sp != null) {
                             waitType = WaitType.NONE;
-                            waitPositionPlayerUuid = null;
+                            waitPositionPlayers = null;
                             if (pendingVarName != null) {
                                 variables.put(pendingVarName, sp);
                             }
@@ -1055,13 +1062,13 @@ public class ScriptExecutor {
                         return;
                     }
                 } else if (waitType == WaitType.INVENTORY) {
-                    if (waitInventoryPlayerUuid != null && source.getLevel() != null) {
-                        net.minecraft.server.level.ServerPlayer sp = source.getLevel().getServer().getPlayerList().getPlayer(waitInventoryPlayerUuid);
+                    if (waitInventoryPlayers != null && source.getLevel() != null) {
+                        net.minecraft.server.level.ServerPlayer sp = findOnlinePlayerForFilter(waitInventoryPlayers);
                         if (sp != null) {
                             if (playerMeetsInventoryRequirement(sp, waitInventoryItemId, waitInventoryCount)) {
                                 applyInventoryEventVars(sp, waitInventoryItemId);
                                 waitType = WaitType.NONE;
-                                waitInventoryPlayerUuid = null;
+                                waitInventoryPlayers = null;
                                 if (pendingVarName != null) {
                                     variables.put(pendingVarName, sp);
                                 }
@@ -1080,7 +1087,7 @@ public class ScriptExecutor {
                     if (blockEventMet) {
                         waitType = WaitType.NONE;
                         blockEventMet = false;
-                        waitBlockPlayerUuid = null;
+                        waitBlockPlayers = null;
                         if (pendingVarName != null && asyncResult != null) {
                             variables.put(pendingVarName, asyncResult);
                         }
@@ -1093,7 +1100,7 @@ public class ScriptExecutor {
                     if (playerActionMet) {
                         waitType = WaitType.NONE;
                         playerActionMet = false;
-                        waitPlayerActionPlayerUuid = null;
+                        waitPlayerActionPlayers = null;
                         waitPlayerActionType = null;
                         waitPlayerActionTarget = null;
                         if (pendingVarName != null && asyncResult != null) {
@@ -1108,7 +1115,7 @@ public class ScriptExecutor {
                     if (dimensionEventMet) {
                         waitType = WaitType.NONE;
                         dimensionEventMet = false;
-                        waitDimensionPlayerUuid = null;
+                        waitDimensionPlayers = null;
                         waitDimensionId = null;
                     } else {
                         return;
@@ -1398,7 +1405,7 @@ public class ScriptExecutor {
                 } else if (task.waitType == WaitType.UI_CLICK || task.waitType == WaitType.UI_CLOSE) {
                     if (task.uiClickMet && (task.waitType == WaitType.UI_CLICK || task.uiClickClosed)) {
                         task.waitType = WaitType.NONE;
-                        task.waitUiPlayerUuid = null;
+                        task.waitUiPlayers = null;
                         if (task.pendingUiClickVarName != null) {
                             putVariable(task.pendingUiClickVarName, task.uiClickWidgetId != null ? task.uiClickWidgetId : "");
                             putVariable("_eventMouseButton",
@@ -1422,7 +1429,7 @@ public class ScriptExecutor {
                 } else if (task.waitType == WaitType.UI_INPUT) {
                     if (task.uiClickMet) {
                         task.waitType = WaitType.NONE;
-                        task.waitUiPlayerUuid = null;
+                        task.waitUiPlayers = null;
                         if (task.pendingUiClickVarName != null) {
                             putVariable(task.pendingUiClickVarName, task.uiInputText != null ? task.uiInputText : "");
                         }
@@ -1439,7 +1446,7 @@ public class ScriptExecutor {
                 } else if (task.waitType == WaitType.CHAT) {
                     if (task.chatEventMet) {
                         task.waitType = WaitType.NONE;
-                        task.waitChatPlayerUuid = null;
+                        task.waitChatPlayers = null;
                         if (task.pendingUiClickVarName != null) {
                             putVariable(task.pendingUiClickVarName, task.chatMatchedMessage);
                         }
@@ -1452,11 +1459,11 @@ public class ScriptExecutor {
                         continue;
                     }
                 } else if (task.waitType == WaitType.POSITION) {
-                    if (task.waitPositionPlayerUuid != null && source.getLevel() != null) {
-                        net.minecraft.server.level.ServerPlayer sp = source.getLevel().getServer().getPlayerList().getPlayer(task.waitPositionPlayerUuid);
-                        if (sp != null && sp.distanceToSqr(task.waitPositionX, task.waitPositionY, task.waitPositionZ) <= task.waitPositionRadius * task.waitPositionRadius) {
+                    if (task.waitPositionPlayers != null && source.getLevel() != null) {
+                        net.minecraft.server.level.ServerPlayer sp = findOnlinePlayerAtPosition(task.waitPositionPlayers, task.waitPositionX, task.waitPositionY, task.waitPositionZ, task.waitPositionRadius);
+                        if (sp != null) {
                             task.waitType = WaitType.NONE;
-                            task.waitPositionPlayerUuid = null;
+                            task.waitPositionPlayers = null;
                             if (task.pendingUiClickVarName != null) {
                                 putVariable(task.pendingUiClickVarName, sp);
                             }
@@ -1469,13 +1476,13 @@ public class ScriptExecutor {
                         continue;
                     }
                 } else if (task.waitType == WaitType.INVENTORY) {
-                    if (task.waitInventoryPlayerUuid != null && source.getLevel() != null) {
-                        net.minecraft.server.level.ServerPlayer sp = source.getLevel().getServer().getPlayerList().getPlayer(task.waitInventoryPlayerUuid);
+                    if (task.waitInventoryPlayers != null && source.getLevel() != null) {
+                        net.minecraft.server.level.ServerPlayer sp = findOnlinePlayerForFilter(task.waitInventoryPlayers);
                         if (sp != null) {
                             if (playerMeetsInventoryRequirement(sp, task.waitInventoryItemId, task.waitInventoryCount)) {
                                 applyInventoryEventVars(sp, task.waitInventoryItemId);
                                 task.waitType = WaitType.NONE;
-                                task.waitInventoryPlayerUuid = null;
+                                task.waitInventoryPlayers = null;
                                 if (task.pendingUiClickVarName != null) {
                                     putVariable(task.pendingUiClickVarName, sp);
                                 }
@@ -1495,7 +1502,7 @@ public class ScriptExecutor {
                     if (task.blockEventMet) {
                         task.waitType = WaitType.NONE;
                         task.blockEventMet = false;
-                        task.waitBlockPlayerUuid = null;
+                        task.waitBlockPlayers = null;
                         if (task.pendingUiClickVarName != null && asyncResult != null) {
                             putVariable(task.pendingUiClickVarName, asyncResult);
                         }
@@ -1509,7 +1516,7 @@ public class ScriptExecutor {
                     if (task.playerActionMet) {
                         task.waitType = WaitType.NONE;
                         task.playerActionMet = false;
-                        task.waitPlayerActionPlayerUuid = null;
+                        task.waitPlayerActionPlayers = null;
                         task.waitPlayerActionType = null;
                         task.waitPlayerActionTarget = null;
                         if (task.pendingUiClickVarName != null && asyncResult != null) {
@@ -1525,7 +1532,7 @@ public class ScriptExecutor {
                     if (task.dimensionEventMet) {
                         task.waitType = WaitType.NONE;
                         task.dimensionEventMet = false;
-                        task.waitDimensionPlayerUuid = null;
+                        task.waitDimensionPlayers = null;
                         task.waitDimensionId = null;
                         task.ip++;
                     } else {
@@ -1666,7 +1673,7 @@ public class ScriptExecutor {
                 } else if (task.waitType == WaitType.UI_OVERLAP) {
                     if (task.uiOverlapMet) {
                         task.waitType = WaitType.NONE;
-                        task.waitUiOverlapPlayerUuid = null;
+                        task.waitUiOverlapPlayers = null;
                         task.waitUiOverlapId1 = "";
                         task.waitUiOverlapId2 = "";
                         task.uiOverlapMet = false;
@@ -1788,9 +1795,10 @@ public class ScriptExecutor {
                 return true;
             } else if (fn.equals("orbPickup") || fn.equals("orb_pickup")) {
                 if (call.getArgs().size() < 2) return false;
-                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                if (sp != null) {
-                    task.waitOrbPickupPlayerUuid = sp.getUUID();
+                Object playerArg = evaluateExpression(call.getArgs().get(0));
+                PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                if (playerFilter != null) {
+                    task.waitOrbPickupPlayers = playerFilter;
                     task.waitOrbPickupTargetCount = ((Number) evaluateExpression(call.getArgs().get(1))).intValue();
                     task.waitOrbPickupTexture = call.getArgs().size() >= 3 && call.getArgs().get(2) != null
                             ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
@@ -1801,9 +1809,10 @@ public class ScriptExecutor {
                 }
             } else if (fn.equals("tradeBuy") || fn.equals("trade_buy")) {
                 if (call.getArgs().isEmpty()) return false;
-                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                if (sp != null) {
-                    task.waitTradePlayerUuid = sp.getUUID();
+                Object playerArg = evaluateExpression(call.getArgs().get(0));
+                PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                if (playerFilter != null) {
+                    task.waitTradePlayers = playerFilter;
                     task.waitTradeItemId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
                             ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
                     task.waitType = WaitType.TRADE_BUY;
@@ -1812,9 +1821,10 @@ public class ScriptExecutor {
                 }
             } else if (fn.equals("tradeSell") || fn.equals("trade_sell")) {
                 if (call.getArgs().isEmpty()) return false;
-                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                if (sp != null) {
-                    task.waitTradePlayerUuid = sp.getUUID();
+                Object playerArg = evaluateExpression(call.getArgs().get(0));
+                PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                if (playerFilter != null) {
+                    task.waitTradePlayers = playerFilter;
                     task.waitTradeItemId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
                             ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
                     task.waitType = WaitType.TRADE_SELL;
@@ -1823,27 +1833,30 @@ public class ScriptExecutor {
                 }
             } else if (fn.equals("uiClick") || fn.equals("uiclick")) {
                 if (call.getArgs().isEmpty()) return false;
-                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                if (sp != null) {
-                    task.waitUiPlayerUuid = sp.getUUID();
+                Object playerArg = evaluateExpression(call.getArgs().get(0));
+                PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                if (playerFilter != null) {
+                    task.waitUiPlayers = playerFilter;
                     task.waitType = WaitType.UI_CLICK;
                     task.pendingUiClickVarName = varName;
                     return true;
                 }
             } else if (fn.equals("uiClose") || fn.equals("uiclose")) {
                 if (call.getArgs().isEmpty()) return false;
-                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                if (sp != null) {
-                    task.waitUiPlayerUuid = sp.getUUID();
+                Object playerArg = evaluateExpression(call.getArgs().get(0));
+                PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                if (playerFilter != null) {
+                    task.waitUiPlayers = playerFilter;
                     task.waitType = WaitType.UI_CLOSE;
                     task.pendingUiClickVarName = varName;
                     return true;
                 }
             } else if (fn.equals("uiInput")) {
                 if (call.getArgs().isEmpty()) return false;
-                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                if (sp != null) {
-                    task.waitUiPlayerUuid = sp.getUUID();
+                Object playerArg = evaluateExpression(call.getArgs().get(0));
+                PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                if (playerFilter != null) {
+                    task.waitUiPlayers = playerFilter;
                     task.uiInputWidgetId = call.getArgs().size() > 1 ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
                     task.waitType = WaitType.UI_INPUT;
                     task.pendingUiClickVarName = varName;
@@ -1851,9 +1864,10 @@ public class ScriptExecutor {
                 }
             } else if (fn.equals("position")) {
                 if (call.getArgs().size() < 4) return false;
-                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                if (sp != null) {
-                    task.waitPositionPlayerUuid = sp.getUUID();
+                Object playerArg = evaluateExpression(call.getArgs().get(0));
+                PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                if (playerFilter != null) {
+                    task.waitPositionPlayers = playerFilter;
                     task.waitPositionX = ((Number) evaluateExpression(call.getArgs().get(1))).doubleValue();
                     task.waitPositionY = ((Number) evaluateExpression(call.getArgs().get(2))).doubleValue();
                     task.waitPositionZ = ((Number) evaluateExpression(call.getArgs().get(3))).doubleValue();
@@ -1864,9 +1878,10 @@ public class ScriptExecutor {
                 }
             } else if (fn.equals("inventory") || fn.equals("hasItem")) {
                 if (call.getArgs().size() < 2) return false;
-                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                if (sp != null) {
-                    task.waitInventoryPlayerUuid = sp.getUUID();
+                Object playerArg = evaluateExpression(call.getArgs().get(0));
+                PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                if (playerFilter != null) {
+                    task.waitInventoryPlayers = playerFilter;
                     task.waitInventoryItemId = String.valueOf(evaluateExpression(call.getArgs().get(1)));
                     task.waitInventoryCount = call.getArgs().size() > 2 ? ((Number) evaluateExpression(call.getArgs().get(2))).intValue() : 0;
                     task.waitType = WaitType.INVENTORY;
@@ -1876,9 +1891,10 @@ public class ScriptExecutor {
             } else if (fn.equals("clickBlock") || fn.equals("breakBlock") || fn.equals("placeBlock")
                     || fn.equals("openChest") || fn.equals("openDoor")) {
                 if (call.getArgs().isEmpty()) return false;
-                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                if (sp != null) {
-                    task.waitBlockPlayerUuid = sp.getUUID();
+                Object playerArg = evaluateExpression(call.getArgs().get(0));
+                PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                if (playerFilter != null) {
+                    task.waitBlockPlayers = playerFilter;
                     task.waitBlockId = null;
                     task.waitBlockPos = null;
                     if (call.getArgs().size() == 2) {
@@ -1901,9 +1917,10 @@ public class ScriptExecutor {
                 }
             } else if (fn.equals("jump")) {
                 if (call.getArgs().isEmpty()) return false;
-                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                if (sp != null) {
-                    task.waitPlayerActionPlayerUuid = sp.getUUID();
+                Object playerArg = evaluateExpression(call.getArgs().get(0));
+                PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                if (playerFilter != null) {
+                    task.waitPlayerActionPlayers = playerFilter;
                     task.waitPlayerActionType = "jump";
                     task.waitPlayerActionTarget = null;
                     task.playerActionMet = false;
@@ -1913,9 +1930,10 @@ public class ScriptExecutor {
                 }
             } else if (fn.equals("action") || fn.equals("playerAction")) {
                 if (call.getArgs().size() < 2) return false;
-                net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                if (sp != null) {
-                    task.waitPlayerActionPlayerUuid = sp.getUUID();
+                Object playerArg = evaluateExpression(call.getArgs().get(0));
+                PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                if (playerFilter != null) {
+                    task.waitPlayerActionPlayers = playerFilter;
                     task.waitPlayerActionType = String.valueOf(evaluateExpression(call.getArgs().get(1)));
                     task.waitPlayerActionTarget = call.getArgs().size() > 2 && call.getArgs().get(2) != null
                             ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
@@ -2018,9 +2036,10 @@ public class ScriptExecutor {
                 }
                 case AWAIT_UI_CLICK -> {
                     ScriptNode pNode = (ScriptNode) instr.getArg(0);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        task.waitUiPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        task.waitUiPlayers = playerFilter;
                         task.waitType = WaitType.UI_CLICK;
                         return true;
                     }
@@ -2028,9 +2047,10 @@ public class ScriptExecutor {
                 }
                 case AWAIT_UI_CLOSE -> {
                     ScriptNode pNode = (ScriptNode) instr.getArg(0);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        task.waitUiPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        task.waitUiPlayers = playerFilter;
                         task.waitType = WaitType.UI_CLOSE;
                         return true;
                     }
@@ -2038,9 +2058,10 @@ public class ScriptExecutor {
                 case AWAIT_UI_INPUT -> {
                     ScriptNode pNode = (ScriptNode) instr.getArg(0);
                     ScriptNode wNode = (ScriptNode) instr.getArg(1);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        task.waitUiPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        task.waitUiPlayers = playerFilter;
                         task.uiInputWidgetId = wNode != null ? String.valueOf(evaluateExpression(wNode)) : null;
                         task.waitType = WaitType.UI_INPUT;
                         return true;
@@ -2049,9 +2070,10 @@ public class ScriptExecutor {
                 case AWAIT_TRADE_BUY -> {
                     ScriptNode pNode = (ScriptNode) instr.getArg(0);
                     ScriptNode itemNode = instr.getArgCount() >= 2 && instr.getArg(1) != null ? (ScriptNode) instr.getArg(1) : null;
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        task.waitTradePlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        task.waitTradePlayers = playerFilter;
                         task.waitTradeItemId = itemNode != null ? String.valueOf(evaluateExpression(itemNode)) : null;
                         task.waitType = WaitType.TRADE_BUY;
                         return true;
@@ -2060,9 +2082,10 @@ public class ScriptExecutor {
                 case AWAIT_TRADE_SELL -> {
                     ScriptNode pNode = (ScriptNode) instr.getArg(0);
                     ScriptNode itemNode = instr.getArgCount() >= 2 && instr.getArg(1) != null ? (ScriptNode) instr.getArg(1) : null;
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        task.waitTradePlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        task.waitTradePlayers = playerFilter;
                         task.waitTradeItemId = itemNode != null ? String.valueOf(evaluateExpression(itemNode)) : null;
                         task.waitType = WaitType.TRADE_SELL;
                         return true;
@@ -2070,9 +2093,10 @@ public class ScriptExecutor {
                 }
                 case AWAIT_POSITION -> {
                     ScriptNode pNode = (ScriptNode) instr.getArg(0);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        task.waitPositionPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        task.waitPositionPlayers = playerFilter;
                         task.waitPositionX = ((Number) evaluateExpression((ScriptNode) instr.getArg(1))).doubleValue();
                         task.waitPositionY = ((Number) evaluateExpression((ScriptNode) instr.getArg(2))).doubleValue();
                         task.waitPositionZ = ((Number) evaluateExpression((ScriptNode) instr.getArg(3))).doubleValue();
@@ -2083,9 +2107,10 @@ public class ScriptExecutor {
                 }
                 case AWAIT_INVENTORY -> {
                     ScriptNode pNode = (ScriptNode) instr.getArg(0);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        task.waitInventoryPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        task.waitInventoryPlayers = playerFilter;
                         task.waitInventoryItemId = String.valueOf(evaluateExpression((ScriptNode) instr.getArg(1)));
                         task.waitInventoryCount = instr.getArg(2) != null ? ((Number) evaluateExpression((ScriptNode) instr.getArg(2))).intValue() : 0;
                         task.waitType = WaitType.INVENTORY;
@@ -2094,9 +2119,10 @@ public class ScriptExecutor {
                 }
                 case AWAIT_CLICK_BLOCK, AWAIT_BREAK_BLOCK, AWAIT_PLACE_BLOCK, AWAIT_OPEN_CHEST, AWAIT_OPEN_DOOR -> {
                     List<ScriptNode> args = (List<ScriptNode>) instr.getArg(0);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(args.get(0)));
-                    if (sp != null) {
-                        task.waitBlockPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(args.get(0));
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        task.waitBlockPlayers = playerFilter;
                         task.waitBlockId = null;
                         task.waitBlockPos = null;
                         if (args.size() == 2) {
@@ -2121,9 +2147,10 @@ public class ScriptExecutor {
                 }
                 case AWAIT_CHAT -> {
                     List<ScriptNode> args = (List<ScriptNode>) instr.getArg(0);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(args.get(0)));
-                    if (sp != null) {
-                        task.waitChatPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(args.get(0));
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        task.waitChatPlayers = playerFilter;
                         
                         Object msgs = evaluateExpression(args.get(1));
                         task.waitChatMessages = new ArrayList<>();
@@ -2146,9 +2173,10 @@ public class ScriptExecutor {
                     ScriptNode pNode = (ScriptNode) instr.getArg(0);
                     ScriptNode actionNode = (ScriptNode) instr.getArg(1);
                     ScriptNode targetNode = instr.getArgCount() >= 3 ? (ScriptNode) instr.getArg(2) : null;
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        task.waitPlayerActionPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        task.waitPlayerActionPlayers = playerFilter;
                         task.waitPlayerActionType = String.valueOf(evaluateExpression(actionNode));
                         task.waitPlayerActionTarget = targetNode != null ? String.valueOf(evaluateExpression(targetNode)) : null;
                         task.playerActionMet = false;
@@ -2159,9 +2187,10 @@ public class ScriptExecutor {
                 case AWAIT_DIMENSION -> {
                     ScriptNode pNode = (ScriptNode) instr.getArg(0);
                     ScriptNode dimNode = (ScriptNode) instr.getArg(1);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        task.waitDimensionPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        task.waitDimensionPlayers = playerFilter;
                         task.waitDimensionId = String.valueOf(evaluateExpression(dimNode));
                         task.dimensionEventMet = false;
                         task.waitType = WaitType.DIMENSION;
@@ -2231,9 +2260,10 @@ public class ScriptExecutor {
                     return true;
                 }
                 case AWAIT_ORB_PICKUP -> {
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression((ScriptNode) instr.getArg(0)));
-                    if (sp != null) {
-                        task.waitOrbPickupPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression((ScriptNode) instr.getArg(0));
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        task.waitOrbPickupPlayers = playerFilter;
                         task.waitOrbPickupTargetCount = ((Number) evaluateExpression((ScriptNode) instr.getArg(1))).intValue();
                         ScriptNode texNode = instr.getArgCount() >= 3 && instr.getArg(2) != null ? (ScriptNode) instr.getArg(2) : null;
                         task.waitOrbPickupTexture = texNode != null ? String.valueOf(evaluateExpression(texNode)) : null;
@@ -2248,17 +2278,21 @@ public class ScriptExecutor {
                     return true;
                 }
                 case AWAIT_UI_TOUCH -> {
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression((ScriptNode) instr.getArg(0)));
-                    if (sp != null) {
-                        task.waitUiOverlapPlayerUuid = sp.getUUID();
-                        task.waitUiOverlapId1 = String.valueOf(evaluateExpression((ScriptNode) instr.getArg(1)));
-                        task.waitUiOverlapId2 = String.valueOf(evaluateExpression((ScriptNode) instr.getArg(2)));
-                        task.uiOverlapMet = false;
-                        org.zonarstudio.spraute_engine.network.ModNetwork.CHANNEL.send(
-                                net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sp),
-                                new org.zonarstudio.spraute_engine.network.SprauteUiMonitorOverlapPacket(task.waitUiOverlapId1, task.waitUiOverlapId2, true));
-                        task.waitType = WaitType.UI_OVERLAP;
-                        return true;
+                    Object playerArg = evaluateExpression((ScriptNode) instr.getArg(0));
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        task.waitUiOverlapPlayers = playerFilter;
+                        net.minecraft.server.level.ServerPlayer sp = findOnlinePlayerForFilter(playerFilter);
+                        if (sp != null) {
+                            task.waitUiOverlapId1 = String.valueOf(evaluateExpression((ScriptNode) instr.getArg(1)));
+                            task.waitUiOverlapId2 = String.valueOf(evaluateExpression((ScriptNode) instr.getArg(2)));
+                            task.uiOverlapMet = false;
+                            org.zonarstudio.spraute_engine.network.ModNetwork.CHANNEL.send(
+                                    net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sp),
+                                    new org.zonarstudio.spraute_engine.network.SprauteUiMonitorOverlapPacket(task.waitUiOverlapId1, task.waitUiOverlapId2, true));
+                            task.waitType = WaitType.UI_OVERLAP;
+                            return true;
+                        }
                     }
                 }
                 case RETURN -> {
@@ -2390,14 +2424,14 @@ public class ScriptExecutor {
         }
 
         public void onPlayerDimensionChange(net.minecraft.server.level.ServerPlayer player, String fromDimension, String toDimension) {
-            if (waitType == WaitType.DIMENSION && waitDimensionPlayerUuid != null
-                    && waitDimensionPlayerUuid.equals(player.getUUID())
+            if (waitType == WaitType.DIMENSION && waitDimensionPlayers != null
+                    && waitDimensionPlayers.matches(player.getUUID())
                     && DimensionScriptUtil.matchesDimension(waitDimensionId, toDimension)) {
                 dimensionEventMet = true;
             }
             for (AsyncTask task : asyncTasks.values()) {
-                if (task.waitType == WaitType.DIMENSION && task.waitDimensionPlayerUuid != null
-                        && task.waitDimensionPlayerUuid.equals(player.getUUID())
+                if (task.waitType == WaitType.DIMENSION && task.waitDimensionPlayers != null
+                        && task.waitDimensionPlayers.matches(player.getUUID())
                         && DimensionScriptUtil.matchesDimension(task.waitDimensionId, toDimension)) {
                     task.dimensionEventMet = true;
                 }
@@ -2550,7 +2584,7 @@ public class ScriptExecutor {
             if (!overlapping) return; // For now, only trigger when they start touching
 
             // Handle main script await
-            if (waitType == WaitType.UI_OVERLAP && waitUiOverlapPlayerUuid != null && waitUiOverlapPlayerUuid.equals(player.getUUID())) {
+            if (waitType == WaitType.UI_OVERLAP && waitUiOverlapPlayers != null && waitUiOverlapPlayers.matches(player.getUUID())) {
                 if ((waitUiOverlapId1.equals(id1) && waitUiOverlapId2.equals(id2)) ||
                     (waitUiOverlapId1.equals(id2) && waitUiOverlapId2.equals(id1))) {
                     uiOverlapMet = true;
@@ -2563,7 +2597,7 @@ public class ScriptExecutor {
 
             // Handle async tasks await
             for (AsyncTask t : asyncTasks.values()) {
-                if (t.waitType == WaitType.UI_OVERLAP && t.waitUiOverlapPlayerUuid != null && t.waitUiOverlapPlayerUuid.equals(player.getUUID())) {
+                if (t.waitType == WaitType.UI_OVERLAP && t.waitUiOverlapPlayers != null && t.waitUiOverlapPlayers.matches(player.getUUID())) {
                     if ((t.waitUiOverlapId1.equals(id1) && t.waitUiOverlapId2.equals(id2)) ||
                         (t.waitUiOverlapId1.equals(id2) && t.waitUiOverlapId2.equals(id1))) {
                         t.uiOverlapMet = true;
@@ -2583,7 +2617,7 @@ public class ScriptExecutor {
 
                 if (handler.eventArgs.size() >= 3) {
                     net.minecraft.world.entity.Entity targetPlayer = resolveEntity(handler.eventArgs.get(0));
-                    if (targetPlayer == null || !player.getUUID().equals(targetPlayer.getUUID())) continue;
+                    if (!matchesEventPlayerArg(handler.eventArgs.get(0), player.getUUID())) continue;
 
                     String expId1 = String.valueOf(handler.eventArgs.get(1));
                     String expId2 = String.valueOf(handler.eventArgs.get(2));
@@ -2620,7 +2654,7 @@ public class ScriptExecutor {
             boolean isHoverLeave = action == org.zonarstudio.spraute_engine.network.SprauteUiActionPacket.ACTION_HOVER_LEAVE;
 
             if (isClick || closed) {
-                if ((waitType == WaitType.UI_CLICK || waitType == WaitType.UI_CLOSE) && waitUiPlayerUuid != null && waitUiPlayerUuid.equals(player.getUUID())) {
+                if ((waitType == WaitType.UI_CLICK || waitType == WaitType.UI_CLOSE) && waitUiPlayers != null && waitUiPlayers.matches(player.getUUID())) {
                     if (waitType == WaitType.UI_CLICK && (wid.contains(":") || !isClick)) return;
                     if (waitType == WaitType.UI_CLOSE && !closed) return;
                     uiClickMet = true;
@@ -2628,7 +2662,7 @@ public class ScriptExecutor {
                     uiClickClosed = closed;
                     uiClickMouseButton = mouseButton;
                 }
-                if (waitType == WaitType.UI_INPUT && isClick && waitUiPlayerUuid != null && waitUiPlayerUuid.equals(player.getUUID())) {
+                if (waitType == WaitType.UI_INPUT && isClick && waitUiPlayers != null && waitUiPlayers.matches(player.getUUID())) {
                     if (wid.startsWith("input:") && (uiInputWidgetId == null || wid.equals("input:" + uiInputWidgetId))) {
                         uiClickMet = true;
                         uiInputText = wid.substring(wid.indexOf(":", 6) + 1);
@@ -2636,7 +2670,7 @@ public class ScriptExecutor {
                 }
 
                 for (AsyncTask t : asyncTasks.values()) {
-                    if ((t.waitType == WaitType.UI_CLICK || t.waitType == WaitType.UI_CLOSE) && t.waitUiPlayerUuid != null && t.waitUiPlayerUuid.equals(player.getUUID())) {
+                    if ((t.waitType == WaitType.UI_CLICK || t.waitType == WaitType.UI_CLOSE) && t.waitUiPlayers != null && t.waitUiPlayers.equals(player.getUUID())) {
                         if (t.waitType == WaitType.UI_CLICK && (wid.contains(":") || !isClick)) continue;
                         if (t.waitType == WaitType.UI_CLOSE && !closed) continue;
                         t.uiClickMet = true;
@@ -2644,7 +2678,7 @@ public class ScriptExecutor {
                         t.uiClickClosed = closed;
                         t.uiClickMouseButton = mouseButton;
                     }
-                    if (t.waitType == WaitType.UI_INPUT && isClick && t.waitUiPlayerUuid != null && t.waitUiPlayerUuid.equals(player.getUUID())) {
+                    if (t.waitType == WaitType.UI_INPUT && isClick && t.waitUiPlayers != null && t.waitUiPlayers.equals(player.getUUID())) {
                         if (wid.startsWith("input:") && (t.uiInputWidgetId == null || wid.equals("input:" + t.uiInputWidgetId))) {
                             t.uiClickMet = true;
                             t.uiInputText = wid.substring(wid.indexOf(":", 6) + 1);
@@ -2671,7 +2705,7 @@ public class ScriptExecutor {
 
                 if (!handler.eventArgs.isEmpty()) {
                     net.minecraft.world.entity.Entity targetPlayer = resolveEntity(handler.eventArgs.get(0));
-                    if (targetPlayer == null || !player.getUUID().equals(targetPlayer.getUUID())) continue;
+                    if (!matchesEventPlayerArg(handler.eventArgs.get(0), player.getUUID())) continue;
                 }
 
                 if (isUiInput && handler.eventArgs.size() > 1) {
@@ -2768,7 +2802,7 @@ public class ScriptExecutor {
         }
         public void onClickBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, boolean isLeft, String dimId) {
             String blockStr = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(block).toString();
-            if (waitType == WaitType.CLICK_BLOCK && waitBlockPlayerUuid != null && waitBlockPlayerUuid.equals(player.getUUID())) {
+            if (waitType == WaitType.CLICK_BLOCK && waitBlockPlayers != null && waitBlockPlayers.matches(player.getUUID())) {
                 boolean idMatch = waitBlockId == null || waitBlockId.equals(blockStr) || waitBlockId.equals(blockStr.replace("minecraft:", ""));
                 boolean posMatch = waitBlockPos == null || waitBlockPos.equals(pos);
                 boolean dimMatch = dimMatches(waitBlockDim, dimId);
@@ -2778,7 +2812,7 @@ public class ScriptExecutor {
                 }
             }
             for (AsyncTask task : asyncTasks.values()) {
-                if (task.waitType == WaitType.CLICK_BLOCK && task.waitBlockPlayerUuid != null && task.waitBlockPlayerUuid.equals(player.getUUID())) {
+                if (task.waitType == WaitType.CLICK_BLOCK && task.waitBlockPlayers != null && task.waitBlockPlayers.matches(player.getUUID())) {
                     boolean idMatch = task.waitBlockId == null || task.waitBlockId.equals(blockStr) || task.waitBlockId.equals(blockStr.replace("minecraft:", ""));
                     boolean posMatch = task.waitBlockPos == null || task.waitBlockPos.equals(pos);
                     boolean dimMatch = dimMatches(task.waitBlockDim, dimId);
@@ -2796,7 +2830,7 @@ public class ScriptExecutor {
         }
         public boolean onBreakBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, String dimId) {
             String blockStr = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(block).toString();
-            if (waitType == WaitType.BREAK_BLOCK && waitBlockPlayerUuid != null && waitBlockPlayerUuid.equals(player.getUUID())) {
+            if (waitType == WaitType.BREAK_BLOCK && waitBlockPlayers != null && waitBlockPlayers.matches(player.getUUID())) {
                 boolean idMatch = waitBlockId == null || waitBlockId.equals(blockStr) || waitBlockId.equals(blockStr.replace("minecraft:", ""));
                 boolean posMatch = waitBlockPos == null || waitBlockPos.equals(pos);
                 boolean dimMatch = dimMatches(waitBlockDim, dimId);
@@ -2806,7 +2840,7 @@ public class ScriptExecutor {
                 }
             }
             for (AsyncTask task : asyncTasks.values()) {
-                if (task.waitType == WaitType.BREAK_BLOCK && task.waitBlockPlayerUuid != null && task.waitBlockPlayerUuid.equals(player.getUUID())) {
+                if (task.waitType == WaitType.BREAK_BLOCK && task.waitBlockPlayers != null && task.waitBlockPlayers.matches(player.getUUID())) {
                     boolean idMatch = task.waitBlockId == null || task.waitBlockId.equals(blockStr) || task.waitBlockId.equals(blockStr.replace("minecraft:", ""));
                     boolean posMatch = task.waitBlockPos == null || task.waitBlockPos.equals(pos);
                     boolean dimMatch = dimMatches(task.waitBlockDim, dimId);
@@ -2824,7 +2858,7 @@ public class ScriptExecutor {
         }
         public boolean onPlaceBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, String dimId) {
             String blockStr = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(block).toString();
-            if (waitType == WaitType.PLACE_BLOCK && waitBlockPlayerUuid != null && waitBlockPlayerUuid.equals(player.getUUID())) {
+            if (waitType == WaitType.PLACE_BLOCK && waitBlockPlayers != null && waitBlockPlayers.matches(player.getUUID())) {
                 boolean idMatch = waitBlockId == null || waitBlockId.equals(blockStr) || waitBlockId.equals(blockStr.replace("minecraft:", ""));
                 boolean posMatch = waitBlockPos == null || waitBlockPos.equals(pos);
                 boolean dimMatch = dimMatches(waitBlockDim, dimId);
@@ -2834,7 +2868,7 @@ public class ScriptExecutor {
                 }
             }
             for (AsyncTask task : asyncTasks.values()) {
-                if (task.waitType == WaitType.PLACE_BLOCK && task.waitBlockPlayerUuid != null && task.waitBlockPlayerUuid.equals(player.getUUID())) {
+                if (task.waitType == WaitType.PLACE_BLOCK && task.waitBlockPlayers != null && task.waitBlockPlayers.matches(player.getUUID())) {
                     boolean idMatch = task.waitBlockId == null || task.waitBlockId.equals(blockStr) || task.waitBlockId.equals(blockStr.replace("minecraft:", ""));
                     boolean posMatch = task.waitBlockPos == null || task.waitBlockPos.equals(pos);
                     boolean dimMatch = dimMatches(task.waitBlockDim, dimId);
@@ -2853,14 +2887,14 @@ public class ScriptExecutor {
 
         public boolean onOpenChest(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, String dimId) {
             String blockStr = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(block).toString();
-            if (waitType == WaitType.OPEN_CHEST && waitBlockPlayerUuid != null && waitBlockPlayerUuid.equals(player.getUUID())) {
+            if (waitType == WaitType.OPEN_CHEST && waitBlockPlayers != null && waitBlockPlayers.matches(player.getUUID())) {
                 if (matchesBlockWait(blockStr, pos, dimId)) {
                     blockEventMet = true;
                     asyncResult = blockStr;
                 }
             }
             for (AsyncTask task : asyncTasks.values()) {
-                if (task.waitType == WaitType.OPEN_CHEST && task.waitBlockPlayerUuid != null && task.waitBlockPlayerUuid.equals(player.getUUID())) {
+                if (task.waitType == WaitType.OPEN_CHEST && task.waitBlockPlayers != null && task.waitBlockPlayers.matches(player.getUUID())) {
                     if (matchesBlockWaitTask(task, blockStr, pos, dimId)) {
                         task.blockEventMet = true;
                         asyncResult = blockStr;
@@ -2876,14 +2910,14 @@ public class ScriptExecutor {
 
         public boolean onOpenDoor(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, String dimId) {
             String blockStr = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(block).toString();
-            if (waitType == WaitType.OPEN_DOOR && waitBlockPlayerUuid != null && waitBlockPlayerUuid.equals(player.getUUID())) {
+            if (waitType == WaitType.OPEN_DOOR && waitBlockPlayers != null && waitBlockPlayers.matches(player.getUUID())) {
                 if (matchesBlockWait(blockStr, pos, dimId)) {
                     blockEventMet = true;
                     asyncResult = blockStr;
                 }
             }
             for (AsyncTask task : asyncTasks.values()) {
-                if (task.waitType == WaitType.OPEN_DOOR && task.waitBlockPlayerUuid != null && task.waitBlockPlayerUuid.equals(player.getUUID())) {
+                if (task.waitType == WaitType.OPEN_DOOR && task.waitBlockPlayers != null && task.waitBlockPlayers.matches(player.getUUID())) {
                     if (matchesBlockWaitTask(task, blockStr, pos, dimId)) {
                         task.blockEventMet = true;
                         asyncResult = blockStr;
@@ -2989,14 +3023,14 @@ public class ScriptExecutor {
         }
 
         public void onChat(net.minecraft.server.level.ServerPlayer player, String message) {
-            if (waitType == WaitType.CHAT && waitChatPlayerUuid != null && waitChatPlayerUuid.equals(player.getUUID())) {
+            if (waitType == WaitType.CHAT && waitChatPlayers != null && waitChatPlayers.matches(player.getUUID())) {
                 if (waitChatMessages == null || waitChatMessages.isEmpty() || chatMatches(message, waitChatMessages, waitChatIgnoreCase, waitChatIgnorePunct)) {
                     chatEventMet = true;
                     chatMatchedMessage = message;
                 }
             }
             for (AsyncTask task : asyncTasks.values()) {
-                if (task.waitType == WaitType.CHAT && task.waitChatPlayerUuid != null && task.waitChatPlayerUuid.equals(player.getUUID())) {
+                if (task.waitType == WaitType.CHAT && task.waitChatPlayers != null && task.waitChatPlayers.matches(player.getUUID())) {
                     if (task.waitChatMessages == null || task.waitChatMessages.isEmpty() || chatMatches(message, task.waitChatMessages, task.waitChatIgnoreCase, task.waitChatIgnorePunct)) {
                         task.chatEventMet = true;
                         task.chatMatchedMessage = message;
@@ -3064,7 +3098,7 @@ public class ScriptExecutor {
         }
 
         public void onOrbPickup(net.minecraft.server.level.ServerPlayer player, String texture, int amount) {
-            if (waitType == WaitType.ORB_PICKUP && waitOrbPickupPlayerUuid != null && waitOrbPickupPlayerUuid.equals(player.getUUID())) {
+            if (waitType == WaitType.ORB_PICKUP && waitOrbPickupPlayers != null && waitOrbPickupPlayers.matches(player.getUUID())) {
                 if (waitOrbPickupTexture == null || waitOrbPickupTexture.equals(texture)) {
                     waitOrbPickupCurrentCount += amount;
                     if (waitOrbPickupCurrentCount >= waitOrbPickupTargetCount) {
@@ -3078,7 +3112,7 @@ public class ScriptExecutor {
             }
             
             for (AsyncTask task : asyncTasks.values()) {
-                if (task.waitType == WaitType.ORB_PICKUP && task.waitOrbPickupPlayerUuid != null && task.waitOrbPickupPlayerUuid.equals(player.getUUID())) {
+                if (task.waitType == WaitType.ORB_PICKUP && task.waitOrbPickupPlayers != null && task.waitOrbPickupPlayers.matches(player.getUUID())) {
                     if (task.waitOrbPickupTexture == null || task.waitOrbPickupTexture.equals(texture)) {
                         task.waitOrbPickupCurrentCount += amount;
                         if (task.waitOrbPickupCurrentCount >= task.waitOrbPickupTargetCount) {
@@ -3099,7 +3133,7 @@ public class ScriptExecutor {
 
                 if (!handler.eventArgs.isEmpty()) {
                     net.minecraft.world.entity.Entity targetEntity = resolveEntity(handler.eventArgs.get(0));
-                    if (targetEntity == null || !player.getUUID().equals(targetEntity.getUUID())) continue;
+                    if (!matchesEventPlayerArg(handler.eventArgs.get(0), player.getUUID())) continue;
                 }
 
                 if (handler.eventArgs.size() >= 2) {
@@ -3141,7 +3175,7 @@ public class ScriptExecutor {
 
         private void handleTradeAwait(net.minecraft.server.level.ServerPlayer player, String itemId, int price, boolean buy) {
             WaitType expected = buy ? WaitType.TRADE_BUY : WaitType.TRADE_SELL;
-            if (waitType == expected && waitTradePlayerUuid != null && waitTradePlayerUuid.equals(player.getUUID())) {
+            if (waitType == expected && waitTradePlayers != null && waitTradePlayers.matches(player.getUUID())) {
                 if (waitTradeItemId == null || waitTradeItemId.isEmpty() || waitTradeItemId.equals(itemId)) {
                     if (pendingVarName != null) {
                         variables.put(pendingVarName, itemId);
@@ -3149,14 +3183,14 @@ public class ScriptExecutor {
                     variables.put("_eventItemId", itemId);
                     variables.put("_eventPrice", price);
                     waitType = WaitType.NONE;
-                    waitTradePlayerUuid = null;
+                    waitTradePlayers = null;
                     waitTradeItemId = null;
                     pendingVarName = null;
                 }
             }
             for (AsyncTask task : asyncTasks.values()) {
-                if (task.waitType != expected || task.waitTradePlayerUuid == null
-                        || !task.waitTradePlayerUuid.equals(player.getUUID())) continue;
+                if (task.waitType != expected || task.waitTradePlayers == null
+                        || !task.waitTradePlayers.matches(player.getUUID())) continue;
                 if (task.waitTradeItemId != null && !task.waitTradeItemId.isEmpty() && !task.waitTradeItemId.equals(itemId)) continue;
                 if (task.pendingUiClickVarName != null) {
                     putVariable(task.pendingUiClickVarName, itemId);
@@ -3164,7 +3198,7 @@ public class ScriptExecutor {
                 variables.put("_eventItemId", itemId);
                 variables.put("_eventPrice", price);
                 task.waitType = WaitType.NONE;
-                task.waitTradePlayerUuid = null;
+                task.waitTradePlayers = null;
                 task.waitTradeItemId = null;
                 task.pendingUiClickVarName = null;
                 task.ip++;
@@ -3178,7 +3212,7 @@ public class ScriptExecutor {
 
                 if (!handler.eventArgs.isEmpty()) {
                     net.minecraft.world.entity.Entity targetEntity = resolveEntity(handler.eventArgs.get(0));
-                    if (targetEntity == null || !player.getUUID().equals(targetEntity.getUUID())) continue;
+                    if (!matchesEventPlayerArg(handler.eventArgs.get(0), player.getUUID())) continue;
                 }
                 if (handler.eventArgs.size() >= 2) {
                     String expectedItem = String.valueOf(handler.eventArgs.get(1));
@@ -3208,7 +3242,7 @@ public class ScriptExecutor {
         }
 
         public void onPlayerAction(net.minecraft.world.entity.player.Player player, String actionType, Object target) {
-            if (waitType == WaitType.PLAYER_ACTION && player.getUUID().equals(waitPlayerActionPlayerUuid)) {
+            if (waitType == WaitType.PLAYER_ACTION && waitPlayerActionPlayers != null && waitPlayerActionPlayers.matches(player.getUUID())) {
                 if (waitPlayerActionType.equalsIgnoreCase(actionType)) {
                     if (waitPlayerActionTarget == null || (target != null && matchesActionTarget(target, waitPlayerActionTarget))) {
                         playerActionMet = true;
@@ -3230,13 +3264,13 @@ public class ScriptExecutor {
                     Object arg0 = handler.eventArgs.get(0);
                     net.minecraft.world.entity.Entity playerEnt = resolveEntity(arg0);
                     if (playerEnt != null) {
-                        matched = playerEnt.getUUID().equals(player.getUUID());
+                        matched = matchesEventPlayerArg(arg0, player.getUUID());
                     } else {
                         matched = String.valueOf(arg0).equalsIgnoreCase(actionType);
                     }
                 } else {
                     net.minecraft.world.entity.Entity playerEnt = resolveEntity(handler.eventArgs.get(0));
-                    if (playerEnt != null && playerEnt.getUUID().equals(player.getUUID())) {
+                    if (matchesEventPlayerArg(handler.eventArgs.get(0), player.getUUID())) {
                         // form: on action(player, "actionType") or on action(player, "actionType", "target")
                         String expectedAction = String.valueOf(handler.eventArgs.get(1));
                         if (expectedAction.equalsIgnoreCase(actionType)) {
@@ -3291,7 +3325,7 @@ public class ScriptExecutor {
 
                 if (!handler.eventArgs.isEmpty()) {
                     net.minecraft.world.entity.Entity playerEnt = resolveEntity(handler.eventArgs.get(0));
-                    if (playerEnt == null || !playerEnt.getUUID().equals(player.getUUID())) continue;
+                    if (!matchesEventPlayerArg(handler.eventArgs.get(0), player.getUUID())) continue;
                 }
 
                 Object prevPlayer = variables.get("_eventPlayer");
@@ -3310,7 +3344,7 @@ public class ScriptExecutor {
             }
             
             for (AsyncTask task : asyncTasks.values()) {
-                if (task.waitType == WaitType.PLAYER_ACTION && player.getUUID().equals(task.waitPlayerActionPlayerUuid)) {
+                if (task.waitType == WaitType.PLAYER_ACTION && task.waitPlayerActionPlayers != null && task.waitPlayerActionPlayers.matches(player.getUUID())) {
                     if (task.waitPlayerActionType.equalsIgnoreCase(actionType)) {
                         if (task.waitPlayerActionTarget == null || (target != null && matchesActionTarget(target, task.waitPlayerActionTarget))) {
                             task.playerActionMet = true;
@@ -3727,9 +3761,10 @@ public class ScriptExecutor {
                              return true;
                          } else if (call.getFunctionName().equals("orbPickup") || call.getFunctionName().equals("orb_pickup")) {
                              if (call.getArgs().size() < 2) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitOrbPickupPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitOrbPickupPlayers = playerFilter;
                                  waitOrbPickupTargetCount = ((Number) evaluateExpression(call.getArgs().get(1))).intValue();
                                  waitOrbPickupTexture = call.getArgs().size() >= 3 && call.getArgs().get(2) != null ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
                                  waitOrbPickupCurrentCount = 0;
@@ -3739,9 +3774,10 @@ public class ScriptExecutor {
                              }
                          } else if (call.getFunctionName().equals("tradeBuy") || call.getFunctionName().equals("trade_buy")) {
                              if (call.getArgs().isEmpty()) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitTradePlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitTradePlayers = playerFilter;
                                  waitTradeItemId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
                                          ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
                                  waitType = WaitType.TRADE_BUY;
@@ -3750,9 +3786,10 @@ public class ScriptExecutor {
                              }
                          } else if (call.getFunctionName().equals("tradeSell") || call.getFunctionName().equals("trade_sell")) {
                              if (call.getArgs().isEmpty()) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitTradePlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitTradePlayers = playerFilter;
                                  waitTradeItemId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
                                          ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
                                  waitType = WaitType.TRADE_SELL;
@@ -3761,27 +3798,30 @@ public class ScriptExecutor {
                              }
                          } else if (call.getFunctionName().equals("uiClick") || call.getFunctionName().equals("uiclick")) {
                              if (call.getArgs().isEmpty()) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitUiPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitUiPlayers = playerFilter;
                                  waitType = WaitType.UI_CLICK;
                                  pendingVarName = name;
                                  return true;
                              }
                          } else if (call.getFunctionName().equals("uiClose") || call.getFunctionName().equals("uiclose")) {
                              if (call.getArgs().isEmpty()) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitUiPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitUiPlayers = playerFilter;
                                  waitType = WaitType.UI_CLOSE;
                                  pendingVarName = name;
                                  return true;
                              }
                          } else if (call.getFunctionName().equals("uiInput")) {
                              if (call.getArgs().isEmpty()) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitUiPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitUiPlayers = playerFilter;
                                  uiInputWidgetId = call.getArgs().size() > 1 ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
                                  waitType = WaitType.UI_INPUT;
                                  pendingVarName = name;
@@ -3789,9 +3829,10 @@ public class ScriptExecutor {
                              }
                          } else if (call.getFunctionName().equals("position")) {
                              if (call.getArgs().size() < 4) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitPositionPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitPositionPlayers = playerFilter;
                                  waitPositionX = ((Number) evaluateExpression(call.getArgs().get(1))).doubleValue();
                                  waitPositionY = ((Number) evaluateExpression(call.getArgs().get(2))).doubleValue();
                                  waitPositionZ = ((Number) evaluateExpression(call.getArgs().get(3))).doubleValue();
@@ -3802,9 +3843,10 @@ public class ScriptExecutor {
                              }
                          } else if (call.getFunctionName().equals("inventory") || call.getFunctionName().equals("hasItem")) {
                              if (call.getArgs().size() < 2) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitInventoryPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitInventoryPlayers = playerFilter;
                                  waitInventoryItemId = String.valueOf(evaluateExpression(call.getArgs().get(1)));
                                  waitInventoryCount = call.getArgs().size() > 2 ? ((Number) evaluateExpression(call.getArgs().get(2))).intValue() : 0;
                                  waitType = WaitType.INVENTORY;
@@ -3814,9 +3856,10 @@ public class ScriptExecutor {
                          } else if (call.getFunctionName().equals("clickBlock") || call.getFunctionName().equals("breakBlock") || call.getFunctionName().equals("placeBlock")
                                  || call.getFunctionName().equals("openChest") || call.getFunctionName().equals("openDoor")) {
                              if (call.getArgs().isEmpty()) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitBlockPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitBlockPlayers = playerFilter;
                                  waitBlockId = null;
                                  waitBlockPos = null;
                                  if (call.getArgs().size() == 2) {
@@ -3840,9 +3883,10 @@ public class ScriptExecutor {
                              }
                          } else if (call.getFunctionName().equals("jump")) {
                              if (call.getArgs().isEmpty()) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitPlayerActionPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitPlayerActionPlayers = playerFilter;
                                  waitPlayerActionType = "jump";
                                  waitPlayerActionTarget = null;
                                  playerActionMet = false;
@@ -3852,9 +3896,10 @@ public class ScriptExecutor {
                              }
                          } else if (call.getFunctionName().equals("action") || call.getFunctionName().equals("playerAction")) {
                              if (call.getArgs().size() < 2) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitPlayerActionPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitPlayerActionPlayers = playerFilter;
                                  waitPlayerActionType = String.valueOf(evaluateExpression(call.getArgs().get(1)));
                                  waitPlayerActionTarget = call.getArgs().size() > 2 && call.getArgs().get(2) != null ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
                                  playerActionMet = false;
@@ -3945,9 +3990,10 @@ public class ScriptExecutor {
                              return true;
                          } else if (call.getFunctionName().equals("orbPickup") || call.getFunctionName().equals("orb_pickup")) {
                              if (call.getArgs().size() < 2) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitOrbPickupPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitOrbPickupPlayers = playerFilter;
                                  waitOrbPickupTargetCount = ((Number) evaluateExpression(call.getArgs().get(1))).intValue();
                                  waitOrbPickupTexture = call.getArgs().size() >= 3 && call.getArgs().get(2) != null ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
                                  waitOrbPickupCurrentCount = 0;
@@ -3957,9 +4003,10 @@ public class ScriptExecutor {
                              }
                          } else if (call.getFunctionName().equals("tradeBuy") || call.getFunctionName().equals("trade_buy")) {
                              if (call.getArgs().isEmpty()) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitTradePlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitTradePlayers = playerFilter;
                                  waitTradeItemId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
                                          ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
                                  waitType = WaitType.TRADE_BUY;
@@ -3968,9 +4015,10 @@ public class ScriptExecutor {
                              }
                          } else if (call.getFunctionName().equals("tradeSell") || call.getFunctionName().equals("trade_sell")) {
                              if (call.getArgs().isEmpty()) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitTradePlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitTradePlayers = playerFilter;
                                  waitTradeItemId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
                                          ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
                                  waitType = WaitType.TRADE_SELL;
@@ -3979,27 +4027,30 @@ public class ScriptExecutor {
                              }
                          } else if (call.getFunctionName().equals("uiClick") || call.getFunctionName().equals("uiclick")) {
                              if (call.getArgs().isEmpty()) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitUiPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitUiPlayers = playerFilter;
                                  waitType = WaitType.UI_CLICK;
                                  pendingVarName = name;
                                  return true;
                              }
                          } else if (call.getFunctionName().equals("uiClose") || call.getFunctionName().equals("uiclose")) {
                              if (call.getArgs().isEmpty()) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitUiPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitUiPlayers = playerFilter;
                                  waitType = WaitType.UI_CLOSE;
                                  pendingVarName = name;
                                  return true;
                              }
                          } else if (call.getFunctionName().equals("uiInput")) {
                              if (call.getArgs().isEmpty()) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitUiPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitUiPlayers = playerFilter;
                                  uiInputWidgetId = call.getArgs().size() > 1 ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
                                  waitType = WaitType.UI_INPUT;
                                  pendingVarName = name;
@@ -4007,9 +4058,10 @@ public class ScriptExecutor {
                              }
                          } else if (call.getFunctionName().equals("position")) {
                              if (call.getArgs().size() < 4) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitPositionPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitPositionPlayers = playerFilter;
                                  waitPositionX = ((Number) evaluateExpression(call.getArgs().get(1))).doubleValue();
                                  waitPositionY = ((Number) evaluateExpression(call.getArgs().get(2))).doubleValue();
                                  waitPositionZ = ((Number) evaluateExpression(call.getArgs().get(3))).doubleValue();
@@ -4020,9 +4072,10 @@ public class ScriptExecutor {
                              }
                          } else if (call.getFunctionName().equals("inventory") || call.getFunctionName().equals("hasItem")) {
                              if (call.getArgs().size() < 2) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitInventoryPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitInventoryPlayers = playerFilter;
                                  waitInventoryItemId = String.valueOf(evaluateExpression(call.getArgs().get(1)));
                                  waitInventoryCount = call.getArgs().size() > 2 ? ((Number) evaluateExpression(call.getArgs().get(2))).intValue() : 0;
                                  waitType = WaitType.INVENTORY;
@@ -4032,9 +4085,10 @@ public class ScriptExecutor {
                          } else if (call.getFunctionName().equals("clickBlock") || call.getFunctionName().equals("breakBlock") || call.getFunctionName().equals("placeBlock")
                                  || call.getFunctionName().equals("openChest") || call.getFunctionName().equals("openDoor")) {
                              if (call.getArgs().isEmpty()) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitBlockPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitBlockPlayers = playerFilter;
                                  waitBlockId = null;
                                  waitBlockPos = null;
                                  if (call.getArgs().size() == 2) {
@@ -4058,9 +4112,10 @@ public class ScriptExecutor {
                              }
                          } else if (call.getFunctionName().equals("jump")) {
                              if (call.getArgs().isEmpty()) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitPlayerActionPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitPlayerActionPlayers = playerFilter;
                                  waitPlayerActionType = "jump";
                                  waitPlayerActionTarget = null;
                                  playerActionMet = false;
@@ -4070,9 +4125,10 @@ public class ScriptExecutor {
                              }
                          } else if (call.getFunctionName().equals("action") || call.getFunctionName().equals("playerAction")) {
                              if (call.getArgs().size() < 2) return false;
-                             net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(call.getArgs().get(0)));
-                             if (sp != null) {
-                                 waitPlayerActionPlayerUuid = sp.getUUID();
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitPlayerActionPlayers = playerFilter;
                                  waitPlayerActionType = String.valueOf(evaluateExpression(call.getArgs().get(1)));
                                  waitPlayerActionTarget = call.getArgs().size() > 2 && call.getArgs().get(2) != null ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
                                  playerActionMet = false;
@@ -4195,9 +4251,10 @@ public class ScriptExecutor {
                     ScriptNode amountNode = (ScriptNode) instruction.getArg(1);
                     ScriptNode texNode = instruction.getArgCount() >= 3 && instruction.getArg(2) != null ? (ScriptNode) instruction.getArg(2) : null;
                     
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        waitOrbPickupPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        waitOrbPickupPlayers = playerFilter;
                         waitOrbPickupTargetCount = ((Number) evaluateExpression(amountNode)).intValue();
                         waitOrbPickupTexture = texNode != null ? String.valueOf(evaluateExpression(texNode)) : null;
                         waitOrbPickupCurrentCount = 0;
@@ -4208,9 +4265,10 @@ public class ScriptExecutor {
                 case AWAIT_TRADE_BUY -> {
                     ScriptNode pNode = (ScriptNode) instruction.getArg(0);
                     ScriptNode itemNode = instruction.getArgCount() >= 2 && instruction.getArg(1) != null ? (ScriptNode) instruction.getArg(1) : null;
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        waitTradePlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        waitTradePlayers = playerFilter;
                         waitTradeItemId = itemNode != null ? String.valueOf(evaluateExpression(itemNode)) : null;
                         waitType = WaitType.TRADE_BUY;
                         return true;
@@ -4220,9 +4278,10 @@ public class ScriptExecutor {
                 case AWAIT_TRADE_SELL -> {
                     ScriptNode pNode = (ScriptNode) instruction.getArg(0);
                     ScriptNode itemNode = instruction.getArgCount() >= 2 && instruction.getArg(1) != null ? (ScriptNode) instruction.getArg(1) : null;
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        waitTradePlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        waitTradePlayers = playerFilter;
                         waitTradeItemId = itemNode != null ? String.valueOf(evaluateExpression(itemNode)) : null;
                         waitType = WaitType.TRADE_SELL;
                         return true;
@@ -4244,9 +4303,10 @@ public class ScriptExecutor {
                 }
                 case AWAIT_UI_CLICK -> {
                     ScriptNode pNode = (ScriptNode) instruction.getArg(0);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        waitUiPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        waitUiPlayers = playerFilter;
                         waitType = WaitType.UI_CLICK;
                         return true;
                     }
@@ -4254,9 +4314,10 @@ public class ScriptExecutor {
                 }
                 case AWAIT_UI_CLOSE -> {
                     ScriptNode pNode = (ScriptNode) instruction.getArg(0);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        waitUiPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        waitUiPlayers = playerFilter;
                         waitType = WaitType.UI_CLOSE;
                         return true;
                     }
@@ -4264,9 +4325,10 @@ public class ScriptExecutor {
                 case AWAIT_UI_INPUT -> {
                     ScriptNode pNode = (ScriptNode) instruction.getArg(0);
                     ScriptNode wNode = (ScriptNode) instruction.getArg(1);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        waitUiPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        waitUiPlayers = playerFilter;
                         uiInputWidgetId = wNode != null ? String.valueOf(evaluateExpression(wNode)) : null;
                         waitType = WaitType.UI_INPUT;
                         return true;
@@ -4276,20 +4338,24 @@ public class ScriptExecutor {
                     ScriptNode pNode = (ScriptNode) instruction.getArg(0);
                     ScriptNode id1Node = (ScriptNode) instruction.getArg(1);
                     ScriptNode id2Node = (ScriptNode) instruction.getArg(2);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        waitUiOverlapPlayerUuid = sp.getUUID();
-                        waitUiOverlapId1 = String.valueOf(evaluateExpression(id1Node));
-                        waitUiOverlapId2 = String.valueOf(evaluateExpression(id2Node));
-                        uiOverlapMet = false;
-                        
-                        org.zonarstudio.spraute_engine.network.ModNetwork.CHANNEL.send(
-                            net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sp),
-                            new org.zonarstudio.spraute_engine.network.SprauteUiMonitorOverlapPacket(waitUiOverlapId1, waitUiOverlapId2, true)
-                        );
-                        
-                        waitType = WaitType.UI_OVERLAP;
-                        return true;
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        waitUiOverlapPlayers = playerFilter;
+                        net.minecraft.server.level.ServerPlayer sp = findOnlinePlayerForFilter(playerFilter);
+                        if (sp != null) {
+                            waitUiOverlapId1 = String.valueOf(evaluateExpression(id1Node));
+                            waitUiOverlapId2 = String.valueOf(evaluateExpression(id2Node));
+                            uiOverlapMet = false;
+                            
+                            org.zonarstudio.spraute_engine.network.ModNetwork.CHANNEL.send(
+                                net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sp),
+                                new org.zonarstudio.spraute_engine.network.SprauteUiMonitorOverlapPacket(waitUiOverlapId1, waitUiOverlapId2, true)
+                            );
+                            
+                            waitType = WaitType.UI_OVERLAP;
+                            return true;
+                        }
                     }
                 }
                 case AWAIT_PLAYER_ACTION -> {
@@ -4297,9 +4363,10 @@ public class ScriptExecutor {
                     ScriptNode actionNode = (ScriptNode) instruction.getArg(1);
                     ScriptNode targetNode = instruction.getArgCount() >= 3 ? (ScriptNode) instruction.getArg(2) : null;
                     
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        waitPlayerActionPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        waitPlayerActionPlayers = playerFilter;
                         waitPlayerActionType = String.valueOf(evaluateExpression(actionNode));
                         waitPlayerActionTarget = targetNode != null ? String.valueOf(evaluateExpression(targetNode)) : null;
                         playerActionMet = false;
@@ -4310,9 +4377,10 @@ public class ScriptExecutor {
                 case AWAIT_DIMENSION -> {
                     ScriptNode pNode = (ScriptNode) instruction.getArg(0);
                     ScriptNode dimNode = (ScriptNode) instruction.getArg(1);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        waitDimensionPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        waitDimensionPlayers = playerFilter;
                         waitDimensionId = String.valueOf(evaluateExpression(dimNode));
                         dimensionEventMet = false;
                         waitType = WaitType.DIMENSION;
@@ -4321,9 +4389,10 @@ public class ScriptExecutor {
                 }
                 case AWAIT_POSITION -> {
                     ScriptNode pNode = (ScriptNode) instruction.getArg(0);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        waitPositionPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        waitPositionPlayers = playerFilter;
                         waitPositionX = ((Number) evaluateExpression((ScriptNode) instruction.getArg(1))).doubleValue();
                         waitPositionY = ((Number) evaluateExpression((ScriptNode) instruction.getArg(2))).doubleValue();
                         waitPositionZ = ((Number) evaluateExpression((ScriptNode) instruction.getArg(3))).doubleValue();
@@ -4334,9 +4403,10 @@ public class ScriptExecutor {
                 }
                 case AWAIT_INVENTORY -> {
                     ScriptNode pNode = (ScriptNode) instruction.getArg(0);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(pNode));
-                    if (sp != null) {
-                        waitInventoryPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        waitInventoryPlayers = playerFilter;
                         waitInventoryItemId = String.valueOf(evaluateExpression((ScriptNode) instruction.getArg(1)));
                         waitInventoryCount = instruction.getArg(2) != null ? ((Number) evaluateExpression((ScriptNode) instruction.getArg(2))).intValue() : 0;
                         waitType = WaitType.INVENTORY;
@@ -4345,9 +4415,10 @@ public class ScriptExecutor {
                 }
                 case AWAIT_CLICK_BLOCK, AWAIT_BREAK_BLOCK, AWAIT_PLACE_BLOCK, AWAIT_OPEN_CHEST, AWAIT_OPEN_DOOR -> {
                     List<ScriptNode> args = (List<ScriptNode>) instruction.getArg(0);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(args.get(0)));
-                    if (sp != null) {
-                        waitBlockPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(args.get(0));
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        waitBlockPlayers = playerFilter;
                         waitBlockId = null;
                         waitBlockPos = null;
                         waitBlockDim = null;
@@ -4383,9 +4454,10 @@ public class ScriptExecutor {
                 }
                 case AWAIT_CHAT -> {
                     List<ScriptNode> args = (List<ScriptNode>) instruction.getArg(0);
-                    net.minecraft.server.level.ServerPlayer sp = resolveServerPlayer(evaluateExpression(args.get(0)));
-                    if (sp != null) {
-                        waitChatPlayerUuid = sp.getUUID();
+                    Object playerArg = evaluateExpression(args.get(0));
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        waitChatPlayers = playerFilter;
                         
                         Object msgs = evaluateExpression(args.get(1));
                         waitChatMessages = new ArrayList<>();
@@ -5419,10 +5491,17 @@ public class ScriptExecutor {
                 props.put(entry.getKey(), evaluateExpression(entry.getValue()));
             }
 
-            net.minecraft.server.level.ServerPlayer player = (source.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) ? sp : null;
-            if (player != null) {
+            Object targetObj = props.remove("target");
+            if (targetObj == null) targetObj = props.remove("player");
+            net.minecraft.server.level.ServerPlayer targetPlayer = targetObj != null
+                    ? resolveServerPlayer(targetObj) : null;
+            if (targetPlayer == null) {
+                targetPlayer = (source.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) ? sp : null;
+            }
+            if (targetPlayer != null) {
+                final net.minecraft.server.level.ServerPlayer fadePlayer = targetPlayer;
                 org.zonarstudio.spraute_engine.network.ModNetwork.CHANNEL.send(
-                        net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
+                        net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> fadePlayer),
                         new org.zonarstudio.spraute_engine.network.SyncLoadScreenPacket(props)
                 );
             }
@@ -5785,6 +5864,9 @@ public class ScriptExecutor {
                 }
                 if (org.zonarstudio.spraute_engine.entity.NpcManager.get(name) != null) {
                     return name;
+                }
+                if (org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.isAnyPlayerKeyword(name)) {
+                    return "any";
                 }
                 throw new RuntimeException("Undefined variable: " + name);
             }
@@ -6425,6 +6507,36 @@ public class ScriptExecutor {
             return "add".equalsIgnoreCase(s) || "additive".equalsIgnoreCase(s) || "true".equalsIgnoreCase(s);
         }
 
+        private PlayerFilter buildPlayerFilter(Object arg) {
+            return PlayerFilter.from(arg, this::resolveServerPlayer, this::resolveEntity);
+        }
+
+        private PlayerFilter buildPlayerFilterFromPlayer(net.minecraft.server.level.ServerPlayer sp) {
+            return sp != null ? PlayerFilter.of(sp.getUUID()) : null;
+        }
+
+        private boolean matchesEventPlayerArg(Object arg, UUID playerUuid) {
+            return PlayerFilter.matchesEventArg(arg, playerUuid, this::resolveServerPlayer, this::resolveEntity);
+        }
+
+        private net.minecraft.server.level.ServerPlayer findOnlinePlayerForFilter(PlayerFilter filter) {
+            if (filter == null || source.getLevel() == null) return null;
+            for (net.minecraft.server.level.ServerPlayer sp : source.getLevel().getServer().getPlayerList().getPlayers()) {
+                if (filter.matches(sp.getUUID())) return sp;
+            }
+            return null;
+        }
+
+        private net.minecraft.server.level.ServerPlayer findOnlinePlayerAtPosition(PlayerFilter filter, double x, double y, double z, double radius) {
+            if (filter == null || source.getLevel() == null) return null;
+            double r2 = radius * radius;
+            for (net.minecraft.server.level.ServerPlayer sp : source.getLevel().getServer().getPlayerList().getPlayers()) {
+                if (!filter.matches(sp.getUUID())) continue;
+                if (sp.distanceToSqr(x, y, z) <= r2) return sp;
+            }
+            return null;
+        }
+
         private net.minecraft.server.level.ServerPlayer resolveServerPlayer(Object arg) {
             if (arg instanceof net.minecraft.server.level.ServerPlayer sp) return sp;
             if (source.getLevel() == null || source.getLevel().isClientSide) return null;
@@ -6559,19 +6671,19 @@ public class ScriptExecutor {
             double waitMoveTargetZ;
             double waitMoveSpeed = 1.0;
             /** {@link WaitType#UI_CLICK} тАФ same semantics as main script await ui_click */
-            UUID waitUiPlayerUuid;
+            PlayerFilter waitUiPlayers;
             String pendingUiClickVarName;
             boolean uiClickMet;
             String uiClickWidgetId = "";
             boolean uiClickClosed;
             int uiClickMouseButton = 0;
 
-            UUID waitPositionPlayerUuid;
+            PlayerFilter waitPositionPlayers;
             double waitPositionX, waitPositionY, waitPositionZ, waitPositionRadius;
-            UUID waitInventoryPlayerUuid;
+            PlayerFilter waitInventoryPlayers;
             String waitInventoryItemId;
             int waitInventoryCount;
-            UUID waitBlockPlayerUuid;
+            PlayerFilter waitBlockPlayers;
             String waitBlockId;
             net.minecraft.core.BlockPos waitBlockPos;
             String waitBlockDim;
@@ -6579,32 +6691,32 @@ public class ScriptExecutor {
             String uiInputWidgetId = "";
             String uiInputText = "";
 
-            UUID waitChatPlayerUuid = null;
+            PlayerFilter waitChatPlayers = null;
             List<String> waitChatMessages = null;
             boolean waitChatIgnoreCase = true;
             boolean waitChatIgnorePunct = true;
             boolean chatEventMet = false;
             String chatMatchedMessage = "";
             
-            UUID waitUiOverlapPlayerUuid = null;
+            PlayerFilter waitUiOverlapPlayers = null;
             String waitUiOverlapId1 = "";
             String waitUiOverlapId2 = "";
             boolean uiOverlapMet = false;
             
-            UUID waitOrbPickupPlayerUuid = null;
+            PlayerFilter waitOrbPickupPlayers = null;
             String waitOrbPickupTexture = null;
             int waitOrbPickupTargetCount = 0;
             int waitOrbPickupCurrentCount = 0;
 
-            UUID waitTradePlayerUuid = null;
+            PlayerFilter waitTradePlayers = null;
             String waitTradeItemId = null;
 
-            UUID waitPlayerActionPlayerUuid = null;
+            PlayerFilter waitPlayerActionPlayers = null;
             String waitPlayerActionType = "";
             String waitPlayerActionTarget = null;
             boolean playerActionMet = false;
 
-            UUID waitDimensionPlayerUuid = null;
+            PlayerFilter waitDimensionPlayers = null;
             String waitDimensionId = null;
             boolean dimensionEventMet = false;
 

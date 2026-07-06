@@ -5,7 +5,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
 import org.slf4j.Logger;
-import org.zonarstudio.spraute_engine.Spraute_engine;
+import org.zonarstudio.spraute_engine.util.SprauteResourcePath;
 import org.zonarstudio.spraute_engine.core.parser.SpAnimationParser;
 
 import java.io.InputStream;
@@ -28,7 +28,13 @@ public final class SpAnimationCache {
     }
 
     private static SpAnimationParser.AnimationSet loadAnimation(String animationPath) {
-        ResourceLocation loc = animationPath.contains(":") ? new ResourceLocation(animationPath) : new ResourceLocation(Spraute_engine.MODID, animationPath);
+        SprauteResourcePath.Result parsed = SprauteResourcePath.parse(animationPath, SprauteResourcePath.Kind.ANIMATION);
+        if (!parsed.ok()) {
+            LOGGER.warn("[Spraute Engine] Invalid animation path '{}': {}", animationPath, parsed.invalidChars());
+            SprauteResourcePath.warnClientPlayerOnce("anim:" + animationPath, parsed);
+            return EMPTY;
+        }
+        ResourceLocation loc = parsed.location();
         try {
             Optional<Resource> res = Minecraft.getInstance().getResourceManager().getResource(loc);
             if (res.isPresent()) {

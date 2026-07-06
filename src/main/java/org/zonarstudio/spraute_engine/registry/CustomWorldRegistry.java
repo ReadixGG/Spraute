@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import net.minecraftforge.fml.loading.FMLPaths;
 import org.slf4j.Logger;
 import org.zonarstudio.spraute_engine.Spraute_engine;
+import org.zonarstudio.spraute_engine.util.SprauteResourcePath;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -59,8 +60,17 @@ public final class CustomWorldRegistry {
                     String content = Files.readString(file);
                     Matcher m = worldPattern.matcher(content);
                     while (m.find()) {
+                        String rawId = m.group(1);
+                        SprauteResourcePath.Result idCheck =
+                                SprauteResourcePath.validateSimpleId(rawId, SprauteResourcePath.Kind.WORLD);
+                        if (!idCheck.ok()) {
+                            LOGGER.error("[Spraute Engine] Skipping create world '{}' in {}: invalid id (use lowercase a-z, 0-9, _ only). {}",
+                                    rawId, file.getFileName(), idCheck.invalidChars());
+                            continue;
+                        }
+
                         CustomWorldDef def = new CustomWorldDef();
-                        def.id = m.group(1);
+                        def.id = idCheck.location().getPath();
                         String body = m.group(2);
 
                         Matcher skyM = skyPattern.matcher(body);
@@ -112,7 +122,13 @@ public final class CustomWorldRegistry {
     }
 
     public static String dimensionId(String worldId) {
-        return Spraute_engine.MODID + ":" + worldId;
+        String canon = SprauteResourcePath.canonicalSimpleId(worldId);
+        return Spraute_engine.MODID + ":" + canon;
+    }
+
+    public static boolean hasWorld(String worldId) {
+        String canon = SprauteResourcePath.canonicalSimpleId(worldId);
+        return WORLDS.containsKey(canon);
     }
 
     public static String dimensionTypeId(String worldId) {
@@ -124,14 +140,15 @@ public final class CustomWorldRegistry {
     }
 
     public static String buildDimensionJson(CustomWorldDef def) {
+        // flat + the_void + пустые слои — пустое измерение без кастомных noise_settings (minecraft:empty не существует в 1.20.1)
         return "{\n" +
                 "  \"type\": \"" + dimensionTypeId(def.id) + "\",\n" +
                 "  \"generator\": {\n" +
-                "    \"type\": \"minecraft:noise\",\n" +
-                "    \"settings\": \"minecraft:empty\",\n" +
-                "    \"biome_source\": {\n" +
-                "      \"type\": \"minecraft:fixed\",\n" +
-                "      \"biome\": \"minecraft:the_void\"\n" +
+                "    \"type\": \"minecraft:flat\",\n" +
+                "    \"settings\": {\n" +
+                "      \"biome\": \"minecraft:the_void\",\n" +
+                "      \"layers\": [],\n" +
+                "      \"structure_overrides\": []\n" +
                 "    }\n" +
                 "  }\n" +
                 "}";

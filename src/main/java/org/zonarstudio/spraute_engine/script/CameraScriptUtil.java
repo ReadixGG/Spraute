@@ -168,6 +168,10 @@ public final class CameraScriptUtil {
         Object v = args.get(index);
         if (v instanceof Boolean b) return b;
         if (v instanceof Number n) return n.doubleValue() != 0;
-        return Boolean.parseBoolean(String.valueOf(v));
+        String s = String.valueOf(v).trim();
+        if ("false".equalsIgnoreCase(s) || "0".equals(s) || "off".equalsIgnoreCase(s) || "no".equalsIgnoreCase(s)) {
+            return false;
+        }
+        return "true".equalsIgnoreCase(s) || "yes".equalsIgnoreCase(s) || "1".equals(s);
     }
 }

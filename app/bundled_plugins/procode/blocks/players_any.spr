@@ -1,0 +1,7 @@
+#\ block: players_any
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "любой игрок"
+#\ template: any

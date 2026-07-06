@@ -3,6 +3,12 @@
 #\ color: #f97316
 #\ shape: statement
 #\
-#\ row: "ждать прыжок"
-#\ input: player (type: value)
-#\ template: await jump({player})
+#\ row: "ждать прыжок" [mode: dropdown(один игрок: one, несколько: many, любой: any)]
+#\ if mode == "one":
+#\   input: player (type: value)
+#\   template: await jump({player})
+#\ if mode == "many":
+#\   input: players (type: value)
+#\   template: await jump({players})
+#\ if mode == "any":
+#\   template: await jump(any)

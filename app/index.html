@@ -270,42 +270,78 @@
   <!-- Контекстное меню Blockly-блоков -->
   <div id="blockly-ctx-menu" class="hidden fixed z-[99999] min-w-44 bg-surface-bright/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl py-1 text-sm font-body select-none" style="overflow:visible"></div>
 
-  <!-- Редактор GUI (системный) -->
-  <div id="gui-editor-overlay" class="hidden fixed inset-0 z-[99990] bg-background/90 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="gui-editor-panel glass-panel w-full max-w-6xl h-[min(90vh,820px)] flex flex-col overflow-hidden">
-      <header class="shrink-0 px-4 py-3 border-b border-white/10 flex flex-wrap items-center gap-3">
-        <span class="material-symbols-outlined text-tertiary">dashboard_customize</span>
-        <h2 class="font-headline font-bold text-white text-lg">Редактор GUI</h2>
-        <input id="gui-editor-name" type="text" class="gui-editor-input w-36" placeholder="имя UI" title="Имя переменной create ui" />
-        <div class="flex items-center gap-2 text-sm">
-          <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="gui-mode" id="gui-editor-mode-gui" checked /> GUI</label>
-          <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="gui-mode" id="gui-editor-mode-overlay" /> Наложение</label>
-        </div>
-        <select id="gui-editor-open-select" class="gui-editor-input text-xs max-w-[180px]" title="Открыть сохранённый .sprv">
-          <option value="">— новый —</option>
-        </select>
-        <div class="flex-1"></div>
-        <button type="button" id="gui-editor-save" class="gui-editor-btn">Сохранить .sprv</button>
-        <button type="button" id="gui-editor-add-project" class="gui-editor-btn gui-editor-btn-primary">Добавить GUI в проект</button>
-        <button type="button" id="gui-editor-close" class="gui-editor-btn-icon" title="Закрыть"><span class="material-symbols-outlined">close</span></button>
-      </header>
-      <div class="flex-1 flex min-h-0">
-        <aside class="w-44 shrink-0 border-r border-white/10 p-2 overflow-y-auto">
-          <p class="text-[10px] uppercase text-on-variant font-bold mb-2 px-1">Виджеты</p>
-          <div id="gui-editor-palette" class="flex flex-col gap-1"></div>
-        </aside>
-        <main class="flex-1 flex flex-col min-w-0 p-3">
-          <p class="text-[10px] text-on-variant mb-1">Холст (позиции и размеры в %)</p>
-          <div id="gui-editor-canvas" class="flex-1 min-h-0 border border-white/10 rounded-lg bg-black/20 relative"></div>
-        </main>
-        <aside class="w-56 shrink-0 border-l border-white/10 p-3 overflow-y-auto flex flex-col gap-3">
-          <div>
-            <p class="text-[10px] uppercase text-on-variant font-bold mb-1">Дерево</p>
-            <div id="gui-editor-tree" class="text-xs"></div>
-          </div>
-          <div id="gui-editor-props" class="text-xs flex-1"></div>
-        </aside>
+  <!-- Редактор GUI (полноэкранный, непрозрачный) -->
+  <div id="gui-editor-overlay" class="hidden fixed inset-0 z-[99990] bg-background flex flex-col">
+    <!-- Отступ под системные кнопки окна (titleBarOverlay, 32px) -->
+    <div class="h-8 shrink-0 w-full flex items-center px-4 bg-background border-b border-white/5" style="-webkit-app-region: drag;">
+      <span class="text-xs text-on-variant font-mono tracking-wider">Spraute Studio — Редактор GUI</span>
+    </div>
+    <header class="shrink-0 px-4 py-2.5 border-b border-white/10 flex flex-wrap items-center gap-3 bg-surface-container" style="-webkit-app-region: no-drag;">
+      <span class="material-symbols-outlined text-tertiary">dashboard_customize</span>
+      <h2 class="font-headline font-bold text-white text-lg">Редактор GUI</h2>
+      <input id="gui-ed-name" type="text" class="gui-ed-input w-40" placeholder="имя UI" title="Имя переменной create ui" />
+      <div class="flex items-center gap-2 text-sm text-on-surface">
+        <label class="flex items-center gap-1 cursor-pointer" title="Окно: uiOpen, пауза и курсор"><input type="radio" name="gui-ed-mode" id="gui-ed-mode-gui" checked /> окно</label>
+        <label class="flex items-center gap-1 cursor-pointer" title="Наложение: overlayOpen, поверх игры"><input type="radio" name="gui-ed-mode" id="gui-ed-mode-overlay" /> наложение</label>
       </div>
+      <div class="flex items-center gap-1 text-xs text-on-variant" title="GUI-масштаб Minecraft — влияет на размер экрана в игровых пикселях">
+        <span class="material-symbols-outlined text-[16px]">fit_screen</span>
+        <select id="gui-ed-scale" class="gui-ed-input text-xs w-14">
+          <option value="1">×1</option>
+          <option value="2" selected>×2</option>
+          <option value="3">×3</option>
+          <option value="4">×4</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-0.5">
+        <button type="button" id="gui-ed-zoom-out" class="gui-ed-btn-icon" title="Отдалить"><span class="material-symbols-outlined text-[18px]">zoom_out</span></button>
+        <button type="button" id="gui-ed-zoom-reset" class="gui-ed-btn-icon" title="Сбросить зум"><span class="material-symbols-outlined text-[18px]">fit_page</span></button>
+        <button type="button" id="gui-ed-zoom-in" class="gui-ed-btn-icon" title="Приблизить"><span class="material-symbols-outlined text-[18px]">zoom_in</span></button>
+      </div>
+      <button type="button" id="gui-ed-units" class="gui-ed-btn" title="Единицы для новых виджетов и перетаскивания: % — адаптивно под любой экран (рекомендуется), px — фиксированные пиксели.">
+        <span class="material-symbols-outlined text-[16px]">percent</span><span id="gui-ed-units-label">%</span>
+      </button>
+      <div class="flex items-center gap-1 text-xs text-on-variant">
+        <button type="button" id="gui-ed-grid-toggle" class="gui-ed-btn-icon" title="Показать/скрыть сетку редактора"><span class="material-symbols-outlined text-[18px]">grid_on</span></button>
+        <button type="button" id="gui-ed-snap-toggle" class="gui-ed-btn-icon active" title="Привязка к сетке при перетаскивании"><span class="material-symbols-outlined text-[18px]">attractions</span></button>
+        <button type="button" id="gui-ed-widget-snap-toggle" class="gui-ed-btn-icon active" title="Привязка к краям и центрам других виджетов (Ctrl+C / Ctrl+V — копировать/вставить)"><span class="material-symbols-outlined text-[18px]">align_horizontal_center</span></button>
+        <select id="gui-ed-grid-step" class="gui-ed-input text-xs w-16" title="Шаг сетки в игровых пикселях">
+          <option value="2">2 px</option>
+          <option value="4">4 px</option>
+          <option value="5" selected>5 px</option>
+          <option value="8">8 px</option>
+          <option value="10">10 px</option>
+          <option value="16">16 px</option>
+          <option value="18">18 px (слот)</option>
+        </select>
+      </div>
+      <div class="flex-1"></div>
+      <button type="button" id="gui-ed-cancel" class="gui-ed-btn" title="Закрыть без сохранения">Отмена</button>
+      <button type="button" id="gui-ed-close" class="gui-ed-btn gui-ed-btn-primary" title="Сохранить в блок и закрыть">
+        <span class="material-symbols-outlined text-[16px]">check</span> Готово
+      </button>
+    </header>
+    <div class="flex-1 flex min-h-0">
+      <aside class="w-48 shrink-0 border-r border-white/10 p-2 overflow-y-auto bg-surface-container/60">
+        <p class="gui-ed-side-title"><span class="material-symbols-outlined text-[14px]">widgets</span> Виджеты</p>
+        <div id="gui-ed-palette" class="flex flex-col gap-1"></div>
+        <p class="gui-ed-side-title mt-3"><span class="material-symbols-outlined text-[14px]">tune</span> Настройки окна</p>
+        <div id="gui-ed-root-props"></div>
+      </aside>
+      <main class="flex-1 flex flex-col min-w-0">
+        <div id="gui-ed-canvas" class="flex-1 min-h-0 relative flex items-center justify-center overflow-hidden bg-black/40"></div>
+        <div class="shrink-0 border-t border-white/10 bg-surface-container/60 max-h-36 overflow-y-auto">
+          <p class="gui-ed-side-title px-3 pt-2"><span class="material-symbols-outlined text-[14px]">code</span> Генерируемый код</p>
+          <pre id="gui-ed-code" class="text-[11px] leading-4 px-3 pb-2 text-on-variant font-mono whitespace-pre overflow-x-auto"></pre>
+        </div>
+      </main>
+      <aside class="w-72 shrink-0 border-l border-white/10 flex flex-col bg-surface-container/60">
+        <div class="p-2 border-b border-white/10 max-h-[45%] overflow-y-auto">
+          <p class="gui-ed-side-title"><span class="material-symbols-outlined text-[14px]">account_tree</span> Дерево и слои</p>
+          <div id="gui-ed-tree" class="text-xs"></div>
+        </div>
+        <div id="gui-ed-props" class="p-2 flex-1 overflow-y-auto text-xs"></div>
+      </aside>
     </div>
   </div>
 

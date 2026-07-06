@@ -18,6 +18,7 @@
     --font-headline: 'Space Grotesk';
     --font-body: 'Inter';
     --font-mono: 'JetBrains Mono';
+    --font-minecraft: 'Minecraft', monospace;
   }
 
   body {
@@ -154,65 +155,306 @@ body:not(.visual-mode-active) .blocklyDropDownDiv {
   color: var(--color-on-surface) !important;
 }
 
-/* GUI Editor */
-.gui-editor-input {
+/* ===== Редактор GUI ===== */
+.gui-ed-input {
   @apply bg-surface-container border border-white/10 rounded-lg px-2 py-1 text-sm text-on-surface;
 }
-.gui-editor-btn {
-  @apply px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/10 transition-colors;
+.gui-ed-btn {
+  @apply px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/10 transition-colors flex items-center gap-1;
 }
-.gui-editor-btn-primary {
-  @apply px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors;
+.gui-ed-btn-primary {
   color: var(--color-primary);
   background: color-mix(in srgb, var(--color-primary) 20%, transparent);
-  border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
-.gui-editor-btn-primary:hover {
-  background: color-mix(in srgb, var(--color-primary) 30%, transparent);
+.gui-ed-btn-primary:hover {
+  background: color-mix(in srgb, var(--color-primary) 32%, transparent);
 }
-.gui-editor-btn-icon {
-  @apply w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-on-variant;
+.gui-ed-btn-icon {
+  @apply w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-on-variant;
 }
-.gui-palette-btn {
-  @apply w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left text-xs hover:bg-white/10 border border-transparent hover:border-white/10 transition-colors;
+.gui-ed-side-title {
+  @apply text-[10px] uppercase text-on-variant font-bold mb-1.5 px-1 flex items-center gap-1;
 }
-.gui-canvas-root { min-height: 280px; }
-.gui-widget {
+.gui-ed-pal-btn {
+  @apply w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs hover:bg-white/10 border border-transparent hover:border-white/10 transition-colors text-on-surface;
+}
+.gui-ed-pal-btn .material-symbols-outlined { font-size: 16px; color: var(--color-tertiary); }
+
+/* Шрифт Minecraft для холста GUI: положите файл в app/public/fonts/ (см. README там). */
+@font-face {
+  font-family: 'Minecraft';
+  src:
+    url('/fonts/minecraft.woff2') format('woff2'),
+    url('/fonts/minecraft.woff') format('woff'),
+    url('/fonts/minecraft.ttf') format('truetype'),
+    url('/fonts/minecraft.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+.gui-ed-screen {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.12), 0 12px 40px rgba(0,0,0,.6);
+  image-rendering: pixelated;
+}
+.gui-ed-panel {
   position: absolute;
   box-sizing: border-box;
-  border: 1px solid rgba(255,255,255,0.15);
-  cursor: move;
-  user-select: none;
-  border-radius: 4px;
+  outline: 1px dashed rgba(56,189,248,.35);
 }
-.gui-widget.selected {
-  outline: 2px solid var(--color-tertiary);
-  outline-offset: 1px;
-  z-index: 9999 !important;
-}
-.gui-widget-label {
+.gui-ed-canvas-info {
+  position: absolute;
+  bottom: 6px;
+  left: 10px;
   font-size: 10px;
-  padding: 2px 4px;
-  opacity: 0.85;
+  color: rgba(255,255,255,.45);
   pointer-events: none;
 }
-.gui-prop-row {
-  @apply flex flex-col gap-0.5 mb-2;
+
+.gui-wd {
+  position: absolute;
+  box-sizing: border-box;
+  cursor: move;
+  user-select: none;
+  font-family: var(--font-minecraft);
+  image-rendering: pixelated;
 }
-.gui-prop-row span {
-  @apply text-on-variant text-[10px];
+.gui-wd.selected {
+  outline: 2px solid var(--color-tertiary);
+  outline-offset: 0;
+  z-index: 9000 !important;
 }
-.gui-prop-row input, .gui-prop-row select {
-  @apply gui-editor-input w-full text-xs py-1;
+.gui-wd-slot {
+  background: rgba(139,139,139,.35);
+  border: 1px solid rgba(55,55,55,.9);
 }
-.gui-btn-danger {
-  @apply w-full py-1.5 rounded text-xs bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30;
+.gui-wd-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,.75);
+  background: rgba(255,255,255,.06);
 }
-.gui-tree-list { list-style: none; padding: 0; margin: 0; }
-.gui-tree-list li {
-  @apply py-1 px-1 rounded cursor-pointer truncate;
+.gui-wd-inv { overflow: hidden; }
+.gui-wd-entity {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  color: rgba(255,255,255,.5);
+  background: linear-gradient(rgba(255,255,255,.04), rgba(255,255,255,.09));
+  border: 1px dashed rgba(255,255,255,.25);
 }
-.gui-tree-list li.active, .gui-tree-list li:hover {
+.gui-wd-container {
+  border: 1px dashed rgba(56,189,248,.5);
+  background: rgba(56,189,248,.05);
+}
+.gui-wd-clip { overflow: hidden; }
+.gui-wd-scrollbar {
+  position: absolute;
+  right: 1px;
+  width: 3px;
+  background: rgba(255,255,255,.5);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 8000;
+}
+.gui-ed-snapgrid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 8500;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.gui-ed-guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 8600;
+}
+.gui-ed-guide-v {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(244, 114, 182, 0.85);
+  box-shadow: 0 0 4px rgba(244, 114, 182, 0.5);
+}
+.gui-ed-guide-h {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(244, 114, 182, 0.85);
+  box-shadow: 0 0 4px rgba(244, 114, 182, 0.5);
+}
+.gui-ed-coord { @apply flex items-center gap-1; }
+.gui-ed-coord input { @apply flex-1 min-w-0; }
+.gui-ed-unit-btn {
+  @apply shrink-0 w-8 h-6 text-[10px] font-bold rounded border border-white/15 text-on-variant hover:bg-white/10;
+}
+.gui-ed-btn-icon.active {
   color: var(--color-tertiary);
-  background: color-mix(in srgb, var(--color-tertiary) 20%, transparent);
+  background: color-mix(in srgb, var(--color-tertiary) 18%, transparent);
 }
+.gui-wd-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--color-tertiary);
+  border: 1px solid #000;
+  z-index: 9100;
+}
+.gui-wd-handle-se { right: -4px; bottom: -4px; cursor: nwse-resize; }
+.gui-wd-handle-e { right: -4px; top: calc(50% - 4px); cursor: ew-resize; }
+.gui-wd-handle-s { bottom: -4px; left: calc(50% - 4px); cursor: ns-resize; }
+
+.gui-ed-tree-list { list-style: none; padding: 0; margin: 0; }
+.gui-ed-tree-sub { padding-left: 14px; border-left: 1px solid rgba(255,255,255,.08); margin-left: 6px; }
+.gui-ed-tree-row {
+  @apply flex items-center gap-1 py-0.5 px-1 rounded cursor-pointer;
+  color: var(--color-on-surface);
+}
+.gui-ed-tree-row:hover { background: rgba(255,255,255,.06); }
+.gui-ed-tree-row.active {
+  color: var(--color-tertiary);
+  background: color-mix(in srgb, var(--color-tertiary) 18%, transparent);
+}
+.gui-ed-tree-row.drop-target { outline: 1px dashed var(--color-tertiary); }
+.gui-ed-tree-name { @apply truncate flex-1; }
+.gui-ed-tree-layer { @apply text-[9px] opacity-60 px-1 rounded bg-white/10; }
+.gui-ed-tree-btn {
+  @apply w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 opacity-0;
+}
+.gui-ed-tree-row:hover .gui-ed-tree-btn { opacity: .8; }
+
+.gui-ed-prop { @apply flex flex-col gap-0.5 mb-1.5; }
+.gui-ed-prop > span { @apply text-on-variant text-[10px]; }
+.gui-ed-prop input:not([type="checkbox"]):not([type="radio"]),
+.gui-ed-prop select,
+.gui-ed-prop textarea {
+  @apply gui-ed-input w-full text-xs py-1;
+}
+.gui-ed-prop-row {
+  @apply flex-row items-center gap-2 cursor-pointer;
+  user-select: none;
+}
+.gui-ed-prop-row > span {
+  @apply text-xs text-on-surface flex-1;
+}
+.gui-ed-color { @apply flex flex-wrap items-center gap-1; }
+.gui-ed-color-swatch {
+  @apply w-6 h-6 shrink-0 rounded border border-white/25 cursor-pointer;
+  background-image:
+    linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.15) 75%),
+    linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.15) 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 4px 4px;
+}
+.gui-ed-color-text { @apply flex-1 min-w-[5.5rem] font-mono; }
+.gui-ed-color-alpha {
+  width: 52px;
+  height: 6px;
+  accent-color: var(--color-tertiary);
+  cursor: pointer;
+}
+.gui-ed-color-alpha-val {
+  font-size: 9px;
+  color: var(--color-on-variant);
+  min-width: 2rem;
+  text-align: right;
+}
+.gui-ed-color-pick {
+  @apply w-6 h-6 shrink-0 flex items-center justify-center rounded hover:bg-white/15 text-on-variant border border-white/10;
+}
+.gui-ed-color-native {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Чекбоксы и радио в редакторе GUI */
+#gui-editor-overlay input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  position: relative;
+}
+#gui-editor-overlay input[type="checkbox"]:hover {
+  border-color: color-mix(in srgb, var(--color-tertiary) 55%, white);
+  background: rgba(0, 0, 0, 0.55);
+}
+#gui-editor-overlay input[type="checkbox"]:checked {
+  background: color-mix(in srgb, var(--color-tertiary) 22%, rgba(0, 0, 0, 0.45));
+  border-color: var(--color-tertiary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-tertiary) 35%, transparent);
+}
+#gui-editor-overlay input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4.5px;
+  top: 1.5px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--color-tertiary);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+#gui-editor-overlay input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--color-tertiary);
+  outline-offset: 2px;
+}
+
+#gui-editor-overlay input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  position: relative;
+}
+#gui-editor-overlay input[type="radio"]:hover {
+  border-color: color-mix(in srgb, var(--color-tertiary) 55%, white);
+}
+#gui-editor-overlay input[type="radio"]:checked {
+  border-color: var(--color-tertiary);
+  box-shadow: inset 0 0 0 3px var(--color-tertiary);
+}
+#gui-editor-overlay input[type="radio"]:focus-visible {
+  outline: 2px solid var(--color-tertiary);
+  outline-offset: 2px;
+}
+
+.gui-ed-prop-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 6px;
+}
+.gui-ed-props-title { @apply flex items-center gap-1 text-on-surface font-medium mb-2; }
+.gui-ed-props-title code { @apply text-[10px] text-on-variant bg-white/10 rounded px-1; }
+.gui-ed-hint { @apply text-on-variant text-[11px] px-1; }
+body.gui-editor-open { overflow: hidden; }

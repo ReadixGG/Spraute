@@ -95,22 +95,30 @@ public final class UiTemplate {
         }
         if (rootProps.containsKey("dimBackground") || rootProps.containsKey("dim_background")) {
             Object v = eval.apply(rootProps.get(rootProps.containsKey("dimBackground") ? "dimBackground" : "dim_background"));
-            boolean dim = !(v instanceof Boolean b) || b;
+            boolean dim = v instanceof Boolean b && b;
             root.addProperty("dimBackground", dim);
         }
 
         JsonArray arr = new JsonArray();
         Map<String, List<CompiledScript.Instruction>> handlers = new HashMap<>();
         int order = 0;
+        boolean hasSlots = false;
 
         for (RuntimeWidget rw : widgets) {
             JsonObject o = buildWidget(rw, w, h, order, handlers);
             if (o != null) {
                 arr.add(o);
                 order++;
+                String t = o.has("type") ? o.get("type").getAsString() : "";
+                if ("slot".equals(t) || "playerInventory".equals(t)) hasSlots = true;
             }
         }
         root.add("widgets", arr);
+        if (hasSlots) {
+            // Слоты работают только через контейнер-меню: SprauteContainerMenu читает type=container и children
+            root.addProperty("type", "container");
+            root.add("children", arr);
+        }
         return new UiTemplate(root.toString(), handlers);
     }
 
@@ -129,6 +137,8 @@ public final class UiTemplate {
             case "block" -> buildBlock(rw, pw, ph, order);
             case "item" -> buildItem(rw, pw, ph, order);
             case "slot" -> buildSlot(rw, pw, ph, order);
+            case "input" -> buildInput(rw, pw, ph, order);
+            case "gridbg", "grid_bg" -> buildGridBg(rw, pw, ph, order);
             case "playerInventory", "player_inventory" -> buildPlayerInventory(rw, pw, ph, order);
             default -> null;
         };
@@ -526,6 +536,8 @@ public final class UiTemplate {
                     case "block" -> buildBlock(child, sw, sh, childOrder);
                     case "item" -> buildItem(child, sw, sh, childOrder);
                     case "slot" -> buildSlot(child, sw, sh, childOrder);
+                    case "input" -> buildInput(child, sw, sh, childOrder);
+                    case "gridbg", "grid_bg" -> buildGridBg(child, sw, sh, childOrder);
                     case "playerInventory", "player_inventory" -> buildPlayerInventory(child, sw, sh, childOrder);
                     default -> null;
                 };
@@ -589,6 +601,8 @@ public final class UiTemplate {
                     case "block" -> buildBlock(child, sw, sh, childOrder);
                     case "item" -> buildItem(child, sw, sh, childOrder);
                     case "slot" -> buildSlot(child, sw, sh, childOrder);
+                    case "input" -> buildInput(child, sw, sh, childOrder);
+                    case "gridbg", "grid_bg" -> buildGridBg(child, sw, sh, childOrder);
                     case "playerInventory", "player_inventory" -> buildPlayerInventory(child, sw, sh, childOrder);
                     default -> null;
                 };
@@ -669,8 +683,53 @@ public final class UiTemplate {
         return o;
     }
 
-    private static JsonObject buildSlot(RuntimeWidget rw, int pw, int ph, int order) {
-        String id = rw.evaluatedArgs.isEmpty() ? "slot_" + order : String.valueOf(rw.evaluatedArgs.get(0));
+    /** input(id[, placeholder]) — текстовое поле; клиент читает text/placeholder/color/bgColor/outlineColor/scale/maxChars/inputType. */
+    private static JsonObject buildInput(RuntimeWidget rw, int pw, int ph, int order) {
+        String id = rw.evaluatedArgs.isEmpty() ? "input_" + order : String.valueOf(rw.evaluatedArgs.get(0));
+        JsonObject o = new JsonObject();
+        o.addProperty("type", "input");
+        o.addProperty("id", propStr(rw.evaluatedProps, "id", id));
+        putXY(o, rw.evaluatedProps, "pos", pw, ph);
+        putWH(o, rw.evaluatedProps, "size", 100, 16, pw, ph);
+        String placeholder = rw.evaluatedArgs.size() >= 2
+                ? String.valueOf(rw.evaluatedArgs.get(1))
+                : propStr(rw.evaluatedProps, "placeholder", "");
+        if (!placeholder.isEmpty()) o.addProperty("placeholder", placeholder);
+        String text = propStr(rw.evaluatedProps, "text", null);
+        if (text != null && !text.isEmpty()) o.addProperty("text", text);
+        o.addProperty("color", propStr(rw.evaluatedProps, "color", "#FFFFFF"));
+        o.addProperty("bgColor", propStr(rw.evaluatedProps, "bgColor", "#FF000000"));
+        o.addProperty("outlineColor", propStr(rw.evaluatedProps, "outlineColor", "#FFAAAAAA"));
+        o.addProperty("scale", propFloat(rw.evaluatedProps, "scale", 1f));
+        o.addProperty("maxChars", propInt(rw.evaluatedProps,
+                rw.evaluatedProps.containsKey("maxChars") ? "maxChars" : "max_chars", 32));
+        String inputType = propStr(rw.evaluatedProps, "inputType", null);
+        if (inputType != null && !inputType.isEmpty()) o.addProperty("inputType", inputType);
+        o.addProperty("layer", propInt(rw.evaluatedProps, "layer", 0));
+        o.addProperty("order", order);
+        String tooltip = propStr(rw.evaluatedProps, "tooltip", null);
+        if (tooltip != null && !tooltip.isEmpty()) o.addProperty("tooltip", tooltip);
+        return o;
+    }
+
+    /** gridBg(id) — сетка-фон; клиент читает gridType (hv/h/v), cellSize, thickness, color. */
+    private static JsonObject buildGridBg(RuntimeWidget rw, int pw, int ph, int order) {
+        String id = rw.evaluatedArgs.isEmpty() ? "grid_" + order : String.valueOf(rw.evaluatedArgs.get(0));
+        JsonObject o = new JsonObject();
+        o.addProperty("type", "gridBg");
+        o.addProperty("id", propStr(rw.evaluatedProps, "id", id));
+        putXY(o, rw.evaluatedProps, "pos", pw, ph);
+        putWH(o, rw.evaluatedProps, "size", pw, ph, pw, ph);
+        o.addProperty("gridType", propStr(rw.evaluatedProps, "gridType", "hv"));
+        o.addProperty("cellSize", propInt(rw.evaluatedProps, "cellSize", 20));
+        o.addProperty("thickness", propInt(rw.evaluatedProps, "thickness", 1));
+        o.addProperty("color", propStr(rw.evaluatedProps, "color", "#44FFFFFF"));
+        o.addProperty("layer", propInt(rw.evaluatedProps, "layer", 0));
+        o.addProperty("order", order);
+        return o;
+    }
+
+    private static JsonObject buildSlot(RuntimeWidget rw, int pw, int ph, int order) {        String id = rw.evaluatedArgs.isEmpty() ? "slot_" + order : String.valueOf(rw.evaluatedArgs.get(0));
         JsonObject o = new JsonObject();
         o.addProperty("type", "slot");
         o.addProperty("id", propStr(rw.evaluatedProps, "id", id));

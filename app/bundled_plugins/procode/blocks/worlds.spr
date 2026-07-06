@@ -27,6 +27,22 @@
 #\ row: "id измерения" (id: text: lobby)
 #\ template: getWorldId("{id}")
 
+#\ block: get_player_world_id
+#\ category: Измерения
+#\ color: #0ea5e9
+#\ shape: value
+#\
+#\ row: "измерение игрока" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\
+#\ if who == "event":
+#\   template: getPlayerWorldId(_eventPlayer)
+#\ if who == "first":
+#\   template: getPlayerWorldId(getFirstPlayer())
+#\ if who == "custom":
+#\   template: getPlayerWorldId({player})
+
 #\ block: teleport_to_world
 #\ category: Измерения
 #\ color: #0ea5e9

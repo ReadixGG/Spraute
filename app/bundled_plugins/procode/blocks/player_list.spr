@@ -1,0 +1,9 @@
+#\ block: player_list
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "игрок 1" input: p1 (type: value)
+#\ row: "игрок 2" input: p2 (type: value)
+#\ row: "игрок 3" input: p3 (type: value)
+#\ template: list({p1}, {p2}, {p3})

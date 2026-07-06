@@ -6,6 +6,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.network.PacketDistributor;
 import org.zonarstudio.spraute_engine.network.CloseSprauteOverlayPacket;
 import org.zonarstudio.spraute_engine.network.ModNetwork;
+import org.zonarstudio.spraute_engine.script.ItemStackScriptUtil;
 import org.zonarstudio.spraute_engine.script.ScriptContext;
 import org.zonarstudio.spraute_engine.ui.UiTemplate;
 
@@ -45,6 +46,7 @@ public class OverlayCloseFunction implements ScriptFunction {
         }
 
         ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> sp), new CloseSprauteOverlayPacket(overlayId));
+        org.zonarstudio.spraute_engine.ui.UiTracker.markClosed(sp.getUUID());
         return null;
     }
 
@@ -57,10 +59,6 @@ public class OverlayCloseFunction implements ScriptFunction {
     }
 
     private static Player resolvePlayer(Object target, CommandSourceStack source) {
-        if (target instanceof Player p) return p;
-        if (target instanceof String name && source.getLevel() != null) {
-            return source.getLevel().getServer().getPlayerList().getPlayerByName(name);
-        }
-        return null;
+        return ItemStackScriptUtil.resolvePlayer(target, source);
     }
 }

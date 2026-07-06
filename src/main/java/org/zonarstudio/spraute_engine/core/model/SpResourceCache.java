@@ -5,7 +5,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import org.slf4j.Logger;
-import org.zonarstudio.spraute_engine.Spraute_engine;
+import org.zonarstudio.spraute_engine.util.SprauteResourcePath;
 import org.zonarstudio.spraute_engine.core.parser.SpAnimationParser;
 import org.zonarstudio.spraute_engine.core.parser.SpGeoParser;
 
@@ -41,7 +41,12 @@ public final class SpResourceCache {
     }
 
     private static SpGeoModel loadModel(ResourceManager rm, String modelPath) {
-        ResourceLocation loc = toLocation(modelPath);
+        SprauteResourcePath.Result parsed = SprauteResourcePath.parse(modelPath, SprauteResourcePath.Kind.MODEL);
+        if (!parsed.ok()) {
+            LOGGER.warn("[Spraute Engine] Invalid server model path '{}': {}", modelPath, parsed.invalidChars());
+            return EMPTY_MODEL;
+        }
+        ResourceLocation loc = parsed.location();
         try {
             Optional<Resource> res = rm.getResource(loc);
             if (res.isPresent()) {
@@ -59,7 +64,12 @@ public final class SpResourceCache {
     }
 
     private static SpAnimationParser.AnimationSet loadAnimation(ResourceManager rm, String animationPath) {
-        ResourceLocation loc = toLocation(animationPath);
+        SprauteResourcePath.Result parsed = SprauteResourcePath.parse(animationPath, SprauteResourcePath.Kind.ANIMATION);
+        if (!parsed.ok()) {
+            LOGGER.warn("[Spraute Engine] Invalid server animation path '{}': {}", animationPath, parsed.invalidChars());
+            return EMPTY_ANIM;
+        }
+        ResourceLocation loc = parsed.location();
         try {
             Optional<Resource> res = rm.getResource(loc);
             if (res.isPresent()) {
@@ -72,11 +82,5 @@ public final class SpResourceCache {
             LOGGER.error("[Spraute Engine] Failed to load server animation '{}': {}", animationPath, e.getMessage());
         }
         return EMPTY_ANIM;
-    }
-
-    private static ResourceLocation toLocation(String path) {
-        return path.contains(":")
-                ? new ResourceLocation(path)
-                : new ResourceLocation(Spraute_engine.MODID, path);
     }
 }

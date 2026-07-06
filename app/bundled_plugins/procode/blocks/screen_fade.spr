@@ -1,0 +1,37 @@
+#\ block: fade_in
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "затемнение для" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "за" (time: number: 1.0) "сек"
+#\ row: "текст" (text: text: )
+#\ row: "подзаголовок" (subtitle: text: )
+#\ row: "цвет" (color: text: 0x000000)
+#\ row: "держать" (visibleTime: number: 2.0) "сек"
+#\ row: "само осветление" [fadeout: checkbox]
+#\
+#\ if who == "event":
+#\   template: fadeIn {\n  target = _eventPlayer\n  time = {time}\n  visibleTime = {visibleTime}\n  color = {color}\n  text = "{text}"\n  subtitle = "{subtitle}"\n  fadeout = {fadeout}\n}\n
+#\ if who == "first":
+#\   template: fadeIn {\n  target = getFirstPlayer()\n  time = {time}\n  visibleTime = {visibleTime}\n  color = {color}\n  text = "{text}"\n  subtitle = "{subtitle}"\n  fadeout = {fadeout}\n}\n
+#\ if who == "custom":
+#\   template: fadeIn {\n  target = {player}\n  time = {time}\n  visibleTime = {visibleTime}\n  color = {color}\n  text = "{text}"\n  subtitle = "{subtitle}"\n  fadeout = {fadeout}\n}\n
+
+#\ block: fade_out
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "осветление для" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\
+#\ if who == "event":
+#\   template: fadeOut(_eventPlayer)
+#\ if who == "first":
+#\   template: fadeOut(getFirstPlayer())
+#\ if who == "custom":
+#\   template: fadeOut({player})

@@ -584,47 +584,69 @@ public class ExternalAssetPack extends AbstractPackResources {
         return ourPath.startsWith(scanPrefix) || scanPrefix.startsWith(ourPath);
     }
 
+    private static void addResourceLocation(List<ResourceLocation> list, String path) {
+        ResourceLocation loc = org.zonarstudio.spraute_engine.util.SprauteResourcePath.tryCreateLocation(NAMESPACE, path);
+        if (loc != null) {
+            list.add(loc);
+        } else {
+            LOGGER.warn("[Spraute Engine] Skipping invalid resource path: {}", path);
+        }
+    }
+
+    /** {@code dimension_type} also {@code startsWith("dimension")} — list folders separately. */
+    private static boolean isDimensionDataPrefix(String pathPrefix) {
+        return pathPrefix.equals("dimension") || pathPrefix.startsWith("dimension/");
+    }
+
+    private static boolean isDimensionTypeDataPrefix(String pathPrefix) {
+        return pathPrefix.equals("dimension_type") || pathPrefix.startsWith("dimension_type/");
+    }
+
     private List<ResourceLocation> collectResourceLocations(PackType type, String pathPrefix) {
         List<ResourceLocation> list = new ArrayList<>();
 
         if (type == PackType.SERVER_DATA && pathPrefix.startsWith("worldgen/configured_feature")) {
             for (org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomBlockDef def : org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.BLOCKS.values()) {
-                if (def.isOre) list.add(new ResourceLocation(NAMESPACE, "worldgen/configured_feature/" + def.id + "_ore.json"));
+                if (def.isOre) addResourceLocation(list, "worldgen/configured_feature/" + def.id + "_ore.json");
             }
         }
         if (type == PackType.SERVER_DATA && pathPrefix.startsWith("worldgen/placed_feature")) {
             for (org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomBlockDef def : org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.BLOCKS.values()) {
-                if (def.isOre) list.add(new ResourceLocation(NAMESPACE, "worldgen/placed_feature/" + def.id + "_ore.json"));
+                if (def.isOre) addResourceLocation(list, "worldgen/placed_feature/" + def.id + "_ore.json");
             }
         }
         if (type == PackType.SERVER_DATA && pathPrefix.startsWith("forge/biome_modifier")) {
             for (org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomBlockDef def : org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.BLOCKS.values()) {
-                if (def.isOre) list.add(new ResourceLocation(NAMESPACE, "forge/biome_modifier/" + def.id + "_ore.json"));
+                if (def.isOre) addResourceLocation(list, "forge/biome_modifier/" + def.id + "_ore.json");
             }
         }
 
         if (type == PackType.CLIENT_RESOURCES && pathPrefix.startsWith("particles")) {
             for (org.zonarstudio.spraute_engine.registry.CustomParticleRegistry.CustomParticleDef def : org.zonarstudio.spraute_engine.registry.CustomParticleRegistry.PARTICLES.values()) {
-                list.add(new ResourceLocation(NAMESPACE, "particles/" + def.id + ".json"));
+                addResourceLocation(list, "particles/" + def.id + ".json");
             }
         }
 
         if (type == PackType.SERVER_DATA && pathPrefix.startsWith("recipes")) {
             for (String recipeId : org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CUSTOM_RECIPES_JSON.keySet()) {
-                list.add(new ResourceLocation(NAMESPACE, "recipes/" + recipeId + ".json"));
+                addResourceLocation(list, "recipes/" + recipeId + ".json");
             }
         }
 
         if (type == PackType.SERVER_DATA && pathPrefix.startsWith("tags/items")) {
             for (String tagId : org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CUSTOM_CRAFT_TAGS_JSON.keySet()) {
-                list.add(new ResourceLocation(NAMESPACE, "tags/items/" + tagId + ".json"));
+                addResourceLocation(list, "tags/items/" + tagId + ".json");
             }
         }
 
-        if (type == PackType.SERVER_DATA && pathPrefix.startsWith("dimension")) {
+        if (type == PackType.SERVER_DATA && isDimensionDataPrefix(pathPrefix)) {
             for (String worldId : org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.WORLDS.keySet()) {
-                list.add(new ResourceLocation(NAMESPACE, "dimension/" + worldId + ".json"));
-                list.add(new ResourceLocation(NAMESPACE, "dimension_type/" + worldId + "_type.json"));
+                addResourceLocation(list, "dimension/" + worldId + ".json");
+            }
+        }
+        if (type == PackType.SERVER_DATA && isDimensionTypeDataPrefix(pathPrefix)) {
+            for (String worldId : org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.WORLDS.keySet()) {
+                addResourceLocation(list, "dimension_type/" + worldId + "_type.json");
             }
         }
 
@@ -633,14 +655,14 @@ public class ExternalAssetPack extends AbstractPackResources {
         // path (e.g. "models" → "models/item/...") OR a descendant of it.
         if (type == PackType.CLIENT_RESOURCES && prefixOverlaps(pathPrefix, "models/item")) {
             for (String itemId : org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.ITEMS.keySet()) {
-                list.add(new ResourceLocation(NAMESPACE, "models/item/" + itemId + ".json"));
+                addResourceLocation(list, "models/item/" + itemId + ".json");
             }
         }
 
         if (type == PackType.CLIENT_RESOURCES && prefixOverlaps(pathPrefix, "textures/item")) {
             for (org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomItemDef def
                     : org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.ITEMS.values()) {
-                list.add(new ResourceLocation(NAMESPACE, "textures/item/" + def.id + ".png"));
+                addResourceLocation(list, "textures/item/" + def.id + ".png");
             }
         }
 
@@ -654,8 +676,9 @@ public class ExternalAssetPack extends AbstractPackResources {
                     .filter(Files::isRegularFile)
                     .map(path -> {
                         String relative = rootDir.relativize(path).toString().replace('\\', '/');
-                        return new ResourceLocation(NAMESPACE, relative);
+                        return org.zonarstudio.spraute_engine.util.SprauteResourcePath.tryCreateLocation(NAMESPACE, relative);
                     })
+                    .filter(Objects::nonNull)
                     .collect(Collectors.toList());
             list.addAll(fileList);
         } catch (IOException e) {

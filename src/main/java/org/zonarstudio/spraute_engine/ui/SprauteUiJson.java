@@ -186,10 +186,12 @@ public final class SprauteUiJson {
         if (path == null || path.isEmpty()) {
             return new ResourceLocation("minecraft", "textures/misc/unknown_pack.png");
         }
-        if (path.contains(":")) {
-            String[] p = path.split(":", 2);
-            return new ResourceLocation(p[0].toLowerCase(java.util.Locale.ROOT), p[1].toLowerCase(java.util.Locale.ROOT));
+        org.zonarstudio.spraute_engine.util.SprauteResourcePath.Result parsed =
+                org.zonarstudio.spraute_engine.util.SprauteResourcePath.parse(path, org.zonarstudio.spraute_engine.util.SprauteResourcePath.Kind.TEXTURE);
+        if (!parsed.ok()) {
+            org.zonarstudio.spraute_engine.util.SprauteResourcePath.warnClientPlayerOnce("ui-tex:" + path, parsed);
+            return new ResourceLocation("minecraft", "textures/misc/unknown_pack.png");
         }
-        return new ResourceLocation(org.zonarstudio.spraute_engine.Spraute_engine.MODID, path.toLowerCase(java.util.Locale.ROOT));
+        return parsed.location();
     }
 }

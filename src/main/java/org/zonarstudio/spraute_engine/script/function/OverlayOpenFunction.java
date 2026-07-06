@@ -8,6 +8,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.network.PacketDistributor;
 import org.zonarstudio.spraute_engine.network.ModNetwork;
 import org.zonarstudio.spraute_engine.network.OpenSprauteOverlayPacket;
+import org.zonarstudio.spraute_engine.script.ItemStackScriptUtil;
 import org.zonarstudio.spraute_engine.script.ScriptContext;
 import org.zonarstudio.spraute_engine.ui.SprauteUiJson;
 import org.zonarstudio.spraute_engine.ui.UiTemplate;
@@ -52,30 +53,16 @@ public class OverlayOpenFunction implements ScriptFunction {
         try {
             String prepared = SprauteUiJson.prepareAndSerialize(source.getLevel(), source, json);
             String overlayId = "";
-            boolean isContainer = false;
             try {
                 JsonObject root = JsonParser.parseString(prepared).getAsJsonObject();
                 if (root.has("id")) overlayId = root.get("id").getAsString();
                 if (root.has("type") && "container".equals(root.get("type").getAsString())) {
-                    isContainer = true;
+                    LOGGER.warn("[Script] overlayOpen: GUI has slots — HUD overlay only; use uiOpen for interactive inventory");
                 }
             } catch (Exception ignored) {}
-            
-            if (isContainer) {
-                net.minecraftforge.network.NetworkHooks.openScreen(sp, new net.minecraft.world.MenuProvider() {
-                    @Override
-                    public net.minecraft.network.chat.Component getDisplayName() {
-                        return net.minecraft.network.chat.Component.empty();
-                    }
 
-                    @Override
-                    public net.minecraft.world.inventory.AbstractContainerMenu createMenu(int id, net.minecraft.world.entity.player.Inventory inv, Player player) {
-                        return new org.zonarstudio.spraute_engine.ui.SprauteContainerMenu(id, inv, prepared);
-                    }
-                }, buf -> buf.writeUtf(prepared));
-            } else {
-                ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> sp), new OpenSprauteOverlayPacket(overlayId, prepared));
-            }
+            ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> sp), new OpenSprauteOverlayPacket(overlayId, prepared));
+            org.zonarstudio.spraute_engine.ui.UiTracker.markOpen(sp.getUUID());
         } catch (Exception e) {
             LOGGER.warn("[Script] overlay_open failed: {}", e.getMessage());
         }
@@ -84,10 +71,6 @@ public class OverlayOpenFunction implements ScriptFunction {
     }
 
     private static Player resolvePlayer(Object target, CommandSourceStack source) {
-        if (target instanceof Player p) return p;
-        if (target instanceof String name && source.getLevel() != null) {
-            return source.getLevel().getServer().getPlayerList().getPlayerByName(name);
-        }
-        return null;
+        return ItemStackScriptUtil.resolvePlayer(target, source);
     }
 }

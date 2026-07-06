@@ -3,9 +3,12 @@
 #\ color: #a855f7
 #\ shape: wrapper
 #\
-#\ row: "когда клик в UI" [filter: dropdown(любой: any, у игрока: player)] "→" (handler: text: h_uiclick)
+#\ row: "когда клик в UI" [filter: dropdown(любой: any, один игрок: one, несколько: many)] "→" (handler: text: h_uiclick)
 #\ if filter == "any":
 #\   template: on uiClick() -> {handler} {\n{DO}}
-#\ if filter == "player":
+#\ if filter == "one":
 #\   input: player (type: value)
 #\   template: on uiClick({player}) -> {handler} {\n{DO}}
+#\ if filter == "many":
+#\   input: players (type: value)
+#\   template: on uiClick({players}) -> {handler} {\n{DO}}

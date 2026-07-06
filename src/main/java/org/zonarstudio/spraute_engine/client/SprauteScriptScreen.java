@@ -280,6 +280,19 @@ public class SprauteScriptScreen extends Screen {
             return false;
         }
 
+        if (f.equals("scrolloffset") || f.equals("offset") || f.equals("scrolly")) {
+            Widget targetWidget = findWidgetById(widgetId);
+            if (targetWidget instanceof ScrollW sw) {
+                try {
+                    float off = Float.parseFloat(v.trim());
+                    float maxScroll = Math.max(0, sw.contentH - sw.h);
+                    sw.scrollOffset = Math.max(0, Math.min(off, maxScroll));
+                    return true;
+                } catch (Exception ignored) {}
+            }
+            return false;
+        }
+
         for (int i = 0; i < widgets.size(); i++) {
             Widget w = widgets.get(i);
             if (widgetId.equals(widgetIdOf(w))) {
@@ -661,7 +674,14 @@ public class SprauteScriptScreen extends Screen {
                 return switch (field) { case "x" -> ew.x; case "y" -> ew.y; case "w" -> ew.w; case "h" -> ew.h; case "scale" -> ew.scale; default -> 0f; };
             }
             if (w instanceof ScrollW sw) {
-                return switch (field) { case "x" -> sw.x; case "y" -> sw.y; case "w" -> sw.w; case "h" -> sw.h; default -> 0f; };
+                return switch (field) {
+                    case "x" -> sw.x;
+                    case "y" -> sw.y;
+                    case "w" -> sw.w;
+                    case "h" -> sw.h;
+                    case "scrolloffset", "offset", "scrolly" -> sw.scrollOffset;
+                    default -> 0f;
+                };
             }
             if (w instanceof InputW inpw) {
                 return switch (field) { case "x" -> inpw.x; case "y" -> inpw.y; case "w" -> inpw.w; case "h" -> inpw.h; default -> 0f; };
@@ -830,12 +850,17 @@ public class SprauteScriptScreen extends Screen {
                 };
             }
             if (w instanceof ScrollW sw) {
-                // ScrollW is a class, we could just mutate or replace it. But we should make it a new object since patchWidget replaces it
                 return switch (field) {
                     case "x" -> { ScrollW n = new ScrollW((int)Float.parseFloat(value.trim()), sw.y, sw.w, sw.h, sw.contentH, sw.bgColor, sw.tooltip, sw.id, sw.showBar, sw.autoBar); n.scrollOffset = sw.scrollOffset; n.children.addAll(sw.children); yield n; }
                     case "y" -> { ScrollW n = new ScrollW(sw.x, (int)Float.parseFloat(value.trim()), sw.w, sw.h, sw.contentH, sw.bgColor, sw.tooltip, sw.id, sw.showBar, sw.autoBar); n.scrollOffset = sw.scrollOffset; n.children.addAll(sw.children); yield n; }
                     case "w" -> { ScrollW n = new ScrollW(sw.x, sw.y, (int)Float.parseFloat(value.trim()), sw.h, sw.contentH, sw.bgColor, sw.tooltip, sw.id, sw.showBar, sw.autoBar); n.scrollOffset = sw.scrollOffset; n.children.addAll(sw.children); yield n; }
                     case "h" -> { ScrollW n = new ScrollW(sw.x, sw.y, sw.w, (int)Float.parseFloat(value.trim()), sw.contentH, sw.bgColor, sw.tooltip, sw.id, sw.showBar, sw.autoBar); n.scrollOffset = sw.scrollOffset; n.children.addAll(sw.children); yield n; }
+                    case "scrolloffset", "offset", "scrolly" -> {
+                        float off = Float.parseFloat(value.trim());
+                        float maxScroll = Math.max(0, sw.contentH - sw.h);
+                        sw.scrollOffset = Math.max(0, Math.min(off, maxScroll));
+                        yield sw;
+                    }
                     default -> w;
                 };
             }
@@ -1837,6 +1862,10 @@ public class SprauteScriptScreen extends Screen {
                     sw.scrollOffset -= (float) (delta * 12.0);
                     float maxScroll = Math.max(0, sw.contentH - sw.h);
                     sw.scrollOffset = Math.max(0, Math.min(sw.scrollOffset, maxScroll));
+                    if (sw.id != null && !sw.id.isEmpty()) {
+                        ModNetwork.CHANNEL.sendToServer(new SprauteUiActionPacket(
+                                SprauteUiActionPacket.ACTION_SCROLL, sw.id, (int) sw.scrollOffset));
+                    }
                     return true;
                 }
             }

@@ -3,6 +3,12 @@
 #\ color: #f97316
 #\ shape: statement
 #\
-#\ row: "ждать клик в UI"
-#\ input: player (type: value)
-#\ template: await uiClick({player})
+#\ row: "ждать клик в UI" [mode: dropdown(один игрок: one, несколько: many, любой: any)]
+#\ if mode == "one":
+#\   input: player (type: value)
+#\   template: await uiClick({player})
+#\ if mode == "many":
+#\   input: players (type: value)
+#\   template: await uiClick({players})
+#\ if mode == "any":
+#\   template: await uiClick(any)

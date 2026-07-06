@@ -4,7 +4,7 @@ import * as Blockly from 'blockly';
 import { FieldMultilineInput } from '@blockly/field-multilineinput';
 // blockly уже включает blocks и en locale, дополнительно форсируем
 import * as En from 'blockly/msg/en';
-import { registerGuiBlocks } from './gui-blocks.js';
+import { registerGuiBlocks, GUI_COLOR } from './gui-blocks.js';
 Blockly.setLocale(En);
 
 // ================= ГЕНЕРАТОР КОДА =================
@@ -65,9 +65,14 @@ function ensureStatementTrailingNewline(code) {
   return text.endsWith('\n') ? text : text + '\n';
 }
 
-const COLORS = { SYSTEM: '#a855f7', GUI: '#14b8a6' };
-/** Системные GUI-блоки и редактор — скрыты до доработки. */
-const SHOW_GUI_TOOLBOX = false;
+/** Blockly FieldCheckbox uses TRUE/FALSE; Spraute scripts require lowercase true/false. */
+function normalizeBlocklyLiteral(value) {
+  if (value === 'TRUE') return 'true';
+  if (value === 'FALSE') return 'false';
+  return value;
+}
+
+const COLORS = { SYSTEM: '#a855f7' };
 
 registerGuiBlocks(SprauteGenerator);
 
@@ -916,13 +921,13 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
         });
 
         let uiCondNoStr = condNoStr.replace(/\b([a-zA-Z_]\w*)\b/g, (m) => {
-          if (['true','false','null','undefined'].includes(m) || m.startsWith('__STR')) return m;
+          if (['true','false','null','undefined','TRUE','FALSE'].includes(m) || m.startsWith('__STR')) return m;
           conditionVars.add(m);
           return `(self[${JSON.stringify("val_"+m)}] || self.getFieldValue(${JSON.stringify(m)}))`;
         });
         
         let codeCondNoStr = condNoStr.replace(/\b([a-zA-Z_]\w*)\b/g, (m) => {
-          if (['true','false','null','undefined'].includes(m) || m.startsWith('__STR')) return m;
+          if (['true','false','null','undefined','TRUE','FALSE'].includes(m) || m.startsWith('__STR')) return m === 'TRUE' ? 'true' : m === 'FALSE' ? 'false' : m;
           return `_getVal(${JSON.stringify(m)})`;
         });
         
@@ -1503,14 +1508,15 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
         } catch (e) {}
       }
       let cached = block[`val_${name}`];
-      if (cached != null && String(cached).trim() !== '') return String(cached).trim();
+      if (cached != null && String(cached).trim() !== '') return normalizeBlocklyLiteral(String(cached).trim());
       try {
         if (block.getField(name)) {
           let v = block.getFieldValue(name);
-          if (v != null && v !== '') return v;
+          if (v != null && v !== '') return normalizeBlocklyLiteral(v);
         }
       } catch (e) {}
-      return block[`val_${name}`] ?? "";
+      const fallback = block[`val_${name}`] ?? "";
+      return fallback === '' ? '' : normalizeBlocklyLiteral(String(fallback));
     }
 
     /** Строковый литерал для шаблонов: не дублирует кавычки у блока «текст». */
@@ -1968,24 +1974,48 @@ export function getDynamicToolbox() {
     });
   }
 
-  if (SHOW_GUI_TOOLBOX) {
-    tb.contents.push({
-      "kind": "category",
-      "name": "GUI",
-      "colour": COLORS.GUI,
-      "contents": [
-        { "kind": "block", "type": "spraute_gui_create" },
-        { "kind": "block", "type": "spraute_gui_open" },
-        { "kind": "block", "type": "spraute_gui_close" }
-      ]
-    });
-  }
-
   tb.contents.push({
     "kind": "category",
     "name": "Система",
     "colour": COLORS.SYSTEM,
     "contents": [{ "kind": "block", "type": "spraute_raw_code" }]
+  });
+
+  tb.contents.push({
+    "kind": "category",
+    "name": "GUI [BETA/баги]",
+    "colour": GUI_COLOR,
+    "contents": [
+      { "kind": "label", "text": "[BETA/баги]" },
+      { "kind": "label", "text": "Создание" },
+      { "kind": "block", "type": "spraute_gui_create" },
+      { "kind": "block", "type": "spraute_gui_add_widget" },
+      { "kind": "block", "type": "spraute_gui_grid" },
+      { "kind": "block", "type": "spraute_gui_player_inventory" },
+      { "kind": "label", "text": "Открытие" },
+      { "kind": "block", "type": "spraute_gui_open" },
+      { "kind": "block", "type": "spraute_gui_close" },
+      { "kind": "block", "type": "spraute_gui_is_open" },
+      { "kind": "block", "type": "spraute_gui_container_open" },
+      { "kind": "label", "text": "Виджеты" },
+      { "kind": "block", "type": "spraute_gui_update" },
+      { "kind": "block", "type": "spraute_gui_update_quick" },
+      { "kind": "block", "type": "spraute_gui_animate" },
+      { "kind": "label", "text": "Слоты GUI" },
+      { "kind": "block", "type": "spraute_gui_slot_item" },
+      { "kind": "block", "type": "spraute_gui_slot_empty" },
+      { "kind": "block", "type": "spraute_gui_slot_has" },
+      { "kind": "block", "type": "spraute_gui_slot_stack_count" },
+      { "kind": "block", "type": "spraute_gui_slot_slots" },
+      { "kind": "block", "type": "spraute_gui_set_slot" },
+      { "kind": "block", "type": "spraute_gui_clear_slot" },
+      { "kind": "label", "text": "Ввод и скролл" },
+      { "kind": "block", "type": "spraute_gui_get_input" },
+      { "kind": "block", "type": "spraute_gui_set_input" },
+      { "kind": "block", "type": "spraute_gui_scroll_get" },
+      { "kind": "block", "type": "spraute_gui_scroll_set" },
+      { "kind": "block", "type": "spraute_gui_scroll_animate" }
+    ]
   });
 
   for (const catName of (pluginCategoryOrder.length > 0

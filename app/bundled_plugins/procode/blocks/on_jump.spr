@@ -3,7 +3,13 @@
 #\ color: #a855f7
 #\ shape: wrapper
 #\
-#\ row: "когда прыгает"
-#\ input: player (type: value)
+#\ row: "когда прыгает" [mode: dropdown(один игрок: one, несколько: many, любой: any)]
 #\ row: "→" (handler: text: h_jump)
-#\ template: on jump({player}) -> {handler} {\n{DO}}
+#\ if mode == "one":
+#\   input: player (type: value)
+#\   template: on jump({player}) -> {handler} {\n{DO}}
+#\ if mode == "many":
+#\   input: players (type: value)
+#\   template: on jump({players}) -> {handler} {\n{DO}}
+#\ if mode == "any":
+#\   template: on jump(any) -> {handler} {\n{DO}}

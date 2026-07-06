@@ -522,8 +522,14 @@ public class Spraute_engine {
             org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.ensureParsed();
             for (org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.CustomWorldDef def
                     : org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.WORLDS.values()) {
+                net.minecraft.resources.ResourceLocation effectsId =
+                        org.zonarstudio.spraute_engine.util.SprauteResourcePath.tryCreateLocation(Spraute_engine.MODID, def.id);
+                if (effectsId == null) {
+                    LOGGER.error("[Spraute Engine] Cannot register dimension effects for invalid world id '{}'", def.id);
+                    continue;
+                }
                 event.register(
-                        new net.minecraft.resources.ResourceLocation(Spraute_engine.MODID, def.id),
+                        effectsId,
                         new org.zonarstudio.spraute_engine.client.SprauteWorldDimensionEffects(def));
             }
         }

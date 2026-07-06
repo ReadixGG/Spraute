@@ -193,6 +193,19 @@ const sprauteFunctionsList = [
   "overlayClose(${1:player})",
   "uiUpdate(${1:player}, ${2:widget_id}, ${3:field}, ${4:value})",
   "uiAnimate(${1:player}, ${2:widget_id}, ${3:field}, ${4:value}, ${5:duration})",
+  "uiIsOpen(${1:player})",
+  "uiContainerOpen(${1:player})",
+  "uiSlotItem(${1:player}, ${2:slot_id})",
+  "uiSlotIsEmpty(${1:player}, ${2:slot_id})",
+  "uiSlotHasItem(${1:player}, ${2:slot_id}, ${3:item_id})",
+  "uiSlotCount(${1:player}, ${2:slot_id})",
+  "uiSlotSlots(${1:player})",
+  "uiSetSlot(${1:player}, ${2:slot_id}, ${3:item_id}, ${4:count})",
+  "uiClearSlot(${1:player}, ${2:slot_id})",
+  "uiGetInput(${1:player}, ${2:widget_id})",
+  "uiSetInput(${1:player}, ${2:widget_id}, ${3:text})",
+  "uiScrollGet(${1:player}, ${2:scroll_id})",
+  "uiScrollSet(${1:player}, ${2:scroll_id}, ${3:offset})",
   "uiTouch(${1:player}, ${2:id1}, ${3:id2})",
   
   // Игрок Действия
@@ -742,6 +755,18 @@ function showVisualLoadError(message, { missingBlocks } = {}) {
 // Инициализация
 async function init() {
   setupAssetRescanListeners();
+  initGuiEditor();
+  setupGuiEditorBridge(() => (VisualEngine && VisualEngine._cachedTextures) || []);
+  window.__sprauteGuiChanged = () => {
+    try { syncVisualCodePreview().catch(() => {}); } catch (e) {}
+    try {
+      const tab = openTabs.find(t => t.path === activeTabPath);
+      if (tab && tab.isVisualScript && !tab.isDirty) {
+        tab.isDirty = true;
+        renderTabs();
+      }
+    } catch (e) {}
+  };
   if (!window.spraute) {
     document.body.innerHTML = '<div class="flex items-center justify-center h-full text-white">Please run inside Electron</div>';
     return;
@@ -919,12 +944,6 @@ async function init() {
     }
   });
 
-  initGuiEditor();
-  setupGuiEditorBridge(() => VisualEngine._cachedTextures || []);
-  window.__sprauteGuiAddedToProject = () => {
-    syncVisualCodePreview();
-    setStatus('GUI добавлен в проект — код обновлён');
-  };
 }
 
 // === Custom Modal System ===
@@ -1581,18 +1600,35 @@ function setVisualEditorVisible(visible) {
 }
 
 async function syncVisualCodePreview() {
-  if (!blocklyWorkspace || !currentVisualCodeEditor) return;
-  let code = generateWorkspaceCode(blocklyWorkspace);
-  code = await injectPluginGlobals(code);
-  const doc = currentVisualCodeEditor.state.doc;
-  if (doc.toString() === code) return;
-  currentVisualCodeEditor.dispatch({
-    changes: { from: 0, to: doc.length, insert: code },
-    annotations: Transaction.addToHistory.of(false)
-  });
+  if (!blocklyWorkspace) return;
+  const editor = currentVisualCodeEditor;
+  if (!editor) return;
+  let code;
+  try {
+    code = generateWorkspaceCode(blocklyWorkspace);
+    code = await injectPluginGlobals(code);
+  } catch (e) {
+    console.warn('[Spraute] syncVisualCodePreview:', e);
+    return;
+  }
+  if (currentVisualCodeEditor !== editor) return;
+  try {
+    const doc = editor.state.doc;
+    if (doc.toString() === code) return;
+    editor.dispatch({
+      changes: { from: 0, to: doc.length, insert: code },
+      annotations: Transaction.addToHistory.of(false)
+    });
+  } catch (e) {
+    console.warn('[Spraute] syncVisualCodePreview dispatch:', e);
+  }
 }
 
 function destroyVisualCodeEditor() {
+  if (_visualCodeSyncTimer) {
+    clearTimeout(_visualCodeSyncTimer);
+    _visualCodeSyncTimer = null;
+  }
   if (currentVisualCodeEditor) {
     currentVisualCodeEditor.destroy();
     currentVisualCodeEditor = null;
@@ -1689,7 +1725,7 @@ const VisualEngine = {
         if (!tab || !tab.isVisualScript) return;
         clearTimeout(_visualCodeSyncTimer);
         _visualCodeSyncTimer = setTimeout(() => {
-          syncVisualCodePreview();
+          syncVisualCodePreview().catch(e => console.warn('[Spraute] visual code sync:', e));
           VisualEngine.syncNpcsFromWorkspace();
           if (!tab.isDirty) {
             tab.isDirty = true;
@@ -2387,7 +2423,7 @@ async function switchToTab(path) {
       restoreVisualWorkspaceFromXml(xml);
       VisualEngine.syncNpcsFromWorkspace();
       await mountVisualCodeEditor(sprContent);
-      syncVisualCodePreview();
+      await syncVisualCodePreview();
       if (blocklyWorkspace) Blockly.svgResize(blocklyWorkspace);
       const codeForScan = blocklyWorkspace ? generateWorkspaceCode(blocklyWorkspace) : sprContent;
       if (codeForScan !== sprContent) {

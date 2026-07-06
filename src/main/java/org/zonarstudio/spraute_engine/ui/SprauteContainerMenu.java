@@ -16,6 +16,8 @@ public class SprauteContainerMenu extends AbstractContainerMenu {
     public final String json;
     private final SimpleContainer customContainer;
     private final boolean dropOnClose;
+    /** Widget id каждого кастомного слота в порядке добавления (для uiSlotItem/uiSetSlot по id). */
+    public final java.util.List<String> slotWidgetIds = new java.util.ArrayList<>();
 
     public SprauteContainerMenu(int id, Inventory playerInv, String json) {
         this(id, playerInv, json, null);
@@ -57,12 +59,18 @@ public class SprauteContainerMenu extends AbstractContainerMenu {
                     if ("slot".equals(type)) {
                         int x = child.has("pos") ? child.getAsJsonArray("pos").get(0).getAsInt() : 0;
                         int y = child.has("pos") ? child.getAsJsonArray("pos").get(1).getAsInt() : 0;
+                        if (child.has("x")) x = child.get("x").getAsInt();
+                        if (child.has("y")) y = child.get("y").getAsInt();
                         if (currentCustomSlotIndex < this.customContainer.getContainerSize()) {
+                            String wid = child.has("id") ? child.get("id").getAsString() : ("slot_" + currentCustomSlotIndex);
+                            this.slotWidgetIds.add(wid);
                             this.addSlot(new Slot(this.customContainer, currentCustomSlotIndex++, x, y));
                         }
                     } else if ("playerInventory".equals(type) || "player_inventory".equals(type)) {
                         int startX = child.has("pos") ? child.getAsJsonArray("pos").get(0).getAsInt() : 8;
                         int startY = child.has("pos") ? child.getAsJsonArray("pos").get(1).getAsInt() : 84;
+                        if (child.has("x")) startX = child.get("x").getAsInt();
+                        if (child.has("y")) startY = child.get("y").getAsInt();
                         
                         for (int i = 0; i < 3; ++i) {
                             for (int j = 0; j < 9; ++j) {
@@ -77,6 +85,15 @@ public class SprauteContainerMenu extends AbstractContainerMenu {
                 }
             }
         }
+    }
+
+    public SimpleContainer getCustomContainer() {
+        return customContainer;
+    }
+
+    /** Индекс кастомного слота по widget id, -1 если не найден. */
+    public int slotIndexOf(String widgetId) {
+        return slotWidgetIds.indexOf(widgetId);
     }
 
     @Override

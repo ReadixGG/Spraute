@@ -244,9 +244,31 @@ public class SprauteNpcEntity extends PathfinderMob {
     }
 
     // ========== Model/Texture/Animation resources ==========
-    public void setModel(String v) { this.entityData.set(MODEL_RES, v); }
+    public void setModel(String v) {
+        net.minecraft.world.level.Level lv = org.zonarstudio.spraute_engine.compat.SprauteEntityCompat.level(this);
+        if (v != null && !v.isEmpty() && lv != null && !lv.isClientSide()) {
+            org.zonarstudio.spraute_engine.util.SprauteResourcePath.Result check =
+                    org.zonarstudio.spraute_engine.util.SprauteResourcePath.parse(v, org.zonarstudio.spraute_engine.util.SprauteResourcePath.Kind.MODEL);
+            if (!check.ok()) {
+                org.zonarstudio.spraute_engine.util.SprauteResourcePath.warnServerPlayersOnce(lv, check, getStringUUID());
+                return;
+            }
+        }
+        this.entityData.set(MODEL_RES, v);
+    }
     public String getModel() { return this.entityData.get(MODEL_RES); }
-    public void setTexture(String v) { this.entityData.set(TEXTURE_RES, v); }
+    public void setTexture(String v) {
+        net.minecraft.world.level.Level lv = org.zonarstudio.spraute_engine.compat.SprauteEntityCompat.level(this);
+        if (v != null && !v.isEmpty() && !v.startsWith("player_skin:") && lv != null && !lv.isClientSide()) {
+            org.zonarstudio.spraute_engine.util.SprauteResourcePath.Result check =
+                    org.zonarstudio.spraute_engine.util.SprauteResourcePath.parse(v, org.zonarstudio.spraute_engine.util.SprauteResourcePath.Kind.TEXTURE);
+            if (!check.ok()) {
+                org.zonarstudio.spraute_engine.util.SprauteResourcePath.warnServerPlayersOnce(lv, check, getStringUUID());
+                return;
+            }
+        }
+        this.entityData.set(TEXTURE_RES, v);
+    }
     public String getTexture() { return this.entityData.get(TEXTURE_RES); }
     public void setPlayerSkinOverlay(java.util.UUID playerUuid) {
         this.entityData.set(PLAYER_SKIN_OVERLAY, playerUuid != null ? playerUuid.toString() : "");
@@ -257,7 +279,18 @@ public class SprauteNpcEntity extends PathfinderMob {
     public String getPlayerSkinOverlayUuid() {
         return this.entityData.get(PLAYER_SKIN_OVERLAY);
     }
-    public void setAnimation(String v) { this.entityData.set(ANIMATION_RES, v); }
+    public void setAnimation(String v) {
+        net.minecraft.world.level.Level lv = org.zonarstudio.spraute_engine.compat.SprauteEntityCompat.level(this);
+        if (v != null && !v.isEmpty() && lv != null && !lv.isClientSide()) {
+            org.zonarstudio.spraute_engine.util.SprauteResourcePath.Result check =
+                    org.zonarstudio.spraute_engine.util.SprauteResourcePath.parse(v, org.zonarstudio.spraute_engine.util.SprauteResourcePath.Kind.ANIMATION);
+            if (!check.ok()) {
+                org.zonarstudio.spraute_engine.util.SprauteResourcePath.warnServerPlayersOnce(lv, check, getStringUUID());
+                return;
+            }
+        }
+        this.entityData.set(ANIMATION_RES, v);
+    }
     public String getAnimation() { return this.entityData.get(ANIMATION_RES); }
 
     public void setHitbox(float width, float height) {

@@ -29,5 +29,14 @@
   "spraute_engine.debug.reload.1": "Перезагрузить все",
   "spraute_engine.debug.reload.2": "скрипты",
   "spraute_engine.debug.start": "Старт",
-  "spraute_engine.debug.stop": "Стоп"
+  "spraute_engine.debug.stop": "Стоп",
+  "spraute_engine.error.resource_kind.model": "модель",
+  "spraute_engine.error.resource_kind.texture": "текстура",
+  "spraute_engine.error.resource_kind.animation": "анимация",
+  "spraute_engine.error.resource_kind.world": "мир",
+  "spraute_engine.error.resource_kind.resource": "ресурс",
+  "spraute_engine.error.invalid_resource_path": "§c[Spraute]§r Неверное имя %s: §f%s§r. Допустимы только латинские буквы (a-z), цифры и символы / . _ -. Недопустимые символы: §e%s",
+  "spraute_engine.error.invalid_world_id": "§c[Spraute]§r Неверный id мира: §f%s§r. Используйте только строчные латинские буквы (a-z), цифры и _. Недопустимые символы: §e%s",
+  "spraute_engine.error.world_not_found": "§c[Spraute]§r Мир не найден: §f%s§r. Проверьте create world в скриптах (id только в нижнем регистре).",
+  "spraute_engine.error.dimension_not_loaded": "§c[Spraute]§r Измерение не загружено: §f%s"
 }

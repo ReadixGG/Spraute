@@ -5,6 +5,7 @@ import net.minecraft.commands.CommandSourceStack;
 import org.slf4j.Logger;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
@@ -17,6 +18,16 @@ public class ScriptManager {
 
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String SCRIPT_EXTENSION = ".spr";
+    private static final String DEFAULT_SCRIPTS_PREFIX = "/default_scripts/";
+    private static final List<String> BUNDLED_DEFAULT_SCRIPTS = List.of(
+            "spraute_chat.spr",
+            "economy.spr",
+            "spraute_quests.spr",
+            "dialog_classic.spr",
+            "story_dialog_test.spr",
+            "test_camera.spr",
+            "test_hitbox.spr"
+    );
 
     private static ScriptManager INSTANCE;
 
@@ -330,196 +341,55 @@ public class ScriptManager {
 
     private void copyDefaultScripts() {
         try {
-            if (Files.list(scriptsDir).findAny().isEmpty()) {
-                // Copy the example script
-                String exampleContent = """
-                        # Пример скрипта Spraute Engine
-                        # Запусти: /spraute run example
-                        
-                        chat("§6[Spraute Engine] §fДвижок запущен!")
-                        chat("§7Это пример сюжетного скрипта.")
-                        chat("§aДобро пожаловать в мир историй!")
-                        """;
-                Files.writeString(
-                        scriptsDir.resolve("example.spr"),
-                        exampleContent,
-                        StandardCharsets.UTF_8
-                );
-                
-                String chatContent = """
-                        # Библиотека кастомного чата
-                        # Импортируйте через: include "spraute_chat"
-                        
-                        world chat_history = list()
-                        
-                        fun calc_msg_height(text) {
-                            var len = str_len(text)
-                            var lines = len // 40 + 1
-                            var h = lines * 10 + 20
-                            if (h < 40) {
-                                h = 40
-                            }
-                            return h
-                        }
-                        
-                        fun npcChat(player, npc_id, text, color) {
-                            var headTexture = npc_id.head
-                            if (headTexture == null) {
-                                headTexture = "minecraft:textures/heads/head.png"
-                            }
-                            var npcName = npc_id.name
-                            if (npcName == null) {
-                                npcName = "Неизвестный"
-                            }
-                            
-                            # Добавляем в историю (макс 50 сообщений)
-                            chat_history.add(dict("name", npcName, "text", text, "color", color, "head", headTexture))
-                            if (chat_history.size() > 50) {
-                                chat_history.remove(0)
-                            }
-                            
-                            var msg_h = calc_msg_height(text)
-                            var target_y = -msg_h - 40
-                            
-                            create ui chat_hud {
-                                w = 240
-                                h = msg_h
-                                x = "50%"
-                                y = "100%"
-                                
-                                clip {
-                                    id = "chat_container"
-                                    x = -120
-                                    y = target_y
-                                    w = 240
-                                    h = msg_h
-                                    alpha = 0.0  # Начальная прозрачность
-                                    
-                                    rect {
-                                        x = 0
-                                        y = 0
-                                        w = 240
-                                        h = msg_h
-                                        color = "#AA000000"
-                                    }
-                                    
-                                    image {
-                                        x = 5
-                                        y = (msg_h - 30) // 2
-                                        w = 30
-                                        h = 30
-                                        texture = headTexture
-                                    }
-                                    
-                                    text {
-                                        x = 40
-                                        y = 5
-                                        text = npcName
-                                        color = color
-                                    }
-                                    
-                                    text {
-                                        x = 40
-                                        y = 18
-                                        text = text
-                                        color = "#FFFFFF"
-                                        wrap = 190
-                                        max_lines = 10
-                                    }
-                                }
-                            }
-                            
-                            overlay_open(player, chat_hud)
-                            play_sound(player, "minecraft:entity.experience_orb.pickup", 0.5, 1.0)
-                            
-                            # Анимация плавного появления
-                            uiAnimate(player, "chat_container", "alpha", 1.0, 0.3)
-                            
-                            async {
-                                await time(5.0)
-                                uiAnimate(player, "chat_container", "alpha", 0.0, 0.3)
-                                await time(0.3)
-                                overlay_close(player)
-                            }
-                        }
-                        
-                        on keybind("key.keyboard.b") {
-                            var total_h = 0
-                            for (i in range(chat_history.size())) {
-                                val msg = chat_history.get(i)
-                                total_h = total_h + calc_msg_height(msg.text) + 5
-                            }
-                            
-                            create ui history_ui {
-                                w = 300
-                                h = 200
-                                bg = "#DD000000"
-                                canClose = true
-                                
-                                text {
-                                    x = 10
-                                    y = 10
-                                    text = "История сообщений"
-                                    color = "#FFAA00"
-                                }
-                                
-                                scroll {
-                                    x = 10
-                                    y = 25
-                                    w = 280
-                                    h = 165
-                                    content_h = total_h
-                                    
-                                    var current_y = 0
-                                    for (i in range(chat_history.size())) {
-                                        val msg = chat_history.get(i)
-                                        var m_h = calc_msg_height(msg.text)
-                                        
-                                        rect {
-                                            x = 0
-                                            y = current_y
-                                            w = 270
-                                            h = m_h
-                                            color = "#55000000"
-                                        }
-                                        image {
-                                            x = 5
-                                            y = current_y + (m_h - 30) // 2
-                                            w = 30
-                                            h = 30
-                                            texture = msg.head
-                                        }
-                                        text {
-                                            x = 40
-                                            y = current_y + 5
-                                            text = msg.name
-                                            color = msg.color
-                                        }
-                                        text {
-                                            x = 40
-                                            y = current_y + 18
-                                            text = msg.text
-                                            color = "#FFFFFF"
-                                            wrap = 220
-                                        }
-                                        current_y = current_y + m_h + 5
-                                    }
-                                }
-                            }
-                            
-                            ui_open(player, history_ui)
-                        }
-                        """;
-                Files.writeString(
-                        scriptsDir.resolve("spraute_chat.spr"),
-                        chatContent,
-                        StandardCharsets.UTF_8
-                );
-                
-                LOGGER.info("Created default example scripts");
+            int installed = 0;
+            for (String fileName : BUNDLED_DEFAULT_SCRIPTS) {
+                if (copyBundledScriptIfMissing(fileName)) {
+                    installed++;
+                }
+            }
+            if (copyExampleScriptIfMissing()) {
+                installed++;
+            }
+            if (installed > 0) {
+                LOGGER.info("Installed {} default script(s) into {}", installed, scriptsDir);
             }
         } catch (IOException e) {
             LOGGER.error("Failed to copy default scripts: {}", e.getMessage());
         }
+    }
+
+    private boolean copyBundledScriptIfMissing(String fileName) throws IOException {
+        Path dest = scriptsDir.resolve(fileName);
+        if (Files.exists(dest)) {
+            return false;
+        }
+        String resourcePath = DEFAULT_SCRIPTS_PREFIX + fileName;
+        try (InputStream in = ScriptManager.class.getResourceAsStream(resourcePath)) {
+            if (in == null) {
+                LOGGER.warn("Bundled default script not found in mod jar: {}", resourcePath);
+                return false;
+            }
+            Files.copy(in, dest, StandardCopyOption.REPLACE_EXISTING);
+            LOGGER.info("Installed default script: {}", fileName);
+            return true;
+        }
+    }
+
+    private boolean copyExampleScriptIfMissing() throws IOException {
+        Path dest = scriptsDir.resolve("example.spr");
+        if (Files.exists(dest)) {
+            return false;
+        }
+        String exampleContent = """
+                # Пример скрипта Spraute Engine
+                # Запусти: /spraute run example
+
+                chat("§6[Spraute Engine] §fДвижок запущен!")
+                chat("§7Это пример сюжетного скрипта.")
+                chat("§aДобро пожаловать в мир историй!")
+                """;
+        Files.writeString(dest, exampleContent, StandardCharsets.UTF_8);
+        LOGGER.info("Installed default script: example.spr");
+        return true;
     }
 }

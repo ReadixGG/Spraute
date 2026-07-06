@@ -14,17 +14,14 @@ import org.zonarstudio.spraute_engine.ui.SprauteContainerMenu;
 
 public class SprauteContainerScreen extends AbstractContainerScreen<SprauteContainerMenu> {
     private final SprauteScriptScreen bgScreen;
+    private final boolean dimBackground;
 
     public SprauteContainerScreen(SprauteContainerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
         JsonObject root = JsonParser.parseString(menu.json).getAsJsonObject();
         this.bgScreen = new SprauteScriptScreen(root);
-        
-        // Disable generic background tint since we have items
-        //? if <1.20.1 {
-        /*this.passEvents = true;
-        *///?}
-        
+        this.dimBackground = readDimBackground(root);
+
         if (root.has("size")) {
             if (root.get("size").isJsonArray()) {
                 this.imageWidth = root.getAsJsonArray("size").get(0).getAsInt();
@@ -36,6 +33,12 @@ public class SprauteContainerScreen extends AbstractContainerScreen<SprauteConta
         }
     }
 
+    private static boolean readDimBackground(JsonObject root) {
+        if (root.has("dimBackground")) return root.get("dimBackground").getAsBoolean();
+        if (root.has("dim_background")) return root.get("dim_background").getAsBoolean();
+        return true;
+    }
+
     @Override
     protected void init() {
         super.init();
@@ -44,12 +47,18 @@ public class SprauteContainerScreen extends AbstractContainerScreen<SprauteConta
         }
     }
 
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+
     //? if >=1.20.1 {
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(g);
+        if (dimBackground) {
+            this.renderBackground(g);
+        }
 
-        // Draw the scripted UI underneath the slots
         bgScreen.render(g, mouseX, mouseY, partialTick);
 
         super.render(g, mouseX, mouseY, partialTick);
@@ -58,9 +67,10 @@ public class SprauteContainerScreen extends AbstractContainerScreen<SprauteConta
     //?} else {
     /*@Override
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(poseStack);
+        if (dimBackground) {
+            this.renderBackground(poseStack);
+        }
 
-        // Draw the scripted UI underneath the slots
         bgScreen.render(poseStack, mouseX, mouseY, partialTick);
 
         super.render(poseStack, mouseX, mouseY, partialTick);
