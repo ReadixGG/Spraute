@@ -80,6 +80,7 @@ public class ScriptManager {
     public void loadAll() {
         compiledScripts.clear();
         failedScripts.clear();
+        org.zonarstudio.spraute_engine.script.ScriptTriggerRegistry.reset();
         int count = 0;
 
         try {
@@ -108,6 +109,29 @@ public class ScriptManager {
             LOGGER.info("Loaded {} script(s) from {} ({} with errors)", count, scriptsDir, failedScripts.size());
         } catch (IOException e) {
             LOGGER.error("Failed to scan scripts directory: {}", e.getMessage());
+        }
+
+        applyCompiledTriggers();
+        org.zonarstudio.spraute_engine.script.ScriptTriggerRegistry.get()
+                .migrateFromConfig(org.zonarstudio.spraute_engine.config.ScriptTriggersConfig.get());
+    }
+
+    private void applyCompiledTriggers() {
+        var registry = org.zonarstudio.spraute_engine.script.ScriptTriggerRegistry.get();
+        for (CompiledScript cs : compiledScripts.values()) {
+            if (cs.isAutorunSelf()) registry.addAutorun(cs.getName());
+            for (String target : cs.getAutorunTargets()) registry.addAutorun(target);
+        }
+    }
+
+    /** Запуск скриптов с директивой {@code autorun} и зарегистрированных через {@code autorun("...")}. */
+    public void runAutorunScripts(net.minecraft.server.MinecraftServer server) {
+        if (server == null) return;
+        net.minecraft.commands.CommandSourceStack source = server.createCommandSourceStack()
+                .withPermission(4);
+        for (String name : org.zonarstudio.spraute_engine.script.ScriptTriggerRegistry.get().getAutorunScripts()) {
+            run(name, source);
+            LOGGER.info("[Spraute] autorun: started script '{}'", name);
         }
     }
 

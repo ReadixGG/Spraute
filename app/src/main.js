@@ -18,6 +18,7 @@ import { SprauteGenerator, generateWorkspaceCode, SprauteTheme, applyBlocklyThem
 
 import { visualBlocksDocs } from './docs.js';
 import { initGuiEditor, setupGuiEditorBridge } from './gui-editor.js';
+import { initExportMap } from './export-map.js';
 
 function formatStudioVersion(raw) {
   if (!raw) return 'v?';
@@ -333,6 +334,8 @@ const sprauteSnippets = [
   snippetCompletion("on ${1:event}(${2:args}) {\n  ${3}\n}", {label: "on", detail: "event handler", type: "keyword"}),
   snippetCompletion("create ui ${1:name} {\n  ${2}\n}", {label: "create ui", detail: "definition", type: "keyword"}),
   snippetCompletion('create npc ${1:name} {\n  name = "${2:Display Name}"\n  hp = ${3:20}\n  model = "geo/defolt.geo.json"\n  texture = "textures/entity/defolt.png"\n  animation = "animations/npc_classic.animation.json"\n  pos = ${4:0, 64, 0}\n  ${5}\n}', {label: "create npc", detail: "definition", type: "keyword"}),
+  snippetCompletion('create npc_prefab ${1:goblin} {\n  name = "${2:Гоблин}"\n  hp = ${3:30}\n  model = "geo/defolt.geo.json"\n  texture = "textures/entity/defolt.png"\n  animation = "animations/npc_classic.animation.json"\n  speed = ${4:0.3}\n}', {label: "create npc_prefab", detail: "NPC prefab template", type: "keyword"}),
+  snippetCompletion('spawnNpcPrefab("${1:goblin}", "${2:mob_01}", ${3:0}, ${4:64}, ${5:0})', {label: "spawnNpcPrefab", detail: "spawn NPC from prefab", type: "function"}),
   snippetCompletion('create block ${1:name} {\n  texture = "textures/block/${1}.png"\n  hardness = ${2:1.5}\n  ${3}\n}', {label: "create block", detail: "definition", type: "keyword"}),
   snippetCompletion('create item ${1:name} {\n  texture = "textures/item/${1}.png"\n  ${2}\n}', {label: "create item", detail: "definition", type: "keyword"}),
   snippetCompletion('fadeIn {\n  text = "${1:Title}"\n  subtitle = "${2:Subtitle}"\n  time = ${3:1.0}\n  visibleTime = ${4:2.0}\n  fadeout = ${5:false}\n  color = ${6:0x111111}\n}', {label: "fadeIn", detail: "block", type: "keyword"}),
@@ -757,6 +760,7 @@ async function init() {
   setupAssetRescanListeners();
   initGuiEditor();
   setupGuiEditorBridge(() => (VisualEngine && VisualEngine._cachedTextures) || []);
+  initExportMap({ appAlert, setStatus });
   window.__sprauteGuiChanged = () => {
     try { syncVisualCodePreview().catch(() => {}); } catch (e) {}
     try {

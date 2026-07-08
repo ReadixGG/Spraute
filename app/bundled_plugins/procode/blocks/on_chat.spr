@@ -9,7 +9,4 @@
 #\ if filter == "msg":
 #\   row: "текст" (message: text: привет)
 #\   row: "игнорировать регистр" [ignoreCase: checkbox(true)]
-#\ if filter == "msg" and ignoreCase == "TRUE":
-#\   template: on chat(null, "{message}", true) -> {handler} {\n{DO}}
-#\ if filter == "msg" and ignoreCase == "FALSE":
-#\   template: on chat(null, "{message}", false) -> {handler} {\n{DO}}
+#\   template: on chat(null, "{message}", {ignoreCase}) -> {handler} {\n{DO}}

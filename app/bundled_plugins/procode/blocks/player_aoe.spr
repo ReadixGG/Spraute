@@ -11,15 +11,38 @@
 #\ color: #22c55e
 #\ shape: value
 #\
-#\ row: "игроки в радиусе" (radius: number: 5) "от" input: anchor (type: value)
-#\ template: playersNear({anchor}, {radius})
+#\ row: "игроки в радиусе" (radius: number: 5) "от"
+#\ row: [anchor: dropdown(НИП: npc, игрок: player, из события — игрок: event_player, первый игрок: first_player, указать: custom)]
+#\ if anchor == "npc":
+#\   row: [npc: dropdown_npc]
+#\ if anchor == "player":
+#\   row: [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\   if who == "custom":
+#\     input: player (type: value)
+#\ if anchor == "custom":
+#\   input: entity (type: value)
+#\
+#\ if anchor == "npc":
+#\   template: playersNear({npc}, {radius})
+#\ if anchor == "event_player":
+#\   template: playersNear(_eventPlayer, {radius})
+#\ if anchor == "first_player":
+#\   template: playersNear(getFirstPlayer(), {radius})
+#\ if anchor == "player" and who == "event":
+#\   template: playersNear(_eventPlayer, {radius})
+#\ if anchor == "player" and who == "first":
+#\   template: playersNear(getFirstPlayer(), {radius})
+#\ if anchor == "player" and who == "custom":
+#\   template: playersNear({player}, {radius})
+#\ if anchor == "custom":
+#\   template: playersNear({entity}, {radius})
 
 #\ block: entities_in_radius
 #\ category: Игрок
 #\ color: #22c55e
 #\ shape: value
 #\
-#\ row: "сущности в радиусе" (radius: number: 5) "от" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ row: "сущности в радиусе" (radius: number: 5) "от точки" (x: number: 0) (y: number: 64) (z: number: 0)
 #\ row: "тип" [filter: dropdown(любые: any, игроки: player, НИПы: npc, мобы: mob, живые: living)]
 #\ template: entitiesInRadius({x}, {y}, {z}, {radius}, "{filter}")
 
@@ -28,14 +51,67 @@
 #\ color: #22c55e
 #\ shape: value
 #\
-#\ row: "сущности в радиусе" (radius: number: 5) "от" input: anchor (type: value)
+#\ row: "сущности / мобы рядом" (radius: number: 5) "с"
+#\ row: [anchor: dropdown(НИП: npc, игрок: player, из события — сущность: event_entity, из события — жертва: event_victim, из события — убийца: event_killer, указать: custom)]
+#\ if anchor == "npc":
+#\   row: [npc: dropdown_npc]
+#\ if anchor == "player":
+#\   row: [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\   if who == "custom":
+#\     input: player (type: value)
+#\ if anchor == "custom":
+#\   input: entity (type: value)
 #\ row: "тип" [filter: dropdown(любые: any, игроки: player, НИПы: npc, мобы: mob, живые: living)]
-#\ template: entitiesNear({anchor}, {radius}, "{filter}")
+#\
+#\ if anchor == "npc":
+#\   template: entitiesNear({npc}, {radius}, "{filter}")
+#\ if anchor == "event_entity":
+#\   template: entitiesNear(_eventEntity, {radius}, "{filter}")
+#\ if anchor == "event_victim":
+#\   template: entitiesNear(_eventEntity, {radius}, "{filter}")
+#\ if anchor == "event_killer":
+#\   template: entitiesNear(_eventKiller, {radius}, "{filter}")
+#\ if anchor == "player" and who == "event":
+#\   template: entitiesNear(_eventPlayer, {radius}, "{filter}")
+#\ if anchor == "player" and who == "first":
+#\   template: entitiesNear(getFirstPlayer(), {radius}, "{filter}")
+#\ if anchor == "player" and who == "custom":
+#\   template: entitiesNear({player}, {radius}, "{filter}")
+#\ if anchor == "custom":
+#\   template: entitiesNear({entity}, {radius}, "{filter}")
+
+#\ block: entity_damage
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "урон" (amount: number: 2) "сущности" input: target (type: value)
+#\ row: [attackerMode: dropdown(без источника: none, убийца из события: event_killer, указать: custom)]
+#\ if attackerMode == "custom":
+#\   input: attacker (type: value) "от кого"
+#\
+#\ if attackerMode == "none":
+#\   template: {target}.damage({amount})
+#\ if attackerMode == "event_killer":
+#\   template: {target}.damage({amount}, _eventKiller)
+#\ if attackerMode == "custom":
+#\   template: {target}.damage({amount}, {attacker})
 
 #\ block: aoe_damage_players
 #\ category: Игрок
 #\ color: #22c55e
 #\ shape: statement
 #\
-#\ row: "урон" (damage: number: 2) "игрокам в радиусе" (radius: number: 4) "от" input: center (type: value)
-#\ template: val __aoe_pl = playersNear({center}, {radius})\nvar __aoe_i = 0\nwhile (__aoe_i < listSize(__aoe_pl)) {\n  val __aoe_p = listGet(__aoe_pl, __aoe_i)\n  __aoe_p.damage({damage})\n  __aoe_i = __aoe_i + 1\n}
+#\ row: "урон" (damage: number: 2) "игрокам в радиусе" (radius: number: 4) "от"
+#\ row: [anchor: dropdown(НИП: npc, из события — сущность: event_entity, указать: custom)]
+#\ if anchor == "npc":
+#\   row: [npc: dropdown_npc]
+#\ if anchor == "custom":
+#\   input: center (type: value)
+#\
+#\ if anchor == "npc":
+#\   template: val __aoe_pl = playersNear({npc}, {radius})\nvar __aoe_i = 0\nwhile (__aoe_i < listSize(__aoe_pl)) {\n  val __aoe_p = listGet(__aoe_pl, __aoe_i)\n  __aoe_p.damage({damage})\n  __aoe_i = __aoe_i + 1\n}
+#\ if anchor == "event_entity":
+#\   template: val __aoe_pl = playersNear(_eventEntity, {radius})\nvar __aoe_i = 0\nwhile (__aoe_i < listSize(__aoe_pl)) {\n  val __aoe_p = listGet(__aoe_pl, __aoe_i)\n  __aoe_p.damage({damage})\n  __aoe_i = __aoe_i + 1\n}
+#\ if anchor == "custom":
+#\   template: val __aoe_pl = playersNear({center}, {radius})\nvar __aoe_i = 0\nwhile (__aoe_i < listSize(__aoe_pl)) {\n  val __aoe_p = listGet(__aoe_pl, __aoe_i)\n  __aoe_p.damage({damage})\n  __aoe_i = __aoe_i + 1\n}

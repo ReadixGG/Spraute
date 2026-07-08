@@ -219,6 +219,7 @@ async function ensurePluginsMigrated() {
 /** Категории procode: «Игрок и Мир» → «Игрок» / «Мир» / «Инвентарь». */
 const PROCODE_MIR_BLOCKS = new Set([
   'set_block', 'find_safe_block', 'spawn_orb', 'execute_cmd', 'start_script',
+  'autorun_self', 'autorun_script', 'run_on_join', 'run_on_first_join', 'run_after',
 ]);
 const PROCODE_INVENTORY_BLOCKS = new Set([
   'give_item', 'has_item', 'has_item_stmt', 'count_item', 'count_item_stmt',
@@ -265,6 +266,11 @@ async function migrateProcodeBlockCategories(pluginRoot) {
     const catMatch = text.match(/^#\\?\s*category:\s*(.+)$/m);
     if (!catMatch) continue;
     const legacy = catMatch[1].trim();
+    if (legacy === 'Скрипты') {
+      const next = text.replace(/^#\\?\s*category:\s*.+$/m, '#\\ category: Мир');
+      if (next !== text) await fs.writeFile(fp, next, 'utf8');
+      continue;
+    }
     if (legacy !== 'Игрок и Мир' && legacy !== 'Слоты') continue;
     const newCat = procodeCategoryForBlock(blockId, legacy);
     const next = text.replace(/^#\\?\s*category:\s*.+$/m, `#\\ category: ${newCat}`);
@@ -292,6 +298,7 @@ async function migrateProcodeBlockCategories(pluginRoot) {
   if (!newCats['Игрок']) newCats['Игрок'] = '#22c55e';
   if (!newCats['Инвентарь']) newCats['Инвентарь'] = '#f59e0b';
   if (!newCats['Мир']) newCats['Мир'] = legacyColor;
+  delete newCats['Скрипты'];
   await fs.writeFile(catPath, JSON.stringify(newCats, null, 2), 'utf8');
 }
 
@@ -310,6 +317,7 @@ function mergeProcodeCategories(bundledCats, destCats) {
   }
   delete result['Игрок и Мир'];
   delete result['Слоты'];
+  delete result['Скрипты'];
   return result;
 }
 
@@ -567,6 +575,164 @@ async function pathExists(absPath) {
     return false;
   }
 }
+
+function getMcPath() {
+  const mcPath = store.get('minecraftPath');
+  if (!mcPath) throw new Error('Папка Minecraft не задана в настройках');
+  return mcPath;
+}
+
+function resolveExportAreaRoot(area) {
+  const mcPath = getMcPath();
+  if (area === 'spraute') return path.join(mcPath, 'spraute_engine');
+  if (area === 'saves') return path.join(mcPath, 'saves');
+  throw new Error('Неизвестная область экспорта');
+}
+
+function sanitizeMapExportName(name) {
+  const trimmed = String(name || '').trim().replace(/[<>:"/\\|?*\x00-\x1f]/g, '_');
+  if (!trimmed) throw new Error('Укажите название карты');
+  return trimmed;
+}
+
+function sanitizeModJarName(name) {
+  const trimmed = path.basename(String(name || '').trim());
+  if (!trimmed || !/\.jar$/i.test(trimmed) || /[\\/]/.test(trimmed) || trimmed.includes('..')) {
+    throw new Error('Некорректное имя JAR-файла');
+  }
+  return trimmed;
+}
+
+function sanitizeWorldName(name) {
+  const trimmed = String(name || '').trim();
+  if (!trimmed || /[./\\]/.test(trimmed)) {
+    throw new Error('Некорректное имя мира');
+  }
+  return trimmed;
+}
+
+function minimizeSelectedPaths(paths) {
+  const norm = [...new Set(
+    (paths || []).map((p) => String(p).replace(/\\/g, '/').replace(/^\//, '')).filter(Boolean)
+  )].sort();
+  const result = [];
+  for (const p of norm) {
+    if (result.some((r) => p === r || p.startsWith(r + '/'))) continue;
+    result.push(p);
+  }
+  return result;
+}
+
+ipcMain.handle('export:listMods', async () => {
+  const modsDir = path.join(getMcPath(), 'mods');
+  const names = await fs.readdir(modsDir).catch(() => []);
+  const mods = [];
+  for (const name of names) {
+    if (!/\.jar$/i.test(name) || !/spraute/i.test(name)) continue;
+    const full = path.join(modsDir, name);
+    const st = await fs.stat(full).catch(() => null);
+    if (st?.isFile()) {
+      mods.push({ name, size: st.size, mtime: st.mtimeMs });
+    }
+  }
+  mods.sort((a, b) => b.mtime - a.mtime);
+  return mods;
+});
+
+ipcMain.handle('export:listDir', async (_e, area, relPath = '') => {
+  const root = resolveExportAreaRoot(area);
+  const dir = safeJoin(root, relPath || '');
+  const stat = await fs.stat(dir).catch(() => null);
+  if (!stat || !stat.isDirectory()) return [];
+
+  const names = await fs.readdir(dir);
+  const entries = await Promise.all(
+    names.map(async (name) => {
+      const full = path.join(dir, name);
+      try {
+        const s = await fs.stat(full);
+        const rel = path.join(relPath || '', name).replace(/\\/g, '/');
+        const entry = {
+          name,
+          rel,
+          isDir: s.isDirectory(),
+        };
+        if (area === 'saves' && s.isDirectory() && (!relPath || relPath === '')) {
+          entry.isWorld = await pathExists(path.join(full, 'level.dat'));
+        }
+        return entry;
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  const list = entries.filter(Boolean);
+  list.sort((a, b) => {
+    if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+  });
+  return list;
+});
+
+ipcMain.handle('export:createMapZip', async (_e, options) => {
+  try {
+    const AdmZip = require('adm-zip');
+    const { dialog } = require('electron');
+
+    const mapName = sanitizeMapExportName(options?.mapName);
+    const modFileName = sanitizeModJarName(options?.modFileName);
+    const sprautePaths = minimizeSelectedPaths(options?.sprautePaths || []);
+    const includeWorld = !!options?.includeWorld;
+    const worldName = includeWorld ? sanitizeWorldName(options?.worldName) : null;
+
+    if (!sprautePaths.length) {
+      return { success: false, error: 'Не выбрано содержимое spraute_engine' };
+    }
+
+    const mcPath = getMcPath();
+    const modAbs = path.join(mcPath, 'mods', modFileName);
+    await fs.access(modAbs).catch(() => {
+      throw new Error('Выбранный JAR-файл не найден');
+    });
+
+    const { filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Экспорт карты',
+      defaultPath: `${mapName}.zip`,
+      filters: [{ name: 'ZIP Архивы', extensions: ['zip'] }],
+    });
+    if (!filePath) return { success: false, error: 'Отменено пользователем' };
+
+    const zip = new AdmZip();
+    zip.addLocalFile(modAbs, 'mods');
+
+    const sprauteRoot = path.join(mcPath, 'spraute_engine');
+    for (const rel of sprautePaths) {
+      const abs = safeJoin(sprauteRoot, rel);
+      const st = await fs.stat(abs);
+      const zipRel = `spraute_engine/${rel.replace(/\\/g, '/')}`;
+      if (st.isDirectory()) {
+        zip.addLocalFolder(abs, zipRel);
+      } else {
+        const dirInZip = path.dirname(zipRel).replace(/\\/g, '/');
+        zip.addLocalFile(abs, dirInZip === '.' ? 'spraute_engine' : dirInZip);
+      }
+    }
+
+    if (includeWorld && worldName) {
+      const worldAbs = path.join(mcPath, 'saves', worldName);
+      await fs.access(path.join(worldAbs, 'level.dat')).catch(() => {
+        throw new Error('Мир не найден или повреждён (нет level.dat)');
+      });
+      zip.addLocalFolder(worldAbs, `saves/${worldName}`);
+    }
+
+    zip.writeZip(filePath);
+    return { success: true, path: filePath };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
 
 function resolveZipPluginMeta(zip, filename) {
   const zipEntries = zip.getEntries();

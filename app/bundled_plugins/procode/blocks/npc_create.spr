@@ -1,0 +1,34 @@
+#\ block: npc_create
+#\ category: НПС
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "создать НИП" (id: text: my_npc)
+#\ row: "имя" (name: text: НИП)
+#\ row: "HP" (hp: number: 20) "скорость" (speed: number: 0.3)
+#\ row: "модель" [model: dropdown_model]
+#\ row: "текстура" [texture: dropdown_texture]
+#\ row: "анимации" [animation: dropdown_animfile]
+#\ row: "idle" [idleAnim: dropdown_anim] "walk" [walkAnim: dropdown_anim]
+#\ row: "позиция" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ row: "имя над головой" [showName: dropdown(да: true, нет: false)]
+#\
+#\ code: var id = String(_getVal('id') || '').trim();
+#\ code: function q(v) { return String(v || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
+#\ code: var lines = ['create npc ' + id + ' {'];
+#\ code: var nm = String(_getVal('name') || '').trim(); if (nm) lines.push('    name = "' + q(nm) + '"');
+#\ code: var hp = String(_getVal('hp') || '').trim(); if (hp) lines.push('    hp = ' + hp);
+#\ code: var spd = String(_getVal('speed') || '').trim(); if (spd) lines.push('    speed = ' + spd);
+#\ code: var mdl = String(_getVal('model') || '').trim(); if (mdl) lines.push('    model = "' + q(mdl) + '"');
+#\ code: var tex = String(_getVal('texture') || '').trim(); if (tex) lines.push('    texture = "' + q(tex) + '"');
+#\ code: var anim = String(_getVal('animation') || '').trim(); if (anim) lines.push('    animation = "' + q(anim) + '"');
+#\ code: var idle = String(_getVal('idleAnim') || '').trim(); if (idle) lines.push('    idleAnim = "' + q(idle) + '"');
+#\ code: var walk = String(_getVal('walkAnim') || '').trim(); if (walk) lines.push('    walkAnim = "' + q(walk) + '"');
+#\ code: var x = String(_getVal('x') || '0').trim();
+#\ code: var y = String(_getVal('y') || '64').trim();
+#\ code: var z = String(_getVal('z') || '0').trim();
+#\ code: lines.push('    pos = ' + x + ', ' + y + ', ' + z);
+#\ code: var sn = String(_getVal('showName') || 'true').trim();
+#\ code: if (sn === 'true' || sn === 'false') lines.push('    showName = ' + sn);
+#\ code: lines.push('}');
+#\ code: return lines.join('\n') + '\n';

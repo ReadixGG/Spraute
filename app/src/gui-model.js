@@ -156,6 +156,7 @@ export const WIDGET_DEFS = {
     defaults: { w: 64, h: 96 },
     props: {
       scale: { def: 1, kind: 'float' },
+      autoScale: { def: false, kind: 'bool' },
       feetCrop: { def: 0.38, kind: 'float' },
       nameTag: { def: false, kind: 'bool' },
       noLookAt: { def: false, kind: 'bool' },
@@ -181,6 +182,18 @@ export const WIDGET_DEFS = {
     args: [{ name: 'id', def: 'inv' }],
     defaults: { w: 162, h: 76, noSize: true },
     props: {},
+  },
+  group: {
+    label: 'Группа', icon: 'folder',
+    args: [{ name: 'id', def: 'group' }],
+    defaults: { w: 100, h: 100 },
+    container: true,
+    props: {
+      alpha: { def: 1, kind: 'float' },
+      rotation: { def: 0, kind: 'float' },
+      pivotX: { def: 0.5, kind: 'float' },
+      pivotY: { def: 0.5, kind: 'float' },
+    },
   },
   clip: {
     label: 'Клип (контейнер)', icon: 'crop',
@@ -243,6 +256,9 @@ export function createWidget(type) {
   // Уникальный id в args[0] (для entity id — второй аргумент)
   const idIdx = type === 'entity' ? 1 : 0;
   w.args[idIdx] = def.args[idIdx].def + '_' + w.uid.slice(-4);
+  if (type === 'entity') {
+    w.props.autoScale = true;
+  }
   return w;
 }
 
@@ -295,6 +311,101 @@ export function findGuiWidgetParentList(model, uid) {
     if (w.uid === uid) res = { parent, list, idx };
   });
   return res;
+}
+
+/** Границы виджета в пикселях относительно родителя. */
+export function widgetBoundsPx(w, parentW, parentH) {
+  const def = WIDGET_DEFS[w.type];
+  if (!def) return { x: 0, y: 0, w: 10, h: 10 };
+  const x = resolveCoord(w.pos?.[0] ?? 0, parentW);
+  const y = resolveCoord(w.pos?.[1] ?? 0, parentH);
+  let ww = def.defaults.w ?? 50;
+  let hh = def.defaults.h ?? 50;
+  if (w.size) {
+    if (def.defaults.sizeSingle) {
+      ww = hh = resolveCoord(w.size[0], parentW);
+    } else {
+      ww = resolveCoord(w.size[0], parentW);
+      hh = resolveCoord(w.size[1], parentH);
+    }
+  }
+  return { x, y, w: ww, h: hh };
+}
+
+function filterTopLevelUids(model, uids) {
+  const set = new Set(uids);
+  return uids.filter((uid) => {
+    let cur = findGuiWidgetParentList(model, uid);
+    while (cur?.parent) {
+      if (set.has(cur.parent.uid)) return false;
+      cur = findGuiWidgetParentList(model, cur.parent.uid);
+    }
+    return true;
+  });
+}
+
+/** Объединить несколько виджетов одного родителя в group. */
+export function groupGuiWidgets(model, uids, parentW, parentH) {
+  if (!uids || uids.length < 2) return null;
+  const topUids = filterTopLevelUids(model, uids);
+  if (topUids.length < 2) return null;
+
+  const first = findGuiWidgetParentList(model, topUids[0]);
+  if (!first) return null;
+  const { list } = first;
+  for (const uid of topUids) {
+    const f = findGuiWidgetParentList(model, uid);
+    if (!f || f.list !== list) return null;
+  }
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  const items = topUids.map((uid) => {
+    const w = findGuiWidget(model, uid);
+    const b = widgetBoundsPx(w, parentW, parentH);
+    minX = Math.min(minX, b.x);
+    minY = Math.min(minY, b.y);
+    maxX = Math.max(maxX, b.x + b.w);
+    maxY = Math.max(maxY, b.y + b.h);
+    return { w, idx: findGuiWidgetParentList(model, uid).idx };
+  }).sort((a, b) => a.idx - b.idx);
+
+  const group = createWidget('group');
+  group.pos = [minX, minY];
+  group.size = [Math.max(1, maxX - minX), Math.max(1, maxY - minY)];
+
+  for (const { w } of items) {
+    const b = widgetBoundsPx(w, parentW, parentH);
+    w.pos = [b.x - minX, b.y - minY];
+    if (w.size && !WIDGET_DEFS[w.type].defaults.sizeSingle) {
+      w.size = [b.w, b.h];
+    }
+  }
+
+  const minIdx = items[0].idx;
+  for (let i = items.length - 1; i >= 0; i--) list.splice(items[i].idx, 1);
+  group.children = items.map(({ w }) => w);
+  list.splice(minIdx, 0, group);
+  return group;
+}
+
+/** Разгруппировать group — дети возвращаются к родителю. */
+export function ungroupGuiWidget(model, groupUid, parentW, parentH) {
+  const found = findGuiWidgetParentList(model, groupUid);
+  if (!found) return null;
+  const group = found.list[found.idx];
+  if (!group || group.type !== 'group' || !group.children?.length) return null;
+
+  const gb = widgetBoundsPx(group, parentW, parentH);
+  const children = group.children.map((child) => {
+    const cb = widgetBoundsPx(child, gb.w, gb.h);
+    child.pos = [gb.x + cb.x, gb.y + cb.y];
+    return child;
+  });
+  found.list.splice(found.idx, 1, ...children);
+  return children;
 }
 
 // ================= Кодогенерация =================

@@ -1,3 +1,10 @@
+## Версия 1.5
+
+* Spraute Engine и Spraute Studio — релиз 1.5
+* GUI-редактор: экспорт карты, autoScale для НИП в интерфейсе, исправления генерации кода
+* Безопасная загрузка сейва после удаления кастомного мира (orphan dimensions)
+* await join() без аргумента, триггеры on join / on first join, NPC prefabs
+
 ## Версия 1.4
 
 * Spraute Engine и Spraute Studio — релиз 1.4

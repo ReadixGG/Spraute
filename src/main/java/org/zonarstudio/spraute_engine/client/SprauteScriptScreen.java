@@ -295,36 +295,60 @@ public class SprauteScriptScreen extends Screen {
 
         for (int i = 0; i < widgets.size(); i++) {
             Widget w = widgets.get(i);
-            if (widgetId.equals(widgetIdOf(w))) {
-                Widget patched = patchWidget(w, f, v);
-                if (patched != w) {
-                    widgets.set(i, patched);
-                }
+            Widget replaced = applyWidgetPatchInWidget(w, widgetId, f, v);
+            if (replaced != null) {
+                if (replaced != w) widgets.set(i, replaced);
                 return true;
             }
-            if (w instanceof ScrollW sw) {
-                for (int j = 0; j < sw.children.size(); j++) {
-                    Widget child = sw.children.get(j);
-                    if (widgetId.equals(widgetIdOf(child))) {
-                        Widget patched = patchWidget(child, f, v);
-                        if (patched != child) {
-                            sw.children.set(j, patched);
-                        }
-                        return true;
-                    }
-                }
+        }
+        return false;
+    }
+
+    /** @return null if not found; parent widget (possibly replaced) if patched in subtree */
+    private Widget applyWidgetPatchInWidget(Widget w, String widgetId, String field, String value) {
+        if (widgetId.equals(widgetIdOf(w))) {
+            Widget patched = patchWidget(w, field, value);
+            return patched;
+        }
+        if (w instanceof RotatedW rw) {
+            if (widgetId.equals(widgetIdOf(rw.child))) {
+                Widget patched = patchWidget(rw.child, field, value);
+                return patched != rw.child
+                        ? new RotatedW(patched, rw.rotation, rw.pivotX, rw.pivotY, rw.ow, rw.oh, rw.id)
+                        : w;
             }
-            if (w instanceof ClipW cw) {
-                for (int j = 0; j < cw.children.size(); j++) {
-                    Widget child = cw.children.get(j);
-                    if (widgetId.equals(widgetIdOf(child))) {
-                        Widget patched = patchWidget(child, f, v);
-                        if (patched != child) {
-                            cw.children.set(j, patched);
-                        }
-                        return true;
-                    }
-                }
+            Widget inner = applyWidgetPatchInWidget(rw.child, widgetId, field, value);
+            if (inner != null) {
+                return inner != rw.child
+                        ? new RotatedW(inner, rw.rotation, rw.pivotX, rw.pivotY, rw.ow, rw.oh, rw.id)
+                        : w;
+            }
+            return null;
+        }
+        if (w instanceof ScrollW sw) {
+            if (applyWidgetPatchInList(sw.children, widgetId, field, value)) return w;
+        }
+        if (w instanceof ClipW cw) {
+            if (applyWidgetPatchInList(cw.children, widgetId, field, value)) return w;
+        }
+        if (w instanceof GroupW gw) {
+            if (applyWidgetPatchInList(gw.children, widgetId, field, value)) return w;
+        }
+        return null;
+    }
+
+    private boolean applyWidgetPatchInList(List<Widget> list, String widgetId, String field, String value) {
+        for (int i = 0; i < list.size(); i++) {
+            Widget w = list.get(i);
+            if (widgetId.equals(widgetIdOf(w))) {
+                Widget patched = patchWidget(w, field, value);
+                if (patched != w) list.set(i, patched);
+                return true;
+            }
+            Widget replaced = applyWidgetPatchInWidget(w, widgetId, field, value);
+            if (replaced != null) {
+                if (replaced != w) list.set(i, replaced);
+                return true;
             }
         }
         return false;
@@ -474,16 +498,16 @@ public class SprauteScriptScreen extends Screen {
         nine(guiGraphics, rl, ix + w - bs, iy, bs, bs, tw - b, 0, b, b, tw, th);
         nine(guiGraphics, rl, ix, iy + h - bs, bs, bs, 0, th - b, b, b, tw, th);
         nine(guiGraphics, rl, ix + w - bs, iy + h - bs, bs, bs, tw - b, th - b, b, b, tw, th);
-        // Edges.
+        // Edges — tile along the long axis (border unit b×b → bs on screen).
         if (midW > 0 && srcMidW > 0) {
-            nine(guiGraphics, rl, ix + bs, iy, midW, bs, b, 0, srcMidW, b, tw, th);
-            nine(guiGraphics, rl, ix + bs, iy + h - bs, midW, bs, b, th - b, srcMidW, b, tw, th);
+            nineTileH(guiGraphics, rl, ix + bs, iy, midW, bs, b, 0, b, b, bs, tw, th);
+            nineTileH(guiGraphics, rl, ix + bs, iy + h - bs, midW, bs, b, th - b, b, b, bs, tw, th);
         }
         if (midH > 0 && srcMidH > 0) {
-            nine(guiGraphics, rl, ix, iy + bs, bs, midH, 0, b, b, srcMidH, tw, th);
-            nine(guiGraphics, rl, ix + w - bs, iy + bs, bs, midH, tw - b, b, b, srcMidH, tw, th);
+            nineTileV(guiGraphics, rl, ix, iy + bs, bs, midH, 0, b, b, b, bs, tw, th);
+            nineTileV(guiGraphics, rl, ix + w - bs, iy + bs, bs, midH, tw - b, b, b, b, bs, tw, th);
         }
-        // Center.
+        // Center — stretch.
         if (midW > 0 && midH > 0 && srcMidW > 0 && srcMidH > 0) {
             nine(guiGraphics, rl, ix + bs, iy + bs, midW, midH, b, b, srcMidW, srcMidH, tw, th);
         }
@@ -493,6 +517,32 @@ public class SprauteScriptScreen extends Screen {
     private static void nine(GuiGraphics g, ResourceLocation rl, int x, int y, int dw, int dh,
                              int su, int sv, int sw, int sh, int tw, int th) {
         g.blit(rl, x, y, dw, dh, (float) su, (float) sv, sw, sh, tw, th);
+    }
+
+    private static void nineTileH(GuiGraphics g, ResourceLocation rl, int x, int y, int w, int h,
+                                  int su, int sv, int sw, int sh, int tileW, int tw, int th) {
+        int cx = x;
+        int end = x + w;
+        int step = Math.max(1, tileW);
+        while (cx < end) {
+            int dw = Math.min(step, end - cx);
+            int srcW = Math.max(1, Math.round(dw * (sw / (float) step)));
+            nine(g, rl, cx, y, dw, h, su, sv, srcW, sh, tw, th);
+            cx += step;
+        }
+    }
+
+    private static void nineTileV(GuiGraphics g, ResourceLocation rl, int x, int y, int w, int h,
+                                  int su, int sv, int sw, int sh, int tileH, int tw, int th) {
+        int cy = y;
+        int end = y + h;
+        int step = Math.max(1, tileH);
+        while (cy < end) {
+            int dh = Math.min(step, end - cy);
+            int srcH = Math.max(1, Math.round(dh * (sh / (float) step)));
+            nine(g, rl, x, cy, w, dh, su, sv, sw, srcH, tw, th);
+            cy += step;
+        }
     }
 
     private static void blitImageTexture(GuiGraphics guiGraphics, ResourceLocation rl,
@@ -588,6 +638,8 @@ public class SprauteScriptScreen extends Screen {
         if (w instanceof ItemW iw) return iw.id != null ? iw.id : "";
         if (w instanceof InputW inpw) return inpw.id != null ? inpw.id : "";
         if (w instanceof ClipW cw) return cw.id != null ? cw.id : "";
+        if (w instanceof GroupW gw) return gw.id != null ? gw.id : "";
+        if (w instanceof RotatedW rw) return rw.id != null ? rw.id : "";
         return "";
     }
 
@@ -692,12 +744,21 @@ public class SprauteScriptScreen extends Screen {
             if (w instanceof ClipW cw) {
                 return switch (field) { case "x" -> cw.x; case "y" -> cw.y; case "w" -> cw.w; case "h" -> cw.h; case "alpha" -> cw.alpha; default -> 0f; };
             }
+            if (w instanceof GroupW gw) {
+                return switch (field) { case "x" -> gw.x; case "y" -> gw.y; case "w" -> gw.w; case "h" -> gw.h; case "alpha" -> gw.alpha; default -> 0f; };
+            }
+            if (w instanceof RotatedW rw) {
+                return getWidgetFieldAsFloat(rw.child, field);
+            }
         } catch (Exception e) {}
         return 0f;
     }
 
     private Widget findWidgetByIdRec(Widget w, String id) {
         if (id.equals(widgetIdOf(w))) return w;
+        if (w instanceof RotatedW rw) {
+            return findWidgetByIdRec(rw.child, id);
+        }
         if (w instanceof ScrollW sw) {
             for (Widget cw : sw.children) {
                 Widget found = findWidgetByIdRec(cw, id);
@@ -707,6 +768,12 @@ public class SprauteScriptScreen extends Screen {
         if (w instanceof ClipW cw) {
             for (Widget ccw : cw.children) {
                 Widget found = findWidgetByIdRec(ccw, id);
+                if (found != null) return found;
+            }
+        }
+        if (w instanceof GroupW gw) {
+            for (Widget gcw : gw.children) {
+                Widget found = findWidgetByIdRec(gcw, id);
                 if (found != null) return found;
             }
         }
@@ -816,23 +883,23 @@ public class SprauteScriptScreen extends Screen {
             }
             if (w instanceof EntityW ew) {
                 return switch (field) {
-                    case "x" -> new EntityW((int)Float.parseFloat(value.trim()), ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
-                    case "y" -> new EntityW(ew.x, (int)Float.parseFloat(value.trim()), ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
-                    case "w" -> new EntityW(ew.x, ew.y, (int)Float.parseFloat(value.trim()), ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
-                    case "h" -> new EntityW(ew.x, ew.y, ew.w, (int)Float.parseFloat(value.trim()), ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
-                    case "scale" -> new EntityW(ew.x, ew.y, ew.w, ew.h, Float.parseFloat(value.trim()), ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
-                    case "feetCrop" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, Float.parseFloat(value.trim()), ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
-                    case "anchorX" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, clamp01(Float.parseFloat(value.trim())), ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
-                    case "anchorY" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, parseAnchorYPatch(value), ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
+                    case "x" -> new EntityW((int)Float.parseFloat(value.trim()), ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.autoScale, ew.clipEntity);
+                    case "y" -> new EntityW(ew.x, (int)Float.parseFloat(value.trim()), ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.autoScale, ew.clipEntity);
+                    case "w" -> new EntityW(ew.x, ew.y, (int)Float.parseFloat(value.trim()), ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.autoScale, ew.clipEntity);
+                    case "h" -> new EntityW(ew.x, ew.y, ew.w, (int)Float.parseFloat(value.trim()), ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.autoScale, ew.clipEntity);
+                    case "scale" -> new EntityW(ew.x, ew.y, ew.w, ew.h, Float.parseFloat(value.trim()), ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.autoScale, ew.clipEntity);
+                    case "feetCrop" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, Float.parseFloat(value.trim()), ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.autoScale, ew.clipEntity);
+                    case "anchorX" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, clamp01(Float.parseFloat(value.trim())), ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.autoScale, ew.clipEntity);
+                    case "anchorY" -> new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, ew.cropL, ew.cropT, ew.cropR, ew.cropB, ew.anchorX, parseAnchorYPatch(value), ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.autoScale, ew.clipEntity);
                     case "crop" -> {
                         float[] c = parseCropPatch(value);
-                        yield c != null ? new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, c[0], c[1], c[2], c[3], ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity) : w;
+                        yield c != null ? new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, c[0], c[1], c[2], c[3], ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.autoScale, ew.clipEntity) : w;
                     }
                     case "viewport" -> {
                         float[] vp = parseViewportPatch(value);
                         if (vp != null) {
                             float[] c = viewportCornersToCrop(vp);
-                            yield new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, c[0], c[1], c[2], c[3], ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.clipEntity);
+                            yield new EntityW(ew.x, ew.y, ew.w, ew.h, ew.scale, ew.entityUuid, ew.feetCrop, ew.tooltip, ew.id, c[0], c[1], c[2], c[3], ew.anchorX, ew.anchorY, ew.disableAnim, ew.hideNameTag, ew.noLookAt, ew.noFollowCursor, ew.noHurtAnim, ew.renderBones, ew.skinPlayerUuid, ew.modelGeo, ew.modelTexture, ew.modelAnim, ew.modelIdle, ew.autoScale, ew.clipEntity);
                         }
                         yield w;
                     }
@@ -871,6 +938,16 @@ public class SprauteScriptScreen extends Screen {
                     case "w" -> { ClipW n = new ClipW(cw.x, cw.y, (int)Float.parseFloat(value.trim()), cw.h, cw.alpha, cw.tooltip, cw.id); n.children.addAll(cw.children); yield n; }
                     case "h" -> { ClipW n = new ClipW(cw.x, cw.y, cw.w, (int)Float.parseFloat(value.trim()), cw.alpha, cw.tooltip, cw.id); n.children.addAll(cw.children); yield n; }
                     case "alpha" -> { ClipW n = new ClipW(cw.x, cw.y, cw.w, cw.h, Float.parseFloat(value.trim()), cw.tooltip, cw.id); n.children.addAll(cw.children); yield n; }
+                    default -> w;
+                };
+            }
+            if (w instanceof GroupW gw) {
+                return switch (field) {
+                    case "x" -> { GroupW n = new GroupW((int)Float.parseFloat(value.trim()), gw.y, gw.w, gw.h, gw.alpha, gw.tooltip, gw.id); n.children.addAll(gw.children); yield n; }
+                    case "y" -> { GroupW n = new GroupW(gw.x, (int)Float.parseFloat(value.trim()), gw.w, gw.h, gw.alpha, gw.tooltip, gw.id); n.children.addAll(gw.children); yield n; }
+                    case "w" -> { GroupW n = new GroupW(gw.x, gw.y, (int)Float.parseFloat(value.trim()), gw.h, gw.alpha, gw.tooltip, gw.id); n.children.addAll(gw.children); yield n; }
+                    case "h" -> { GroupW n = new GroupW(gw.x, gw.y, gw.w, (int)Float.parseFloat(value.trim()), gw.alpha, gw.tooltip, gw.id); n.children.addAll(gw.children); yield n; }
+                    case "alpha" -> { GroupW n = new GroupW(gw.x, gw.y, gw.w, gw.h, Float.parseFloat(value.trim()), gw.tooltip, gw.id); n.children.addAll(gw.children); yield n; }
                     default -> w;
                 };
             }
@@ -1122,7 +1199,8 @@ public class SprauteScriptScreen extends Screen {
                     }
                 }
                 boolean clipEntity = w.has("clipEntity") && w.get("clipEntity").getAsBoolean();
-                yield new EntityW(x, y, ww, hh, scale, uuid, feetCrop, tooltip, wid, crop[0], crop[1], crop[2], crop[3], anchorX, anchorY, disableAnim, hideNameTag, noLookAt, noFollowCursor, noHurtAnim, renderBones, skinPlayerUuid, modelGeo, modelTexture, modelAnim, modelIdle, clipEntity);
+                boolean autoScale = w.has("autoScale") && w.get("autoScale").getAsBoolean();
+                yield new EntityW(x, y, ww, hh, scale, uuid, feetCrop, tooltip, wid, crop[0], crop[1], crop[2], crop[3], anchorX, anchorY, disableAnim, hideNameTag, noLookAt, noFollowCursor, noHurtAnim, renderBones, skinPlayerUuid, modelGeo, modelTexture, modelAnim, modelIdle, autoScale, clipEntity);
             }
             case "scroll" -> {
                 int contentH = readCoord(w, "contentH", ph);
@@ -1156,6 +1234,21 @@ public class SprauteScriptScreen extends Screen {
                     }
                 }
                 yield clip;
+            }
+            case "group" -> {
+                float alpha = w.has("alpha") ? w.get("alpha").getAsFloat() : 1.0f;
+                GroupW group = new GroupW(x, y, ww, hh, alpha, tooltip, wid);
+                if (w.has("children")) {
+                    JsonArray children = w.getAsJsonArray("children");
+                    for (JsonElement cel : children) {
+                        if (!cel.isJsonObject()) continue;
+                        JsonObject cw = cel.getAsJsonObject();
+                        String ct = cw.has("tooltip") ? cw.get("tooltip").getAsString() : null;
+                        Widget child = parseOneWidget(cw, ct, ww, hh);
+                        if (child != null) group.children.add(child);
+                    }
+                }
+                yield group;
             }
             case "input" -> new InputW(wid, x, y, ww, hh,
                     w.has("text") ? w.get("text").getAsString() : "",
@@ -2530,6 +2623,60 @@ public class SprauteScriptScreen extends Screen {
         *///?}
     }
 
+    private static class GroupW implements Widget {
+        final int x, y, w, h;
+        final String tooltip;
+        final String id;
+        float alpha = 1.0f;
+        final List<Widget> children = new ArrayList<>();
+
+        GroupW(int x, int y, int w, int h, float alpha, String tooltip, String id) {
+            this.x = x; this.y = y; this.w = w; this.h = h;
+            this.alpha = alpha;
+            this.tooltip = tooltip; this.id = id;
+        }
+
+        @Override public int getX() { return x; }
+        @Override public int getY() { return y; }
+        @Override public String getId() { return id; }
+        @Override public float[] getOBB(SprauteScriptScreen screen, int ax0, int ay0) { return getBaseOBB(ax0 + x, ay0 + y, w, h); }
+
+        @Override
+        public String tooltip() { return tooltip; }
+
+        @Override
+        public boolean contains(SprauteScriptScreen screen, int ax0, int ay0, int mx, int my) {
+            int lx = ax0 + x, ly = ay0 + y;
+            return mx >= lx && mx < lx + w && my >= ly && my < ly + h;
+        }
+
+        //? if >=1.20.1 {
+        @Override
+        public void render(SprauteScriptScreen screen, GuiGraphics guiGraphics, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
+            if (alpha <= 0.0f) return;
+            float oldAlpha = screen.currentAlpha;
+            screen.currentAlpha *= alpha;
+            int sx = ax0 + x, sy = ay0 + y;
+            for (Widget child : children) {
+                child.render(screen, guiGraphics, sx, sy, mouseX, mouseY, partialTick);
+            }
+            screen.currentAlpha = oldAlpha;
+        }
+        //?} else {
+        /*@Override
+        public void render(SprauteScriptScreen screen, PoseStack poseStack, int ax0, int ay0, int mouseX, int mouseY, float partialTick) {
+            if (alpha <= 0.0f) return;
+            float oldAlpha = screen.currentAlpha;
+            screen.currentAlpha *= alpha;
+            int sx = ax0 + x, sy = ay0 + y;
+            for (Widget child : children) {
+                child.render(screen, poseStack, sx, sy, mouseX, mouseY, partialTick);
+            }
+            screen.currentAlpha = oldAlpha;
+        }
+        *///?}
+    }
+
     private static class ScrollW implements Widget {
         final int x, y, w, h, contentH;
         final int bgColor;
@@ -3079,6 +3226,24 @@ public class SprauteScriptScreen extends Screen {
         }
     }
 
+    /** Inventory-style entity preview scale in GUI pixels. */
+    private static int computeEntityGuiScale(int w, int h, float scale, boolean autoScale, boolean headOnly,
+            float cropL, float cropT, float cropR, float cropB) {
+        if (autoScale) {
+            float effW = Math.max(1f, w * (1f - cropL - cropR));
+            float effH = Math.max(1f, h * (1f - cropT - cropB));
+            float aspectW = headOnly ? 0.72f : 1.05f;
+            float aspectH = headOnly ? 1.05f : 1.90f;
+            float scFromW = effW / aspectW;
+            float scFromH = effH / aspectH;
+            return Math.max(8, (int) (Math.min(scFromW, scFromH) * scale));
+        }
+        float cell = Math.min(w, h);
+        return headOnly
+                ? Math.max(10, (int) (cell * 0.35f * scale))
+                : Math.max(8, (int) (cell * 0.44f * scale));
+    }
+
     /**
      * @param cropL..cropB доли 0–1 — сколько срезать слева, сверху, справа, снизу от ячейки {@code size}.
      * @param feetCrop при отрицательном вертикальном якоре — старая формула вертикали.
@@ -3093,7 +3258,7 @@ public class SprauteScriptScreen extends Screen {
             boolean hideNameTag, boolean noLookAt, boolean noFollowCursor,
             boolean noHurtAnim, String[] renderBones, UUID skinPlayerUuid,
             String modelGeo, String modelTexture, String modelAnim, String modelIdle,
-            boolean clipEntity
+            boolean autoScale, boolean clipEntity
     ) implements Widget {
         @Override
         public String tooltip() {
@@ -3185,10 +3350,7 @@ public class SprauteScriptScreen extends Screen {
                     cy = (int) (top + h * anchorY);
                 }
                 boolean headOnly = renderBones != null && renderBones.length > 0;
-                float cell = Math.min(w, h);
-                int sc = headOnly
-                        ? Math.max(10, (int) (cell * 0.35f * scale))
-                        : Math.max(8, (int) (cell * 0.44f * scale));
+                int sc = computeEntityGuiScale(w, h, scale, autoScale, headOnly, cropL, cropT, cropR, cropB);
                 if (headOnly) {
                     // The head bone sits ~26 bedrock-px above the model origin (feet), so with only the
                     // head rendered the visible head lands far above `cy`. Push cy down by that offset

@@ -429,25 +429,41 @@ public class Spraute_engine {
         org.zonarstudio.spraute_engine.resource.WorkspaceInitializer.ensureWorkspace(gameDir);
         org.zonarstudio.spraute_engine.config.SprauteConfig.load(gameDir);
         org.zonarstudio.spraute_engine.config.ScriptTriggersConfig.load(gameDir);
+        org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.reloadFromScripts();
         ScriptManager.init(gameDir);
         LOGGER.info("[Spraute Engine] Ready! Use /spraute run <script> to run scripts.");
+    }
+
+    @SubscribeEvent
+    public void onServerStarted(net.minecraftforge.event.server.ServerStartedEvent event) {
+        org.zonarstudio.spraute_engine.registry.CustomWorldSafety.refreshOrphansFromServer(event.getServer());
+        org.zonarstudio.spraute_engine.registry.CustomWorldSafety.rescueAllPlayers(event.getServer());
+        org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().runAutorunScripts(event.getServer());
+    }
+
+    @SubscribeEvent
+    public static void onEntityJoinLevel(net.minecraftforge.event.entity.EntityJoinLevelEvent event) {
+        if (event.getLevel().isClientSide()) return;
+        if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player)) return;
+        org.zonarstudio.spraute_engine.registry.CustomWorldSafety.rescuePlayerIfNeeded(player);
     }
 
     @SubscribeEvent
     public static void onPlayerLogin(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
         if (SprauteEntityCompat.level(event.getEntity()).isClientSide) return;
         net.minecraft.server.level.ServerPlayer player = (net.minecraft.server.level.ServerPlayer) event.getEntity();
+        org.zonarstudio.spraute_engine.registry.CustomWorldSafety.rescuePlayerIfNeeded(player);
         net.minecraft.server.level.ServerLevel level = SprauteEntityCompat.serverLevel(player);
         net.minecraft.commands.CommandSourceStack source = player.createCommandSourceStack();
 
-        var triggers = org.zonarstudio.spraute_engine.config.ScriptTriggersConfig.get();
+        var triggers = org.zonarstudio.spraute_engine.script.ScriptTriggerRegistry.get();
         boolean firstJoin = org.zonarstudio.spraute_engine.script.FirstJoinData.get(level).isFirstJoin(player.getUUID());
 
-        if (firstJoin && triggers.on_first_join != null && !triggers.on_first_join.isEmpty()) {
-            org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().run(triggers.on_first_join, source);
+        if (firstJoin && triggers.getOnFirstJoin() != null && !triggers.getOnFirstJoin().isEmpty()) {
+            org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().run(triggers.getOnFirstJoin(), source);
             org.zonarstudio.spraute_engine.script.FirstJoinData.get(level).markJoined(player.getUUID());
-        } else if (triggers.on_join != null && !triggers.on_join.isEmpty()) {
-            org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().run(triggers.on_join, source);
+        } else if (triggers.getOnJoin() != null && !triggers.getOnJoin().isEmpty()) {
+            org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().run(triggers.getOnJoin(), source);
         }
 
         org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerJoin(player);
@@ -457,6 +473,7 @@ public class Spraute_engine {
     public static void onPlayerRespawn(net.minecraftforge.event.entity.player.PlayerEvent.PlayerRespawnEvent event) {
         if (SprauteEntityCompat.level(event.getEntity()).isClientSide) return;
         if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player)) return;
+        org.zonarstudio.spraute_engine.registry.CustomWorldSafety.rescuePlayerIfNeeded(player);
         org.zonarstudio.spraute_engine.script.PlayerStepHeightOverrides.apply(player);
         float step = org.zonarstudio.spraute_engine.script.PlayerStepHeightOverrides.get(player);
         org.zonarstudio.spraute_engine.script.PlayerStepHeightOverrides.set(player, step);
@@ -531,6 +548,16 @@ public class Spraute_engine {
                 event.register(
                         effectsId,
                         new org.zonarstudio.spraute_engine.client.SprauteWorldDimensionEffects(def));
+            }
+            net.minecraft.resources.ResourceLocation orphanEffectsId =
+                    org.zonarstudio.spraute_engine.util.SprauteResourcePath.tryCreateLocation(
+                            Spraute_engine.MODID, org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.ORPHAN_EFFECTS_KEY);
+            if (orphanEffectsId != null) {
+                event.register(
+                        orphanEffectsId,
+                        new org.zonarstudio.spraute_engine.client.SprauteWorldDimensionEffects(
+                                org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.defaultOrphanDef(
+                                        org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.ORPHAN_EFFECTS_KEY)));
             }
         }
 

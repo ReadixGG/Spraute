@@ -17,6 +17,8 @@ public class ScriptContext {
     private Function<String, Boolean> taskChecker = null;
     private UiSessionBinding uiSessionBinding;
 
+    private String scriptName;
+
     private boolean eventCanceled = false;
 
     public void cancelEvent() {
@@ -69,5 +71,13 @@ public class ScriptContext {
         if (uiSessionBinding != null) {
             uiSessionBinding.onClose(player);
         }
+    }
+
+    public String getScriptName() {
+        return scriptName;
+    }
+
+    public void setScriptName(String scriptName) {
+        this.scriptName = scriptName;
     }
 }

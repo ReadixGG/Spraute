@@ -165,6 +165,10 @@
                 <span>Плагины</span>
                 <span class="material-symbols-outlined text-[16px]">extension</span>
               </button>
+              <button id="menu-export-map" class="w-full px-4 py-2 flex items-center justify-between text-sm text-on-surface hover:text-white hover:bg-primary/20 transition-colors">
+                <span>Экспорт</span>
+                <span class="material-symbols-outlined text-[16px]">archive</span>
+              </button>
             </div>
           </div>
           
@@ -305,6 +309,8 @@
         <button type="button" id="gui-ed-grid-toggle" class="gui-ed-btn-icon" title="Показать/скрыть сетку редактора"><span class="material-symbols-outlined text-[18px]">grid_on</span></button>
         <button type="button" id="gui-ed-snap-toggle" class="gui-ed-btn-icon active" title="Привязка к сетке при перетаскивании"><span class="material-symbols-outlined text-[18px]">attractions</span></button>
         <button type="button" id="gui-ed-widget-snap-toggle" class="gui-ed-btn-icon active" title="Привязка к краям и центрам других виджетов (Ctrl+C / Ctrl+V — копировать/вставить)"><span class="material-symbols-outlined text-[18px]">align_horizontal_center</span></button>
+        <button type="button" id="gui-ed-group" class="gui-ed-btn-icon" title="Сгруппировать выделенные (Ctrl+G)"><span class="material-symbols-outlined text-[18px]">folder</span></button>
+        <button type="button" id="gui-ed-ungroup" class="gui-ed-btn-icon" title="Разгруппировать (Ctrl+Shift+G)"><span class="material-symbols-outlined text-[18px]">folder_off</span></button>
         <select id="gui-ed-grid-step" class="gui-ed-input text-xs w-16" title="Шаг сетки в игровых пикселях">
           <option value="2">2 px</option>
           <option value="4">4 px</option>
@@ -581,6 +587,70 @@
         <div id="plugins-pagination" class="flex items-center justify-center gap-2 mt-4">
            <!-- Пагинация -->
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модальное окно экспорта карты -->
+  <div id="export-map-modal" class="hidden fixed inset-0 z-[100] bg-background/90 flex items-center justify-center p-4">
+    <div class="bg-surface-container border border-white/10 rounded-2xl shadow-2xl max-w-4xl w-full h-[90vh] flex flex-col transform scale-95 opacity-0 transition-all duration-200" id="export-map-modal-box">
+      <div class="px-6 py-4 border-b border-white/5 shrink-0 flex items-center justify-between">
+        <div>
+          <h2 class="font-headline font-bold text-xl text-white">Экспорт карты</h2>
+          <p class="text-xs text-on-variant mt-1">ZIP с модом, содержимым spraute_engine и миром по желанию</p>
+        </div>
+        <button id="btn-close-export-map" class="text-on-variant hover:text-white transition-colors">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-6 space-y-5 font-body text-sm">
+        <div>
+          <label for="export-map-name" class="block text-xs font-bold text-on-variant uppercase tracking-wider mb-2">Название карты (имя архива)</label>
+          <input type="text" id="export-map-name" value="Моя карта" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary transition-colors" placeholder="Моя карта" />
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="bg-black/20 border border-white/10 rounded-xl p-3 flex flex-col min-h-[200px]">
+            <div class="text-xs font-bold text-on-variant uppercase tracking-wider mb-2 flex items-center gap-2">
+              <span class="material-symbols-outlined text-[16px]">inventory_2</span>
+              Мод Spraute Engine
+            </div>
+            <div id="export-mods-tree" class="export-tree-panel flex-1 overflow-y-auto max-h-[220px] font-mono text-xs"></div>
+          </div>
+
+          <div class="bg-black/20 border border-white/10 rounded-xl p-3 flex flex-col min-h-[200px]">
+            <div class="text-xs font-bold text-on-variant uppercase tracking-wider mb-2 flex items-center gap-2">
+              <span class="material-symbols-outlined text-[16px]">folder_open</span>
+              Содержимое spraute_engine
+            </div>
+            <div id="export-spraute-tree" class="export-tree-panel flex-1 overflow-y-auto max-h-[220px] font-mono text-xs"></div>
+          </div>
+        </div>
+
+        <div class="bg-black/20 border border-white/10 rounded-xl p-3">
+          <label class="flex items-center gap-2 cursor-pointer mb-3">
+            <input type="checkbox" id="export-include-world" class="accent-primary" />
+            <span class="text-sm text-on-surface">Включить мир (папка saves)</span>
+          </label>
+          <div id="export-worlds-section" class="opacity-50 pointer-events-none transition-opacity">
+            <div class="text-xs font-bold text-on-variant uppercase tracking-wider mb-2 flex items-center gap-2">
+              <span class="material-symbols-outlined text-[16px]">public</span>
+              Выбор мира
+            </div>
+            <div id="export-worlds-tree" class="export-tree-panel overflow-y-auto max-h-[160px] font-mono text-xs"></div>
+          </div>
+        </div>
+
+        <p id="export-map-status" class="text-xs text-on-variant">Выберите содержимое для архива</p>
+      </div>
+
+      <div class="px-6 py-4 border-t border-white/5 shrink-0 flex justify-end gap-3">
+        <button id="btn-close-export-map-footer" type="button" class="px-4 py-2 rounded-lg bg-white/5 text-on-surface hover:bg-white/10 transition-colors text-sm">Отмена</button>
+        <button id="btn-run-export-map" class="px-4 py-2 rounded-lg bg-primary text-background hover:bg-primary/90 transition-colors text-sm font-bold flex items-center gap-2">
+          <span class="material-symbols-outlined text-[16px]">archive</span>
+          Создать ZIP
+        </button>
       </div>
     </div>
   </div>

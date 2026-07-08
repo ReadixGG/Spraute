@@ -144,6 +144,28 @@ package org.zonarstudio.spraute_engine.script;
     }
 
     /**
+     * NPC prefab template: create npc_prefab id { ... } — регистрирует шаблон без спавна.
+     */
+    class NpcPrefabBlockNode implements ScriptNode {
+        private int line = -1;
+        private int column = -1;
+        @Override public int getLine() { return line; }
+        @Override public void setLine(int line) { this.line = line; }
+        @Override public int getColumn() { return column; }
+        @Override public void setColumn(int col) { this.column = col; }
+        private final String prefabId;
+        private final java.util.Map<String, java.util.List<ScriptNode>> properties;
+
+        public NpcPrefabBlockNode(String prefabId, java.util.Map<String, java.util.List<ScriptNode>> properties) {
+            this.prefabId = prefabId;
+            this.properties = properties;
+        }
+
+        public String getPrefabId() { return prefabId; }
+        public java.util.Map<String, java.util.List<ScriptNode>> getProperties() { return properties; }
+    }
+
+    /**
      * A camera block: camera myCamera { pos = 100, 70, 200 ... }
      */
     class CameraBlockNode implements ScriptNode {
@@ -675,6 +697,29 @@ package org.zonarstudio.spraute_engine.script;
 
         public java.util.List<ScriptNode> getChildren() {
             return children;
+        }
+    }
+
+    class AutorunNode implements ScriptNode {
+        private int line = -1;
+        private int column = -1;
+        @Override public int getLine() { return line; }
+        @Override public void setLine(int line) { this.line = line; }
+        @Override public int getColumn() { return column; }
+        @Override public void setColumn(int col) { this.column = col; }
+        /** null = this script; otherwise another script name */
+        private final String scriptName;
+
+        public AutorunNode(String scriptName) {
+            this.scriptName = scriptName;
+        }
+
+        public String getScriptName() {
+            return scriptName;
+        }
+
+        public boolean isSelf() {
+            return scriptName == null || scriptName.isEmpty();
         }
     }
 

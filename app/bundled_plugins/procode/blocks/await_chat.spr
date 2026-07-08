@@ -10,7 +10,4 @@
 #\ if filter == "msg":
 #\   row: "текст" (message: text: привет)
 #\   row: "игнорировать регистр" [ignoreCase: checkbox(true)]
-#\ if filter == "msg" and ignoreCase == "TRUE":
-#\   template: await chat({player}, "{message}", true)
-#\ if filter == "msg" and ignoreCase == "FALSE":
-#\   template: await chat({player}, "{message}", false)
+#\   template: await chat({player}, "{message}", {ignoreCase})

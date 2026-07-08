@@ -1,0 +1,101 @@
+#\ block: var_declare
+#\ category: Переменные
+#\ color: #94a3b8
+#\ shape: statement
+#\
+#\ row: [scope: dropdown(локальная: local, глобальная скрипта: global, мира — сохраняется: world)]
+#\ row: [kind: dropdown(неизменяемая (val): val, изменяемая (var): var)]
+#\ row: "имя" (name: text: my_var)
+#\ input: init (type: value) "= значение"
+#\
+#\ if scope == "local" and kind == "val":
+#\   template: val {name} = {init}
+#\ if scope == "local" and kind == "var":
+#\   template: var {name} = {init}
+#\ if scope == "global" and kind == "val":
+#\   template: global val {name} = {init}
+#\ if scope == "global" and kind == "var":
+#\   template: global var {name} = {init}
+#\ if scope == "world" and kind == "val":
+#\   template: world val {name} = {init}
+#\ if scope == "world" and kind == "var":
+#\   template: world var {name} = {init}
+
+#\ block: var_set
+#\ category: Переменные
+#\ color: #94a3b8
+#\ shape: statement
+#\
+#\ row: "установить" (name: text: my_var) "=" input: value (type: value)
+#\ template: {name} = {value}
+
+#\ block: var_get
+#\ category: Переменные
+#\ color: #94a3b8
+#\ shape: value
+#\
+#\ row: "переменная" (name: text: my_var)
+#\ template: {name}
+
+#\ block: incr
+#\ category: Переменные
+#\ color: #94a3b8
+#\ shape: statement
+#\
+#\ row: "увеличить" (name: text: count)
+#\ row: [mode: dropdown(на 1: one, на: custom)]
+#\ if mode == "custom":
+#\   input: amount (type: value)
+#\
+#\ if mode == "one":
+#\   template: {name} = {name} + 1
+#\ if mode == "custom":
+#\   template: {name} = {name} + {amount}
+
+#\ block: index_get
+#\ category: Переменные
+#\ color: #94a3b8
+#\ shape: value
+#\
+#\ input: obj (type: value) "из"
+#\ input: key (type: value) "ключ [ ]"
+#\ template: {obj}[{key}]
+
+#\ block: index_set
+#\ category: Переменные
+#\ color: #94a3b8
+#\ shape: statement
+#\
+#\ input: obj (type: value) "в"
+#\ input: key (type: value) "ключ [ ]"
+#\ row: "=" input: value (type: value)
+#\ template: {obj}[{key}] = {value}
+
+#\ block: player_var_get
+#\ category: Переменные
+#\ color: #94a3b8
+#\ shape: value
+#\
+#\ input: player (type: value) "игрок"
+#\ row: [storage: dropdown(сессия (до рестарта): data, сохраняется в мире: saved)]
+#\ row: "ключ" (key: text: coins)
+#\
+#\ if storage == "data":
+#\   template: {player}.data["{key}"]
+#\ if storage == "saved":
+#\   template: {player}.savedData["{key}"]
+
+#\ block: player_var_set
+#\ category: Переменные
+#\ color: #94a3b8
+#\ shape: statement
+#\
+#\ input: player (type: value) "игроку"
+#\ row: [storage: dropdown(сессия (до рестарта): data, сохраняется в мире: saved)]
+#\ row: "ключ" (key: text: coins)
+#\ row: "=" input: value (type: value)
+#\
+#\ if storage == "data":
+#\   template: {player}.data["{key}"] = {value}
+#\ if storage == "saved":
+#\   template: {player}.savedData["{key}"] = {value}

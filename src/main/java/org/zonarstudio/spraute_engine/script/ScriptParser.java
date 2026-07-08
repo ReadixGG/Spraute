@@ -120,6 +120,10 @@ public class ScriptParser {
             return parseInclude();
         }
 
+        if (check(ScriptToken.TokenType.IDENTIFIER) && "autorun".equals(tokens.get(pos).getValue())) {
+            return parseAutorun();
+        }
+
         if (check(ScriptToken.TokenType.LBRACE)) {
             return parseBlock();
         }
@@ -163,10 +167,16 @@ public class ScriptParser {
                 expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start NPC block");
                 return parseNpcBlock(identifier.getValue());
             }
+            if (check(ScriptToken.TokenType.IDENTIFIER) && pos < tokens.size() && "npc_prefab".equals(tokens.get(pos).getValue())) {
+                advance();
+                ScriptToken identifier = expect(ScriptToken.TokenType.IDENTIFIER, "Expected prefab id after 'create npc_prefab'");
+                expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start npc_prefab block");
+                return parseNpcPrefabBlock(identifier.getValue());
+            }
 
-            // Skip static data blocks (like create block, create item, create craft, plugins)
-            if (check(ScriptToken.TokenType.IDENTIFIER)) {
-                ScriptToken kind = advance();
+            // Skip static data blocks (create block/item/craft/world/..., plugins)
+            if (check(ScriptToken.TokenType.IDENTIFIER) || check(ScriptToken.TokenType.WORLD)) {
+                advance(); // kind: block, item, craft, world, ...
                 if (check(ScriptToken.TokenType.IDENTIFIER)) {
                     advance(); // skip identifier
                     if (check(ScriptToken.TokenType.LBRACE)) {
@@ -350,6 +360,31 @@ public class ScriptParser {
         
         expect(ScriptToken.TokenType.RBRACE, "Expected '}'");
         return withPos(new ScriptNode.NpcBlockNode(identifier, props), previous());
+    }
+
+    private ScriptNode parseNpcPrefabBlock(String identifier) {
+        java.util.Map<String, List<ScriptNode>> props = new java.util.HashMap<>();
+
+        while (!check(ScriptToken.TokenType.RBRACE) && !isAtEnd()) {
+            if (match(ScriptToken.TokenType.NEWLINE)) continue;
+
+            ScriptToken propName = expect(ScriptToken.TokenType.IDENTIFIER, "Expected property name");
+            expect(ScriptToken.TokenType.ASSIGN, "Expected '='");
+
+            List<ScriptNode> values = new ArrayList<>();
+            do {
+                values.add(parseExpression());
+            } while (match(ScriptToken.TokenType.COMMA));
+
+            props.put(propName.getValue(), values);
+
+            if (!match(ScriptToken.TokenType.NEWLINE) && !check(ScriptToken.TokenType.RBRACE)) {
+                // optionally expect statement terminator
+            }
+        }
+
+        expect(ScriptToken.TokenType.RBRACE, "Expected '}'");
+        return withPos(new ScriptNode.NpcPrefabBlockNode(identifier, props), previous());
     }
 
     private ScriptNode parseCameraBlock(String identifier) {
@@ -608,6 +643,19 @@ public class ScriptParser {
         return withPos(new ScriptNode.IncludeNode(scriptName), previous());
     }
 
+    private ScriptNode parseAutorun() {
+        advance(); // autorun
+        String scriptName = null;
+        if (check(ScriptToken.TokenType.STRING)) {
+            advance();
+            scriptName = previous().getValue();
+        } else if (check(ScriptToken.TokenType.IDENTIFIER)) {
+            advance();
+            scriptName = previous().getValue();
+        }
+        return withPos(new ScriptNode.AutorunNode(scriptName), previous());
+    }
+
     private ScriptNode parseAsyncStatement() {
         // async { body } or async "task_id" { body }
         String taskId = null;
@@ -781,6 +829,7 @@ public class ScriptParser {
             "nameTag", "name_tag", "noLookAt", "no_look_at", "noFollowCursor", "no_follow_cursor", "noHurtAnim", "no_hurt_anim", "animation", "renderBones", "render_bones", "skinPlayer", "skin_player",
             "modelGeo", "model_geo", "modelTexture", "model_texture", "modelAnim", "model_anim", "modelIdle", "model_idle",
             "clip", "clipEntity",
+            "rotation", "pivot", "pivotX", "pivot_x", "pivotY", "pivot_y",
             "yaw", "pitch", "time"
     );
 

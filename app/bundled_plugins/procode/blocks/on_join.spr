@@ -1,0 +1,29 @@
+#\ block: on_join
+#\ category: События
+#\ color: #0ea5e9
+#\ shape: wrapper
+#\
+#\ row: "когда игрок входит в мир" [who: dropdown(любой: any, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "→" (handler: text: h_join)
+#\
+#\ if who == "any":
+#\   template: on join() -> {handler} {\n{DO}}
+#\ if who == "custom":
+#\   template: on join({player}) -> {handler} {\n{DO}}
+
+#\ block: on_first_join
+#\ category: События
+#\ color: #0ea5e9
+#\ shape: wrapper
+#\
+#\ row: "когда игрок входит в мир впервые" [who: dropdown(любой: any, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "→" (handler: text: h_first_join)
+#\
+#\ if who == "any":
+#\   template: on firstJoin() -> {handler} {\n{DO}}
+#\ if who == "custom":
+#\   template: on firstJoin({player}) -> {handler} {\n{DO}}

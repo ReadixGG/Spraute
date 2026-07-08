@@ -1,0 +1,35 @@
+#\ block: await_join
+#\ category: Ожидание
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "ждать вход игрока в мир" [who: dropdown(любой: any, из события: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\
+#\ if who == "any":
+#\   template: await join()
+#\ if who == "event":
+#\   template: await join(_eventPlayer)
+#\ if who == "first":
+#\   template: await join(getFirstPlayer())
+#\ if who == "custom":
+#\   template: await join({player})
+
+#\ block: await_first_join
+#\ category: Ожидание
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "ждать первый вход в мир" [who: dropdown(любой: any, из события: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\
+#\ if who == "any":
+#\   template: await firstJoin()
+#\ if who == "event":
+#\   template: await firstJoin(_eventPlayer)
+#\ if who == "first":
+#\   template: await firstJoin(getFirstPlayer())
+#\ if who == "custom":
+#\   template: await firstJoin({player})

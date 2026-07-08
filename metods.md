@@ -322,6 +322,10 @@ sendPacket(player, packet)
 | `addBlockDrop(block_id, item_id, [min=1], [max=1], [chance=100], [replace=false], [nbt_string])` | Настраивает кастомный дроп при ломании блока игроком. Если `replace` = `true`, блок будет сломан без оригинального дропа (только с кастомным предметом). NBT строка указывается опционально (как в `/give`). |
 | `startScript(name, [args_dict])` | Запускает другой скрипт параллельно. Опционально можно передать словарь аргументов, которые станут локальными переменными в запущенном скрипте (например: `startScript("scriptY", { "target": npc_id })`). |
 | `stopScript(name)` | Останавливает выполнение указанного скрипта, если он запущен. |
+| `autorun()` / `autorun("name")` | Автозапуск скрипта при старте сервера. Без аргумента — текущий скрипт. В начале файла можно писать директиву `autorun` (без скобок). |
+| `runOnJoin("script")` | Запустить скрипт при входе любого игрока (замена `on_join` в `triggers.json`). |
+| `runOnFirstJoin("script")` | Запустить скрипт при первом входе игрока в мир. |
+| `runAfter("finished", "next")` | После завершения скрипта `finished` автоматически запустить `next`. |
 
 ### `playSound(player, sound_id, [volume], [pitch])`
 Проигрывает звук для указанного игрока.
@@ -464,6 +468,40 @@ npc_chat(player, my_guard, "Проход закрыт, уходи отсюда!"
 | `drop_chance` | Число (от 0 до 100), шанс выпадения дропа |
 
 Переменная с **id** блока получает ссылку на сущность.
+
+---
+
+## Префабы NPC: `create npc_prefab` + `spawnNpcPrefab`
+
+**Префаб** — шаблон НИПа без спавна. Один раз описываете внешность и статы, потом спавните копии с разными id и позициями.
+
+### `create npc_prefab id { ... }`
+
+Регистрирует шаблон (те же свойства, что у `create npc`, **кроме `pos`** — позиция задаётся при спавне).
+
+```javascript
+create npc_prefab goblin {
+    name = "Гоблин"
+    hp = 30
+    model = "geo/defolt.geo.json"
+    texture = "textures/entity/goblin.png"
+    animation = "animations/npc_classic.animation.json"
+    speed = 0.35
+    dropItem = "minecraft:emerald"
+    dropChance = 50
+}
+```
+
+### `spawnNpcPrefab(prefabId, instanceId, x, y, z [, overrides])`
+
+Спавнит экземпляр по шаблону. `instanceId` — уникальный id в `NpcManager` (как у `create npc`). Опциональный `overrides` — словарь полей для подстройки:
+
+```javascript
+spawnNpcPrefab("goblin", "mob_01", 10, 64, 20)
+spawnNpcPrefab("goblin", "mob_02", 12, 64, 22, dict("hp", 50, "name", "Берсерк"))
+```
+
+Алиас: `spawn_npc_prefab(...)`.
 
 ---
 
@@ -1095,6 +1133,8 @@ knight.setFlying(false)
 | `await openDoor(player, [target])` | Ожидать открытие двери/люка/калитки (ПКМ). Возвращает `block_id`. Фильтры как у `clickBlock`. |
 | `await chat(player, message, [ignore_case=true], [ignore_punct=true])` | Ожидать конкретное сообщение от игрока. `message` может быть строкой или массивом строк. Возвращает сообщение, которое игрок написал. |
 | `await jump(player)` | Ожидать прыжок игрока. |
+| `await join(player)` | Ожидать вход игрока в мир (логин). |
+| `await firstJoin(player)` | Ожидать первый вход игрока в этот мир. |
 | `await action(player, action_type, [target])` | (или `playerAction`) Ожидать действия игрока (`"eat"`, `"fish"`, `"hoe"`, `"jump"`, `"sleep"`, `"craft"`, `"drop"`). Возвращает объект или ID предмета/блока, если применимо. |
 
 ---
@@ -1110,6 +1150,9 @@ knight.setFlying(false)
 
 ### `on keybind("keyName") -> ...`
 В теле: **`_event_player`**.
+
+### `on join([player]) -> ...` / `on firstJoin([player]) -> ...`
+Срабатывает при входе игрока в мир. `firstJoin` — только при первом входе в этот мир. Без аргумента — любой игрок. Скрипт должен быть запущен (`startScript` / `autorun`). В теле: **`_eventPlayer`**.
 
 ### `on death(targetFilter) -> ...`
 В теле: **`_event_entity`**, **`_event_killer`**.

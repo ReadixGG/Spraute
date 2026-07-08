@@ -1,0 +1,39 @@
+#\ block: autorun_self
+#\ category: Мир
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "автозапуск этого скрипта при старте сервера"
+#\ template: autorun
+
+#\ block: autorun_script
+#\ category: Мир
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "автозапуск скрипта" (scriptName: text: bootstrap)
+#\ template: autorun("{scriptName}")
+
+#\ block: run_on_join
+#\ category: Мир
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "при входе игрока запустить" (scriptName: text: welcome)
+#\ template: runOnJoin("{scriptName}")
+
+#\ block: run_on_first_join
+#\ category: Мир
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "при первом входе запустить" (scriptName: text: tutorial)
+#\ template: runOnFirstJoin("{scriptName}")
+
+#\ block: run_after
+#\ category: Мир
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "после скрипта" (finished: text: intro) "запустить" (next: text: chapter2)
+#\ template: runAfter("{finished}", "{next}")

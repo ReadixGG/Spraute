@@ -226,6 +226,19 @@ public class ExternalAssetPack extends AbstractPackResources {
         return new ByteArrayInputStream(sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
+    private static void ensureOrphanWorldsDiscovered() {
+        org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.ensureParsed();
+        org.zonarstudio.spraute_engine.registry.CustomWorldSafety.refreshOrphansFromSaves(
+                net.minecraftforge.fml.loading.FMLPaths.GAMEDIR.get());
+    }
+
+    private static Set<String> allDimensionWorldIds() {
+        ensureOrphanWorldsDiscovered();
+        Set<String> ids = new HashSet<>(org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.WORLDS.keySet());
+        ids.addAll(org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.getOrphanWorldIds());
+        return ids;
+    }
+
     private InputStream openResourceByPath(String resourcePath) {
         try {
             org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.ensureParsed();
@@ -454,8 +467,9 @@ public class ExternalAssetPack extends AbstractPackResources {
 
             if (resourcePath.startsWith("data/" + NAMESPACE + "/dimension/")) {
                 String id = resourcePath.substring(("data/" + NAMESPACE + "/dimension/").length(), resourcePath.length() - 5);
+                ensureOrphanWorldsDiscovered();
                 org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.CustomWorldDef def =
-                        org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.WORLDS.get(id);
+                        org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.resolveWorldDef(id);
                 if (def != null) {
                     String json = org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.buildDimensionJson(def);
                     return new ByteArrayInputStream(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -466,10 +480,12 @@ public class ExternalAssetPack extends AbstractPackResources {
                 String typeId = resourcePath.substring(("data/" + NAMESPACE + "/dimension_type/").length(), resourcePath.length() - 5);
                 if (typeId.endsWith("_type")) {
                     String worldId = typeId.substring(0, typeId.length() - 5);
+                    ensureOrphanWorldsDiscovered();
                     org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.CustomWorldDef def =
-                            org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.WORLDS.get(worldId);
+                            org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.resolveWorldDef(worldId);
                     if (def != null) {
-                        String json = org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.buildDimensionTypeJson(def);
+                        boolean orphan = org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.isOrphanWorld(worldId);
+                        String json = org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.buildDimensionTypeJson(def, orphan);
                         return new ByteArrayInputStream(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                     }
                 }
@@ -550,13 +566,15 @@ public class ExternalAssetPack extends AbstractPackResources {
 
         if (resourcePath.startsWith("data/" + NAMESPACE + "/dimension/")) {
             String id = resourcePath.substring(("data/" + NAMESPACE + "/dimension/").length(), resourcePath.length() - 5);
-            if (org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.WORLDS.containsKey(id)) return true;
+            ensureOrphanWorldsDiscovered();
+            if (org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.resolveWorldDef(id) != null) return true;
         }
         if (resourcePath.startsWith("data/" + NAMESPACE + "/dimension_type/")) {
             String typeId = resourcePath.substring(("data/" + NAMESPACE + "/dimension_type/").length(), resourcePath.length() - 5);
             if (typeId.endsWith("_type")) {
                 String worldId = typeId.substring(0, typeId.length() - 5);
-                if (org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.WORLDS.containsKey(worldId)) return true;
+                ensureOrphanWorldsDiscovered();
+                if (org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.resolveWorldDef(worldId) != null) return true;
             }
         }
 
@@ -640,12 +658,12 @@ public class ExternalAssetPack extends AbstractPackResources {
         }
 
         if (type == PackType.SERVER_DATA && isDimensionDataPrefix(pathPrefix)) {
-            for (String worldId : org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.WORLDS.keySet()) {
+            for (String worldId : allDimensionWorldIds()) {
                 addResourceLocation(list, "dimension/" + worldId + ".json");
             }
         }
         if (type == PackType.SERVER_DATA && isDimensionTypeDataPrefix(pathPrefix)) {
-            for (String worldId : org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.WORLDS.keySet()) {
+            for (String worldId : allDimensionWorldIds()) {
                 addResourceLocation(list, "dimension_type/" + worldId + "_type.json");
             }
         }

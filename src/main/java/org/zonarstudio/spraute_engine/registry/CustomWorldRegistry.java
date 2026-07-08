@@ -10,7 +10,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -21,6 +23,9 @@ public final class CustomWorldRegistry {
     private static boolean parsed = false;
 
     public static final Map<String, CustomWorldDef> WORLDS = new HashMap<>();
+    /** Dimensions still present in a save but removed from scripts — served with fallback data so the save can load. */
+    private static final Set<String> ORPHAN_WORLD_IDS = new HashSet<>();
+    public static final String ORPHAN_EFFECTS_KEY = "orphan_fallback";
 
     private CustomWorldRegistry() {}
 
@@ -38,6 +43,43 @@ public final class CustomWorldRegistry {
         if (parsed) return;
         parsed = true;
         parseScripts();
+    }
+
+    public static void reloadFromScripts() {
+        parsed = false;
+        ensureParsed();
+    }
+
+    public static void clearOrphanWorldIds() {
+        ORPHAN_WORLD_IDS.clear();
+    }
+
+    public static void addOrphanWorldIds(Set<String> ids) {
+        if (ids == null || ids.isEmpty()) return;
+        ORPHAN_WORLD_IDS.addAll(ids);
+    }
+
+    public static Set<String> getOrphanWorldIds() {
+        return Set.copyOf(ORPHAN_WORLD_IDS);
+    }
+
+    public static boolean isOrphanWorld(String worldId) {
+        String canon = SprauteResourcePath.canonicalSimpleId(worldId);
+        return ORPHAN_WORLD_IDS.contains(canon) && !WORLDS.containsKey(canon);
+    }
+
+    public static CustomWorldDef resolveWorldDef(String worldId) {
+        String canon = SprauteResourcePath.canonicalSimpleId(worldId);
+        CustomWorldDef def = WORLDS.get(canon);
+        if (def != null) return def;
+        if (ORPHAN_WORLD_IDS.contains(canon)) return defaultOrphanDef(canon);
+        return null;
+    }
+
+    public static CustomWorldDef defaultOrphanDef(String worldId) {
+        CustomWorldDef def = new CustomWorldDef();
+        def.id = SprauteResourcePath.canonicalSimpleId(worldId);
+        return def;
     }
 
     public static void parseScripts() {
@@ -155,8 +197,13 @@ public final class CustomWorldRegistry {
     }
 
     public static String buildDimensionTypeJson(CustomWorldDef def) {
+        return buildDimensionTypeJson(def, false);
+    }
+
+    public static String buildDimensionTypeJson(CustomWorldDef def, boolean orphanFallbackEffects) {
         String fixedTime = def.fixedTime == null ? "" :
                 "  \"fixed_time\": " + def.fixedTime + ",\n";
+        String effectsKey = orphanFallbackEffects ? ORPHAN_EFFECTS_KEY : def.id;
         //? if >=1.20.1 {
         return "{\n" +
                 "  \"ultrawarm\": false,\n" +
@@ -171,7 +218,7 @@ public final class CustomWorldRegistry {
                 "  \"ambient_light\": " + def.ambientLight + ",\n" +
                 fixedTime +
                 "  \"logical_height\": 384,\n" +
-                "  \"effects\": \"" + effectsId(def.id) + "\",\n" +
+                "  \"effects\": \"" + effectsId(effectsKey) + "\",\n" +
                 "  \"infiniburn\": \"#minecraft:infiniburn_overworld\",\n" +
                 "  \"min_y\": -64,\n" +
                 "  \"height\": 384,\n" +
@@ -192,7 +239,7 @@ public final class CustomWorldRegistry {
                 "  \"ambient_light\": " + def.ambientLight + ",\n" +
                 fixedTime +
                 "  \"logical_height\": 384,\n" +
-                "  \"effects\": \"" + effectsId(def.id) + "\",\n" +
+                "  \"effects\": \"" + effectsId(effectsKey) + "\",\n" +
                 "  \"infiniburn\": \"#minecraft:infiniburn_overworld\",\n" +
                 "  \"min_y\": -64,\n" +
                 "  \"height\": 384\n" +

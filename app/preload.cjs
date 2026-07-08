@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld('spraute', {
   writeBase64: (relPath, base64) => ipcRenderer.invoke('fs:writeBase64', relPath, base64),
   getPluginsStoragePath: () => ipcRenderer.invoke('plugin:getStoragePath'),
   exportPluginZip: (pluginName) => ipcRenderer.invoke('plugin:export', pluginName),
+  listExportMods: () => ipcRenderer.invoke('export:listMods'),
+  listExportDir: (area, relPath) => ipcRenderer.invoke('export:listDir', area, relPath),
+  createMapExport: (options) => ipcRenderer.invoke('export:createMapZip', options),
   importPluginZip: (base64Data, filename, overwrite) => ipcRenderer.invoke('plugin:import', base64Data, filename, overwrite),
   importPluginDialog: async () => {
     try {

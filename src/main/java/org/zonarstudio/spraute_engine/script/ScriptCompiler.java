@@ -19,12 +19,19 @@ public class ScriptCompiler {
      */
     public CompiledScript compile(String name, List<ScriptNode> nodes) {
         List<CompiledScript.Instruction> instructions = new ArrayList<>();
+        boolean autorunSelf = false;
+        List<String> autorunTargets = new ArrayList<>();
 
         for (ScriptNode node : nodes) {
+            if (node instanceof ScriptNode.AutorunNode autorunNode) {
+                if (autorunNode.isSelf()) autorunSelf = true;
+                else autorunTargets.add(autorunNode.getScriptName());
+                continue;
+            }
             compileNode(node, instructions);
         }
 
-        return new CompiledScript(name, instructions);
+        return new CompiledScript(name, instructions, autorunSelf, autorunTargets);
     }
 
     private void compileNode(ScriptNode node, List<CompiledScript.Instruction> instructions) {
@@ -48,6 +55,10 @@ public class ScriptCompiler {
         } else if (node instanceof ScriptNode.NpcBlockNode blockNode) {
             instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.NPC_BLOCK,
                     blockNode.getEntityId(), blockNode.getProperties()
+            ));
+        } else if (node instanceof ScriptNode.NpcPrefabBlockNode prefabNode) {
+            instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.NPC_PREFAB_DEF,
+                    prefabNode.getPrefabId(), prefabNode.getProperties()
             ));
         } else if (node instanceof ScriptNode.CameraBlockNode camBlock) {
             instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.CAMERA,
@@ -156,6 +167,18 @@ public class ScriptCompiler {
                 if (args.size() < 2) throw new ScriptException("await dimension(player, dimensionId) requires player and dimension");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_DIMENSION,
                         args.get(0), args.get(1)));
+            } else if (func.equals("join")) {
+                ScriptNode playerNode = args.isEmpty()
+                        ? new ScriptNode.LiteralNode("any")
+                        : args.get(0);
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_JOIN,
+                        playerNode, Boolean.FALSE));
+            } else if (func.equals("firstJoin") || func.equals("first_join")) {
+                ScriptNode playerNode = args.isEmpty()
+                        ? new ScriptNode.LiteralNode("any")
+                        : args.get(0);
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_JOIN,
+                        playerNode, Boolean.TRUE));
             } else if (func.equals("cameraRoute") || func.equals("camera_route") || func.equals("playCameraRoute")) {
                 if (args.size() < 2) throw new ScriptException("await cameraRoute(player, routeName, [lockMovement, hideGui, returnSmooth, totalSeconds, afterEnd, lookMode, lookX, lookY, lookZ]) requires player and route");
                 java.util.List<Object> instrArgs = new java.util.ArrayList<>();

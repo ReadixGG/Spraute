@@ -107,6 +107,7 @@ SprauteGenerator.forBlock['spraute_raw_value'] = function(block) {
 
 // ================= ДИНАМИЧЕСКИЕ ДАННЫЕ =================
 export let currentNpcs = [];
+export let currentNpcPrefabs = [];
 export let currentAnimations = [];
 export let currentAnimFiles = [];
 export let currentModels = [];
@@ -151,8 +152,9 @@ export function buildModelDropdownOptions(models) {
   });
 }
 
-export function updateDynamicLists(npcs, anims, models, textures, animFiles, byFile) {
+export function updateDynamicLists(npcs, anims, models, textures, animFiles, byFile, npcPrefabs) {
   if (npcs != null) currentNpcs = npcs.length > 0 ? npcs.map(n => [n, n]) : [];
+  if (npcPrefabs != null) currentNpcPrefabs = npcPrefabs.length > 0 ? npcPrefabs.map(n => [n, n]) : [];
   if (anims   && anims.length > 0)   currentAnimations = anims.map(a => [a, a]);
   if (animFiles && animFiles.length > 0) {
     currentAnimFiles = animFiles.map(p => {
@@ -246,6 +248,21 @@ function getNpcsDropdown() {
 
 function getNpcsDropdownFor(_self, _fieldName) {
   return getNpcsDropdown();
+}
+
+function getNpcPrefabsDropdown() {
+  const filtered = currentNpcPrefabs
+    .filter(n => n[1])
+    .map(n => ["префаб: " + n[0], n[1]]);
+  return filtered.length > 0 ? filtered : [["(создайте префаб)", ""]];
+}
+
+function getNpcPrefabsDropdownFor(self, fieldName) {
+  return ensureDropdownValue(
+    getNpcPrefabsDropdown(),
+    readBlockFieldVal(self, fieldName),
+    v => v
+  );
 }
 
 function getAnimsDropdown() {
@@ -356,19 +373,64 @@ export function extractCreateNpcIdsFromSpr(text) {
   return ids;
 }
 
-/** Id НИПов из блоков «создать НИП» в открытом workspace. */
+/** Id из `create npc_prefab id` в тексте .spr */
+export function extractCreateNpcPrefabIdsFromSpr(text) {
+  const ids = [];
+  if (!text) return ids;
+  const seen = new Set();
+  for (const m of text.matchAll(/create\s+npc_prefab\s+([A-Za-z_][A-Za-z0-9_]*)/g)) {
+    if (!seen.has(m[1])) {
+      seen.add(m[1]);
+      ids.push(m[1]);
+    }
+  }
+  return ids;
+}
+
+/** Id экземпляров из spawnNpcPrefab("prefab", "instance", ...) в тексте .spr */
+export function extractSpawnNpcInstanceIdsFromSpr(text) {
+  const ids = [];
+  if (!text) return ids;
+  const seen = new Set();
+  for (const m of text.matchAll(/spawnNpcPrefab\s*\(\s*"[^"]*"\s*,\s*"([^"]+)"/g)) {
+    if (!seen.has(m[1])) {
+      seen.add(m[1]);
+      ids.push(m[1]);
+    }
+  }
+  return ids;
+}
+
+/** Id НИПов из блоков «создать НИП» / «спавн префаба» в открытом workspace. */
 export function extractNpcIdsFromWorkspace(workspace) {
   const ids = [];
   if (!workspace) return ids;
   for (const block of workspace.getAllBlocks(false)) {
-    if (!block.type?.endsWith('npc_create')) continue;
+    const type = block.type || '';
+    if (type.endsWith('npc_create')) {
+      const id = readBlockFieldVal(block, 'id');
+      if (id) ids.push(id);
+    } else if (type.endsWith('npc_prefab_spawn')) {
+      const inst = readBlockFieldVal(block, 'instance');
+      if (inst) ids.push(inst);
+    }
+  }
+  return ids;
+}
+
+/** Id префабов из блоков «префаб НИП» в workspace. */
+export function extractNpcPrefabIdsFromWorkspace(workspace) {
+  const ids = [];
+  if (!workspace) return ids;
+  for (const block of workspace.getAllBlocks(false)) {
+    if (!block.type?.endsWith('npc_prefab_define')) continue;
     const id = readBlockFieldVal(block, 'id');
     if (id) ids.push(id);
   }
   return ids;
 }
 
-/** Собрать id для dropdown: импорты + блоки create npc в текущем скрипте. */
+/** Собрать id для dropdown: импорты + блоки create npc / spawn в текущем скрипте. */
 export function buildNpcDropdownIds(workspace, importedNpcIds) {
   const ids = new Set();
   for (const id of (importedNpcIds || [])) {
@@ -377,22 +439,38 @@ export function buildNpcDropdownIds(workspace, importedNpcIds) {
   if (workspace) {
     for (const id of extractNpcIdsFromWorkspace(workspace)) ids.add(id);
     try {
-      for (const id of extractCreateNpcIdsFromSpr(generateWorkspaceCode(workspace))) ids.add(id);
+      const code = generateWorkspaceCode(workspace);
+      for (const id of extractCreateNpcIdsFromSpr(code)) ids.add(id);
+      for (const id of extractSpawnNpcInstanceIdsFromSpr(code)) ids.add(id);
     } catch (e) {}
   }
   return [...ids];
 }
 
-/** Обновить списки НИПов (только create npc) и dropdown. */
+/** Собрать id префабов для dropdown_npc_prefab. */
+export function buildNpcPrefabDropdownIds(workspace) {
+  const ids = new Set();
+  if (workspace) {
+    for (const id of extractNpcPrefabIdsFromWorkspace(workspace)) ids.add(id);
+    try {
+      for (const id of extractCreateNpcPrefabIdsFromSpr(generateWorkspaceCode(workspace))) ids.add(id);
+    } catch (e) {}
+  }
+  return [...ids];
+}
+
+/** Обновить списки НИПов (create npc + spawn) и префабов, обновить dropdown. */
 export function syncNpcDropdownsFromWorkspace(workspace, cache) {
   const npcs = buildNpcDropdownIds(workspace, cache?.importedNpcIds);
+  const prefabs = buildNpcPrefabDropdownIds(workspace);
   updateDynamicLists(
     npcs,
     cache?.anims,
     cache?.models,
     cache?.textures,
     cache?.animFiles,
-    cache?.animsByFile
+    cache?.animsByFile,
+    prefabs
   );
   if (workspace) refreshDynamicDropdownFields(workspace);
   return npcs;
@@ -756,6 +834,8 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
             js += `  row.appendField(new Blockly.FieldDropdown(function(){ return getModelsDropdownFor(self, ${JSON.stringify(name)}); }, function(v){ self.validateField(${JSON.stringify(name)}, v); return v; }), ${JSON.stringify(name)});\n`;
           } else if (typeDef === 'dropdown_texture') {
             js += `  row.appendField(new Blockly.FieldDropdown(function(){ return getTexturesDropdownFor(self, ${JSON.stringify(name)}); }, function(v){ self.validateField(${JSON.stringify(name)}, v); return v; }), ${JSON.stringify(name)});\n`;
+          } else if (typeDef === 'dropdown_npc_prefab') {
+            js += `  row.appendField(new Blockly.FieldDropdown(function(){ return getNpcPrefabsDropdownFor(self, ${JSON.stringify(name)}); }, function(v){ self.validateField(${JSON.stringify(name)}, v); return v; }), ${JSON.stringify(name)});\n`;
           } else if (typeDef === 'dropdown_dimension') {
             js += `  row.appendField(new Blockly.FieldDropdown(function(){ return getDimensionDropdown(); }, function(v){ self.validateField(${JSON.stringify(name)}, v); return v; }), ${JSON.stringify(name)});\n`;
           } else if (typeDef.startsWith('checkbox')) {
@@ -952,7 +1032,11 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
         let jsTmpl = actualTmpl
           .replace(/"\{([a-zA-Z0-9_]+)\}"/g, (match, v) => `\${_str(${JSON.stringify(v)})}`)
           .replace(/\{([a-zA-Z0-9_]+)\}/g, (match, v) => `\${_getVal(${JSON.stringify(v)})}`);
-        codeGenJs += `return \`${jsTmpl}\\n\`;\n`;
+        if (shape === 'value') {
+          codeGenJs += `return \`${jsTmpl}\`;\n`;
+        } else {
+          codeGenJs += `return \`${jsTmpl}\\n\`;\n`;
+        }
       } else if (line.startsWith('code:')) {
         codeGenJs += line.slice(5).trim() + "\n";
       } else if (line.startsWith('row:') || line.startsWith('input:')) {
@@ -1560,14 +1644,18 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
         const tmplJs = extractedTemplates[0]
           .replace(/"\{([a-zA-Z0-9_]+)\}"/g, (m, v) => `\${_str(${JSON.stringify(v)})}`)
           .replace(/\{([a-zA-Z0-9_]+)\}/g, (m, v) => `\${_getVal(${JSON.stringify(v)})}`);
-        finalCodeGen = `return \`${tmplJs}\\n\`;\n`;
+        if (shape === 'value') {
+          finalCodeGen = `return \`${tmplJs}\`;\n`;
+        } else {
+          finalCodeGen = `return \`${tmplJs}\\n\`;\n`;
+        }
     }
 
     const fullCode = (isLegacy ? ctx : "") + finalCodeGen;
     try {
       const fn = new Function('_getVal', '_str', 'block', 'SprauteGenerator', fullCode);
       const res = fn(_getVal, _str, block, SprauteGenerator);
-      if (shape === 'value') return [res ?? "", 0];
+      if (shape === 'value') return [String(res ?? '').replace(/\s*\n\s*/g, ' ').trim(), 0];
       return ensureStatementTrailingNewline(res);
     } catch(e) {
       return `/* CodeGen error in ${fullId}: ${e.message} */\n`;

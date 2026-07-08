@@ -1,0 +1,33 @@
+#\ block: list_size
+#\ category: Списки
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ input: list (type: value) "размер списка"
+#\ template: listSize({list})
+
+#\ block: list_get
+#\ category: Списки
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ input: list (type: value) "элемент"
+#\ input: index (type: value) "индекс [ ]"
+#\ template: listGet({list}, {index})
+
+#\ block: list_add
+#\ category: Списки
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ input: list (type: value) "в список"
+#\ row: "добавить" input: value (type: value)
+#\ template: listAdd({list}, {value})
+
+#\ block: list_new
+#\ category: Списки
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: "новый список"
+#\ template: []

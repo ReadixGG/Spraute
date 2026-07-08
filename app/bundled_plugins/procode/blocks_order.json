@@ -1,6 +1,8 @@
 {
   "НПС": [
     "npc_create",
+    "npc_prefab_define",
+    "npc_prefab_spawn",
     "npc_ref",
     "npc_anim",
     "npc_anim_cfg",
@@ -46,7 +48,9 @@
     "on_orbpickup",
     "on_uiclick",
     "on_uiclose",
-    "on_dimension"
+    "on_dimension",
+    "on_join",
+    "on_first_join"
   ],
   "Ожидание": [
     "await_interact",
@@ -69,7 +73,9 @@
     "await_orb",
     "await_uiclick",
     "await_uiclose",
-    "await_dimension"
+    "await_dimension",
+    "await_join",
+    "await_first_join"
   ],
   "Асинхронность": [
     "async_run",
@@ -96,6 +102,7 @@
     "players_near",
     "entities_in_radius",
     "entities_near",
+    "entity_damage",
     "entity_glow",
     "is_entity_glowing",
     "aoe_damage_players",
@@ -169,7 +176,12 @@
     "find_safe_block",
     "spawn_orb",
     "execute_cmd",
-    "start_script"
+    "start_script",
+    "autorun_self",
+    "autorun_script",
+    "run_on_join",
+    "run_on_first_join",
+    "run_after"
   ],
   "Измерения": [
     "create_world",
@@ -182,7 +194,9 @@
     "var_get",
     "incr",
     "index_get",
-    "index_set"
+    "index_set",
+    "player_var_get",
+    "player_var_set"
   ],
   "Логика": [
     "if_block",

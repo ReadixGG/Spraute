@@ -17,6 +17,7 @@ public class CompiledScript {
         CALL,        // Call a function. Args: [functionName, ScriptNode... args]
         VAR_DECL,    // Declare variable. Args: [name, ScriptNode initializer, scope "local"|"global"|"world"]
         NPC_BLOCK,   // Spawn NPC via block. Args: [id, Map<String, List<ScriptNode>> props]
+        NPC_PREFAB_DEF, // Register NPC prefab. Args: [prefabId, Map<String, List<ScriptNode>> props]
         UI_BLOCK,    // create ui: Args: [variableName, Map<String, ScriptNode> rootProps, List<Instruction> bodyInstructions]
         COMMAND_BLOCK, // create command: Args: [commandName, List<Instruction> bodyInstructions]
         SET_PROPERTY, // Set property. Args: [objectId, propName, ScriptNode value]
@@ -57,6 +58,7 @@ public class CompiledScript {
         AWAIT_UI_TOUCH,
         AWAIT_PLAYER_ACTION,
         AWAIT_DIMENSION,
+        AWAIT_JOIN,
         UI_WIDGET, // Emit a widget into the current UI builder context. Args: [String kind, List<ScriptNode> args, Map<String,ScriptNode> props, Map<String,List<Instruction>> eventHandlers, List<Instruction> childBody (nullable)]
         FADE_IN,   // Show fade-in screen. Args: [Map<String,ScriptNode> props]
         CAMERA,    // Camera block. Args: [String cameraId, Map<String,List<ScriptNode>> props]
@@ -110,10 +112,18 @@ public class CompiledScript {
 
     private final String name;
     private final List<Instruction> instructions;
+    private final boolean autorunSelf;
+    private final List<String> autorunTargets;
 
     public CompiledScript(String name, List<Instruction> instructions) {
+        this(name, instructions, false, List.of());
+    }
+
+    public CompiledScript(String name, List<Instruction> instructions, boolean autorunSelf, List<String> autorunTargets) {
         this.name = name;
         this.instructions = Collections.unmodifiableList(new ArrayList<>(instructions));
+        this.autorunSelf = autorunSelf;
+        this.autorunTargets = autorunTargets != null ? List.copyOf(autorunTargets) : List.of();
     }
 
     public String getName() {
@@ -122,6 +132,14 @@ public class CompiledScript {
 
     public List<Instruction> getInstructions() {
         return instructions;
+    }
+
+    public boolean isAutorunSelf() {
+        return autorunSelf;
+    }
+
+    public List<String> getAutorunTargets() {
+        return autorunTargets;
     }
 
     @Override

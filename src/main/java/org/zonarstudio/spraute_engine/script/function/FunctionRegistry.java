@@ -12,6 +12,8 @@ public class FunctionRegistry {
         register(new ChatFunction());
         register(new LogFunction());
         register(new NpcFunction());
+        register(new NpcPrefabFunctions.SpawnNpcPrefab());
+        registerAlias("spawn_npc_prefab", new NpcPrefabFunctions.SpawnNpcPrefab());
         register(new SayFunction());
         register(new GetNearestPlayerFunction());
         register(new SetNamesColorFunction());
@@ -112,6 +114,13 @@ public class FunctionRegistry {
         register(new DropFunctions.AddBlockDropFunction());
         register(new ScriptManagementFunctions.StartScriptFunction());
         register(new ScriptManagementFunctions.StopScriptFunction());
+        register(new ScriptTriggerFunctions.AutorunFunction());
+        register(new ScriptTriggerFunctions.RunOnJoinFunction());
+        registerAlias("run_on_join", new ScriptTriggerFunctions.RunOnJoinFunction());
+        register(new ScriptTriggerFunctions.RunOnFirstJoinFunction());
+        registerAlias("run_on_first_join", new ScriptTriggerFunctions.RunOnFirstJoinFunction());
+        register(new ScriptTriggerFunctions.RunAfterFunction());
+        registerAlias("run_after", new ScriptTriggerFunctions.RunAfterFunction());
         register(new FadeInFunction());
         register(new FadeOutFunction());
         registerAlias("fade_out", new FadeOutFunction());

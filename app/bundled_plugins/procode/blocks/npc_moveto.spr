@@ -9,15 +9,9 @@
 #\   row: "поворачивать к движению" [faceWalk: checkbox(true)]
 #\ if mode == "stopMove":
 #\   template: {npc}.stopMove()
-#\ if mode == "moveTo" and faceWalk == "TRUE":
-#\   template: {npc}.moveTo({x}, {y}, {z}, {speed})
-#\ if mode == "moveTo" and faceWalk == "FALSE":
-#\   template: {npc}.moveTo({x}, {y}, {z}, {speed}, false)
-#\ if mode == "moveToAwait" and faceWalk == "TRUE":
-#\   template: await {npc}.moveTo({x}, {y}, {z}, {speed})
-#\ if mode == "moveToAwait" and faceWalk == "FALSE":
-#\   template: await {npc}.moveTo({x}, {y}, {z}, {speed}, false)
-#\ if mode == "alwaysMoveTo" and faceWalk == "TRUE":
-#\   template: {npc}.alwaysMoveTo({x}, {y}, {z}, {speed})
-#\ if mode == "alwaysMoveTo" and faceWalk == "FALSE":
-#\   template: {npc}.alwaysMoveTo({x}, {y}, {z}, {speed}, false)
+#\ if mode == "moveTo":
+#\   template: {npc}.moveTo({x}, {y}, {z}, {speed}, {faceWalk})
+#\ if mode == "moveToAwait":
+#\   template: await {npc}.moveTo({x}, {y}, {z}, {speed}, {faceWalk})
+#\ if mode == "alwaysMoveTo":
+#\   template: {npc}.alwaysMoveTo({x}, {y}, {z}, {speed}, {faceWalk})

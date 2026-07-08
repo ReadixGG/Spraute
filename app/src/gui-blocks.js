@@ -395,7 +395,7 @@ export function registerGuiBlocks(SprauteGenerator) {
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
       this.setColour(GUI_COLOR);
-      this.setTooltip('uiAnimate(player, id, поле, цель, сек, easing). Анимируемые поля: x, y, w, h, scale, alpha.');
+      this.setTooltip('uiAnimate(player, id, поле, цель, сек, easing). Поля: x, y, w, h, scale, alpha (группы и клипы).');
       finishSprauteToggleBlock(this);
     },
   };

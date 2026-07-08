@@ -132,6 +132,7 @@ public final class UiTemplate {
             case "image" -> buildImage(rw, pw, ph, order);
             case "rect", "panel" -> buildRect(rw, pw, ph, order);
             case "clip" -> buildClip(rw, pw, ph, order, handlers);
+            case "group" -> buildGroup(rw, pw, ph, order, handlers);
             case "scroll" -> buildScroll(rw, pw, ph, order, handlers);
             case "divider" -> buildDivider(rw, pw, ph, order);
             case "block" -> buildBlock(rw, pw, ph, order);
@@ -316,6 +317,12 @@ public final class UiTemplate {
                     rw.evaluatedProps.containsKey("modelIdle") ? "modelIdle" : "model_idle", null));
         }
         o.addProperty("scale", propFloat(rw.evaluatedProps, "scale", 1f));
+        if (rw.evaluatedProps.containsKey("autoScale") || rw.evaluatedProps.containsKey("auto_scale")) {
+            String key = rw.evaluatedProps.containsKey("autoScale") ? "autoScale" : "auto_scale";
+            if (propBool(rw.evaluatedProps, key, false)) {
+                o.addProperty("autoScale", true);
+            }
+        }
         o.addProperty("feetCrop", propFloat(rw.evaluatedProps,
                 rw.evaluatedProps.containsKey("feetCrop") ? "feetCrop" : "feet_crop", 0.38f));
         putCropAndAnchor(o, rw.evaluatedProps);
@@ -531,6 +538,73 @@ public final class UiTemplate {
                     case "image" -> buildImage(child, sw, sh, childOrder);
                     case "rect", "panel" -> buildRect(child, sw, sh, childOrder);
                     case "clip" -> buildClip(child, sw, sh, childOrder, handlers);
+                    case "group" -> buildGroup(child, sw, sh, childOrder, handlers);
+                    case "scroll" -> buildScroll(child, sw, sh, childOrder, handlers);
+                    case "divider" -> buildDivider(child, sw, sh, childOrder);
+                    case "block" -> buildBlock(child, sw, sh, childOrder);
+                    case "item" -> buildItem(child, sw, sh, childOrder);
+                    case "slot" -> buildSlot(child, sw, sh, childOrder);
+                    case "input" -> buildInput(child, sw, sh, childOrder);
+                    case "gridbg", "grid_bg" -> buildGridBg(child, sw, sh, childOrder);
+                    case "playerInventory", "player_inventory" -> buildPlayerInventory(child, sw, sh, childOrder);
+                    default -> null;
+                };
+                if (co != null) {
+                    children.add(co);
+                    childOrder++;
+                }
+            }
+            o.add("children", children);
+        }
+        return o;
+    }
+
+    private static JsonObject buildGroup(RuntimeWidget rw, int pw, int ph, int order, Map<String, List<CompiledScript.Instruction>> handlers) {
+        String id = rw.evaluatedArgs.isEmpty() ? "group_" + order : String.valueOf(rw.evaluatedArgs.get(0));
+        JsonObject o = new JsonObject();
+        o.addProperty("type", "group");
+        o.addProperty("id", id);
+        putXY(o, rw.evaluatedProps, "pos", pw, ph);
+        putWH(o, rw.evaluatedProps, "size", pw, ph, pw, ph);
+        o.addProperty("alpha", propFloat(rw.evaluatedProps, "alpha", 1.0f));
+        if (rw.evaluatedProps.containsKey("rotation")) {
+            o.addProperty("rotation", propFloat(rw.evaluatedProps, "rotation", 0f));
+        }
+        if (rw.evaluatedProps.containsKey("pivotX")) {
+            o.addProperty("pivotX", propFloat(rw.evaluatedProps, "pivotX", 0.5f));
+        }
+        if (rw.evaluatedProps.containsKey("pivotY")) {
+            o.addProperty("pivotY", propFloat(rw.evaluatedProps, "pivotY", 0.5f));
+        }
+        o.addProperty("layer", propInt(rw.evaluatedProps, "layer", 0));
+        o.addProperty("order", order);
+
+        if (rw.children != null && !rw.children.isEmpty()) {
+            JsonArray children = new JsonArray();
+            int childOrder = 0;
+            int sw = pw;
+            int sh = ph;
+            if (rw.evaluatedProps.containsKey("size")) {
+                Object sz = rw.evaluatedProps.get("size");
+                if (sz instanceof List<?> l && l.size() >= 2) {
+                    sw = toInt(l.get(0), pw);
+                    sh = toInt(l.get(1), ph);
+                }
+            } else {
+                if (rw.evaluatedProps.containsKey("w")) sw = toInt(rw.evaluatedProps.get("w"), pw);
+                if (rw.evaluatedProps.containsKey("h")) sh = toInt(rw.evaluatedProps.get("h"), ph);
+            }
+
+            for (RuntimeWidget child : rw.children) {
+                String ck = child.kind != null ? child.kind.toLowerCase() : "";
+                JsonObject co = switch (ck) {
+                    case "text" -> buildText(child, sw, sh, childOrder);
+                    case "button" -> buildButton(child, sw, sh, childOrder, handlers);
+                    case "entity" -> buildEntity(child, sw, sh, childOrder);
+                    case "image" -> buildImage(child, sw, sh, childOrder);
+                    case "rect", "panel" -> buildRect(child, sw, sh, childOrder);
+                    case "clip" -> buildClip(child, sw, sh, childOrder, handlers);
+                    case "group" -> buildGroup(child, sw, sh, childOrder, handlers);
                     case "scroll" -> buildScroll(child, sw, sh, childOrder, handlers);
                     case "divider" -> buildDivider(child, sw, sh, childOrder);
                     case "block" -> buildBlock(child, sw, sh, childOrder);

@@ -1,0 +1,69 @@
+#\ block: npc_prefab_define
+#\ category: НПС
+#\ color: #16a34a
+#\ shape: statement
+#\
+#\ row: "префаб НИП" (id: text: goblin)
+#\ row: "имя" (name: text: Гоблин)
+#\ row: "HP" (hp: number: 20) "скорость" (speed: number: 0.3)
+#\ row: "модель" [model: dropdown_model]
+#\ row: "текстура" [texture: dropdown_texture]
+#\ row: "анимации" [animation: dropdown_animfile]
+#\ row: "idle" [idleAnim: dropdown_anim] "walk" [walkAnim: dropdown_anim]
+#\ row: "имя над головой" [showName: dropdown(да: true, нет: false)]
+#\ row: "дроп" (dropItem: text: ) "шанс %" (dropChance: number: 100)
+#\
+#\ code: var id = String(_getVal('id') || '').trim();
+#\ code: function q(v) { return String(v || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
+#\ code: var lines = ['create npc_prefab ' + id + ' {'];
+#\ code: var nm = String(_getVal('name') || '').trim(); if (nm) lines.push('    name = "' + q(nm) + '"');
+#\ code: var hp = String(_getVal('hp') || '').trim(); if (hp) lines.push('    hp = ' + hp);
+#\ code: var spd = String(_getVal('speed') || '').trim(); if (spd) lines.push('    speed = ' + spd);
+#\ code: var mdl = String(_getVal('model') || '').trim(); if (mdl) lines.push('    model = "' + q(mdl) + '"');
+#\ code: var tex = String(_getVal('texture') || '').trim(); if (tex) lines.push('    texture = "' + q(tex) + '"');
+#\ code: var anim = String(_getVal('animation') || '').trim(); if (anim) lines.push('    animation = "' + q(anim) + '"');
+#\ code: var idle = String(_getVal('idleAnim') || '').trim(); if (idle) lines.push('    idleAnim = "' + q(idle) + '"');
+#\ code: var walk = String(_getVal('walkAnim') || '').trim(); if (walk) lines.push('    walkAnim = "' + q(walk) + '"');
+#\ code: var sn = String(_getVal('showName') || 'true').trim();
+#\ code: if (sn === 'true' || sn === 'false') lines.push('    showName = ' + sn);
+#\ code: var drop = String(_getVal('dropItem') || '').trim();
+#\ code: if (drop) {
+#\ code:   lines.push('    dropItem = "' + q(drop) + '"');
+#\ code:   var dc = String(_getVal('dropChance') || '').trim();
+#\ code:   if (dc) lines.push('    dropChance = ' + dc);
+#\ code: }
+#\ code: lines.push('}');
+#\ code: return lines.join('\n') + '\n';
+
+#\ block: npc_prefab_spawn
+#\ category: НПС
+#\ color: #16a34a
+#\ shape: statement
+#\
+#\ row: "спавн префаба" [prefab: dropdown_npc_prefab]
+#\ row: "id экземпляра" (instance: text: mob_01)
+#\ row: "позиция" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ row: "переопределить" [ovr: dropdown(нет: none, да: yes)]
+#\ if ovr == "yes":
+#\   row: "имя" (ovName: text: )
+#\   row: "HP" (ovHp: number: )
+#\   row: "скорость" (ovSpeed: number: )
+#\
+#\ code: var prefab = String(_getVal('prefab') || '').trim();
+#\ code: var inst = String(_getVal('instance') || '').trim();
+#\ code: var x = String(_getVal('x') || '0').trim();
+#\ code: var y = String(_getVal('y') || '64').trim();
+#\ code: var z = String(_getVal('z') || '0').trim();
+#\ code: function q(v) { return String(v || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
+#\ code: var ovr = String(_getVal('ovr') || 'none').trim();
+#\ code: if (ovr !== 'yes') {
+#\ code:   return 'spawnNpcPrefab("' + q(prefab) + '", "' + q(inst) + '", ' + x + ', ' + y + ', ' + z + ')\n';
+#\ code: }
+#\ code: var pairs = [];
+#\ code: var on = String(_getVal('ovName') || '').trim(); if (on) pairs.push('"name", "' + q(on) + '"');
+#\ code: var oh = String(_getVal('ovHp') || '').trim(); if (oh) pairs.push('"hp", ' + oh);
+#\ code: var os = String(_getVal('ovSpeed') || '').trim(); if (os) pairs.push('"speed", ' + os);
+#\ code: if (pairs.length === 0) {
+#\ code:   return 'spawnNpcPrefab("' + q(prefab) + '", "' + q(inst) + '", ' + x + ', ' + y + ', ' + z + ')\n';
+#\ code: }
+#\ code: return 'spawnNpcPrefab("' + q(prefab) + '", "' + q(inst) + '", ' + x + ', ' + y + ', ' + z + ', dict(' + pairs.join(', ') + '))\n';

@@ -13,7 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Config for automatic script triggers:
+ * Config for automatic script triggers (legacy — prefer script functions runOnJoin / runOnFirstJoin / runAfter / autorun):
  * - on_join: script to run when any player joins
  * - on_first_join: script to run when player joins for the first time
  * - after: map of script -> next script to run when that script finishes

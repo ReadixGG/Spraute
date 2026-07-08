@@ -12,8 +12,13 @@ import {
   walkGuiWidgets, findGuiWidget, findGuiWidgetParentList,
   engineColorToCss, resolveCoord, guiModelToSprCode,
   MC_LINE_HEIGHT, MC_FONT_RENDER_SCALE, GUI_MC_FONT_FAMILY, mcTextWidth, guiUid,
+  groupGuiWidgets, ungroupGuiWidget,
 } from './gui-model.js';
 import { applyGuiModelToBlock, readGuiModelFromBlock } from './gui-blocks.js';
+import { drawNineSlice, texturePreviewScale } from './gui-nineslice.js';
+
+const NINESLICE_WIDGET_TYPES = new Set(['image', 'button']);
+const SLICE_PROP_KEYS = new Set(['slice_borders', 'slice_scale']);
 
 /** Подсказки к свойствам (тултип при наведении на подпись поля). */
 const PROP_HINTS = {
@@ -41,8 +46,8 @@ const PROP_HINTS = {
   labelScale: 'Масштаб надписи кнопки (1 — обычный).',
   subLabel: 'Вторая строка мелким текстом под основной надписью.',
   subScale: 'Масштаб второй строки (по умолчанию 0.65).',
-  slice_borders: '9-slice: ширина неизменяемых краёв текстуры в пикселях. Центр растягивается, углы — нет. 0 — простое растяжение.',
-  slice_scale: 'Масштаб краёв при 9-slice (обычно 1).',
+  slice_borders: '9-slice: ширина неизменяемых краёв текстуры в пикселях (как sliceBorders в скрипте). Углы фиксированы, края тайлятся, центр растягивается. 0 — растянуть всю текстуру.',
+  slice_scale: 'Множитель толщины края на экране (sliceScale). 0.42 — тонкая рамка, 1 — 1:1 с borders.',
   onClick: 'Код движка, выполняющийся при клике. Игрок доступен как _eventPlayer. Пример: chat(_eventPlayer, "клик!")',
   // input
   text: 'Начальный текст в поле ввода.',
@@ -60,7 +65,11 @@ const PROP_HINTS = {
   autoScrollbar: 'Показывать полосу прокрутки только когда контент не влезает.',
   // clip
   alpha: 'Прозрачность всего содержимого клипа: 1 — непрозрачно, 0 — невидимо.',
+  rotation: 'Поворот группы в градусах. Можно анимировать через uiAnimate.',
+  pivotX: 'Точка поворота по X (0..1): 0 — левый край, 0.5 — центр, 1 — правый.',
+  pivotY: 'Точка поворота по Y (0..1): 0 — верх, 0.5 — центр, 1 — низ.',
   // entity
+  autoScale: 'Автоматически подобрать масштаб модели по рамке виджета (size/crop).',
   feetCrop: 'Обрезка модели снизу (0..1): 0.38 — стандарт, прячет ноги ниже рамки.',
   nameTag: 'Показывать имя над головой.',
   noLookAt: 'НИП не поворачивает голову к игроку.',
@@ -96,6 +105,7 @@ const WIDGET_HINTS = {
   slot: 'Настоящий слот инвентаря 18×18 — в него можно класть предметы (режим контейнера).',
   playerInventory: 'Инвентарь игрока целиком (9×3 + хотбар).',
   clip: 'Контейнер: обрезает всё, что выходит за его границы. Дети позиционируются относительно него.',
+  group: 'Группа: контейнер без обрезки. Удобно для совместного перемещения и анимации нескольких виджетов.',
   scroll: 'Прокручиваемая область. contentH — полная высота содержимого.',
 };
 
@@ -104,9 +114,11 @@ const st = {
   block: null,
   model: null,
   selectedUid: null,
+  selectedUids: new Set(),
   guiScale: 2,
   textures: [],
   texDataUrls: new Map(),
+  texImages: new Map(),
   drag: null, // { mode: 'move'|'resize', uid, startMx, startMy, startPos, startSize, handle }
   zoom: 1,
   unitMode: '%',        // '%' | 'px' — единицы для новых виджетов и перетаскивания
@@ -299,6 +311,69 @@ function coordInUnit(px, parent, wantPct) {
 
 const $ = (id) => document.getElementById(id);
 
+function isSelected(uid) {
+  return st.selectedUids.has(uid) || st.selectedUid === uid;
+}
+
+function getSelectionUids() {
+  if (st.selectedUids.size > 0) return [...st.selectedUids];
+  return st.selectedUid ? [st.selectedUid] : [];
+}
+
+function clearSelection() {
+  st.selectedUids = new Set();
+  st.selectedUid = null;
+}
+
+function setSelection(uid, { additive = false } = {}) {
+  if (additive) {
+    if (st.selectedUids.size === 0 && st.selectedUid) st.selectedUids.add(st.selectedUid);
+    if (st.selectedUids.has(uid)) {
+      if (st.selectedUids.size > 1) st.selectedUids.delete(uid);
+    } else {
+      st.selectedUids.add(uid);
+    }
+    st.selectedUid = uid;
+  } else {
+    st.selectedUids = new Set([uid]);
+    st.selectedUid = uid;
+  }
+}
+
+function deleteSelection() {
+  const uids = getSelectionUids();
+  if (!uids.length) return;
+  const sorted = uids
+    .map((uid) => findGuiWidgetParentList(st.model, uid))
+    .filter(Boolean)
+    .sort((a, b) => b.idx - a.idx);
+  for (const found of sorted) found.list.splice(found.idx, 1);
+  clearSelection();
+  renderAll();
+}
+
+function doGroupSelection() {
+  const uids = getSelectionUids();
+  if (uids.length < 2) return;
+  const first = findGuiWidget(st.model, uids[0]);
+  const dims = widgetParentDims(first);
+  const group = groupGuiWidgets(st.model, uids, dims.w, dims.h);
+  if (!group) return;
+  setSelection(group.uid);
+  renderAll();
+}
+
+function doUngroupSelection() {
+  const w = st.selectedUid ? findGuiWidget(st.model, st.selectedUid) : null;
+  if (!w || w.type !== 'group') return;
+  const dims = widgetParentDims(w);
+  const children = ungroupGuiWidget(st.model, w.uid, dims.w, dims.h);
+  if (!children?.length) return;
+  setSelection(children[0].uid);
+  for (const c of children.slice(1)) st.selectedUids.add(c.uid);
+  renderAll();
+}
+
 // ================= Открытие / закрытие =================
 
 export async function openGuiEditor(block, textures = []) {
@@ -306,6 +381,7 @@ export async function openGuiEditor(block, textures = []) {
   st.textures = textures || [];
   st.model = readGuiModelFromBlock(block) || createEmptyGuiModel();
   st.selectedUid = null;
+  st.selectedUids = new Set();
   st.open = true;
 
   $('gui-editor-overlay')?.classList.remove('hidden');
@@ -408,7 +484,7 @@ function buildWidgetEl(w, pw, ph, scale) {
   const p = (k) => (w.props?.[k] !== undefined && w.props?.[k] !== '') ? w.props[k] : def.props?.[k]?.def;
 
   const el = document.createElement('div');
-  el.className = 'gui-wd' + (st.selectedUid === w.uid ? ' selected' : '');
+  el.className = 'gui-wd' + (isSelected(w.uid) ? ' selected' : '') + (st.selectedUids.size > 1 && st.selectedUids.has(w.uid) && st.selectedUid !== w.uid ? ' multi-selected' : '');
   el.dataset.uid = w.uid;
   el.style.left = gameToDisp(x, scale) + 'px';
   el.style.top = gameToDisp(y, scale) + 'px';
@@ -449,7 +525,9 @@ function buildWidgetEl(w, pw, ph, scale) {
       break;
     }
     case 'button': {
-      el.style.background = engineColorToCss(p('color'), 'rgba(85,51,102,0.53)');
+      const tex = p('texture');
+      const sliceB = Number(p('slice_borders')) || 0;
+      const sliceSc = p('slice_scale') !== undefined && p('slice_scale') !== '' ? Number(p('slice_scale')) : 1;
       el.style.display = 'flex';
       el.style.flexDirection = 'column';
       el.style.alignItems = 'center';
@@ -461,18 +539,30 @@ function buildWidgetEl(w, pw, ph, scale) {
       el.style.lineHeight = labelPx + 'px';
       el.style.textShadow = `${scale}px ${scale}px 0 rgba(0,0,0,.55)`;
       el.style.overflow = 'hidden';
-      const tex = p('texture');
-      if (tex) applyTextureBg(el, tex);
+      el.style.position = 'relative';
       const subPx = MC_LINE_HEIGHT * MC_FONT_RENDER_SCALE * (Number(p('subScale')) || 0.65) * scale;
-      el.innerHTML = `<span>${escapeHtml(w.args?.[1] ?? '')}</span>` +
+      const labelWrap = document.createElement('div');
+      labelWrap.className = 'gui-wd-btn-labels';
+      labelWrap.style.cssText = 'position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;';
+      labelWrap.innerHTML = `<span>${escapeHtml(w.args?.[1] ?? '')}</span>` +
         (p('subLabel') ? `<span style="font-size:${subPx}px;line-height:${subPx}px;opacity:.8">${escapeHtml(p('subLabel'))}</span>` : '');
-      el.addEventListener('mouseenter', () => { el.style.background = engineColorToCss(p('hover'), el.style.background); });
-      el.addEventListener('mouseleave', () => { el.style.background = engineColorToCss(p('color'), 'rgba(85,51,102,0.53)'); });
+      el.appendChild(labelWrap);
+      if (tex) {
+        mountWidgetTexture(el, tex, sz.w, sz.h, sliceB, sliceSc, scale, null);
+      } else {
+        el.style.background = engineColorToCss(p('color'), 'rgba(85,51,102,0.53)');
+        el.addEventListener('mouseenter', () => { el.style.background = engineColorToCss(p('hover'), el.style.background); });
+        el.addEventListener('mouseleave', () => { el.style.background = engineColorToCss(p('color'), 'rgba(85,51,102,0.53)'); });
+      }
       break;
     }
     case 'image': {
       el.style.imageRendering = 'pixelated';
-      applyTextureBg(el, w.args?.[1] ?? '');
+      el.style.position = 'relative';
+      el.style.overflow = 'hidden';
+      const sliceB = Number(p('slice_borders')) || 0;
+      const sliceSc = p('slice_scale') !== undefined && p('slice_scale') !== '' ? Number(p('slice_scale')) : 1;
+      mountWidgetTexture(el, w.args?.[1] ?? '', sz.w, sz.h, sliceB, sliceSc, scale, 'rgba(120,120,160,.25)');
       break;
     }
     case 'gridBg': {
@@ -532,6 +622,18 @@ function buildWidgetEl(w, pw, ph, scale) {
       el.style.opacity = String(Number(p('alpha')) || 1);
       break;
     }
+    case 'group': {
+      el.classList.add('gui-wd-container', 'gui-wd-group');
+      el.style.opacity = String(Number(p('alpha')) || 1);
+      const rot = Number(p('rotation')) || 0;
+      if (rot) {
+        const px = (Number(p('pivotX')) || 0.5) * 100;
+        const py = (Number(p('pivotY')) || 0.5) * 100;
+        el.style.transformOrigin = `${px}% ${py}%`;
+        el.style.transform = `rotate(${rot}deg)`;
+      }
+      break;
+    }
     case 'scroll': {
       el.classList.add('gui-wd-container', 'gui-wd-scroll', 'gui-wd-clip');
       el.style.background = engineColorToCss(p('color'), 'rgba(0,0,0,0)');
@@ -588,7 +690,7 @@ function buildWidgetEl(w, pw, ph, scale) {
 
   el.addEventListener('mousedown', (e) => onWidgetMouseDown(e, w, pw, ph, scale));
 
-  if (st.selectedUid === w.uid && !def.defaults.noSize && w.type !== 'text') {
+  if (isSelected(w.uid) && getSelectionUids().length === 1 && !def.defaults.noSize && w.type !== 'text') {
     for (const h of ['se', 'e', 's']) {
       const hd = document.createElement('div');
       hd.className = 'gui-wd-handle gui-wd-handle-' + h;
@@ -620,24 +722,197 @@ function sortByLayer(widgets) {
   return [...widgets].sort((a, b) => (Number(a.layer) || 0) - (Number(b.layer) || 0));
 }
 
-async function applyTextureBg(el, texPath) {
-  if (!texPath) return;
-  if (st.texDataUrls.has(texPath)) {
-    el.style.backgroundImage = `url("${st.texDataUrls.get(texPath)}")`;
-    el.style.backgroundSize = '100% 100%';
-    return;
-  }
-  el.style.background = 'rgba(120,120,160,.3)';
-  if (!window.spraute || texPath.includes(':')) return; // minecraft: текстуры недоступны
+async function ensureTextureUrl(texPath) {
+  if (!texPath || texPath.includes(':')) return null;
+  if (st.texDataUrls.has(texPath)) return st.texDataUrls.get(texPath);
+  if (!window.spraute) return null;
   try {
     const b64 = await window.spraute.readFile(texPath, 'base64');
     const url = `data:image/png;base64,${b64}`;
     st.texDataUrls.set(texPath, url);
-    el.style.background = 'none';
-    el.style.backgroundImage = `url("${url}")`;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+async function loadTextureImage(texPath) {
+  if (!texPath) return null;
+  if (st.texImages.has(texPath)) return st.texImages.get(texPath);
+  const url = await ensureTextureUrl(texPath);
+  if (!url) return null;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      st.texImages.set(texPath, img);
+      resolve(img);
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+/** Текстура виджета: 9-slice (как SprauteScriptScreen) или растяжение целиком. */
+async function mountWidgetTexture(el, texPath, gameW, gameH, borders, sliceScale, displayScale, fallbackCss) {
+  const img = await loadTextureImage(texPath);
+  if (!img) {
+    if (fallbackCss) el.style.background = fallbackCss;
+    return;
+  }
+  const bordersN = Number(borders) || 0;
+  const scaleN = sliceScale !== undefined && sliceScale !== '' ? Number(sliceScale) : 1;
+  const oldCanvas = el.querySelector('canvas.gui-ns-canvas');
+  if (oldCanvas) oldCanvas.remove();
+  el.style.backgroundImage = '';
+  if (bordersN <= 0) {
+    el.style.backgroundImage = `url("${img.src}")`;
     el.style.backgroundSize = '100% 100%';
     el.style.imageRendering = 'pixelated';
-  } catch (e) { /* нет файла */ }
+    return;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.className = 'gui-ns-canvas';
+  canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;pointer-events:none;';
+  const cw = Math.max(1, gameToDisp(gameW, displayScale));
+  const ch = Math.max(1, gameToDisp(gameH, displayScale));
+  canvas.width = cw;
+  canvas.height = ch;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.imageSmoothingEnabled = false;
+    drawNineSlice(ctx, img, 0, 0, cw, ch, bordersN, scaleN);
+  }
+  el.insertBefore(canvas, el.firstChild);
+}
+
+function widgetTexturePath(w) {
+  if (w.type === 'image') return w.args?.[1] ?? '';
+  if (w.type === 'button') return w.props?.texture ?? '';
+  return '';
+}
+
+function appendNineSliceEditor(container, w, def) {
+  if (!NINESLICE_WIDGET_TYPES.has(w.type)) return;
+  const texPath = widgetTexturePath(w);
+  const bordersDef = def.props?.slice_borders?.def ?? 0;
+  const scaleDef = def.props?.slice_scale?.def ?? 1;
+  const borders = Number(w.props?.slice_borders) || 0;
+  const sliceScale = w.props?.slice_scale !== undefined && w.props?.slice_scale !== ''
+    ? Number(w.props.slice_scale) : scaleDef;
+
+  const section = document.createElement('div');
+  section.className = 'gui-ed-nineslice';
+  section.innerHTML = `
+    <div class="gui-ed-nineslice-head">9-slice</div>
+    <div class="gui-ed-nineslice-preview-wrap">
+      <div class="gui-ed-nineslice-preview" data-role="preview">
+        <img class="gui-ed-nineslice-img" alt="" hidden />
+        <div class="gui-ed-nineslice-lines" data-role="lines" hidden></div>
+        <div class="gui-ed-nineslice-empty" data-role="empty">Нет текстуры</div>
+      </div>
+    </div>
+    <label class="gui-ed-prop"${hintAttr('slice_borders')}><span>slice_borders</span>
+      <input type="number" min="0" step="1" data-ns="borders" value="${borders}" /></label>
+    <label class="gui-ed-prop"${hintAttr('slice_scale')}><span>slice_scale</span>
+      <input type="number" min="0.01" step="0.01" data-ns="scale" value="${sliceScale}" /></label>
+    <p class="gui-ed-nineslice-hint">Линии — границы среза в px текстуры. На виджете толщина края ≈ <code>round(borders × slice_scale)</code> игровых px.</p>
+  `;
+  container.appendChild(section);
+
+  const imgEl = section.querySelector('.gui-ed-nineslice-img');
+  const linesEl = section.querySelector('[data-role="lines"]');
+  const emptyEl = section.querySelector('[data-role="empty"]');
+  const previewEl = section.querySelector('[data-role="preview"]');
+  const bordersInp = section.querySelector('[data-ns="borders"]');
+  const scaleInp = section.querySelector('[data-ns="scale"]');
+  let previewScale = 1;
+  let texW = 0;
+  let texH = 0;
+
+  const syncPropsFromInputs = () => {
+    const b = parseInt(bordersInp.value, 10) || 0;
+    const sc = parseFloat(scaleInp.value);
+    if (b) w.props.slice_borders = b;
+    else delete w.props.slice_borders;
+    if (!Number.isNaN(sc) && sc !== scaleDef) w.props.slice_scale = sc;
+    else delete w.props.slice_scale;
+  };
+
+  const paintLines = () => {
+    const b = Math.max(0, parseInt(bordersInp.value, 10) || 0);
+    if (!texW || !b) {
+      linesEl.hidden = true;
+      linesEl.innerHTML = '';
+      return;
+    }
+    const maxB = Math.floor(Math.min(texW, texH) / 2);
+    const clamped = Math.min(b, maxB);
+    const off = clamped * previewScale;
+    linesEl.hidden = false;
+    linesEl.innerHTML = `
+      <div class="gui-ed-ns-line gui-ed-ns-h" data-edge="top" style="top:${off}px"></div>
+      <div class="gui-ed-ns-line gui-ed-ns-h" data-edge="bottom" style="bottom:${off}px"></div>
+      <div class="gui-ed-ns-line gui-ed-ns-v" data-edge="left" style="left:${off}px"></div>
+      <div class="gui-ed-ns-line gui-ed-ns-v" data-edge="right" style="right:${off}px"></div>
+    `;
+    linesEl.querySelectorAll('.gui-ed-ns-line').forEach((line) => {
+      line.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const edge = line.dataset.edge;
+        const rect = previewEl.getBoundingClientRect();
+        const onMove = (ev) => {
+          let nb;
+          if (edge === 'top') nb = Math.round((ev.clientY - rect.top) / previewScale);
+          else if (edge === 'bottom') nb = Math.round((rect.bottom - ev.clientY) / previewScale);
+          else if (edge === 'left') nb = Math.round((ev.clientX - rect.left) / previewScale);
+          else nb = Math.round((rect.right - ev.clientX) / previewScale);
+          nb = Math.max(0, Math.min(Math.floor(Math.min(texW, texH) / 2), nb));
+          bordersInp.value = String(nb);
+          paintLines();
+          syncPropsFromInputs();
+          renderCanvas();
+          renderCodePreview();
+        };
+        const onUp = () => {
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      });
+    });
+  };
+
+  const onFieldChange = () => {
+    syncPropsFromInputs();
+    paintLines();
+    renderCanvas();
+    renderCodePreview();
+  };
+  bordersInp.addEventListener('change', onFieldChange);
+  scaleInp.addEventListener('change', onFieldChange);
+  bordersInp.addEventListener('input', paintLines);
+
+  loadTextureImage(texPath).then((img) => {
+    if (!img) {
+      emptyEl.hidden = false;
+      emptyEl.textContent = texPath ? 'Текстура не найдена' : 'Нет текстуры';
+      return;
+    }
+    emptyEl.hidden = true;
+    imgEl.hidden = false;
+    texW = img.naturalWidth;
+    texH = img.naturalHeight;
+    const ps = texturePreviewScale(texW, texH, 180);
+    previewScale = ps.scale;
+    imgEl.src = img.src;
+    imgEl.style.width = ps.w + 'px';
+    imgEl.style.height = ps.h + 'px';
+    previewEl.style.width = ps.w + 'px';
+    previewEl.style.height = ps.h + 'px';
+    paintLines();
+  });
 }
 
 function renderCanvas() {
@@ -686,7 +961,7 @@ function renderCanvas() {
 
   panelEl.addEventListener('mousedown', (e) => {
     if (e.target === panelEl) {
-      st.selectedUid = null;
+      clearSelection();
       renderAll();
     }
   });
@@ -707,17 +982,39 @@ function renderCanvas() {
 function onWidgetMouseDown(e, w, pw, ph, scale) {
   e.stopPropagation();
   e.preventDefault();
-  startDrag(e, w, pw, ph, scale, 'move');
-  if (st.selectedUid !== w.uid) {
+  const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+  if (additive) {
+    setSelection(w.uid, { additive: true });
+  } else if (!isSelected(w.uid)) {
+    setSelection(w.uid);
+  } else {
     st.selectedUid = w.uid;
-    renderAll();
   }
+  startDrag(e, w, pw, ph, scale, 'move');
+  renderAll();
 }
 
 function startDrag(e, w, pw, ph, scale, mode, handle = 'se') {
   const def = WIDGET_DEFS[w.type];
+  const moveUids = (() => {
+    const sel = getSelectionUids();
+    return (mode === 'move' && sel.length > 1 && sel.includes(w.uid)) ? sel : [w.uid];
+  })();
+  const starts = moveUids.map((uid) => {
+    const ww = findGuiWidget(st.model, uid);
+    const dims = widgetParentDims(ww);
+    return {
+      uid,
+      pw: dims.w,
+      ph: dims.h,
+      startX: resolveCoord(ww.pos?.[0] ?? 0, dims.w),
+      startY: resolveCoord(ww.pos?.[1] ?? 0, dims.h),
+      pctX: typeof ww.pos?.[0] === 'string' && String(ww.pos[0]).endsWith('%'),
+      pctY: typeof ww.pos?.[1] === 'string' && String(ww.pos[1]).endsWith('%'),
+    };
+  });
   st.drag = {
-    mode, handle, uid: w.uid, pw, ph, scale,
+    mode, handle, uid: w.uid, pw, ph, scale, moveUids, starts,
     startMx: e.clientX, startMy: e.clientY,
     startX: resolveCoord(w.pos?.[0] ?? 0, pw),
     startY: resolveCoord(w.pos?.[1] ?? 0, ph),
@@ -742,15 +1039,17 @@ function onDragMove(e) {
   const dy = (e.clientY - d.startMy) / d.scale;
 
   if (d.mode === 'move') {
+    const primary = d.starts?.find((s) => s.uid === d.uid) || d.starts?.[0];
     let nx = d.startX + dx;
     let ny = d.startY + dy;
     let snappedX = false;
     let snappedY = false;
     d.guides = null;
 
-    if (st.widgetSnap) {
-      const sz = widgetSizePx(w, d.pw, d.ph);
-      const snapped = snapToWidgets(nx, ny, sz.w, sz.h, siblingsOf(st.model, d.uid), d.pw, d.ph);
+    if (st.widgetSnap && primary) {
+      const w = findGuiWidget(st.model, primary.uid);
+      const sz = widgetSizePx(w, primary.pw, primary.ph);
+      const snapped = snapToWidgets(nx, ny, sz.w, sz.h, siblingsOf(st.model, primary.uid), primary.pw, primary.ph);
       nx = snapped.x;
       ny = snapped.y;
       snappedX = snapped.snappedX;
@@ -761,10 +1060,17 @@ function onDragMove(e) {
     if (!snappedX && st.gridSnap) nx = snap(nx);
     if (!snappedY && st.gridSnap) ny = snap(ny);
 
-    w.pos = [
-      coordInUnit(nx, d.pw, d.pctX),
-      coordInUnit(ny, d.ph, d.pctY),
-    ];
+    const dxFinal = nx - d.startX;
+    const dyFinal = ny - d.startY;
+
+    for (const s of d.starts || [{ uid: d.uid, pw: d.pw, ph: d.ph, startX: d.startX, startY: d.startY, pctX: d.pctX, pctY: d.pctY }]) {
+      const ww = findGuiWidget(st.model, s.uid);
+      if (!ww) continue;
+      ww.pos = [
+        coordInUnit(s.startX + dxFinal, s.pw, s.pctX),
+        coordInUnit(s.startY + dyFinal, s.ph, s.pctY),
+      ];
+    }
   } else {
     let nw = d.startW, nh = d.startH;
     if (d.handle === 'se' || d.handle === 'e') nw = Math.max(1, snap(d.startW + dx));
@@ -914,6 +1220,7 @@ function renderPalette() {
         }
       }
       st.selectedUid = w.uid;
+      st.selectedUids = new Set([w.uid]);
       renderAll();
     });
     el.appendChild(btn);
@@ -939,7 +1246,7 @@ function buildTreeLevel(widgets, ul, parentW) {
     li.draggable = true;
     li.dataset.uid = w.uid;
     const row = document.createElement('div');
-    row.className = 'gui-ed-tree-row' + (st.selectedUid === w.uid ? ' active' : '');
+    row.className = 'gui-ed-tree-row' + (isSelected(w.uid) ? ' active' : '');
     row.innerHTML =
       `<span class="material-symbols-outlined" style="font-size:14px">${def.icon}</span>` +
       `<span class="gui-ed-tree-name">${escapeHtml(idOf(w))}</span>` +
@@ -959,12 +1266,16 @@ function buildTreeLevel(widgets, ul, parentW) {
     row.appendChild(mkBtn('content_copy', 'Дублировать', () => duplicateWidget(widgets, idx)));
     row.appendChild(mkBtn('delete', 'Удалить', () => {
       widgets.splice(idx, 1);
-      if (st.selectedUid === w.uid) st.selectedUid = null;
+      st.selectedUids.delete(w.uid);
+      if (st.selectedUid === w.uid) {
+        const rest = [...st.selectedUids];
+        st.selectedUid = rest.length ? rest[0] : null;
+      }
       renderAll();
     }));
 
-    row.addEventListener('click', () => {
-      st.selectedUid = w.uid;
+    row.addEventListener('click', (e) => {
+      setSelection(w.uid, { additive: e.shiftKey || e.ctrlKey || e.metaKey });
       renderAll();
     });
 
@@ -1156,6 +1467,12 @@ function parseCoordInput(v) {
 function renderProps() {
   const el = $('gui-ed-props');
   if (!el) return;
+  const uids = getSelectionUids();
+  if (uids.length > 1) {
+    el.innerHTML = `<p class="gui-ed-hint">Выбрано элементов: <strong>${uids.length}</strong>.</p>
+      <p class="gui-ed-hint mt-2">Ctrl+G — сгруппировать. Перетаскивание двигает все выделенные.</p>`;
+    return;
+  }
   const w = st.selectedUid ? findGuiWidget(st.model, st.selectedUid) : null;
   if (!w) {
     el.innerHTML = '<p class="gui-ed-hint">Выберите виджет на холсте или в дереве.</p>';
@@ -1163,8 +1480,6 @@ function renderProps() {
   }
   const def = WIDGET_DEFS[w.type];
   let html = `<p class="gui-ed-props-title"><span class="material-symbols-outlined" style="font-size:15px">${def.icon}</span> ${def.label} <code>${w.type}</code></p>`;
-
-  const hintAttr = (key) => PROP_HINTS[key] ? ` title="${escapeAttr(PROP_HINTS[key])}"` : '';
 
   def.args.forEach((a, i) => {
     if (a.name === 'texture' || (w.type === 'image' && i === 1)) {
@@ -1196,6 +1511,7 @@ function renderProps() {
   html += `<label class="gui-ed-prop"${hintAttr('layer')}><span>слой</span><input data-p="layer" type="number" value="${Number(w.layer) || 0}" /></label></div>`;
 
   for (const [k, meta] of Object.entries(def.props || {})) {
+    if (NINESLICE_WIDGET_TYPES.has(w.type) && SLICE_PROP_KEYS.has(k)) continue;
     const val = w.props?.[k] ?? '';
     if (meta.kind === 'bool') {
       const on = val === '' ? meta.def : (val === true || val === 'true');
@@ -1218,6 +1534,7 @@ function renderProps() {
   }
 
   el.innerHTML = html;
+  appendNineSliceEditor(el, w, def);
   bindColorInputs(el);
   el.querySelectorAll('[data-p]').forEach(inp => {
     inp.addEventListener('change', () => applyPropInput(w, inp));
@@ -1344,6 +1661,9 @@ function escapeHtml(s) {
 function escapeAttr(s) {
   return escapeHtml(s).replace(/"/g, '&quot;');
 }
+function hintAttr(key) {
+  return PROP_HINTS[key] ? ` title="${escapeAttr(PROP_HINTS[key])}"` : '';
+}
 
 // ================= Инициализация =================
 
@@ -1383,6 +1703,9 @@ export function initGuiEditor() {
   });
   refreshGridBtns();
 
+  $('gui-ed-group')?.addEventListener('click', () => doGroupSelection());
+  $('gui-ed-ungroup')?.addEventListener('click', () => doUngroupSelection());
+
   window.addEventListener('resize', () => { if (st.open) renderCanvas(); });
 
   window.addEventListener('keydown', (e) => {
@@ -1395,7 +1718,14 @@ export function initGuiEditor() {
     const tag = document.activeElement?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-    if ((e.ctrlKey || e.metaKey) && e.key === 'c' && st.selectedUid) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'g' || e.key === 'G')) {
+      if (e.shiftKey) doUngroupSelection();
+      else doGroupSelection();
+      e.preventDefault();
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key === 'c' && getSelectionUids().length) {
       copySelectedWidget();
       e.preventDefault();
       return;
@@ -1406,31 +1736,28 @@ export function initGuiEditor() {
       return;
     }
 
-    if ((e.key === 'Delete' || e.key === 'Backspace') && st.selectedUid) {
-      const found = findGuiWidgetParentList(st.model, st.selectedUid);
-      if (found) {
-        found.list.splice(found.idx, 1);
-        st.selectedUid = null;
-        renderAll();
-      }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && getSelectionUids().length) {
+      deleteSelection();
       e.preventDefault();
     }
     // стрелки — точное перемещение на 1 px (Shift — 10)
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && st.selectedUid) {
-      const w = findGuiWidget(st.model, st.selectedUid);
-      if (!w) return;
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && getSelectionUids().length) {
       const step = e.shiftKey ? 10 : 1;
-      const dims = widgetParentDims(w);
-      let x = resolveCoord(w.pos?.[0] ?? 0, dims.w);
-      let y = resolveCoord(w.pos?.[1] ?? 0, dims.h);
-      if (e.key === 'ArrowLeft') x -= step;
-      if (e.key === 'ArrowRight') x += step;
-      if (e.key === 'ArrowUp') y -= step;
-      if (e.key === 'ArrowDown') y += step;
-      w.pos = [
-        coordInUnit(x, dims.w, isPct(w.pos?.[0])),
-        coordInUnit(y, dims.h, isPct(w.pos?.[1])),
-      ];
+      for (const uid of getSelectionUids()) {
+        const w = findGuiWidget(st.model, uid);
+        if (!w) continue;
+        const dims = widgetParentDims(w);
+        let x = resolveCoord(w.pos?.[0] ?? 0, dims.w);
+        let y = resolveCoord(w.pos?.[1] ?? 0, dims.h);
+        if (e.key === 'ArrowLeft') x -= step;
+        if (e.key === 'ArrowRight') x += step;
+        if (e.key === 'ArrowUp') y -= step;
+        if (e.key === 'ArrowDown') y += step;
+        w.pos = [
+          coordInUnit(x, dims.w, isPct(w.pos?.[0])),
+          coordInUnit(y, dims.h, isPct(w.pos?.[1])),
+        ];
+      }
       renderAll();
       e.preventDefault();
     }

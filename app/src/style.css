@@ -253,6 +253,14 @@ body:not(.visual-mode-active) .blocklyDropDownDiv {
   background: rgba(56,189,248,.05);
 }
 .gui-wd-clip { overflow: hidden; }
+.gui-wd-group {
+  border: 1px dashed rgba(167,139,250,.55);
+  background: rgba(167,139,250,.06);
+}
+.gui-wd.multi-selected {
+  outline: 2px solid rgba(56,189,248,.65);
+  outline-offset: 0;
+}
 .gui-wd-scrollbar {
   position: absolute;
   right: 1px;
@@ -379,6 +387,89 @@ body:not(.visual-mode-active) .blocklyDropDownDiv {
   pointer-events: none;
 }
 
+/* 9-slice editor (image / button) */
+.gui-ed-nineslice {
+  margin: 0.75rem 0 0.5rem;
+  padding: 0.5rem 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.gui-ed-nineslice-head {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-on-variant);
+  margin-bottom: 0.5rem;
+}
+.gui-ed-nineslice-preview-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+  padding: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: auto;
+  max-height: 220px;
+}
+.gui-ed-nineslice-preview {
+  position: relative;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+.gui-ed-nineslice-img {
+  display: block;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.gui-ed-nineslice-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.gui-ed-nineslice-lines .gui-ed-ns-line {
+  position: absolute;
+  pointer-events: auto;
+  background: rgba(248, 113, 113, 0.85);
+  z-index: 2;
+}
+.gui-ed-nineslice-lines .gui-ed-ns-h {
+  left: 0;
+  right: 0;
+  height: 2px;
+  cursor: ns-resize;
+}
+.gui-ed-nineslice-lines .gui-ed-ns-v {
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  cursor: ew-resize;
+}
+.gui-ed-nineslice-empty {
+  font-size: 10px;
+  color: var(--color-on-variant);
+  padding: 24px 12px;
+  text-align: center;
+}
+.gui-ed-nineslice-hint {
+  font-size: 9px;
+  line-height: 1.35;
+  color: var(--color-on-variant);
+  opacity: 0.85;
+  margin: 0.25rem 0 0;
+}
+.gui-ed-nineslice-hint code {
+  font-size: 9px;
+  color: var(--color-tertiary);
+}
+.gui-ns-canvas {
+  z-index: 0;
+}
+.gui-wd-btn-labels {
+  width: 100%;
+  height: 100%;
+}
+
 /* Чекбоксы и радио в редакторе GUI */
 #gui-editor-overlay input[type="checkbox"] {
   appearance: none;
@@ -456,5 +547,21 @@ body:not(.visual-mode-active) .blocklyDropDownDiv {
 }
 .gui-ed-props-title { @apply flex items-center gap-1 text-on-surface font-medium mb-2; }
 .gui-ed-props-title code { @apply text-[10px] text-on-variant bg-white/10 rounded px-1; }
+
+.export-tree-panel {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+.export-tree-panel::-webkit-scrollbar {
+  width: 6px;
+}
+.export-tree-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+}
+.export-tree-row .export-tree-input {
+  width: 14px;
+  height: 14px;
+}
 .gui-ed-hint { @apply text-on-variant text-[11px] px-1; }
 body.gui-editor-open { overflow: hidden; }
