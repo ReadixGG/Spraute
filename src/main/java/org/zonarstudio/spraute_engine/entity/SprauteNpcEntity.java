@@ -747,6 +747,33 @@ public class SprauteNpcEntity extends PathfinderMob {
     }
     public void clearHandItem(String hand) { setHandItem(hand, net.minecraft.world.item.ItemStack.EMPTY); }
 
+    /** Throw item entity in the NPC's look direction (does not consume inventory). */
+    public boolean throwItem(String itemStr, int count) {
+        if (count <= 0) count = 1;
+        Level level = SprauteEntityCompat.level(this);
+        if (!(level instanceof ServerLevel serverLevel) || level.isClientSide) return false;
+
+        String resolved = itemStr.contains(":") ? itemStr : "minecraft:" + itemStr;
+        net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(parseItemResourceId(resolved));
+        if (item == null || item == net.minecraft.world.item.Items.AIR) return false;
+
+        spawnThrownEntity(serverLevel, new net.minecraft.world.item.ItemStack(item, count));
+        return true;
+    }
+
+    private void spawnThrownEntity(ServerLevel level, net.minecraft.world.item.ItemStack stack) {
+        if (stack.isEmpty()) return;
+        ItemEntity itemEntity = new ItemEntity(level, getX(), getY() + 1.0, getZ(), stack);
+        itemEntity.setDefaultPickUpDelay();
+        float yaw = getYRot() * ((float) Math.PI / 180F);
+        float pitch = getXRot() * ((float) Math.PI / 180F);
+        float tx = -net.minecraft.util.Mth.sin(yaw) * net.minecraft.util.Mth.cos(pitch);
+        float tz = net.minecraft.util.Mth.cos(yaw) * net.minecraft.util.Mth.cos(pitch);
+        float ty = -net.minecraft.util.Mth.sin(pitch);
+        itemEntity.setDeltaMovement(tx * 0.3F, ty * 0.3F + 0.1F, tz * 0.3F);
+        level.addFreshEntity(itemEntity);
+    }
+
     // ========== Pickup control ==========
     public void setPickupDropperFilter(java.util.UUID uuid) { pickupDropperFilter = uuid; }
     public void clearPickupDropperFilter() { pickupDropperFilter = null; }
@@ -1010,6 +1037,195 @@ public class SprauteNpcEntity extends PathfinderMob {
         this.activeMoveGoal = null;
         releaseForcedPathChunks();
         this.getNavigation().stop();
+    }
+
+    // ========== Combat ==========
+    private java.util.UUID combatTargetUuid = null;
+    private final java.util.ArrayList<String> attackAnims = new java.util.ArrayList<>(java.util.List.of("attack"));
+    private int attackAnimIndex = 0;
+    private String attackHand = "right";
+    private double combatChaseSpeed = 1.0;
+    private double attackRange = 2.5;
+    private int attackCooldownTicks = 20;
+    private int attackHitDelayTicks = 8;
+    private int combatCooldown = 0;
+    private int attackHitCountdown = -1;
+    private boolean combatSwingActive = false;
+    private int combatChaseRecalc = 0;
+    private static final int COMBAT_CHASE_RECALC = 10;
+
+    public double getAttackRange() { return attackRange; }
+
+    public void setAttackRange(double range) {
+        this.attackRange = Math.max(0.5, range);
+    }
+
+    public void setAttackCooldown(int ticks) {
+        this.attackCooldownTicks = Math.max(1, ticks);
+    }
+
+    public void setAttackHitDelay(int ticks) {
+        this.attackHitDelayTicks = Math.max(0, ticks);
+    }
+
+    public void setAttackHand(String hand) {
+        if (hand != null && !hand.isBlank()) {
+            this.attackHand = hand.trim().toLowerCase();
+        }
+    }
+
+    public void setAttackAnims(String... raw) {
+        attackAnims.clear();
+        if (raw != null) {
+            for (String part : raw) {
+                if (part == null) continue;
+                for (String piece : part.split(",")) {
+                    String t = piece.trim();
+                    if (!t.isEmpty()) attackAnims.add(t);
+                }
+            }
+        }
+        if (attackAnims.isEmpty()) attackAnims.add("attack");
+        attackAnimIndex = 0;
+    }
+
+    public void setAttackAnims(java.util.List<?> list) {
+        attackAnims.clear();
+        if (list != null) {
+            for (Object o : list) {
+                if (o == null) continue;
+                for (String piece : String.valueOf(o).split(",")) {
+                    String t = piece.trim();
+                    if (!t.isEmpty()) attackAnims.add(t);
+                }
+            }
+        }
+        if (attackAnims.isEmpty()) attackAnims.add("attack");
+        attackAnimIndex = 0;
+    }
+
+    /** Chase and attack target. Uses {@link #setAttackHand} weapon for damage. */
+    public void attackEntity(net.minecraft.world.entity.Entity target) {
+        attackEntity(target, combatChaseSpeed, attackRange);
+    }
+
+    public void attackEntity(net.minecraft.world.entity.Entity target, double chaseSpeed) {
+        attackEntity(target, chaseSpeed, attackRange);
+    }
+
+    public void attackEntity(net.minecraft.world.entity.Entity target, double chaseSpeed, double range) {
+        if (target == null || !target.isAlive()) return;
+        stopMove();
+        this.combatTargetUuid = target.getUUID();
+        this.combatChaseSpeed = Math.max(0.05, chaseSpeed);
+        this.attackRange = Math.max(0.5, range);
+        this.combatCooldown = 0;
+        this.combatSwingActive = false;
+        this.attackHitCountdown = -1;
+        this.combatChaseRecalc = 0;
+    }
+
+    public void stopAttack() {
+        combatTargetUuid = null;
+        combatSwingActive = false;
+        attackHitCountdown = -1;
+        combatCooldown = 0;
+        combatChaseRecalc = 0;
+        this.getNavigation().stop();
+    }
+
+    public boolean isAttacking() {
+        return combatTargetUuid != null;
+    }
+
+    private void tickCombat() {
+        Level level = SprauteEntityCompat.level(this);
+        if (level.isClientSide || combatTargetUuid == null) return;
+
+        net.minecraft.world.entity.Entity target = null;
+        if (level instanceof ServerLevel serverLevel) {
+            target = serverLevel.getEntity(combatTargetUuid);
+        }
+        if (target == null || !target.isAlive()) {
+            stopAttack();
+            return;
+        }
+
+        if (combatCooldown > 0) combatCooldown--;
+
+        double dx = target.getX() - getX();
+        double dz = target.getZ() - getZ();
+        double horiz = Math.sqrt(dx * dx + dz * dz);
+        boolean inRange = horiz <= attackRange && Math.abs(target.getY() - getY()) <= 3.5;
+
+        if (inRange) {
+            getNavigation().stop();
+            alwaysLookAtEntity(target);
+            if (!combatSwingActive && combatCooldown <= 0) {
+                beginAttackSwing();
+            }
+        } else {
+            if (combatSwingActive) {
+                combatSwingActive = false;
+                attackHitCountdown = -1;
+            }
+            if (--combatChaseRecalc <= 0) {
+                getNavigation().moveTo(target, combatChaseSpeed);
+                combatChaseRecalc = COMBAT_CHASE_RECALC;
+            }
+        }
+
+        if (combatSwingActive && attackHitCountdown >= 0) {
+            if (attackHitCountdown == 0) {
+                if (inRange && target instanceof net.minecraft.world.entity.LivingEntity living && living.isAlive()) {
+                    dealCombatDamage(living);
+                }
+                combatSwingActive = false;
+                combatCooldown = attackCooldownTicks;
+            } else {
+                attackHitCountdown--;
+            }
+        }
+    }
+
+    private void beginAttackSwing() {
+        if (attackAnims.isEmpty()) attackAnims.add("attack");
+        String anim = attackAnims.get(attackAnimIndex % attackAnims.size());
+        attackAnimIndex++;
+        playOnce(anim, false);
+        combatSwingActive = true;
+        attackHitCountdown = attackHitDelayTicks;
+    }
+
+    private float getWeaponDamage() {
+        net.minecraft.world.entity.EquipmentSlot slot = "left".equalsIgnoreCase(attackHand)
+                ? net.minecraft.world.entity.EquipmentSlot.OFFHAND
+                : net.minecraft.world.entity.EquipmentSlot.MAINHAND;
+        net.minecraft.world.item.ItemStack stack = getItemBySlot(slot);
+        if (stack.isEmpty()) return 1.0f;
+        float dmg = 1.0f;
+        com.google.common.collect.Multimap<net.minecraft.world.entity.ai.attributes.Attribute, net.minecraft.world.entity.ai.attributes.AttributeModifier> map =
+                stack.getAttributeModifiers(slot);
+        for (net.minecraft.world.entity.ai.attributes.AttributeModifier mod : map.get(Attributes.ATTACK_DAMAGE)) {
+            if (mod.getOperation() == net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADDITION) {
+                dmg += mod.getAmount();
+            }
+        }
+        return Math.max(1.0f, dmg);
+    }
+
+    private void dealCombatDamage(net.minecraft.world.entity.LivingEntity target) {
+        Level level = SprauteEntityCompat.level(this);
+        if (!(level instanceof ServerLevel)) return;
+        float amount = getWeaponDamage();
+        //? if >=1.20.1 {
+        target.hurt(new net.minecraft.world.damagesource.DamageSource(
+                level.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.DAMAGE_TYPE)
+                        .getHolderOrThrow(net.minecraft.world.damagesource.DamageTypes.GENERIC),
+                this), amount);
+        //?} else {
+        /*target.hurt(new net.minecraft.world.damagesource.EntityDamageSource("generic", this), amount);
+        *///?}
     }
 
     /** True while flight steering applied this tick (drives walk/idle anim while flying). */
@@ -1368,6 +1584,7 @@ public class SprauteNpcEntity extends PathfinderMob {
         this.yHeadRot = bodyStart;
         this.setYRot(bodyStart);
         tickAlwaysMove();
+        tickCombat();
         tickPassiveFlightSteering();
         tickSeparation();
         if (activeMoveGoal != null && alwaysMovePoint == null && alwaysMoveEntity == null) {

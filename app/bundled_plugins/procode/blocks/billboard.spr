@@ -1,0 +1,39 @@
+#\ block: billboard_spawn
+#\ category: Мир
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "билборд" (id: text: my_billboard)
+#\ row: "текстура" (texture: text: spraute_engine:textures/item/camera.png)
+#\ row: "x" (x: number: 0) "y" (y: number: 64) "z" (z: number: 0)
+#\ row: "ширина" (w: number: 2) "высота" (h: number: 2)
+#\ row: "сквозь блоки" [seeThrough: dropdown(да: true, нет: false)]
+#\
+#\ template: spawnBillboardNamed("{id}", "{texture}", {x}, {y}, {z}, {w}, {h}, {seeThrough})
+
+#\ block: billboard_control
+#\ category: Мир
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "билборд" (id: text: my_billboard)
+#\ row: "действие" [action: dropdown(удалить: remove, сменить текстуру: texture, телепорт: teleport, размер: size, сквозь блоки: seethrough)]
+#\ if action == "texture":
+#\   row: "текстура" (texture: text: spraute_engine:textures/item/camera.png)
+#\ if action == "teleport":
+#\   row: "x" (x: number: 0) "y" (y: number: 64) "z" (z: number: 0)
+#\ if action == "size":
+#\   row: "ширина" (w: number: 2) "высота" (h: number: 2)
+#\ if action == "seethrough":
+#\   row: "сквозь блоки" [seeThrough: dropdown(да: true, нет: false)]
+#\
+#\ if action == "remove":
+#\   template: removeBillboard("{id}")
+#\ if action == "texture":
+#\   template: setBillboardTexture("{id}", "{texture}")
+#\ if action == "teleport":
+#\   template: teleportBillboard("{id}", {x}, {y}, {z})
+#\ if action == "size":
+#\   template: setBillboardSize("{id}", {w}, {h})
+#\ if action == "seethrough":
+#\   template: setBillboardSeeThrough("{id}", {seeThrough})

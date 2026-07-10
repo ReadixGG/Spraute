@@ -11,6 +11,10 @@
     "npc_lookat",
     "npc_setitem",
     "npc_removeitem",
+    "npc_drop_item",
+    "npc_attack_anims",
+    "npc_attack",
+    "npc_stop_attack",
     "npc_setprop",
     "npc_getprop",
     "npc_setflying",
@@ -175,6 +179,8 @@
     "set_block",
     "find_safe_block",
     "spawn_orb",
+    "billboard_spawn",
+    "billboard_control",
     "execute_cmd",
     "start_script",
     "autorun_self",
@@ -295,6 +301,9 @@
     "economy_configure",
     "economy_show_coins",
     "economy_update_coins",
+    "economy_add_coins",
+    "economy_remove_coins",
+    "economy_get_coins",
     "economy_shop_item",
     "economy_define_trade",
     "economy_open_trade",
@@ -315,10 +324,6 @@
     "quest_fail_goal",
     "quest_reset_goal",
     "quest_remove"
-  ],
-  "Визуал": [
-    "billboard_spawn",
-    "billboard_control"
   ],
   "Структуры": [
     "structure_place",

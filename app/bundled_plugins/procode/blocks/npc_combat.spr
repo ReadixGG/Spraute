@@ -1,0 +1,45 @@
+#\ block: npc_attack_anims
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "НИП" [npc: dropdown_npc]
+#\ row: "анимации атаки" (anims: text: attack)
+#\
+#\ code: function q(v) { return String(v || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
+#\ code: var parts = String(_getVal('anims') || 'attack').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+#\ code: if (parts.length === 0) parts = ['attack'];
+#\ code: return '{npc}.setAttackAnims(' + parts.map(function(p) { return '"' + q(p) + '"'; }).join(', ') + ')\n';
+
+#\ block: npc_attack
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "НИП" [npc: dropdown_npc] "атаковать" [who: dropdown(первый игрок: first, кликнувший: event, НИП: npc_target, моб: mob, указать: custom)]
+#\ if who == "custom":
+#\   input: target (type: value)
+#\ if who == "npc_target":
+#\   row: "цель" [target_npc: dropdown_npc]
+#\ row: "рука" [hand: dropdown(правая: right, левая: left)]
+#\ row: "скорость" (speed: number: 1) "дистанция" (range: number: 2.5)
+#\
+#\ if who == "first":
+#\   template: {npc}.setAttackHand("{hand}")\n{npc}.attack(getFirstPlayer(), {speed}, {range})
+#\ if who == "event":
+#\   template: {npc}.setAttackHand("{hand}")\n{npc}.attack(_eventPlayer, {speed}, {range})
+#\ if who == "npc_target":
+#\   template: {npc}.setAttackHand("{hand}")\n{npc}.attack({target_npc}, {speed}, {range})
+#\ if who == "mob":
+#\   template: {npc}.setAttackHand("{hand}")\n{npc}.attack("mob", {speed}, {range})
+#\ if who == "custom":
+#\   template: {npc}.setAttackHand("{hand}")\n{npc}.attack({target}, {speed}, {range})
+
+#\ block: npc_stop_attack
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "НИП" [npc: dropdown_npc] "прекратить атаку"
+#\
+#\ template: {npc}.stopAttack()

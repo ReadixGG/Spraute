@@ -80,6 +80,20 @@ public class FunctionRegistry {
         register(new DictFunctions.GetOr());
         register(new DictFunctions.Remove());
         register(new SpawnBillboardFunction());
+        register(new BillboardFunctions.SpawnBillboardNamed());
+        register(new BillboardFunctions.SpawnBillboardNear());
+        register(new BillboardFunctions.GetBillboard());
+        register(new BillboardFunctions.RemoveBillboard());
+        register(new BillboardFunctions.SetBillboardSize());
+        register(new BillboardFunctions.SetBillboardSeeThrough());
+        register(new BillboardFunctions.TeleportBillboard());
+        registerAlias("spawn_billboard_named", new BillboardFunctions.SpawnBillboardNamed());
+        registerAlias("spawn_billboard_near", new BillboardFunctions.SpawnBillboardNear());
+        registerAlias("get_billboard", new BillboardFunctions.GetBillboard());
+        registerAlias("remove_billboard", new BillboardFunctions.RemoveBillboard());
+        registerAlias("set_billboard_size", new BillboardFunctions.SetBillboardSize());
+        registerAlias("set_billboard_see_through", new BillboardFunctions.SetBillboardSeeThrough());
+        registerAlias("teleport_billboard", new BillboardFunctions.TeleportBillboard());
         register(new StrLenFunction());
         register(new StrWidthFunction());
         register(new StrNewlineCountFunction());
@@ -174,6 +188,11 @@ public class FunctionRegistry {
         registerAlias("get_npc", new EntityUtilFunctions.GetNpc());
         registerAlias("register_npc", new EntityUtilFunctions.RegisterNpc());
         registerAlias("get_nearest_npc", new EntityUtilFunctions.GetNearestNpc());
+        register(new NpcItemFunctions.NpcThrowItem());
+        registerAlias("npc_drop_item", new NpcItemFunctions.NpcThrowItem());
+        registerAlias("npcDropItem", new NpcItemFunctions.NpcThrowItem());
+        register(new NpcCombatFunctions.NpcAttack());
+        registerAlias("npc_attack", new NpcCombatFunctions.NpcAttack());
         // NPC groups
         register(new NpcGroupFunctions.CreateGroup());
         register(new NpcGroupFunctions.GetGroup());

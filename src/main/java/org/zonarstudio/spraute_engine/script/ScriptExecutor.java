@@ -42,6 +42,7 @@ public class ScriptExecutor {
             case "death_anim" -> "deathAnim";
             case "max_hp" -> "maxHp";
             case "drop_item" -> "dropItem";
+            case "throw_item" -> "throwItem";
             case "drop_min" -> "dropMin";
             case "drop_max" -> "dropMax";
             case "drop_chance" -> "dropChance";
@@ -5027,50 +5028,45 @@ public class ScriptExecutor {
                             npc.customDrops.add(new org.zonarstudio.spraute_engine.registry.CustomDropRegistry.DropRule(item, min, max, chance, false, nbt));
                         }
                     }
-                    case "dropItem", "dropitem", "drop" -> {
-                        if (args.size() >= 1 && source.getLevel() != null) {
+                    case "dropItem", "dropitem", "drop", "throwItem", "throwitem", "throw" -> {
+                        if (!args.isEmpty()) {
                             String itemStr = String.valueOf(args.get(0));
-                            int count = args.size() >= 2 ? ((Number) args.get(1)).intValue() : 1;
-                            boolean checkInv = args.size() >= 3 ? (Boolean) args.get(2) : false;
-
-                            boolean hasItem = !checkInv || npc.countItem(
-                                itemStr.contains(":") ? itemStr : "minecraft:" + itemStr
-                            ) >= count;
-
-                            if (hasItem) {
-                                net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(
-                                    new net.minecraft.resources.ResourceLocation(itemStr.contains(":") ? itemStr : "minecraft:" + itemStr)
-                                );
-                                if (item != null && item != net.minecraft.world.item.Items.AIR) {
-                                    if (checkInv) {
-                                        // Try to consume from pickup container
-                                        int toRemove = count;
-                                        for (int i = 0; i < npc.getPickupContainer().getContainerSize() && toRemove > 0; i++) {
-                                            net.minecraft.world.item.ItemStack stack = npc.getPickupContainer().getItem(i);
-                                            if (!stack.isEmpty() && stack.getItem() == item) {
-                                                int taken = Math.min(toRemove, stack.getCount());
-                                                npc.getPickupContainer().removeItem(i, taken);
-                                                toRemove -= taken;
-                                            }
-                                        }
-                                    }
-                                    net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item, count);
-                                    net.minecraft.world.entity.item.ItemEntity itementity = new net.minecraft.world.entity.item.ItemEntity(
-                                        source.getLevel(), npc.getX(), npc.getY() + 1.0, npc.getZ(), stack
-                                    );
-                                    itementity.setDefaultPickUpDelay();
-                                    
-                                    float f = npc.getYRot() * ((float)Math.PI / 180F);
-                                    float f1 = npc.getXRot() * ((float)Math.PI / 180F);
-                                    float tx = -net.minecraft.util.Mth.sin(f) * net.minecraft.util.Mth.cos(f1);
-                                    float tz = net.minecraft.util.Mth.cos(f) * net.minecraft.util.Mth.cos(f1);
-                                    float ty = -net.minecraft.util.Mth.sin(f1);
-                                    itementity.setDeltaMovement(tx * 0.3F, ty * 0.3F + 0.1F, tz * 0.3F);
-                                    
-                                    source.getLevel().addFreshEntity(itementity);
-                                }
+                            int count = args.size() >= 2 && args.get(1) instanceof Number n ? n.intValue() : 1;
+                            npc.throwItem(itemStr, count);
+                        }
+                    }
+                    case "attack", "attacktarget", "attack_target" -> {
+                        net.minecraft.world.entity.Entity target = resolveEntity(args.isEmpty() ? null : args.get(0));
+                        if (target != null) {
+                            double speed = args.size() >= 2 && args.get(1) instanceof Number n ? n.doubleValue() : 1.0;
+                            if (args.size() >= 3 && args.get(2) instanceof Number r) {
+                                npc.attackEntity(target, speed, r.doubleValue());
+                            } else {
+                                npc.attackEntity(target, speed);
                             }
                         }
+                    }
+                    case "stopattack", "stop_attack" -> npc.stopAttack();
+                    case "setattackanims", "set_attack_anims" -> {
+                        if (args.isEmpty()) npc.setAttackAnims("attack");
+                        else if (args.get(0) instanceof java.util.List<?> list) npc.setAttackAnims(list);
+                        else {
+                            String[] arr = new String[args.size()];
+                            for (int i = 0; i < args.size(); i++) arr[i] = String.valueOf(args.get(i));
+                            npc.setAttackAnims(arr);
+                        }
+                    }
+                    case "setattackhand", "set_attack_hand" -> {
+                        if (!args.isEmpty()) npc.setAttackHand(String.valueOf(args.get(0)));
+                    }
+                    case "setattackrange", "set_attack_range" -> {
+                        if (!args.isEmpty() && args.get(0) instanceof Number n) npc.setAttackRange(n.doubleValue());
+                    }
+                    case "setattackcooldown", "set_attack_cooldown" -> {
+                        if (!args.isEmpty() && args.get(0) instanceof Number n) npc.setAttackCooldown(n.intValue());
+                    }
+                    case "setattackhitdelay", "set_attack_hit_delay" -> {
+                        if (!args.isEmpty() && args.get(0) instanceof Number n) npc.setAttackHitDelay(n.intValue());
                     }
                     case "remove" -> {
                         npc.discard();
@@ -6548,6 +6544,32 @@ public class ScriptExecutor {
                     }
                 }
                 case "stoplookat" -> npc.stopLook();
+                case "attack", "attacktarget", "attack_target" -> {
+                    if (!args.isEmpty()) {
+                        net.minecraft.world.entity.Entity target = resolveEntity(args.get(0));
+                        if (target != null) {
+                            double speed = args.size() >= 2 && args.get(1) instanceof Number n ? n.doubleValue() : 1.0;
+                            if (args.size() >= 3 && args.get(2) instanceof Number r) {
+                                npc.attackEntity(target, speed, r.doubleValue());
+                            } else {
+                                npc.attackEntity(target, speed);
+                            }
+                        }
+                    }
+                }
+                case "stopattack", "stop_attack" -> npc.stopAttack();
+                case "setattackanims", "set_attack_anims" -> {
+                    if (args.isEmpty()) npc.setAttackAnims("attack");
+                    else if (args.get(0) instanceof java.util.List<?> list) npc.setAttackAnims(list);
+                    else {
+                        String[] arr = new String[args.size()];
+                        for (int i = 0; i < args.size(); i++) arr[i] = String.valueOf(args.get(i));
+                        npc.setAttackAnims(arr);
+                    }
+                }
+                case "setattackhand", "set_attack_hand" -> {
+                    if (!args.isEmpty()) npc.setAttackHand(String.valueOf(args.get(0)));
+                }
             }
         }
 
@@ -6638,6 +6660,11 @@ public class ScriptExecutor {
                 UUID uuid = org.zonarstudio.spraute_engine.entity.NpcManager.get(idOrKeyword);
                 if (uuid != null && source.getLevel() != null) {
                     net.minecraft.world.entity.Entity e = source.getLevel().getEntity(uuid);
+                    if (e != null) return e;
+                }
+                UUID billboardUuid = org.zonarstudio.spraute_engine.entity.BillboardManager.get(idOrKeyword);
+                if (billboardUuid != null && source.getLevel() != null) {
+                    net.minecraft.world.entity.Entity e = source.getLevel().getEntity(billboardUuid);
                     if (e != null) return e;
                 }
                 if (source.getLevel() != null) {

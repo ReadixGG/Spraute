@@ -26,7 +26,9 @@ public class ScriptManager {
             "dialog_classic.spr",
             "story_dialog_test.spr",
             "test_camera.spr",
-            "test_hitbox.spr"
+            "test_hitbox.spr",
+            "billboard_test.spr",
+            "test_combat.spr"
     );
 
     private static ScriptManager INSTANCE;

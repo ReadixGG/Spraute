@@ -81,6 +81,25 @@ fun ecoAddCoins(p, amount) {
     ecoUpdateCoinsHud(p)
 }
 
+fun ecoRemoveCoins(p, amount) {
+    if (p == null) { return }
+    ecoInit(p)
+    var c = p.savedData[ECO_COIN_KEY]
+    if (c == null) { c = 0 }
+    var next = c - amount
+    if (next < 0) { next = 0 }
+    p.savedData[ECO_COIN_KEY] = next
+    ecoUpdateCoinsHud(p)
+}
+
+fun ecoGetCoins(p) {
+    if (p == null) { return 0 }
+    ecoInit(p)
+    var c = p.savedData[ECO_COIN_KEY]
+    if (c == null) { return 0 }
+    return c
+}
+
 fun ecoSetCoinTexture(tex) {
     if (tex != null) {
         if (tex != "") { ECO_COIN_TEXTURE = tex }

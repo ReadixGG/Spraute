@@ -1,0 +1,41 @@
+# Тест боя НИП
+# Запуск: /spraute run test_combat
+# НИП появится рядом, возьмёт меч в правую руку и атакует ближайшего игрока.
+
+val spawn = findSafeBlock("player", 16, 4)
+if (spawn == null) {
+    chat("§c[test_combat] Не нашёл безопасное место рядом с игроком.")
+} else {
+    val bx = listGet(spawn, 0)
+    val by = listGet(spawn, 1)
+    val bz = listGet(spawn, 2)
+
+    create npc combat_dummy {
+        name = "§cБоец"
+        model = "geo/defolt.geo.json"
+        texture = "textures/entity/defolt.png"
+        animation = "animations/npc_classic.animation.json"
+        pos = bx, by, bz
+        showName = true
+        hp = 40
+        speed = 0.35
+    }
+
+    var victim = getFirstPlayer()
+    if (victim == null) {
+        victim = getNearestPlayer(combat_dummy)
+    }
+    if (victim == null) {
+        chat("§c[test_combat] Нет игрока онлайн.")
+    } else {
+        combat_dummy.setItem("right", "minecraft:iron_sword")
+        combat_dummy.setAttackAnims("attack")
+        combat_dummy.setAttackHand("right")
+        combat_dummy.setAttackRange(2.5)
+        combat_dummy.attack(victim, 1.0)
+
+        chat("§6[test_combat] §fНИП атакует тебя мечом в правой руке.")
+        chat("§7Остановить: §fcombat_dummy.stopAttack()")
+        say(combat_dummy, "В атаку!")
+    }
+}

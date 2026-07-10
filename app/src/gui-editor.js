@@ -673,7 +673,7 @@ function buildWidgetEl(w, pw, ph, scale) {
 
       el.addEventListener('wheel', (e) => {
         e.preventDefault();
-        e.stopPropagation();
+      e.stopPropagation();
         const cur = st.scrollOffsets.get(w.uid) || 0;
         const next = Math.max(0, Math.min(maxOff, cur + Math.sign(e.deltaY) * 12));
         if (next !== cur) {
@@ -871,7 +871,7 @@ function appendNineSliceEditor(container, w, def) {
           bordersInp.value = String(nb);
           paintLines();
           syncPropsFromInputs();
-          renderCanvas();
+        renderCanvas();
           renderCodePreview();
         };
         const onUp = () => {
@@ -898,7 +898,7 @@ function appendNineSliceEditor(container, w, def) {
     if (!img) {
       emptyEl.hidden = false;
       emptyEl.textContent = texPath ? 'Текстура не найдена' : 'Нет текстуры';
-      return;
+    return;
     }
     emptyEl.hidden = true;
     imgEl.hidden = false;
@@ -1620,7 +1620,7 @@ function applyPropInput(w, inp, opts = {}) {
     w.events[key.slice(3)] = inp.value;
   }
   if (opts.canvasOnly) {
-    renderCanvas();
+      renderCanvas();
     renderCodePreview();
     return;
   }

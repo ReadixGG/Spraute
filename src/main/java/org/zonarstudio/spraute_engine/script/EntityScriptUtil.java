@@ -37,6 +37,14 @@ public final class EntityScriptUtil {
                 if (byId != null) return byId;
             }
 
+            UUID billboardUuid = org.zonarstudio.spraute_engine.entity.BillboardManager.get(idOrKeyword);
+            if (billboardUuid != null) {
+                Entity billboard = org.zonarstudio.spraute_engine.entity.BillboardManager.getEntity(idOrKeyword, level);
+                if (billboard != null) return billboard;
+                Entity byId = level.getEntity(billboardUuid);
+                if (byId != null) return byId;
+            }
+
             if ("player".equalsIgnoreCase(idOrKeyword)) {
                 Entity origin = source.getEntity();
                 if (origin != null) return level.getNearestPlayer(origin, 64.0);

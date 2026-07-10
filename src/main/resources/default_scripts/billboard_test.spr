@@ -1,0 +1,20 @@
+# Тест билборда с именованным id
+# Запуск: /spraute run billboard_test
+# Билборд появится справа от игрока. Повторный запуск удалит старый.
+
+val p = getFirstPlayer()
+if (p == null) {
+    chat("§c[billboard_test] Нет игрока онлайн.")
+} else {
+    removeBillboard("test_logo")
+
+    # Укажи свою текстуру: namespace:textures/путь.png
+    # Пример: spraute_engine:textures/item/camera.png
+    # Файл должен лежать в assets/<namespace>/textures/...
+    val tex = "spraute_engine:textures/item/camera.png"
+
+    spawnBillboardNear("test_logo", p, tex, 2, 1.5, 0, 2, 2, true)
+    chat("§a[billboard_test] Билборд §etest_logo §aсоздан рядом с тобой.")
+    chat("§7Текстура: §f" + tex)
+    chat("§7Удалить: §fremoveBillboard(\"test_logo\")")
+}

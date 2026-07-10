@@ -57,7 +57,10 @@ public class EntityUtilFunctions {
         @Override
         public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
             Entity e = resolveEntity(args.get(0), source);
-            if (e != null) e.remove(Entity.RemovalReason.DISCARDED);
+            if (e != null) {
+                org.zonarstudio.spraute_engine.entity.BillboardManager.removeByUuid(e.getUUID());
+                e.remove(Entity.RemovalReason.DISCARDED);
+            }
             return null;
         }
     }
