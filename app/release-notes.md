@@ -1,4 +1,4 @@
-## Версия 1.6
+## Версия 1.6.0
 
 * Spraute Engine и Spraute Studio — релиз 1.6
 * Анимации: поддержка scale (растяжение костей) в Bedrock/Blockbench-анимациях
