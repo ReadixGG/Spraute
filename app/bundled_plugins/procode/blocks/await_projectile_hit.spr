@@ -1,0 +1,17 @@
+#\ block: await_projectile_hit
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать попадание снаряда" [scope: dropdown(по id: id, любой: any)]
+#\ row: "тип" [hitType: dropdown(любой: any, сущность: entity, блок: block)]
+#\ if scope == "id" and hitType == "any":
+#\   row: "id снаряда" (projectileId: text: fireball)
+#\   template: await projectileHit("{projectileId}")
+#\ if scope == "id" and hitType != "any":
+#\   row: "id снаряда" (projectileId: text: fireball)
+#\   template: await projectileHit("{projectileId}", "{hitType}")
+#\ if scope == "any" and hitType == "any":
+#\   template: await projectileHit(any)
+#\ if scope == "any" and hitType != "any":
+#\   template: await projectileHit(any, "{hitType}")

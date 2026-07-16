@@ -7,10 +7,16 @@ import net.minecraft.world.item.ItemStack;
 /** Custom item declared via {@code create item} in a .spr script with a fixed display name. */
 public class ScriptCustomItem extends Item {
     private final String displayName;
+    private final boolean geoVisual;
 
     public ScriptCustomItem(Properties properties, String displayName) {
+        this(properties, displayName, false);
+    }
+
+    public ScriptCustomItem(Properties properties, String displayName, boolean geoVisual) {
         super(properties);
         this.displayName = displayName;
+        this.geoVisual = geoVisual;
     }
 
     @Override
@@ -35,6 +41,11 @@ public class ScriptCustomItem extends Item {
     @Override
     public Component getDescription() {
         return ScriptItemNames.resolveName(displayName, ItemStack.EMPTY, () -> super.getDescription());
+    }
+
+    @Override
+    public void initializeClient(java.util.function.Consumer<net.minecraftforge.client.extensions.common.IClientItemExtensions> consumer) {
+        org.zonarstudio.spraute_engine.item.client.GeoItemClientHooks.initClientIfGeo(geoVisual, consumer);
     }
     //?}
 }

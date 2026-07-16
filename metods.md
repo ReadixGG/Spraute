@@ -1135,7 +1135,7 @@ knight.setFlying(false)
 | `await jump(player)` | Ожидать прыжок игрока. |
 | `await join(player)` | Ожидать вход игрока в мир (логин). |
 | `await firstJoin(player)` | Ожидать первый вход игрока в этот мир. |
-| `await action(player, action_type, [target])` | (или `playerAction`) Ожидать действия игрока (`"eat"`, `"fish"`, `"hoe"`, `"jump"`, `"sleep"`, `"craft"`, `"drop"`). Возвращает объект или ID предмета/блока, если применимо. |
+| `await action(player, action_type, [target])` | (или `playerAction`) Ожидать действия игрока (`"use"`, `"eat"`, `"fish"`, `"hoe"`, `"jump"`, `"sleep"`, `"craft"`, `"drop"`). Возвращает объект или ID предмета/блока, если применимо. |
 
 ---
 
@@ -1201,8 +1201,22 @@ knight.setFlying(false)
 Срабатывает при прыжке игрока. В теле: **`_event_player`**.
 
 ### `on action([player], action_type, [target])` или `on playerAction(...) -> ...`
-Срабатывает при определенном действии игрока (например: `"eat"`, `"fish"`, `"hoe"`, `"jump"`, `"sleep"`, `"craft"`, `"drop"`). 
-В теле: **`_event_player`**, **`_event_target`** (выброшенный или скрафченный предмет, съеденная еда и т.д., если применимо к действию).
+Срабатывает при определённом действии игрока.
+
+Типы `action_type`:
+- `"use"` — **ПКМ с предметом в руке** (кастомные предметы из `create item` всегда шлют это событие; для ванильных предметов — при успешном использовании).
+- `"eat"`, `"fish"`, `"hoe"`, `"jump"`, `"sleep"`, `"craft"`, `"drop"` — остальные действия.
+
+Формы записи:
+```text
+on action("use", "magic_wand") -> shoot_wand { ... }          # любой игрок, фильтр по id предмета
+on action(player, "use", "magic_wand") -> shoot_wand { ... }  # конкретный игрок
+on action("use") -> any_use { ... }                           # любой ПКМ предметом
+```
+
+В теле: **`_eventPlayer`** (или **`_event_player`**), **`_eventTarget`** — объект предмета/блока (если есть), **`_eventItemId`** — строковый id предмета (например `spraute_engine:magic_wand` или `magic_wand`).
+
+Для кастомного предмета `target` в фильтре можно писать коротко: `"magic_wand"` (без namespace).
 
 ### `on chat([player], [message], [ignore_case=true], [ignore_punct=true]) -> ...`
 Срабатывает при написании сообщения в чат. Если `player` и `message` не указаны, ловит любые сообщения от любых игроков. `message` может быть строкой или массивом строк.
@@ -1238,6 +1252,100 @@ fun name(a, b) {
 ```
 
 Вызов: `name(1, 2)` — как обычная функция.
+
+---
+
+## Снаряды
+
+Кастомные снаряды объявляются блоком `create projectile` (подхватывается при загрузке / `/spraute reload`), летят как отдельные сущности и вызывают событие `on projectileHit`.
+
+### Объявление и запуск
+
+```text
+create projectile wand_bolt {
+    texture = "textures/projectile/wand_bolt.png"
+    width = 0.01
+    height = 0.01
+    alpha = 0
+    gravity = 0
+    drag = 1.0
+    damage = 0
+    collide_blocks = true
+    collide_entities = true
+    lifetime = 200
+}
+
+# Выстрел по направлению взгляда; возвращает UUID снаряда (строка)
+val bolt = shootProjectile("wand_bolt", player, 2.0)
+
+# Или с позицией и скоростью вручную:
+spawnProjectile("wand_bolt", x, y, z, vx, vy, vz)
+```
+
+| Функция | Описание |
+|---------|----------|
+| `spawnProjectile(id, x, y, z, vx, vy, vz, [dimension])` | Создать снаряд в точке с заданной скоростью. Возвращает UUID. |
+| `shootProjectile(id, shooter, speed, [dimension])` | Выстрел из `shooter` (игрок / НИП) по направлению взгляда. Возвращает UUID. |
+| `shootProjectileNear(id, shooter, speed, ox, oy, oz, [dimension])` | То же, со смещением точки вылета. |
+| `getProjectilePos(uuid)` | Текущие координаты полёта: список `[x, y, z]` или `null`, если снаряд уничтожен. Аргумент — UUID из `shootProjectile` / `spawnProjectile` или сущность. |
+| `removeProjectiles([id])` | Удалить все кастомные снаряды в мире или только с указанным `id`. |
+
+`getEntityPos(uuid)` тоже работает для снаряда, но `getProjectilePos` возвращает `null`, если объект уже не является живым кастомным снарядом.
+
+### Событие попадания
+
+```text
+on projectileHit("wand_bolt") -> wand_hit {
+    createExplosion(_eventHitX, _eventHitY, _eventHitZ, 3, 8, true)
+}
+
+on projectileHit("wand_bolt", "block") -> hit_block { ... }
+on projectileHit("wand_bolt", "entity") -> hit_entity { ... }
+on projectileHit(any) -> any_hit { ... }
+```
+
+В теле: **`_eventProjectileId`**, **`_eventHitType`** (`"block"` / `"entity"`), **`_eventHitX`**, **`_eventHitY`**, **`_eventHitZ`**, **`_eventTarget`** (сущность при попадании в моба/игрока), **`_eventOwner`** (кто выпустил).
+
+`await projectileHit("wand_bolt")` — ждать попадания в основном потоке скрипта.
+
+### Пример: волшебная палочка (ПКМ → невидимый снаряд → частицы → взрыв)
+
+```text
+create item magic_wand {
+    name = "§dВолшебная палочка"
+    texture = "textures/item/magic_wand.png"
+    maxStackSize = 1
+}
+
+create projectile wand_bolt {
+    alpha = 0
+    width = 0.01
+    height = 0.01
+    gravity = 0
+    damage = 0
+    collide_blocks = true
+    collide_entities = true
+}
+
+on action("use", "magic_wand") -> shoot_wand {
+    val bolt = shootProjectile("wand_bolt", _eventPlayer, 2.0)
+    async "wand_trail" {
+        while (true) {
+            val pos = getProjectilePos(bolt)
+            if (pos == null) { return }
+            particleSpawn("enchant", listGet(pos, 0), listGet(pos, 1), listGet(pos, 2), 2, 0, 0.05, 0, 0.02)
+            await time(0.05)
+        }
+    }
+}
+
+on projectileHit("wand_bolt") -> wand_explode {
+    createExplosion(_eventHitX, _eventHitY, _eventHitZ, 3, 8, true)
+    particleSpawn("witch", _eventHitX, _eventHitY, _eventHitZ, 15, 0.2, 0.2, 0.2, 0.1)
+}
+```
+
+> **ProCode:** действие `"use"` есть в блоках «когда игрок» и «ждать действие игрока». Для фильтра по предмету включите «с целью» и укажите id, например `magic_wand`.
 
 ---
 

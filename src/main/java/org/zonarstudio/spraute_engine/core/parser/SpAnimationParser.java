@@ -57,8 +57,9 @@ public final class SpAnimationParser {
                 JsonObject boneObj = boneEntry.getValue().getAsJsonObject();
                 KeyframeTrack rot = parseChannel(boneObj.get("rotation"));
                 KeyframeTrack pos = parseChannel(boneObj.get("position"));
-                if (!rot.isEmpty() || !pos.isEmpty()) {
-                    boneTracks.put(boneEntry.getKey(), new BoneTrack(rot, pos));
+                KeyframeTrack scale = parseChannel(boneObj.get("scale"));
+                if (!rot.isEmpty() || !pos.isEmpty() || !scale.isEmpty()) {
+                    boneTracks.put(boneEntry.getKey(), new BoneTrack(rot, pos, scale));
                 }
             }
         }
@@ -246,6 +247,22 @@ public final class SpAnimationParser {
                         }
                     }
                 }
+
+                if (!track.scale.isEmpty()) {
+                    SpVec3 dst = instance.boneAnimScale.get(boneEntry.getKey());
+                    if (dst != null) {
+                        track.scale.sample(t, sampled);
+                        if (additive) {
+                            dst.x += (sampled.x - 1f) * weight;
+                            dst.y += (sampled.y - 1f) * weight;
+                            dst.z += (sampled.z - 1f) * weight;
+                        } else {
+                            dst.x = lerp(dst.x, sampled.x, weight);
+                            dst.y = lerp(dst.y, sampled.y, weight);
+                            dst.z = lerp(dst.z, sampled.z, weight);
+                        }
+                    }
+                }
             }
         }
 
@@ -268,10 +285,12 @@ public final class SpAnimationParser {
     public static final class BoneTrack {
         private final KeyframeTrack rotation;
         private final KeyframeTrack position;
+        private final KeyframeTrack scale;
 
-        public BoneTrack(KeyframeTrack rotation, KeyframeTrack position) {
+        public BoneTrack(KeyframeTrack rotation, KeyframeTrack position, KeyframeTrack scale) {
             this.rotation = rotation;
             this.position = position;
+            this.scale = scale != null ? scale : KeyframeTrack.EMPTY;
         }
     }
 

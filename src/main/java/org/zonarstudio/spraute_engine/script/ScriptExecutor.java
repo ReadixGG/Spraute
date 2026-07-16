@@ -159,6 +159,16 @@ public class ScriptExecutor {
         }
     }
 
+    public void cancelUiWaitsForPlayer(net.minecraft.server.level.ServerPlayer player) {
+        if (player == null) return;
+        for (ActiveScript script : activeScripts) {
+            script.cancelUiWaitsForPlayer(player);
+        }
+        for (ActiveScript script : scriptsToAdd) {
+            script.cancelUiWaitsForPlayer(player);
+        }
+    }
+
     public void onUiOverlapAction(net.minecraft.server.level.ServerPlayer player, String id1, String id2, boolean overlapping) {
         for (ActiveScript script : activeScripts) {
             script.onUiOverlapAction(player, id1, id2, overlapping);
@@ -285,6 +295,16 @@ public class ScriptExecutor {
         }
     }
 
+    public void onProjectileHit(String projectileId, String hitType, double x, double y, double z,
+                                net.minecraft.world.entity.Entity target, net.minecraft.world.entity.Entity owner) {
+        for (ActiveScript script : activeScripts) {
+            script.onProjectileHit(projectileId, hitType, x, y, z, target, owner);
+        }
+        for (ActiveScript script : scriptsToAdd) {
+            script.onProjectileHit(projectileId, hitType, x, y, z, target, owner);
+        }
+    }
+
     public void onTradeBuy(net.minecraft.server.level.ServerPlayer player, String itemId, int price) {
         for (ActiveScript script : activeScripts) {
             script.onTradeBuy(player, itemId, price);
@@ -300,6 +320,42 @@ public class ScriptExecutor {
         }
         for (ActiveScript script : scriptsToAdd) {
             script.onTradeSell(player, itemId, price);
+        }
+    }
+
+    public void onRelGift(net.minecraft.server.level.ServerPlayer player, String npcId, String itemId, int repDelta) {
+        for (ActiveScript script : activeScripts) {
+            script.onRelGift(player, npcId, itemId, repDelta);
+        }
+        for (ActiveScript script : scriptsToAdd) {
+            script.onRelGift(player, npcId, itemId, repDelta);
+        }
+    }
+
+    public void onRelRepChange(net.minecraft.server.level.ServerPlayer player, String npcId, int oldRep, int newRep) {
+        for (ActiveScript script : activeScripts) {
+            script.onRelRepChange(player, npcId, oldRep, newRep);
+        }
+        for (ActiveScript script : scriptsToAdd) {
+            script.onRelRepChange(player, npcId, oldRep, newRep);
+        }
+    }
+
+    public void onRelTalk(net.minecraft.server.level.ServerPlayer player, String npcId) {
+        for (ActiveScript script : activeScripts) {
+            script.onRelTalk(player, npcId);
+        }
+        for (ActiveScript script : scriptsToAdd) {
+            script.onRelTalk(player, npcId);
+        }
+    }
+
+    public void onRelButton(net.minecraft.server.level.ServerPlayer player, String npcId, String btnId) {
+        for (ActiveScript script : activeScripts) {
+            script.onRelButton(player, npcId, btnId);
+        }
+        for (ActiveScript script : scriptsToAdd) {
+            script.onRelButton(player, npcId, btnId);
         }
     }
 
@@ -569,8 +625,19 @@ public class ScriptExecutor {
         private int waitOrbPickupTargetCount = 0;
         private int waitOrbPickupCurrentCount = 0;
 
+        private String waitProjectileHitId = null;
+        private String waitProjectileHitType = null;
+
         private PlayerFilter waitTradePlayers = null;
         private String waitTradeItemId = null;
+
+        private PlayerFilter waitRelGiftPlayers = null;
+        private String waitRelGiftNpcId = null;
+        private String waitRelGiftItemId = null;
+
+        private PlayerFilter waitRelSimplePlayers = null;
+        private String waitRelSimpleNpcId = null;
+        private String waitRelSimpleBtnId = null;
 
         /** Target for MOVE_TO wait вЂ” completion is distance-based; navigation alone is unreliable (path null = isDone). */
         private double waitMoveTargetX;
@@ -725,8 +792,13 @@ public class ScriptExecutor {
                 case FOLLOW -> "follow (" + followTarget + ")";
                 case PICKUP -> "pickup";
                 case ORB_PICKUP -> "orbPickup";
+                case PROJECTILE_HIT -> "projectileHit";
                 case TRADE_BUY -> "tradeBuy";
                 case TRADE_SELL -> "tradeSell";
+                case REL_GIFT -> "relGift";
+                case REL_REP_CHANGE -> "relRepChange";
+                case REL_TALK -> "relTalk";
+                case REL_BUTTON -> "relButton";
                 case WAIT_TASK -> "task";
                 case POSITION -> "position";
                 case INVENTORY -> "inventory";
@@ -1059,7 +1131,10 @@ public class ScriptExecutor {
                     } else {
                         return;
                     }
-                } else if (waitType == WaitType.TRADE_BUY || waitType == WaitType.TRADE_SELL) {
+                } else if (waitType == WaitType.TRADE_BUY || waitType == WaitType.TRADE_SELL
+                        || waitType == WaitType.REL_GIFT || waitType == WaitType.REL_REP_CHANGE
+                        || waitType == WaitType.REL_TALK || waitType == WaitType.REL_BUTTON
+                        || waitType == WaitType.PROJECTILE_HIT) {
                     return;
                 } else if (waitType == WaitType.CHAT) {
                     if (chatEventMet) {
@@ -1482,7 +1557,9 @@ public class ScriptExecutor {
                     } else {
                         continue;
                     }
-                } else if (task.waitType == WaitType.TRADE_BUY || task.waitType == WaitType.TRADE_SELL) {
+                } else if (task.waitType == WaitType.TRADE_BUY || task.waitType == WaitType.TRADE_SELL
+                        || task.waitType == WaitType.REL_GIFT || task.waitType == WaitType.REL_REP_CHANGE
+                        || task.waitType == WaitType.REL_TALK || task.waitType == WaitType.REL_BUTTON) {
                     continue;
                 } else if (task.waitType == WaitType.CHAT) {
                     if (task.chatEventMet) {
@@ -1723,6 +1800,8 @@ public class ScriptExecutor {
                     }
                 } else if (task.waitType == WaitType.ORB_PICKUP) {
                     continue;
+                } else if (task.waitType == WaitType.PROJECTILE_HIT) {
+                    continue;
                 } else if (task.waitType == WaitType.UI_OVERLAP) {
                     if (task.uiOverlapMet) {
                         task.waitType = WaitType.NONE;
@@ -1860,6 +1939,14 @@ public class ScriptExecutor {
                     task.pendingUiClickVarName = varName;
                     return true;
                 }
+            } else if (fn.equals("projectileHit") || fn.equals("projectile_hit")) {
+                if (call.getArgs().isEmpty()) return false;
+                task.waitProjectileHitId = String.valueOf(evaluateExpression(call.getArgs().get(0)));
+                task.waitProjectileHitType = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                        ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                task.waitType = WaitType.PROJECTILE_HIT;
+                task.pendingUiClickVarName = varName;
+                return true;
             } else if (fn.equals("tradeBuy") || fn.equals("trade_buy")) {
                 if (call.getArgs().isEmpty()) return false;
                 Object playerArg = evaluateExpression(call.getArgs().get(0));
@@ -1881,6 +1968,63 @@ public class ScriptExecutor {
                     task.waitTradeItemId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
                             ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
                     task.waitType = WaitType.TRADE_SELL;
+                    task.pendingUiClickVarName = varName;
+                    return true;
+                }
+            } else if (fn.equals("relGift") || fn.equals("rel_gift")) {
+                if (call.getArgs().isEmpty()) return false;
+                Object playerArg = evaluateExpression(call.getArgs().get(0));
+                PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                if (playerFilter != null) {
+                    String filter2 = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                            ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                    String filter3 = call.getArgs().size() > 2 && call.getArgs().get(2) != null
+                            ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
+                    String[] npcOut = new String[1];
+                    String[] itemOut = new String[1];
+                    applyRelGiftWaitFilters(filter2, filter3, npcOut, itemOut);
+                    task.waitRelGiftPlayers = playerFilter;
+                    task.waitRelGiftNpcId = npcOut[0];
+                    task.waitRelGiftItemId = itemOut[0];
+                    task.waitType = WaitType.REL_GIFT;
+                    task.pendingUiClickVarName = varName;
+                    return true;
+                }
+            } else if (fn.equals("relRepChange") || fn.equals("rel_rep_change")) {
+                if (call.getArgs().isEmpty()) return false;
+                Object playerArg = evaluateExpression(call.getArgs().get(0));
+                PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                if (playerFilter != null) {
+                    task.waitRelSimplePlayers = playerFilter;
+                    task.waitRelSimpleNpcId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                            ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                    task.waitType = WaitType.REL_REP_CHANGE;
+                    task.pendingUiClickVarName = varName;
+                    return true;
+                }
+            } else if (fn.equals("relTalk") || fn.equals("rel_talk")) {
+                if (call.getArgs().isEmpty()) return false;
+                Object playerArg = evaluateExpression(call.getArgs().get(0));
+                PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                if (playerFilter != null) {
+                    task.waitRelSimplePlayers = playerFilter;
+                    task.waitRelSimpleNpcId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                            ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                    task.waitType = WaitType.REL_TALK;
+                    task.pendingUiClickVarName = varName;
+                    return true;
+                }
+            } else if (fn.equals("relButton") || fn.equals("rel_button")) {
+                if (call.getArgs().isEmpty()) return false;
+                Object playerArg = evaluateExpression(call.getArgs().get(0));
+                PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                if (playerFilter != null) {
+                    task.waitRelSimplePlayers = playerFilter;
+                    task.waitRelSimpleBtnId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                            ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                    task.waitRelSimpleNpcId = call.getArgs().size() > 2 && call.getArgs().get(2) != null
+                            ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
+                    task.waitType = WaitType.REL_BUTTON;
                     task.pendingUiClickVarName = varName;
                     return true;
                 }
@@ -2145,6 +2289,52 @@ public class ScriptExecutor {
                         return true;
                     }
                 }
+                case AWAIT_REL_GIFT -> {
+                    ScriptNode pNode = (ScriptNode) instr.getArg(0);
+                    ScriptNode filter2Node = instr.getArgCount() >= 2 && instr.getArg(1) != null ? (ScriptNode) instr.getArg(1) : null;
+                    ScriptNode filter3Node = instr.getArgCount() >= 3 && instr.getArg(2) != null ? (ScriptNode) instr.getArg(2) : null;
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        String filter2 = filter2Node != null ? String.valueOf(evaluateExpression(filter2Node)) : null;
+                        String filter3 = filter3Node != null ? String.valueOf(evaluateExpression(filter3Node)) : null;
+                        String[] npcOut = new String[1];
+                        String[] itemOut = new String[1];
+                        applyRelGiftWaitFilters(filter2, filter3, npcOut, itemOut);
+                        task.waitRelGiftPlayers = playerFilter;
+                        task.waitRelGiftNpcId = npcOut[0];
+                        task.waitRelGiftItemId = itemOut[0];
+                        task.waitType = WaitType.REL_GIFT;
+                        return true;
+                    }
+                }
+                case AWAIT_REL_REP_CHANGE, AWAIT_REL_TALK -> {
+                    ScriptNode pNode = (ScriptNode) instr.getArg(0);
+                    ScriptNode npcNode = instr.getArgCount() >= 2 && instr.getArg(1) != null ? (ScriptNode) instr.getArg(1) : null;
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        task.waitRelSimplePlayers = playerFilter;
+                        task.waitRelSimpleNpcId = npcNode != null ? String.valueOf(evaluateExpression(npcNode)) : null;
+                        task.waitType = instr.getOpcode() == CompiledScript.Opcode.AWAIT_REL_REP_CHANGE
+                                ? WaitType.REL_REP_CHANGE : WaitType.REL_TALK;
+                        return true;
+                    }
+                }
+                case AWAIT_REL_BUTTON -> {
+                    ScriptNode pNode = (ScriptNode) instr.getArg(0);
+                    ScriptNode btnNode = instr.getArgCount() >= 2 && instr.getArg(1) != null ? (ScriptNode) instr.getArg(1) : null;
+                    ScriptNode npcNode = instr.getArgCount() >= 3 && instr.getArg(2) != null ? (ScriptNode) instr.getArg(2) : null;
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        task.waitRelSimplePlayers = playerFilter;
+                        task.waitRelSimpleBtnId = btnNode != null ? String.valueOf(evaluateExpression(btnNode)) : null;
+                        task.waitRelSimpleNpcId = npcNode != null ? String.valueOf(evaluateExpression(npcNode)) : null;
+                        task.waitType = WaitType.REL_BUTTON;
+                        return true;
+                    }
+                }
                 case AWAIT_POSITION -> {
                     ScriptNode pNode = (ScriptNode) instr.getArg(0);
                     Object playerArg = evaluateExpression(pNode);
@@ -2340,6 +2530,14 @@ public class ScriptExecutor {
                         return true;
                     }
                 }
+                case AWAIT_PROJECTILE_HIT -> {
+                    Object idArg = evaluateExpression((ScriptNode) instr.getArg(0));
+                    ScriptNode typeNode = instr.getArgCount() >= 2 && instr.getArg(1) != null ? (ScriptNode) instr.getArg(1) : null;
+                    task.waitProjectileHitId = String.valueOf(idArg);
+                    task.waitProjectileHitType = typeNode != null ? String.valueOf(evaluateExpression(typeNode)) : null;
+                    task.waitType = WaitType.PROJECTILE_HIT;
+                    return true;
+                }
                 case AWAIT_TASK -> {
                     task.waitTaskId = String.valueOf(evaluateExpression((ScriptNode) instr.getArg(0)));
                     task.waitType = WaitType.WAIT_TASK;
@@ -2402,9 +2600,12 @@ public class ScriptExecutor {
                     if (!matchesInteractTarget(handler.eventArgs.get(0), target)) continue;
                 }
 
-                // Save interactor as _eventPlayer for the handler body
                 Object prevPlayer = variables.get("_eventPlayer");
+                Object prevNpc = variables.get("_eventNpc");
+                Object prevEntity = variables.get("_eventEntity");
                 variables.put("_eventPlayer", interactor);
+                variables.put("_eventNpc", target);
+                variables.put("_eventEntity", target);
                 try {
                     executeInstructionBlock(handler.bodyInstructions);
                 } catch (ReturnException e) {
@@ -2414,6 +2615,10 @@ public class ScriptExecutor {
                 }
                 if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer);
                 else variables.remove("_eventPlayer");
+                if (prevNpc != null) variables.put("_eventNpc", prevNpc);
+                else variables.remove("_eventNpc");
+                if (prevEntity != null) variables.put("_eventEntity", prevEntity);
+                else variables.remove("_eventEntity");
             }
         }
 
@@ -2791,7 +2996,7 @@ public class ScriptExecutor {
                 }
 
                 for (AsyncTask t : asyncTasks.values()) {
-                    if ((t.waitType == WaitType.UI_CLICK || t.waitType == WaitType.UI_CLOSE) && t.waitUiPlayers != null && t.waitUiPlayers.equals(player.getUUID())) {
+                    if ((t.waitType == WaitType.UI_CLICK || t.waitType == WaitType.UI_CLOSE) && t.waitUiPlayers != null && t.waitUiPlayers.matches(player.getUUID())) {
                         if (t.waitType == WaitType.UI_CLICK && (wid.contains(":") || !isClick)) continue;
                         if (t.waitType == WaitType.UI_CLOSE && !closed) continue;
                         t.uiClickMet = true;
@@ -2799,7 +3004,7 @@ public class ScriptExecutor {
                         t.uiClickClosed = closed;
                         t.uiClickMouseButton = mouseButton;
                     }
-                    if (t.waitType == WaitType.UI_INPUT && isClick && t.waitUiPlayers != null && t.waitUiPlayers.equals(player.getUUID())) {
+                    if (t.waitType == WaitType.UI_INPUT && isClick && t.waitUiPlayers != null && t.waitUiPlayers.matches(player.getUUID())) {
                         if (wid.startsWith("input:") && (t.uiInputWidgetId == null || wid.equals("input:" + t.uiInputWidgetId))) {
                             t.uiClickMet = true;
                             t.uiInputText = wid.substring(wid.indexOf(":", 6) + 1);
@@ -2907,6 +3112,29 @@ public class ScriptExecutor {
                 if (closed) {
                     boundUiTemplate = null;
                     boundUiPlayerUuid = null;
+                }
+            }
+        }
+
+        public void cancelUiWaitsForPlayer(net.minecraft.server.level.ServerPlayer player) {
+            if (player == null) return;
+            java.util.UUID uuid = player.getUUID();
+            if ((waitType == WaitType.UI_CLICK || waitType == WaitType.UI_CLOSE || waitType == WaitType.UI_INPUT)
+                    && waitUiPlayers != null && waitUiPlayers.matches(uuid)) {
+                waitType = WaitType.NONE;
+                waitUiPlayers = null;
+                uiClickMet = true;
+                uiClickWidgetId = "__reset__";
+                uiClickClosed = true;
+            }
+            for (AsyncTask task : asyncTasks.values()) {
+                if ((task.waitType == WaitType.UI_CLICK || task.waitType == WaitType.UI_CLOSE || task.waitType == WaitType.UI_INPUT)
+                        && task.waitUiPlayers != null && task.waitUiPlayers.matches(uuid)) {
+                    task.waitType = WaitType.NONE;
+                    task.waitUiPlayers = null;
+                    task.uiClickMet = true;
+                    task.uiClickWidgetId = "__reset__";
+                    task.uiClickClosed = true;
                 }
             }
         }
@@ -3284,6 +3512,105 @@ public class ScriptExecutor {
             }
         }
 
+        public void onProjectileHit(String projectileId, String hitType, double x, double y, double z,
+                                    net.minecraft.world.entity.Entity target, net.minecraft.world.entity.Entity owner) {
+            handleProjectileHitAwait(projectileId, hitType, x, y, z, target, owner, false, null);
+            fireProjectileHitEventHandlers(projectileId, hitType, x, y, z, target, owner);
+        }
+
+        private void handleProjectileHitAwait(String projectileId, String hitType, double x, double y, double z,
+                                              net.minecraft.world.entity.Entity target, net.minecraft.world.entity.Entity owner,
+                                              boolean async, AsyncTask task) {
+            if (async) {
+                if (task.waitType != WaitType.PROJECTILE_HIT) return;
+                if (!matchesProjectileHitFilter(task.waitProjectileHitId, projectileId)) return;
+                if (!matchesProjectileHitTypeFilter(task.waitProjectileHitType, hitType)) return;
+                applyProjectileHitEventVars(projectileId, hitType, x, y, z, target, owner);
+                task.waitType = WaitType.NONE;
+                task.waitProjectileHitId = null;
+                task.waitProjectileHitType = null;
+                task.ip++;
+                return;
+            }
+            if (waitType == WaitType.PROJECTILE_HIT) {
+                if (!matchesProjectileHitFilter(waitProjectileHitId, projectileId)) return;
+                if (!matchesProjectileHitTypeFilter(waitProjectileHitType, hitType)) return;
+                applyProjectileHitEventVars(projectileId, hitType, x, y, z, target, owner);
+                waitType = WaitType.NONE;
+                waitProjectileHitId = null;
+                waitProjectileHitType = null;
+            }
+            for (AsyncTask t : asyncTasks.values()) {
+                handleProjectileHitAwait(projectileId, hitType, x, y, z, target, owner, true, t);
+            }
+        }
+
+        private void fireProjectileHitEventHandlers(String projectileId, String hitType, double x, double y, double z,
+                                                    net.minecraft.world.entity.Entity target, net.minecraft.world.entity.Entity owner) {
+            for (var entry : eventHandlers.entrySet()) {
+                EventHandler handler = entry.getValue();
+                if (!handler.active || !handler.eventName.equals("projectileHit")) continue;
+
+                if (!handler.eventArgs.isEmpty()) {
+                    if (!matchesProjectileHitFilter(handler.eventArgs.get(0), projectileId)) continue;
+                }
+                if (handler.eventArgs.size() >= 2) {
+                    if (!matchesProjectileHitTypeFilter(handler.eventArgs.get(1), hitType)) continue;
+                }
+
+                Object prevProjectileId = variables.get("_eventProjectileId");
+                Object prevHitType = variables.get("_eventHitType");
+                Object prevHitX = variables.get("_eventHitX");
+                Object prevHitY = variables.get("_eventHitY");
+                Object prevHitZ = variables.get("_eventHitZ");
+                Object prevTarget = variables.get("_eventTarget");
+                Object prevOwner = variables.get("_eventOwner");
+
+                applyProjectileHitEventVars(projectileId, hitType, x, y, z, target, owner);
+
+                try {
+                    executeInstructionBlock(handler.bodyInstructions);
+                } catch (ReturnException e) {
+                    // return exits handler body only; use stop handler to deactivate
+                } catch (Exception e) {
+                    LOGGER.error("[Script: {}] Event handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
+                }
+
+                if (prevProjectileId != null) variables.put("_eventProjectileId", prevProjectileId); else variables.remove("_eventProjectileId");
+                if (prevHitType != null) variables.put("_eventHitType", prevHitType); else variables.remove("_eventHitType");
+                if (prevHitX != null) variables.put("_eventHitX", prevHitX); else variables.remove("_eventHitX");
+                if (prevHitY != null) variables.put("_eventHitY", prevHitY); else variables.remove("_eventHitY");
+                if (prevHitZ != null) variables.put("_eventHitZ", prevHitZ); else variables.remove("_eventHitZ");
+                if (prevTarget != null) variables.put("_eventTarget", prevTarget); else variables.remove("_eventTarget");
+                if (prevOwner != null) variables.put("_eventOwner", prevOwner); else variables.remove("_eventOwner");
+            }
+        }
+
+        private void applyProjectileHitEventVars(String projectileId, String hitType, double x, double y, double z,
+                                                 net.minecraft.world.entity.Entity target, net.minecraft.world.entity.Entity owner) {
+            variables.put("_eventProjectileId", projectileId);
+            variables.put("_eventHitType", hitType);
+            variables.put("_eventHitX", x);
+            variables.put("_eventHitY", y);
+            variables.put("_eventHitZ", z);
+            variables.put("_eventTarget", target);
+            variables.put("_eventOwner", owner);
+        }
+
+        private boolean matchesProjectileHitFilter(Object filter, String projectileId) {
+            if (filter == null) return true;
+            String f = String.valueOf(filter);
+            if ("any".equalsIgnoreCase(f)) return true;
+            return f.equals(projectileId);
+        }
+
+        private boolean matchesProjectileHitTypeFilter(Object filter, String hitType) {
+            if (filter == null) return true;
+            String f = String.valueOf(filter);
+            if ("any".equalsIgnoreCase(f)) return true;
+            return f.equalsIgnoreCase(hitType);
+        }
+
         public void onTradeBuy(net.minecraft.server.level.ServerPlayer player, String itemId, int price) {
             handleTradeAwait(player, itemId, price, true);
             fireTradeEventHandlers(player, itemId, price, "tradeBuy");
@@ -3292,6 +3619,318 @@ public class ScriptExecutor {
         public void onTradeSell(net.minecraft.server.level.ServerPlayer player, String itemId, int price) {
             handleTradeAwait(player, itemId, price, false);
             fireTradeEventHandlers(player, itemId, price, "tradeSell");
+        }
+
+        public void onRelGift(net.minecraft.server.level.ServerPlayer player, String npcId, String itemId, int repDelta) {
+            handleRelGiftAwait(player, npcId, itemId, repDelta);
+            fireRelGiftEventHandlers(player, npcId, itemId, repDelta);
+        }
+
+        public void onRelRepChange(net.minecraft.server.level.ServerPlayer player, String npcId, int oldRep, int newRep) {
+            handleRelRepChangeAwait(player, npcId);
+            fireRelRepChangeEventHandlers(player, npcId, oldRep, newRep);
+        }
+
+        public void onRelTalk(net.minecraft.server.level.ServerPlayer player, String npcId) {
+            handleRelTalkAwait(player, npcId);
+            fireRelTalkEventHandlers(player, npcId);
+        }
+
+        public void onRelButton(net.minecraft.server.level.ServerPlayer player, String npcId, String btnId) {
+            handleRelButtonAwait(player, npcId, btnId);
+            fireRelButtonEventHandlers(player, npcId, btnId);
+        }
+
+        private static boolean matchesRelNpcHandlerArgs(java.util.List<Object> eventArgs, String npcId) {
+            if (eventArgs.size() >= 2) {
+                String arg2 = String.valueOf(eventArgs.get(1));
+                if (!arg2.isEmpty() && !"any".equalsIgnoreCase(arg2) && !arg2.equals(npcId)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static boolean matchesRelButtonHandlerArgs(java.util.List<Object> eventArgs, String btnId) {
+            if (eventArgs.size() >= 2) {
+                String arg2 = String.valueOf(eventArgs.get(1));
+                if (!arg2.isEmpty() && !"any".equalsIgnoreCase(arg2) && !arg2.equals(btnId)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private void applyRelRepChangeEventVars(net.minecraft.server.level.ServerPlayer player, String npcId, int oldRep, int newRep) {
+            variables.put("_eventPlayer", player);
+            variables.put("_eventTarget", npcId);
+            variables.put("rel_event_npc", npcId);
+            variables.put("rel_event_old_rep", oldRep);
+            variables.put("rel_event_new_rep", newRep);
+        }
+
+        private void applyRelTalkEventVars(net.minecraft.server.level.ServerPlayer player, String npcId) {
+            variables.put("_eventPlayer", player);
+            variables.put("_eventTarget", npcId);
+            variables.put("rel_event_npc", npcId);
+        }
+
+        private void applyRelButtonEventVars(net.minecraft.server.level.ServerPlayer player, String npcId, String btnId) {
+            variables.put("_eventPlayer", player);
+            variables.put("_eventTarget", btnId);
+            variables.put("rel_event_npc", npcId);
+            variables.put("rel_event_button", btnId);
+        }
+
+        private void handleRelRepChangeAwait(net.minecraft.server.level.ServerPlayer player, String npcId) {
+            if (waitType == WaitType.REL_REP_CHANGE && waitRelSimplePlayers != null && waitRelSimplePlayers.matches(player.getUUID())) {
+                if (matchesRelNpcWait(npcId, waitRelSimpleNpcId)) {
+                    waitType = WaitType.NONE;
+                    waitRelSimplePlayers = null;
+                    waitRelSimpleNpcId = null;
+                    pendingVarName = null;
+                }
+            }
+            for (AsyncTask task : asyncTasks.values()) {
+                if (task.waitType != WaitType.REL_REP_CHANGE || task.waitRelSimplePlayers == null
+                        || !task.waitRelSimplePlayers.matches(player.getUUID())) continue;
+                if (!matchesRelNpcWait(npcId, task.waitRelSimpleNpcId)) continue;
+                task.waitType = WaitType.NONE;
+                task.waitRelSimplePlayers = null;
+                task.waitRelSimpleNpcId = null;
+                task.pendingUiClickVarName = null;
+                task.ip++;
+            }
+        }
+
+        private void handleRelTalkAwait(net.minecraft.server.level.ServerPlayer player, String npcId) {
+            if (waitType == WaitType.REL_TALK && waitRelSimplePlayers != null && waitRelSimplePlayers.matches(player.getUUID())) {
+                if (matchesRelNpcWait(npcId, waitRelSimpleNpcId)) {
+                    waitType = WaitType.NONE;
+                    waitRelSimplePlayers = null;
+                    waitRelSimpleNpcId = null;
+                    pendingVarName = null;
+                }
+            }
+            for (AsyncTask task : asyncTasks.values()) {
+                if (task.waitType != WaitType.REL_TALK || task.waitRelSimplePlayers == null
+                        || !task.waitRelSimplePlayers.matches(player.getUUID())) continue;
+                if (!matchesRelNpcWait(npcId, task.waitRelSimpleNpcId)) continue;
+                task.waitType = WaitType.NONE;
+                task.waitRelSimplePlayers = null;
+                task.waitRelSimpleNpcId = null;
+                task.pendingUiClickVarName = null;
+                task.ip++;
+            }
+        }
+
+        private void handleRelButtonAwait(net.minecraft.server.level.ServerPlayer player, String npcId, String btnId) {
+            if (waitType == WaitType.REL_BUTTON && waitRelSimplePlayers != null && waitRelSimplePlayers.matches(player.getUUID())) {
+                if (matchesRelNpcWait(npcId, waitRelSimpleNpcId) && matchesRelButtonWait(btnId, waitRelSimpleBtnId)) {
+                    waitType = WaitType.NONE;
+                    waitRelSimplePlayers = null;
+                    waitRelSimpleNpcId = null;
+                    waitRelSimpleBtnId = null;
+                    pendingVarName = null;
+                }
+            }
+            for (AsyncTask task : asyncTasks.values()) {
+                if (task.waitType != WaitType.REL_BUTTON || task.waitRelSimplePlayers == null
+                        || !task.waitRelSimplePlayers.matches(player.getUUID())) continue;
+                if (!matchesRelNpcWait(npcId, task.waitRelSimpleNpcId)) continue;
+                if (!matchesRelButtonWait(btnId, task.waitRelSimpleBtnId)) continue;
+                task.waitType = WaitType.NONE;
+                task.waitRelSimplePlayers = null;
+                task.waitRelSimpleNpcId = null;
+                task.waitRelSimpleBtnId = null;
+                task.pendingUiClickVarName = null;
+                task.ip++;
+            }
+        }
+
+        private static boolean matchesRelNpcWait(String npcId, String waitNpcId) {
+            if (waitNpcId != null && !waitNpcId.isEmpty() && !waitNpcId.equals(npcId)) return false;
+            return true;
+        }
+
+        private static boolean matchesRelButtonWait(String btnId, String waitBtnId) {
+            if (waitBtnId != null && !waitBtnId.isEmpty() && !waitBtnId.equals(btnId)) return false;
+            return true;
+        }
+
+        private void fireRelRepChangeEventHandlers(net.minecraft.server.level.ServerPlayer player, String npcId, int oldRep, int newRep) {
+            for (var entry : eventHandlers.entrySet()) {
+                EventHandler handler = entry.getValue();
+                if (!handler.active || !handler.eventName.equals("relRepChange")) continue;
+                if (!handler.eventArgs.isEmpty()) {
+                    if (!matchesEventPlayerArg(handler.eventArgs.get(0), player.getUUID())) continue;
+                }
+                if (!matchesRelNpcHandlerArgs(handler.eventArgs, npcId)) continue;
+                runRelEventHandler(entry, () -> applyRelRepChangeEventVars(player, npcId, oldRep, newRep));
+            }
+        }
+
+        private void fireRelTalkEventHandlers(net.minecraft.server.level.ServerPlayer player, String npcId) {
+            for (var entry : eventHandlers.entrySet()) {
+                EventHandler handler = entry.getValue();
+                if (!handler.active || !handler.eventName.equals("relTalk")) continue;
+                if (!handler.eventArgs.isEmpty()) {
+                    if (!matchesEventPlayerArg(handler.eventArgs.get(0), player.getUUID())) continue;
+                }
+                if (!matchesRelNpcHandlerArgs(handler.eventArgs, npcId)) continue;
+                runRelEventHandler(entry, () -> applyRelTalkEventVars(player, npcId));
+            }
+        }
+
+        private void fireRelButtonEventHandlers(net.minecraft.server.level.ServerPlayer player, String npcId, String btnId) {
+            for (var entry : eventHandlers.entrySet()) {
+                EventHandler handler = entry.getValue();
+                if (!handler.active || !handler.eventName.equals("relButton")) continue;
+                if (!handler.eventArgs.isEmpty()) {
+                    if (!matchesEventPlayerArg(handler.eventArgs.get(0), player.getUUID())) continue;
+                }
+                if (!matchesRelButtonHandlerArgs(handler.eventArgs, btnId)) continue;
+                runRelEventHandler(entry, () -> applyRelButtonEventVars(player, npcId, btnId));
+            }
+        }
+
+        private void runRelEventHandler(java.util.Map.Entry<String, EventHandler> entry, Runnable applyVars) {
+            Object prevPlayer = variables.get("_eventPlayer");
+            Object prevTarget = variables.get("_eventTarget");
+            Object prevNpc = variables.get("rel_event_npc");
+            Object prevBtn = variables.get("rel_event_button");
+            Object prevOld = variables.get("rel_event_old_rep");
+            Object prevNew = variables.get("rel_event_new_rep");
+            applyVars.run();
+            try {
+                executeInstructionBlock(entry.getValue().bodyInstructions);
+            } catch (ReturnException e) {
+                // return exits handler body only
+            } catch (Exception e) {
+                LOGGER.error("[Script: {}] Event handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
+            }
+            if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer); else variables.remove("_eventPlayer");
+            if (prevTarget != null) variables.put("_eventTarget", prevTarget); else variables.remove("_eventTarget");
+            if (prevNpc != null) variables.put("rel_event_npc", prevNpc); else variables.remove("rel_event_npc");
+            if (prevBtn != null) variables.put("rel_event_button", prevBtn); else variables.remove("rel_event_button");
+            if (prevOld != null) variables.put("rel_event_old_rep", prevOld); else variables.remove("rel_event_old_rep");
+            if (prevNew != null) variables.put("rel_event_new_rep", prevNew); else variables.remove("rel_event_new_rep");
+        }
+
+        private static boolean matchesRelGiftHandlerArgs(java.util.List<Object> eventArgs, String npcId, String itemId) {
+            if (eventArgs.size() >= 2) {
+                String arg2 = String.valueOf(eventArgs.get(1));
+                if (!arg2.isEmpty() && !"any".equalsIgnoreCase(arg2)) {
+                    if (eventArgs.size() >= 3) {
+                        String arg3 = String.valueOf(eventArgs.get(2));
+                        if (!arg3.isEmpty() && !"any".equalsIgnoreCase(arg3)) {
+                            return arg2.equals(npcId) && arg3.equals(itemId);
+                        }
+                    }
+                    if (arg2.contains(":")) {
+                        return arg2.equals(itemId);
+                    }
+                    return arg2.equals(npcId);
+                }
+            }
+            return true;
+        }
+
+        private static void applyRelGiftWaitFilters(String filter2, String filter3, String[] outNpc, String[] outItem) {
+            outNpc[0] = null;
+            outItem[0] = null;
+            if (filter2 != null && !filter2.isEmpty() && !"any".equalsIgnoreCase(filter2)) {
+                if (filter3 != null && !filter3.isEmpty() && !"any".equalsIgnoreCase(filter3)) {
+                    outNpc[0] = filter2;
+                    outItem[0] = filter3;
+                } else if (filter2.contains(":")) {
+                    outItem[0] = filter2;
+                } else {
+                    outNpc[0] = filter2;
+                }
+            }
+        }
+
+        private static boolean matchesRelGiftWait(String npcId, String itemId, String waitNpcId, String waitItemId) {
+            if (waitNpcId != null && !waitNpcId.isEmpty() && !waitNpcId.equals(npcId)) return false;
+            if (waitItemId != null && !waitItemId.isEmpty() && !waitItemId.equals(itemId)) return false;
+            return true;
+        }
+
+        private void handleRelGiftAwait(net.minecraft.server.level.ServerPlayer player, String npcId, String itemId, int repDelta) {
+            if (waitType == WaitType.REL_GIFT && waitRelGiftPlayers != null && waitRelGiftPlayers.matches(player.getUUID())) {
+                if (matchesRelGiftWait(npcId, itemId, waitRelGiftNpcId, waitRelGiftItemId)) {
+                    applyRelGiftEventVars(player, npcId, itemId, repDelta);
+                    if (pendingVarName != null) {
+                        variables.put(pendingVarName, itemId);
+                    }
+                    waitType = WaitType.NONE;
+                    waitRelGiftPlayers = null;
+                    waitRelGiftNpcId = null;
+                    waitRelGiftItemId = null;
+                    pendingVarName = null;
+                }
+            }
+            for (AsyncTask task : asyncTasks.values()) {
+                if (task.waitType != WaitType.REL_GIFT || task.waitRelGiftPlayers == null
+                        || !task.waitRelGiftPlayers.matches(player.getUUID())) continue;
+                if (!matchesRelGiftWait(npcId, itemId, task.waitRelGiftNpcId, task.waitRelGiftItemId)) continue;
+                applyRelGiftEventVars(player, npcId, itemId, repDelta);
+                if (task.pendingUiClickVarName != null) {
+                    putVariable(task.pendingUiClickVarName, itemId);
+                }
+                task.waitType = WaitType.NONE;
+                task.waitRelGiftPlayers = null;
+                task.waitRelGiftNpcId = null;
+                task.waitRelGiftItemId = null;
+                task.pendingUiClickVarName = null;
+                task.ip++;
+            }
+        }
+
+        private void applyRelGiftEventVars(net.minecraft.server.level.ServerPlayer player, String npcId, String itemId, int repDelta) {
+            variables.put("_eventPlayer", player);
+            variables.put("_eventTarget", npcId);
+            variables.put("_eventItemId", itemId);
+            variables.put("rel_event_npc", npcId);
+            variables.put("rel_event_item", itemId);
+            variables.put("rel_event_rep", repDelta);
+        }
+
+        private void fireRelGiftEventHandlers(net.minecraft.server.level.ServerPlayer player, String npcId, String itemId, int repDelta) {
+            for (var entry : eventHandlers.entrySet()) {
+                EventHandler handler = entry.getValue();
+                if (!handler.active || !handler.eventName.equals("relGift")) continue;
+
+                if (!handler.eventArgs.isEmpty()) {
+                    if (!matchesEventPlayerArg(handler.eventArgs.get(0), player.getUUID())) continue;
+                }
+                if (!matchesRelGiftHandlerArgs(handler.eventArgs, npcId, itemId)) continue;
+
+                Object prevPlayer = variables.get("_eventPlayer");
+                Object prevTarget = variables.get("_eventTarget");
+                Object prevItem = variables.get("_eventItemId");
+                Object prevNpc = variables.get("rel_event_npc");
+                Object prevRelItem = variables.get("rel_event_item");
+                Object prevRep = variables.get("rel_event_rep");
+
+                applyRelGiftEventVars(player, npcId, itemId, repDelta);
+
+                try {
+                    executeInstructionBlock(handler.bodyInstructions);
+                } catch (ReturnException e) {
+                    // return exits handler body only; use stop handler to deactivate
+                } catch (Exception e) {
+                    LOGGER.error("[Script: {}] Event handler '{}' error: {}", script.getName(), entry.getKey(), e.getMessage());
+                }
+
+                if (prevPlayer != null) variables.put("_eventPlayer", prevPlayer); else variables.remove("_eventPlayer");
+                if (prevTarget != null) variables.put("_eventTarget", prevTarget); else variables.remove("_eventTarget");
+                if (prevItem != null) variables.put("_eventItemId", prevItem); else variables.remove("_eventItemId");
+                if (prevNpc != null) variables.put("rel_event_npc", prevNpc); else variables.remove("rel_event_npc");
+                if (prevRelItem != null) variables.put("rel_event_item", prevRelItem); else variables.remove("rel_event_item");
+                if (prevRep != null) variables.put("rel_event_rep", prevRep); else variables.remove("rel_event_rep");
+            }
         }
 
         private void handleTradeAwait(net.minecraft.server.level.ServerPlayer player, String itemId, int price, boolean buy) {
@@ -3775,10 +4414,9 @@ public class ScriptExecutor {
                     }
                 }
                 case ASYNC_START -> {
-                    String taskId = (String) instruction.getArg(0);
                     @SuppressWarnings("unchecked")
                     List<CompiledScript.Instruction> bodyInstr = (List<CompiledScript.Instruction>) instruction.getArg(1);
-                    String id = taskId != null && !taskId.isEmpty() ? taskId : "anon_" + System.nanoTime();
+                    String id = resolveAsyncTaskId(instruction.getArg(0));
                     asyncTasks.put(id, new AsyncTask(id, bodyInstr));
                 }
                 case STOP_TASK -> {
@@ -3904,6 +4542,14 @@ public class ScriptExecutor {
                                  pendingVarName = name;
                                  return true;
                              }
+                         } else if (call.getFunctionName().equals("projectileHit") || call.getFunctionName().equals("projectile_hit")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             waitProjectileHitId = String.valueOf(evaluateExpression(call.getArgs().get(0)));
+                             waitProjectileHitType = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                                     ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                             waitType = WaitType.PROJECTILE_HIT;
+                             pendingVarName = name;
+                             return true;
                          } else if (call.getFunctionName().equals("tradeBuy") || call.getFunctionName().equals("trade_buy")) {
                              if (call.getArgs().isEmpty()) return false;
                              Object playerArg = evaluateExpression(call.getArgs().get(0));
@@ -3925,6 +4571,63 @@ public class ScriptExecutor {
                                  waitTradeItemId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
                                          ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
                                  waitType = WaitType.TRADE_SELL;
+                                 pendingVarName = name;
+                                 return true;
+                             }
+                         } else if (call.getFunctionName().equals("relGift") || call.getFunctionName().equals("rel_gift")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 String filter2 = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                                         ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                                 String filter3 = call.getArgs().size() > 2 && call.getArgs().get(2) != null
+                                         ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
+                                 String[] npcOut = new String[1];
+                                 String[] itemOut = new String[1];
+                                 applyRelGiftWaitFilters(filter2, filter3, npcOut, itemOut);
+                                 waitRelGiftPlayers = playerFilter;
+                                 waitRelGiftNpcId = npcOut[0];
+                                 waitRelGiftItemId = itemOut[0];
+                                 waitType = WaitType.REL_GIFT;
+                                 pendingVarName = name;
+                                 return true;
+                             }
+                         } else if (call.getFunctionName().equals("relRepChange") || call.getFunctionName().equals("rel_rep_change")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitRelSimplePlayers = playerFilter;
+                                 waitRelSimpleNpcId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                                         ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                                 waitType = WaitType.REL_REP_CHANGE;
+                                 pendingVarName = name;
+                                 return true;
+                             }
+                         } else if (call.getFunctionName().equals("relTalk") || call.getFunctionName().equals("rel_talk")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitRelSimplePlayers = playerFilter;
+                                 waitRelSimpleNpcId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                                         ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                                 waitType = WaitType.REL_TALK;
+                                 pendingVarName = name;
+                                 return true;
+                             }
+                         } else if (call.getFunctionName().equals("relButton") || call.getFunctionName().equals("rel_button")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitRelSimplePlayers = playerFilter;
+                                 waitRelSimpleBtnId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                                         ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                                 waitRelSimpleNpcId = call.getArgs().size() > 2 && call.getArgs().get(2) != null
+                                         ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
+                                 waitType = WaitType.REL_BUTTON;
                                  pendingVarName = name;
                                  return true;
                              }
@@ -4133,6 +4836,14 @@ public class ScriptExecutor {
                                  pendingVarName = name;
                                  return true;
                              }
+                         } else if (call.getFunctionName().equals("projectileHit") || call.getFunctionName().equals("projectile_hit")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             waitProjectileHitId = String.valueOf(evaluateExpression(call.getArgs().get(0)));
+                             waitProjectileHitType = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                                     ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                             waitType = WaitType.PROJECTILE_HIT;
+                             pendingVarName = name;
+                             return true;
                          } else if (call.getFunctionName().equals("tradeBuy") || call.getFunctionName().equals("trade_buy")) {
                              if (call.getArgs().isEmpty()) return false;
                              Object playerArg = evaluateExpression(call.getArgs().get(0));
@@ -4154,6 +4865,63 @@ public class ScriptExecutor {
                                  waitTradeItemId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
                                          ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
                                  waitType = WaitType.TRADE_SELL;
+                                 pendingVarName = name;
+                                 return true;
+                             }
+                         } else if (call.getFunctionName().equals("relGift") || call.getFunctionName().equals("rel_gift")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 String filter2 = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                                         ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                                 String filter3 = call.getArgs().size() > 2 && call.getArgs().get(2) != null
+                                         ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
+                                 String[] npcOut = new String[1];
+                                 String[] itemOut = new String[1];
+                                 applyRelGiftWaitFilters(filter2, filter3, npcOut, itemOut);
+                                 waitRelGiftPlayers = playerFilter;
+                                 waitRelGiftNpcId = npcOut[0];
+                                 waitRelGiftItemId = itemOut[0];
+                                 waitType = WaitType.REL_GIFT;
+                                 pendingVarName = name;
+                                 return true;
+                             }
+                         } else if (call.getFunctionName().equals("relRepChange") || call.getFunctionName().equals("rel_rep_change")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitRelSimplePlayers = playerFilter;
+                                 waitRelSimpleNpcId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                                         ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                                 waitType = WaitType.REL_REP_CHANGE;
+                                 pendingVarName = name;
+                                 return true;
+                             }
+                         } else if (call.getFunctionName().equals("relTalk") || call.getFunctionName().equals("rel_talk")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitRelSimplePlayers = playerFilter;
+                                 waitRelSimpleNpcId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                                         ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                                 waitType = WaitType.REL_TALK;
+                                 pendingVarName = name;
+                                 return true;
+                             }
+                         } else if (call.getFunctionName().equals("relButton") || call.getFunctionName().equals("rel_button")) {
+                             if (call.getArgs().isEmpty()) return false;
+                             Object playerArg = evaluateExpression(call.getArgs().get(0));
+                             PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                             if (playerFilter != null) {
+                                 waitRelSimplePlayers = playerFilter;
+                                 waitRelSimpleBtnId = call.getArgs().size() > 1 && call.getArgs().get(1) != null
+                                         ? String.valueOf(evaluateExpression(call.getArgs().get(1))) : null;
+                                 waitRelSimpleNpcId = call.getArgs().size() > 2 && call.getArgs().get(2) != null
+                                         ? String.valueOf(evaluateExpression(call.getArgs().get(2))) : null;
+                                 waitType = WaitType.REL_BUTTON;
                                  pendingVarName = name;
                                  return true;
                              }
@@ -4395,6 +5163,14 @@ public class ScriptExecutor {
                         return true;
                     }
                 }
+                case AWAIT_PROJECTILE_HIT -> {
+                    ScriptNode idNode = (ScriptNode) instruction.getArg(0);
+                    ScriptNode typeNode = instruction.getArgCount() >= 2 && instruction.getArg(1) != null ? (ScriptNode) instruction.getArg(1) : null;
+                    waitProjectileHitId = String.valueOf(evaluateExpression(idNode));
+                    waitProjectileHitType = typeNode != null ? String.valueOf(evaluateExpression(typeNode)) : null;
+                    waitType = WaitType.PROJECTILE_HIT;
+                    return true;
+                }
                 case AWAIT_TRADE_BUY -> {
                     ScriptNode pNode = (ScriptNode) instruction.getArg(0);
                     ScriptNode itemNode = instruction.getArgCount() >= 2 && instruction.getArg(1) != null ? (ScriptNode) instruction.getArg(1) : null;
@@ -4421,11 +5197,59 @@ public class ScriptExecutor {
                     }
                     LOGGER.warn("[Script: {}] await tradeSell: unknown player", script.getName());
                 }
+                case AWAIT_REL_GIFT -> {
+                    ScriptNode pNode = (ScriptNode) instruction.getArg(0);
+                    ScriptNode filter2Node = instruction.getArgCount() >= 2 && instruction.getArg(1) != null ? (ScriptNode) instruction.getArg(1) : null;
+                    ScriptNode filter3Node = instruction.getArgCount() >= 3 && instruction.getArg(2) != null ? (ScriptNode) instruction.getArg(2) : null;
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        String filter2 = filter2Node != null ? String.valueOf(evaluateExpression(filter2Node)) : null;
+                        String filter3 = filter3Node != null ? String.valueOf(evaluateExpression(filter3Node)) : null;
+                        String[] npcOut = new String[1];
+                        String[] itemOut = new String[1];
+                        applyRelGiftWaitFilters(filter2, filter3, npcOut, itemOut);
+                        waitRelGiftPlayers = playerFilter;
+                        waitRelGiftNpcId = npcOut[0];
+                        waitRelGiftItemId = itemOut[0];
+                        waitType = WaitType.REL_GIFT;
+                        return true;
+                    }
+                    LOGGER.warn("[Script: {}] await relGift: unknown player", script.getName());
+                }
+                case AWAIT_REL_REP_CHANGE, AWAIT_REL_TALK -> {
+                    ScriptNode pNode = (ScriptNode) instruction.getArg(0);
+                    ScriptNode npcNode = instruction.getArgCount() >= 2 && instruction.getArg(1) != null ? (ScriptNode) instruction.getArg(1) : null;
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        waitRelSimplePlayers = playerFilter;
+                        waitRelSimpleNpcId = npcNode != null ? String.valueOf(evaluateExpression(npcNode)) : null;
+                        waitType = instruction.getOpcode() == CompiledScript.Opcode.AWAIT_REL_REP_CHANGE
+                                ? WaitType.REL_REP_CHANGE : WaitType.REL_TALK;
+                        return true;
+                    }
+                    LOGGER.warn("[Script: {}] await rel event: unknown player", script.getName());
+                }
+                case AWAIT_REL_BUTTON -> {
+                    ScriptNode pNode = (ScriptNode) instruction.getArg(0);
+                    ScriptNode btnNode = instruction.getArgCount() >= 2 && instruction.getArg(1) != null ? (ScriptNode) instruction.getArg(1) : null;
+                    ScriptNode npcNode = instruction.getArgCount() >= 3 && instruction.getArg(2) != null ? (ScriptNode) instruction.getArg(2) : null;
+                    Object playerArg = evaluateExpression(pNode);
+                    PlayerFilter playerFilter = buildPlayerFilter(playerArg);
+                    if (playerFilter != null) {
+                        waitRelSimplePlayers = playerFilter;
+                        waitRelSimpleBtnId = btnNode != null ? String.valueOf(evaluateExpression(btnNode)) : null;
+                        waitRelSimpleNpcId = npcNode != null ? String.valueOf(evaluateExpression(npcNode)) : null;
+                        waitType = WaitType.REL_BUTTON;
+                        return true;
+                    }
+                    LOGGER.warn("[Script: {}] await relButton: unknown player", script.getName());
+                }
                 case ASYNC_START -> {
-                    String taskId = (String) instruction.getArg(0);
                     @SuppressWarnings("unchecked")
                     List<CompiledScript.Instruction> bodyInstr = (List<CompiledScript.Instruction>) instruction.getArg(1);
-                    String id = taskId != null && !taskId.isEmpty() ? taskId : "anon_" + System.nanoTime();
+                    String id = resolveAsyncTaskId(instruction.getArg(0));
                     asyncTasks.put(id, new AsyncTask(id, bodyInstr));
                 }
                 case AWAIT_TASK -> {
@@ -5871,6 +6695,24 @@ public class ScriptExecutor {
             }
         }
 
+        private String resolveAsyncTaskId(Object taskIdArg) {
+            if (taskIdArg instanceof ScriptNode node) {
+                Object evaluated = evaluateExpression(node);
+                if (evaluated == null) {
+                    return "anon_" + System.nanoTime();
+                }
+                String id = String.valueOf(evaluated).trim();
+                if (id.isEmpty() || "null".equals(id)) {
+                    return "anon_" + System.nanoTime();
+                }
+                return id;
+            }
+            if (taskIdArg instanceof String s && !s.isEmpty()) {
+                return s;
+            }
+            return "anon_" + System.nanoTime();
+        }
+
         private Object evaluateExpression(ScriptNode node) {
             if (node instanceof ScriptNode.LiteralNode literal) {
                 return literal.getValue();
@@ -6793,8 +7635,19 @@ public class ScriptExecutor {
             int waitOrbPickupTargetCount = 0;
             int waitOrbPickupCurrentCount = 0;
 
+            String waitProjectileHitId = null;
+            String waitProjectileHitType = null;
+
             PlayerFilter waitTradePlayers = null;
             String waitTradeItemId = null;
+
+            PlayerFilter waitRelGiftPlayers = null;
+            String waitRelGiftNpcId = null;
+            String waitRelGiftItemId = null;
+
+            PlayerFilter waitRelSimplePlayers = null;
+            String waitRelSimpleNpcId = null;
+            String waitRelSimpleBtnId = null;
 
             PlayerFilter waitPlayerActionPlayers = null;
             String waitPlayerActionType = "";
@@ -6881,8 +7734,8 @@ public class ScriptExecutor {
     }
 
         private enum WaitType {
-        NONE, TIME, INTERACT, NEXT, KEYBIND, DEATH, KILL, UI_CLICK, UI_CLOSE, MOVE_TO, FOLLOW, PICKUP, ORB_PICKUP,
-        TRADE_BUY, TRADE_SELL, WAIT_TASK,
+        NONE, TIME, INTERACT, NEXT, KEYBIND, DEATH, KILL, UI_CLICK, UI_CLOSE, MOVE_TO, FOLLOW, PICKUP, ORB_PICKUP, PROJECTILE_HIT,
+        TRADE_BUY, TRADE_SELL, REL_GIFT, REL_REP_CHANGE, REL_TALK, REL_BUTTON, WAIT_TASK,
         POSITION, INVENTORY, CLICK_BLOCK, BREAK_BLOCK, PLACE_BLOCK, OPEN_CHEST, OPEN_DOOR, UI_INPUT, CHAT, UI_OVERLAP,
         PLAYER_ACTION, DIMENSION, JOIN
     }

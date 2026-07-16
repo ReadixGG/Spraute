@@ -16,9 +16,14 @@ public final class CameraRouteInputHandler {
         if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.screen != null) return;
-        if (!CameraRouteRenderer.isHoldingCamera(mc)) return;
-        if (CameraRouteKeybinds.OPEN_MENU != null && CameraRouteKeybinds.OPEN_MENU.consumeClick()) {
+        if (CameraRouteKeybinds.OPEN_MENU == null || !CameraRouteKeybinds.OPEN_MENU.consumeClick()) return;
+        if (isHoldingCamera(mc)) {
             mc.setScreen(new CameraRouteScreen());
         }
+    }
+
+    private static boolean isHoldingCamera(Minecraft mc) {
+        return mc.player.getMainHandItem().getItem() instanceof org.zonarstudio.spraute_engine.item.CameraItem
+                || mc.player.getOffhandItem().getItem() instanceof org.zonarstudio.spraute_engine.item.CameraItem;
     }
 }

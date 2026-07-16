@@ -41,9 +41,10 @@ public final class ScriptCustomItemFactory {
     }
 
     public static Item create(CustomItemDef def, Item.Properties props, String displayName) {
+        boolean geo = def.geo != null && !def.geo.isBlank();
         ToolType type = ToolType.fromDef(def);
         if (type != ToolType.NONE) {
-            return createTool(type, def, applyToolDurability(def, props), displayName);
+            return createTool(type, def, applyToolDurability(def, props), displayName, geo);
         }
         Item.Properties finalProps = props;
         if (def.durability != null && def.durability > 0) {
@@ -51,9 +52,9 @@ public final class ScriptCustomItemFactory {
         }
         if (def.damage != null) {
             float speed = def.attackSpeed != null ? def.attackSpeed : 0f;
-            return new ScriptCustomWeaponItem(finalProps, displayName, def.damage, speed);
+            return new ScriptCustomWeaponItem(finalProps, displayName, def.damage, speed, geo);
         }
-        return new ScriptCustomItem(finalProps, displayName);
+        return new ScriptCustomItem(finalProps, displayName, geo);
     }
 
     private static Item.Properties applyToolDurability(CustomItemDef def, Item.Properties props) {
@@ -68,17 +69,17 @@ public final class ScriptCustomItemFactory {
         return new ScriptItemTier(durability, speed, level);
     }
 
-    private static Item createTool(ToolType type, CustomItemDef def, Item.Properties props, String displayName) {
+    private static Item createTool(ToolType type, CustomItemDef def, Item.Properties props, String displayName, boolean geo) {
         ScriptItemTier tier = tierFor(def);
         float attackSpeed = def.attackSpeed != null ? def.attackSpeed : defaultAttackSpeed(type);
         float damage = def.damage != null ? def.damage : defaultDamage(type);
         return switch (type) {
-            case SWORD -> new ScriptCustomSwordItem(tier, Math.round(damage), attackSpeed, props, displayName);
-            case PICKAXE -> new ScriptCustomPickaxeItem(tier, Math.round(damage), attackSpeed, props, displayName);
-            case AXE -> new ScriptCustomAxeItem(tier, damage, attackSpeed, props, displayName);
-            case SHOVEL -> new ScriptCustomShovelItem(tier, damage, attackSpeed, props, displayName);
-            case HOE -> new ScriptCustomHoeItem(tier, Math.round(damage), attackSpeed, props, displayName);
-            case NONE -> new ScriptCustomItem(props, displayName);
+            case SWORD -> new ScriptCustomSwordItem(tier, Math.round(damage), attackSpeed, props, displayName, geo);
+            case PICKAXE -> new ScriptCustomPickaxeItem(tier, Math.round(damage), attackSpeed, props, displayName, geo);
+            case AXE -> new ScriptCustomAxeItem(tier, damage, attackSpeed, props, displayName, geo);
+            case SHOVEL -> new ScriptCustomShovelItem(tier, damage, attackSpeed, props, displayName, geo);
+            case HOE -> new ScriptCustomHoeItem(tier, Math.round(damage), attackSpeed, props, displayName, geo);
+            case NONE -> new ScriptCustomItem(props, displayName, geo);
         };
     }
 
@@ -106,10 +107,16 @@ public final class ScriptCustomItemFactory {
 
     public static final class ScriptCustomSwordItem extends SwordItem {
         private final String displayName;
+        private final boolean geoVisual;
 
         public ScriptCustomSwordItem(Tier tier, int attackDamage, float attackSpeed, Properties props, String displayName) {
+            this(tier, attackDamage, attackSpeed, props, displayName, false);
+        }
+
+        public ScriptCustomSwordItem(Tier tier, int attackDamage, float attackSpeed, Properties props, String displayName, boolean geoVisual) {
             super(tier, attackDamage, attackSpeed, props);
             this.displayName = displayName;
+            this.geoVisual = geoVisual;
         }
 
         @Override
@@ -121,6 +128,11 @@ public final class ScriptCustomItemFactory {
         @Override
         public net.minecraft.network.chat.Component getDescription() {
             return ScriptItemNames.resolveName(displayName, ItemStack.EMPTY, () -> super.getDescription());
+        }
+
+        @Override
+        public void initializeClient(java.util.function.Consumer<net.minecraftforge.client.extensions.common.IClientItemExtensions> consumer) {
+            org.zonarstudio.spraute_engine.item.client.GeoItemClientHooks.initClientIfGeo(geoVisual, consumer);
         }
         //?}
 
@@ -135,10 +147,16 @@ public final class ScriptCustomItemFactory {
 
     public static final class ScriptCustomPickaxeItem extends PickaxeItem {
         private final String displayName;
+        private final boolean geoVisual;
 
         public ScriptCustomPickaxeItem(Tier tier, int attackDamage, float attackSpeed, Properties props, String displayName) {
+            this(tier, attackDamage, attackSpeed, props, displayName, false);
+        }
+
+        public ScriptCustomPickaxeItem(Tier tier, int attackDamage, float attackSpeed, Properties props, String displayName, boolean geoVisual) {
             super(tier, attackDamage, attackSpeed, props);
             this.displayName = displayName;
+            this.geoVisual = geoVisual;
         }
 
         @Override
@@ -150,6 +168,11 @@ public final class ScriptCustomItemFactory {
         @Override
         public net.minecraft.network.chat.Component getDescription() {
             return ScriptItemNames.resolveName(displayName, ItemStack.EMPTY, () -> super.getDescription());
+        }
+
+        @Override
+        public void initializeClient(java.util.function.Consumer<net.minecraftforge.client.extensions.common.IClientItemExtensions> consumer) {
+            org.zonarstudio.spraute_engine.item.client.GeoItemClientHooks.initClientIfGeo(geoVisual, consumer);
         }
         //?}
 
@@ -164,10 +187,16 @@ public final class ScriptCustomItemFactory {
 
     public static final class ScriptCustomAxeItem extends AxeItem {
         private final String displayName;
+        private final boolean geoVisual;
 
         public ScriptCustomAxeItem(Tier tier, float attackDamage, float attackSpeed, Properties props, String displayName) {
+            this(tier, attackDamage, attackSpeed, props, displayName, false);
+        }
+
+        public ScriptCustomAxeItem(Tier tier, float attackDamage, float attackSpeed, Properties props, String displayName, boolean geoVisual) {
             super(tier, attackDamage, attackSpeed, props);
             this.displayName = displayName;
+            this.geoVisual = geoVisual;
         }
 
         @Override
@@ -179,6 +208,11 @@ public final class ScriptCustomItemFactory {
         @Override
         public net.minecraft.network.chat.Component getDescription() {
             return ScriptItemNames.resolveName(displayName, ItemStack.EMPTY, () -> super.getDescription());
+        }
+
+        @Override
+        public void initializeClient(java.util.function.Consumer<net.minecraftforge.client.extensions.common.IClientItemExtensions> consumer) {
+            org.zonarstudio.spraute_engine.item.client.GeoItemClientHooks.initClientIfGeo(geoVisual, consumer);
         }
         //?}
 
@@ -193,10 +227,16 @@ public final class ScriptCustomItemFactory {
 
     public static final class ScriptCustomShovelItem extends ShovelItem {
         private final String displayName;
+        private final boolean geoVisual;
 
         public ScriptCustomShovelItem(Tier tier, float attackDamage, float attackSpeed, Properties props, String displayName) {
+            this(tier, attackDamage, attackSpeed, props, displayName, false);
+        }
+
+        public ScriptCustomShovelItem(Tier tier, float attackDamage, float attackSpeed, Properties props, String displayName, boolean geoVisual) {
             super(tier, attackDamage, attackSpeed, props);
             this.displayName = displayName;
+            this.geoVisual = geoVisual;
         }
 
         @Override
@@ -208,6 +248,11 @@ public final class ScriptCustomItemFactory {
         @Override
         public net.minecraft.network.chat.Component getDescription() {
             return ScriptItemNames.resolveName(displayName, ItemStack.EMPTY, () -> super.getDescription());
+        }
+
+        @Override
+        public void initializeClient(java.util.function.Consumer<net.minecraftforge.client.extensions.common.IClientItemExtensions> consumer) {
+            org.zonarstudio.spraute_engine.item.client.GeoItemClientHooks.initClientIfGeo(geoVisual, consumer);
         }
         //?}
 
@@ -222,10 +267,16 @@ public final class ScriptCustomItemFactory {
 
     public static final class ScriptCustomHoeItem extends HoeItem {
         private final String displayName;
+        private final boolean geoVisual;
 
         public ScriptCustomHoeItem(Tier tier, int attackDamage, float attackSpeed, Properties props, String displayName) {
+            this(tier, attackDamage, attackSpeed, props, displayName, false);
+        }
+
+        public ScriptCustomHoeItem(Tier tier, int attackDamage, float attackSpeed, Properties props, String displayName, boolean geoVisual) {
             super(tier, attackDamage, attackSpeed, props);
             this.displayName = displayName;
+            this.geoVisual = geoVisual;
         }
 
         @Override
@@ -237,6 +288,11 @@ public final class ScriptCustomItemFactory {
         @Override
         public net.minecraft.network.chat.Component getDescription() {
             return ScriptItemNames.resolveName(displayName, ItemStack.EMPTY, () -> super.getDescription());
+        }
+
+        @Override
+        public void initializeClient(java.util.function.Consumer<net.minecraftforge.client.extensions.common.IClientItemExtensions> consumer) {
+            org.zonarstudio.spraute_engine.item.client.GeoItemClientHooks.initClientIfGeo(geoVisual, consumer);
         }
         //?}
 

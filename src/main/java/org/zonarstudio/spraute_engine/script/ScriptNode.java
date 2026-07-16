@@ -521,8 +521,9 @@ package org.zonarstudio.spraute_engine.script;
     }
 
     /**
-     * Async block: async { body } or async "task_id" { body }
+     * Async block: async { body } or async taskIdExpr { body }
      * Runs body in background. Named tasks can be awaited or stopped.
+     * taskIdExpr is evaluated at runtime (e.g. async "walk_" + player.uuid() { ... }).
      */
     class AsyncNode implements ScriptNode {
         private int line = -1;
@@ -531,15 +532,15 @@ package org.zonarstudio.spraute_engine.script;
         @Override public void setLine(int line) { this.line = line; }
         @Override public int getColumn() { return column; }
         @Override public void setColumn(int col) { this.column = col; }
-        private final String taskId;  // null = anonymous
+        private final ScriptNode taskIdExpr;  // null = anonymous
         private final ScriptNode body;
 
-        public AsyncNode(String taskId, ScriptNode body) {
-            this.taskId = taskId;
+        public AsyncNode(ScriptNode taskIdExpr, ScriptNode body) {
+            this.taskIdExpr = taskIdExpr;
             this.body = body;
         }
 
-        public String getTaskId() { return taskId; }
+        public ScriptNode getTaskIdExpr() { return taskIdExpr; }
         public ScriptNode getBody() { return body; }
     }
 

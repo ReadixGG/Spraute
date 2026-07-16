@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "spraute_engine:block/multiblock_slave" }
+  }
+}

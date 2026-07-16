@@ -218,7 +218,8 @@ async function ensurePluginsMigrated() {
 
 /** Категории procode: «Игрок и Мир» → «Игрок» / «Мир» / «Инвентарь». */
 const PROCODE_MIR_BLOCKS = new Set([
-  'set_block', 'find_safe_block', 'spawn_orb', 'execute_cmd', 'start_script',
+  'set_block', 'use_block', 'find_safe_block', 'create_projectile', 'create_explosion', 'spawn_orb', 'execute_cmd', 'start_script',
+  'billboard_spawn', 'billboard_control',
   'autorun_self', 'autorun_script', 'run_on_join', 'run_on_first_join', 'run_after',
 ]);
 const PROCODE_INVENTORY_BLOCKS = new Set([
@@ -235,7 +236,39 @@ const PROCODE_INVENTORY_BLOCKS = new Set([
 const REMOVED_PROCODE_BLOCK_FILES = new Set([
   'player_slots.spr',
   'inventory_events.spr',
+  'zone_world.spr',
+  'on_zone_enter.spr',
+  'on_zone_leave.spr',
+  'await_zone_enter.spr',
+  'await_zone_leave.spr',
 ]);
+
+/** ID блоков зон — убираем из blocks_order при синхронизации. */
+const REMOVED_PROCODE_BLOCK_IDS = new Set([
+  'give_zone_block',
+  'create_zone',
+  'remove_zone',
+  'set_zone_color',
+  'is_in_zone',
+  'is_coord_in_zone',
+  'entities_in_zone',
+  'on_zone_enter',
+  'on_zone_leave',
+  'await_zone_enter',
+  'await_zone_leave',
+]);
+
+function filterRemovedProcodeBlockIds(order) {
+  const out = {};
+  for (const [cat, ids] of Object.entries(order || {})) {
+    if (!Array.isArray(ids)) {
+      out[cat] = ids;
+      continue;
+    }
+    out[cat] = ids.filter((id) => !REMOVED_PROCODE_BLOCK_IDS.has(id));
+  }
+  return out;
+}
 
 function procodeCategoryForBlock(blockId, legacyCategory) {
   if (blockId && PROCODE_MIR_BLOCKS.has(blockId)) return 'Мир';
@@ -398,6 +431,7 @@ async function syncBundledProcodeToDir(pluginRoot, bundledRoot) {
     }
     delete destOrder['Игрок и Мир'];
     delete destOrder['Слоты'];
+    destOrder = filterRemovedProcodeBlockIds(destOrder);
     let changed = false;
     for (const [cat, ids] of Object.entries(bundledOrder)) {
       if (!Array.isArray(ids)) continue;
@@ -412,6 +446,7 @@ async function syncBundledProcodeToDir(pluginRoot, bundledRoot) {
       }
       changed = true;
     }
+    destOrder = filterRemovedProcodeBlockIds(destOrder);
     if (changed) {
       await fs.writeFile(destOrderPath, JSON.stringify(destOrder, null, 2), 'utf8');
     }
@@ -438,14 +473,15 @@ async function ensureBundledProcodeBlocks() {
   }
 }
 
-/** WChoice, Raya и др. — копируем bundled в %APPDATA%/plugins при каждом запуске Studio. */
+/** Опциональные плагины (WChoice, Raya, NpcRelations и др.) не копируются автоматически — только вручную / импорт .splugin. */
 async function ensureBundledOptionalPlugins() {
+  const skip = new Set(['procode', 'wchoice', 'raya', 'npcrelations']);
   const bundledRoot = path.join(__dirname, 'bundled_plugins');
   const entries = await fs.readdir(bundledRoot, { withFileTypes: true }).catch(() => []);
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const name = entry.name;
-    if (name.toLowerCase() === 'procode') continue;
+    if (skip.has(name.toLowerCase())) continue;
     const src = path.join(bundledRoot, name);
     const dest = path.join(getPluginsRoot(), name);
     await syncBundledPluginToDir(src, dest);
@@ -453,20 +489,36 @@ async function ensureBundledOptionalPlugins() {
 }
 
 async function syncBundledPluginToDir(bundledRoot, pluginRoot) {
+  const hasPluginJson = await pathExists(path.join(bundledRoot, 'plugin.json'));
   const srcBlocks = path.join(bundledRoot, 'blocks');
-  if (!(await pathExists(srcBlocks))) return;
+  const srcScripts = path.join(bundledRoot, 'scripts');
+  const hasBlocks = await pathExists(srcBlocks);
+  const hasScripts = await pathExists(srcScripts);
+  if (!hasPluginJson && !hasBlocks && !hasScripts) return;
 
   await fs.mkdir(pluginRoot, { recursive: true });
-  const destBlocks = path.join(pluginRoot, 'blocks');
-  await fs.mkdir(destBlocks, { recursive: true });
 
-  const files = await fs.readdir(srcBlocks).catch(() => []);
-  for (const name of files) {
-    if (!name.endsWith('.spr')) continue;
-    await fs.copyFile(path.join(srcBlocks, name), path.join(destBlocks, name));
+  if (hasBlocks) {
+    const destBlocks = path.join(pluginRoot, 'blocks');
+    await fs.mkdir(destBlocks, { recursive: true });
+    const files = await fs.readdir(srcBlocks).catch(() => []);
+    for (const name of files) {
+      if (!name.endsWith('.spr')) continue;
+      await fs.copyFile(path.join(srcBlocks, name), path.join(destBlocks, name));
+    }
   }
 
-  for (const meta of ['plugin.json', 'categories.json', 'blocks_order.json']) {
+  if (hasScripts) {
+    const destScripts = path.join(pluginRoot, 'scripts');
+    await fs.mkdir(destScripts, { recursive: true });
+    const scriptFiles = await fs.readdir(srcScripts).catch(() => []);
+    for (const name of scriptFiles) {
+      if (!name.endsWith('.spr')) continue;
+      await fs.copyFile(path.join(srcScripts, name), path.join(destScripts, name));
+    }
+  }
+
+  for (const meta of ['plugin.json', 'categories.json', 'blocks_order.json', 'icon.png']) {
     const srcMeta = path.join(bundledRoot, meta);
     if (await pathExists(srcMeta)) {
       await fs.copyFile(srcMeta, path.join(pluginRoot, meta));
@@ -501,6 +553,18 @@ ipcMain.handle('fs:list', async (_e, relPath) => {
     return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
   });
   return list;
+});
+
+ipcMain.handle('fs:stat', async (_e, relPath) => {
+  try {
+    if (isPluginRelPath(relPath)) await ensurePluginsMigrated();
+    const file = resolveAbsPath(relPath);
+    const stat = await fs.stat(file).catch(() => null);
+    if (!stat) return null;
+    return { isFile: stat.isFile(), isDirectory: stat.isDirectory(), size: stat.size };
+  } catch {
+    return null;
+  }
 });
 
 ipcMain.handle('fs:read', async (_e, relPath, encoding = 'utf8') => {

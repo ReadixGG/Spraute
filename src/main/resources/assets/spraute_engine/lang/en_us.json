@@ -25,6 +25,8 @@
   "spraute_engine.camera_route.preview_done": "Preview finished",
   "key.categories.spraute_engine": "Spraute Engine",
   "key.spraute_engine.camera_route_menu": "Camera route menu",
+  "key.spraute_engine.reset_gui": "Reset GUI and camera (Ctrl+Shift+U)",
+  "spraute_engine.reset_gui.done": "GUI and camera reset",
   "spraute_engine.debug.title": "Spraute Debug",
   "spraute_engine.debug.reload.1": "Reload all",
   "spraute_engine.debug.reload.2": "scripts",

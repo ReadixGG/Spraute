@@ -1,0 +1,10 @@
+#\ block: create_explosion
+#\ category: Мир
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "взрыв в точке" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ row: "радиус" (radius: number: 4) "урон" (damage: number: 8)
+#\ row: "ломать блоки" [destroyBlocks: dropdown(да: true, нет: false)]
+#\
+#\ template: createExplosion({x}, {y}, {z}, {radius}, {damage}, {destroyBlocks})

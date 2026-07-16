@@ -54,7 +54,8 @@
     "on_uiclose",
     "on_dimension",
     "on_join",
-    "on_first_join"
+    "on_first_join",
+    "on_projectile_hit"
   ],
   "Ожидание": [
     "await_interact",
@@ -79,7 +80,8 @@
     "await_uiclose",
     "await_dimension",
     "await_join",
-    "await_first_join"
+    "await_first_join",
+    "await_projectile_hit"
   ],
   "Асинхронность": [
     "async_run",
@@ -120,6 +122,11 @@
     "set_player_attack_damage",
     "get_player_dig_speed",
     "set_player_dig_speed",
+    "set_player_flight",
+    "get_player_flight",
+    "set_player_gamemode",
+    "get_player_gamemode",
+    "is_player_gamemode",
     "player_teleport",
     "player_damage",
     "player_raycast",
@@ -177,7 +184,10 @@
   ],
   "Мир": [
     "set_block",
+    "use_block",
     "find_safe_block",
+    "create_projectile",
+    "create_explosion",
     "spawn_orb",
     "billboard_spawn",
     "billboard_control",
@@ -289,6 +299,12 @@
     "particle_spiral",
     "particle_start_bone",
     "particle_stop_bone"
+  ],
+  "Снаряды": [
+    "spawn_projectile",
+    "shoot_projectile",
+    "get_projectile_pos",
+    "remove_projectiles"
   ],
   "Ресурсы": [
     "create_block",

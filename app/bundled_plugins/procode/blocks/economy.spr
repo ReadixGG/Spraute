@@ -134,14 +134,22 @@
 #\   input: player (type: value)
 #\ input: items (type: value) "товары"
 #\ row: "заголовок" (title: text: Торговля)
-#\ row: "НИП (необяз.)" (npcId: text: )
+#\ row: [npcFilter: dropdown(без НПС: no, указать НПС: yes)]
+#\ if npcFilter == "yes":
+#\   row: [npc: dropdown_npc]
 #\
-#\ if who == "event":
-#\   template: ecoOpenTrade(_eventPlayer, {items}, "{title}", "{npcId}")
-#\ if who == "first":
-#\   template: ecoOpenTrade(getFirstPlayer(), {items}, "{title}", "{npcId}")
-#\ if who == "custom":
-#\   template: ecoOpenTrade({player}, {items}, "{title}", "{npcId}")
+#\ if who == "event" and npcFilter == "no":
+#\   template: ecoOpenTrade(_eventPlayer, {items}, "{title}", "")
+#\ if who == "first" and npcFilter == "no":
+#\   template: ecoOpenTrade(getFirstPlayer(), {items}, "{title}", "")
+#\ if who == "custom" and npcFilter == "no":
+#\   template: ecoOpenTrade({player}, {items}, "{title}", "")
+#\ if who == "event" and npcFilter == "yes":
+#\   template: ecoOpenTrade(_eventPlayer, {items}, "{title}", {npc})
+#\ if who == "first" and npcFilter == "yes":
+#\   template: ecoOpenTrade(getFirstPlayer(), {items}, "{title}", {npc})
+#\ if who == "custom" and npcFilter == "yes":
+#\   template: ecoOpenTrade({player}, {items}, "{title}", {npc})
 
 #\ block: economy_spawn_coins
 #\ category: Экономика

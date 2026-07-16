@@ -23,7 +23,9 @@ public final class ModCreativeTabs {
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.spraute_engine"))
                     .icon(() -> new ItemStack(ModItems.CAMERA.get()))
-                    .displayItems((params, output) -> output.accept(ModItems.CAMERA.get()))
+                    .displayItems((params, output) -> {
+                        output.accept(ModItems.CAMERA.get());
+                    })
                     .build());
 
     public static void register(IEventBus bus) {

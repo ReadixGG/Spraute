@@ -71,6 +71,7 @@ public class Spraute_engine {
         java.util.UUID id = event.getEntity().getUUID();
         org.zonarstudio.spraute_engine.script.PlayerDigSpeedOverrides.clear(id);
         org.zonarstudio.spraute_engine.script.PlayerStepHeightOverrides.clear(id);
+        org.zonarstudio.spraute_engine.script.PlayerFlightOverrides.clear(id);
         org.zonarstudio.spraute_engine.script.ItemUsageRestrictions.clear(id);
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) {
             org.zonarstudio.spraute_engine.compat.SprauteStepHeightCompat.clear(sp);
@@ -83,6 +84,7 @@ public class Spraute_engine {
         if (SprauteEntityCompat.level(event.player).isClientSide) return;
         if (event.player instanceof net.minecraft.server.level.ServerPlayer sp) {
             org.zonarstudio.spraute_engine.script.PlayerStepHeightOverrides.apply(sp);
+            org.zonarstudio.spraute_engine.script.PlayerFlightOverrides.apply(sp);
         }
     }
 
@@ -477,6 +479,7 @@ public class Spraute_engine {
         org.zonarstudio.spraute_engine.script.PlayerStepHeightOverrides.apply(player);
         float step = org.zonarstudio.spraute_engine.script.PlayerStepHeightOverrides.get(player);
         org.zonarstudio.spraute_engine.script.PlayerStepHeightOverrides.set(player, step);
+        org.zonarstudio.spraute_engine.script.PlayerFlightOverrides.apply(player);
         org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerJoin(player);
     }
 
@@ -523,6 +526,7 @@ public class Spraute_engine {
             event.registerEntityRenderer(ModEntities.SPRAUTE_NPC.get(), org.zonarstudio.spraute_engine.entity.client.SprauteNpcRenderer::new);
             event.registerEntityRenderer(ModEntities.SPRAUTE_ORB.get(), org.zonarstudio.spraute_engine.entity.client.SprauteOrbRenderer::new);
             event.registerEntityRenderer(ModEntities.SPRAUTE_BILLBOARD.get(), org.zonarstudio.spraute_engine.entity.client.SprauteBillboardRenderer::new);
+            event.registerEntityRenderer(ModEntities.SPRAUTE_PROJECTILE.get(), org.zonarstudio.spraute_engine.entity.client.SprauteProjectileRenderer::new);
             
             // Only register if we actually have custom blocks that need it
             if (org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CUSTOM_GEO_BLOCK_ENTITY != null) {
@@ -593,10 +597,10 @@ public class Spraute_engine {
         public static void onRegisterReloadListeners(net.minecraftforge.client.event.RegisterClientReloadListenersEvent event) {
             event.registerReloadListener((net.minecraft.server.packs.resources.PreparableReloadListener)
                 (preparationBarrier, resourceManager, profiler1, profiler2, backgroundExecutor, gameExecutor) ->
-                    preparationBarrier.wait(null).thenRunAsync(
-                        org.zonarstudio.spraute_engine.entity.client.SpModelCache::clearAll,
-                        gameExecutor
-                    )
+                    preparationBarrier.wait(null).thenRunAsync(() -> {
+                        org.zonarstudio.spraute_engine.entity.client.SpModelCache.clearAll();
+                        org.zonarstudio.spraute_engine.item.client.GeoItemRenderer.clearInstances();
+                    }, gameExecutor)
             );
         }
 

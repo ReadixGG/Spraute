@@ -20,6 +20,8 @@ public final class SpModelInstance {
     public final Map<String, SpVec3> boneAnimRotation = new LinkedHashMap<>();
     /** Per-bone animated position offset. */
     public final Map<String, SpVec3> boneAnimPosition = new LinkedHashMap<>();
+    /** Per-bone animated scale multiplier (1 = rest pose). */
+    public final Map<String, SpVec3> boneAnimScale = new LinkedHashMap<>();
 
     public SpModelInstance(SpGeoModel model) {
         this.model = model;
@@ -27,6 +29,7 @@ public final class SpModelInstance {
             boneWorldMatrices.put(name, new SpMatrix4());
             boneAnimRotation.put(name, new SpVec3());
             boneAnimPosition.put(name, new SpVec3());
+            boneAnimScale.put(name, new SpVec3(1f, 1f, 1f));
         }
     }
 
@@ -38,6 +41,7 @@ public final class SpModelInstance {
     public void resetAnims() {
         for (SpVec3 rot : boneAnimRotation.values()) rot.set(0, 0, 0);
         for (SpVec3 pos : boneAnimPosition.values()) pos.set(0, 0, 0);
+        for (SpVec3 scale : boneAnimScale.values()) scale.set(1, 1, 1);
     }
 
     /** Compute world matrices for entire skeleton. Call after setting anim transforms. */
@@ -51,6 +55,7 @@ public final class SpModelInstance {
     private void computeRecursive(SpBone bone, SpMatrix4 parentWorld) {
         SpVec3 animRot = boneAnimRotation.get(bone.name);
         SpVec3 animPos = boneAnimPosition.get(bone.name);
+        SpVec3 animScale = boneAnimScale.get(bone.name);
 
         // Negate X and Y to convert Bedrock left-handed rotations to right-handed (MC).
         // Bedrock is left-handed, so X (pitch) and Y (yaw) are inverted relative to
@@ -75,8 +80,13 @@ public final class SpModelInstance {
         float localY = bone.pivot.y - parentPivotY + offY;
         float localZ = bone.pivot.z - parentPivotZ + offZ;
 
+        float scaleX = animScale != null ? animScale.x : 1f;
+        float scaleY = animScale != null ? animScale.y : 1f;
+        float scaleZ = animScale != null ? animScale.z : 1f;
+
         SpQuaternion q = new SpQuaternion().setEulerDeg(rotX, rotY, rotZ);
-        SpMatrix4 local = new SpMatrix4().compose(new SpVec3(localX, localY, localZ), q, 1f);
+        SpMatrix4 local = new SpMatrix4().compose(
+                new SpVec3(localX, localY, localZ), q, new SpVec3(scaleX, scaleY, scaleZ));
 
         SpMatrix4 world = boneWorldMatrices.get(bone.name);
         if (world == null) {

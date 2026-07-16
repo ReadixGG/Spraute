@@ -1,3 +1,11 @@
+## Версия 1.6
+
+* Spraute Engine и Spraute Studio — релиз 1.6
+* Анимации: поддержка scale (растяжение костей) в Bedrock/Blockbench-анимациях
+* Библиотека уведомлений `notification.spr` (HUD с иконкой блока/текстуры)
+* Снаряды, geo-предметы, use block, полёт и gamemode игрока, execute, on/await position
+* Async с динамическим id задачи, сброс презентации, ProCode-блоки
+
 ## Версия 1.5.1
 
 * Spraute Engine и Spraute Studio — релиз 1.5.1

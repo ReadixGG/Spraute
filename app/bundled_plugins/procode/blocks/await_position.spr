@@ -1,0 +1,9 @@
+#\ block: await_position
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать когда игрок"
+#\ input: player (type: value)
+#\ row: "в точке" (x: number: 0) (y: number: 64) (z: number: 0) "радиус" (radius: number: 2)
+#\ template: await position({player}, {x}, {y}, {z}, {radius})

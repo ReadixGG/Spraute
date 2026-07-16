@@ -84,6 +84,18 @@ public class ExternalAssetPack extends AbstractPackResources {
         return ref != null ? ref : "minecraft:item/barrier";
     }
 
+    /** {@code minecraft:wooden_sword} → {@code minecraft:item/wooden_sword} for valid item model parents. */
+    private static String normalizeItemModelParent(String model) {
+        if (model == null || model.isEmpty()) return model;
+        int colon = model.indexOf(':');
+        if (colon < 0) return model;
+        String namespace = model.substring(0, colon);
+        String path = model.substring(colon + 1);
+        if (!"minecraft".equals(namespace)) return model;
+        if (path.contains("/")) return model;
+        return namespace + ":item/" + path;
+    }
+
     private static String[] resolveBlockCubeTextures(org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomBlockDef def) {
         String texAll = buildTexRef(def.texture);
         if (texAll == null) texAll = "minecraft:block/stone";
@@ -306,8 +318,14 @@ public class ExternalAssetPack extends AbstractPackResources {
                 org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomItemDef itemDef = org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.ITEMS.get(id);
                 if (itemDef != null) {
                     String texRef = buildItemTexRef(itemDef.texture);
+                    boolean hasGeo = itemDef.geo != null && !itemDef.geo.isEmpty();
+                    if (hasGeo) {
+                        String json = "{\n  \"parent\": \"builtin/entity\"\n}";
+                        return new ByteArrayInputStream(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    }
                     if (itemDef.model != null && !itemDef.model.isEmpty()) {
-                        String json = "{\n  \"parent\": \"" + itemDef.model + "\",\n  \"textures\": {\n    \"layer0\": \"" + texRef + "\"\n  }\n}";
+                        String parent = normalizeItemModelParent(itemDef.model);
+                        String json = "{\n  \"parent\": \"" + parent + "\",\n  \"textures\": {\n    \"layer0\": \"" + texRef + "\"\n  }\n}";
                         return new ByteArrayInputStream(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                     } else {
                         String json = "{\n  \"parent\": \"item/generated\",\n  \"textures\": {\n    \"layer0\": \"" + texRef + "\"\n  }\n}";
@@ -510,11 +528,13 @@ public class ExternalAssetPack extends AbstractPackResources {
         if (resourcePath.equals("assets/" + NAMESPACE + "/sounds.json")) return true;
         if (resourcePath.startsWith("assets/" + NAMESPACE + "/blockstates/")) {
             String id = resourcePath.substring(("assets/" + NAMESPACE + "/blockstates/").length(), resourcePath.length() - 5);
+            if ("multiblock_slave".equals(id)) return true;
             org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomBlockDef def = org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.BLOCKS.get(id);
             if (def != null && (def.model == null || def.model.isEmpty())) return true;
         }
         if (resourcePath.startsWith("assets/" + NAMESPACE + "/models/block/")) {
             String id = resourcePath.substring(("assets/" + NAMESPACE + "/models/block/").length(), resourcePath.length() - 5);
+            if ("multiblock_slave".equals(id)) return true;
             org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CustomBlockDef def = org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.BLOCKS.get(id);
             if (def != null && (def.model == null || def.model.isEmpty())) return true;
         }

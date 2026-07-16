@@ -1,0 +1,18 @@
+#\ block: execute_cmd
+#\ category: Мир
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "выполнить команду" (command: text: say Hello)
+#\ row: "от лица" [executor: dropdown(сервера: server, кликнувший: event, первый игрок: first, указать: custom)]
+#\ if executor == "custom":
+#\   input: who (type: value)
+#\
+#\ if executor == "server":
+#\   template: execute("{command}")
+#\ if executor == "event":
+#\   template: execute("{command}", _eventPlayer)
+#\ if executor == "first":
+#\   template: execute("{command}", getFirstPlayer())
+#\ if executor == "custom":
+#\   template: execute("{command}", {who})

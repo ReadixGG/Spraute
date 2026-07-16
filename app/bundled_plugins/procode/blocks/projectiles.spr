@@ -1,0 +1,121 @@
+#\ block: create_projectile
+#\ category: Мир
+#\ color: #fb923c
+#\ shape: statement
+#\
+#\ row: "создать снаряд" (id: text: fireball)
+#\ row: "текстура" (texture: text: textures/projectile/fireball.png)
+#\ row: "размер" (width: number: 0.5) "×" (height: number: 0.5)
+#\ row: "прозрачность" (alpha: number: 255) "0–255, 255 = непрозрачный"
+#\ row: "сквозной" [seeThrough: dropdown(нет: false, да: true)] "как текст GUI"
+#\ row: "свечение" [glow: dropdown(нет: false, да: true)]
+#\ row: "билборд" [billboard: dropdown(к камере: true, по полёту: false)]
+#\ row: "гравитация" (gravity: number: 0.02) "drag" (drag: number: 0.99)
+#\ row: "время жизни" (lifetime: number: 200) "тиков"
+#\ row: "урон" (damage: number: 5) "пробитие" (pierce: number: 0) "отброс" (knockback: number: 0.5)
+#\ row: "вращение °/тик" (rotation: number: 0)
+#\ row: "столкновения" [hitBlocks: dropdown(блоки: true, нет: false)] [hitEntities: dropdown(сущности: true, нет: false)]
+#\
+#\ code: var lines = ['create projectile ' + String(_getVal('id') || '').trim() + ' {'];
+#\ code: function q(v) { return String(v || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
+#\ code: function addStr(k, v) { v = String(v || '').trim(); if (v) lines.push('    ' + k + ' = "' + q(v) + '"'); }
+#\ code: function addNum(k, v) { v = String(v || '').trim(); if (v) lines.push('    ' + k + ' = ' + v); }
+#\ code: function addBool(k, v) { v = String(v || '').trim(); if (v === 'true' || v === 'false') lines.push('    ' + k + ' = ' + v); }
+#\ code: addStr('texture', _getVal('texture'));
+#\ code: addNum('width', _getVal('width'));
+#\ code: addNum('height', _getVal('height'));
+#\ code: addNum('alpha', _getVal('alpha'));
+#\ code: addBool('see_through', _getVal('seeThrough'));
+#\ code: addBool('glow', _getVal('glow'));
+#\ code: addBool('billboard', _getVal('billboard'));
+#\ code: addNum('gravity', _getVal('gravity'));
+#\ code: addNum('drag', _getVal('drag'));
+#\ code: addNum('lifetime', _getVal('lifetime'));
+#\ code: addNum('damage', _getVal('damage'));
+#\ code: addNum('pierce', _getVal('pierce'));
+#\ code: addNum('knockback', _getVal('knockback'));
+#\ code: addNum('rotation', _getVal('rotation'));
+#\ code: addBool('collide_blocks', _getVal('hitBlocks'));
+#\ code: addBool('collide_entities', _getVal('hitEntities'));
+#\ code: lines.push('}');
+#\ code: return lines.join('\n') + '\n';
+
+#\ block: spawn_projectile
+#\ category: Снаряды
+#\ color: #fb923c
+#\ shape: statement
+#\
+#\ row: "снаряд" (projectileId: text: fireball)
+#\ row: "позиция" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ row: "скорость" (vx: number: 0) (vy: number: 0) (vz: number: 1)
+#\ row: "измерение" (dimension: text: ) "необязательно"
+#\
+#\ code: var id = String(_getVal('projectileId') || '').trim();
+#\ code: var dim = String(_getVal('dimension') || '').trim();
+#\ code: var args = [id, _getVal('x'), _getVal('y'), _getVal('z'), _getVal('vx'), _getVal('vy'), _getVal('vz')];
+#\ code: if (dim) args.push('"' + dim.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"');
+#\ code: return 'spawnProjectile(' + args.join(', ') + ')\n';
+
+#\ block: shoot_projectile
+#\ category: Снаряды
+#\ color: #fb923c
+#\ shape: statement
+#\
+#\ row: "выстрелить" (projectileId: text: fireball)
+#\ row: "из" [shooterMode: dropdown(игрок: player, НИП: npc, указать: custom)]
+#\ if shooterMode == "player":
+#\   row: "игрок" [playerMode: dropdown(первый: first, кликнувший: event, указать: custom)]
+#\ if shooterMode == "player" and playerMode == "custom":
+#\   input: shooter (type: value)
+#\ if shooterMode == "npc":
+#\   row: "НИП" [npc: dropdown_npc]
+#\ if shooterMode == "custom":
+#\   input: shooter (type: value)
+#\ row: "скорость" (speed: number: 1.5)
+#\ row: "смещение" (ox: number: 0) (oy: number: 0) (oz: number: 0)
+#\ row: "измерение" (dimension: text: )
+#\
+#\ code: var shooter = '_eventPlayer';
+#\ code: var sm = String(_getVal('shooterMode') || 'player');
+#\ code: if (sm === 'player') {
+#\ code:   var pm = String(_getVal('playerMode') || 'first');
+#\ code:   if (pm === 'first') shooter = 'getFirstPlayer()';
+#\ code:   else if (pm === 'custom') { var cv = String(_getVal('shooter') || '').trim(); if (cv) shooter = cv; }
+#\ code: } else if (sm === 'npc') {
+#\ code:   shooter = String(_getVal('npc') || '').trim();
+#\ code: } else {
+#\ code:   var cv = String(_getVal('shooter') || '').trim();
+#\ code:   if (cv) shooter = cv;
+#\ code: }
+#\ code: var id = String(_getVal('projectileId') || '').trim();
+#\ code: var speed = _getVal('speed');
+#\ code: var ox = _getVal('ox'); var oy = _getVal('oy'); var oz = _getVal('oz');
+#\ code: var dim = String(_getVal('dimension') || '').trim();
+#\ code: var hasOffset = String(ox).trim() || String(oy).trim() || String(oz).trim();
+#\ code: var fn = hasOffset ? 'shootProjectileNear' : 'shootProjectile';
+#\ code: var args = [id, shooter, speed];
+#\ code: if (hasOffset) { args.push(ox, oy, oz); }
+#\ code: if (dim) args.push('"' + dim.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"');
+#\ code: return fn + '(' + args.join(', ') + ')\n';
+
+#\ block: get_projectile_pos
+#\ category: Снаряды
+#\ color: #fb923c
+#\ shape: value
+#\
+#\ row: "позиция снаряда" input: projectile (type: value) "UUID или сущность"
+#\ template: getProjectilePos({projectile})
+
+#\ block: remove_projectiles
+#\ category: Снаряды
+#\ color: #fb923c
+#\ shape: statement
+#\
+#\ row: "удалить снаряды" [scope: dropdown(все: all, по id: id)]
+#\ if scope == "id":
+#\   row: "id снаряда" (projectileId: text: fireball)
+#\
+#\ code: if (String(_getVal('scope') || 'all') === 'id') {
+#\ code:   return 'removeProjectiles("' + String(_getVal('projectileId') || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '")\n';
+#\ code: }
+#\ code: return 'removeProjectiles()\n';

@@ -20,6 +20,7 @@ public class ScriptManager {
     private static final String SCRIPT_EXTENSION = ".spr";
     private static final String DEFAULT_SCRIPTS_PREFIX = "/default_scripts/";
     private static final List<String> BUNDLED_DEFAULT_SCRIPTS = List.of(
+            "notification.spr",
             "spraute_chat.spr",
             "economy.spr",
             "spraute_quests.spr",
@@ -91,21 +92,13 @@ public class ScriptManager {
                 return;
             }
 
-            try (DirectoryStream<Path> stream = Files.newDirectoryStream(scriptsDir, "*" + SCRIPT_EXTENSION)) {
-                for (Path file : stream) {
-                    String name = getScriptName(file);
-                    try {
-                        String source = Files.readString(file, StandardCharsets.UTF_8);
-                        CompiledScript compiled = compileSource(name, source);
-                        compiledScripts.put(name, compiled);
-                        count++;
-                        LOGGER.info("Compiled script: {} ({} instructions)", name, compiled.getInstructions().size());
-                    } catch (Exception e) {
-                        String errorMsg = formatCompileError(e);
-                        failedScripts.put(name, errorMsg);
-                        LOGGER.error("Failed to compile script '{}': {}", file.getFileName(), e.getMessage());
-                    }
-                }
+            List<Path> scriptFiles = new ArrayList<>();
+            try (var walk = Files.walk(scriptsDir)) {
+                walk.filter(p -> Files.isRegularFile(p) && p.toString().endsWith(SCRIPT_EXTENSION))
+                        .forEach(scriptFiles::add);
+            }
+            for (Path file : scriptFiles) {
+                if (loadScriptFile(file)) count++;
             }
 
             LOGGER.info("Loaded {} script(s) from {} ({} with errors)", count, scriptsDir, failedScripts.size());
@@ -142,6 +135,7 @@ public class ScriptManager {
      */
     public void reload() {
         LOGGER.info("Reloading scripts...");
+        org.zonarstudio.spraute_engine.registry.CustomProjectileRegistry.invalidateAndReparse();
         executor.stopAll();
         loadAll();
     }
@@ -262,6 +256,11 @@ public class ScriptManager {
         executor.onUiAction(player, action, widgetId, mouseButton);
     }
 
+    /** Unblock await uiClick / uiClose / uiInput for this player (e.g. emergency GUI reset hotkey). */
+    public void cancelUiWaitsForPlayer(net.minecraft.server.level.ServerPlayer player) {
+        executor.cancelUiWaitsForPlayer(player);
+    }
+
     public void onUiOverlapAction(net.minecraft.server.level.ServerPlayer player, String id1, String id2, boolean overlapping) {
         executor.onUiOverlapAction(player, id1, id2, overlapping);
     }
@@ -302,12 +301,33 @@ public class ScriptManager {
         executor.onOrbPickup(player, texture, amount);
     }
 
+    public void onProjectileHit(String projectileId, String hitType, double x, double y, double z,
+                                net.minecraft.world.entity.Entity target, net.minecraft.world.entity.Entity owner) {
+        executor.onProjectileHit(projectileId, hitType, x, y, z, target, owner);
+    }
+
     public void onTradeBuy(net.minecraft.server.level.ServerPlayer player, String itemId, int price) {
         executor.onTradeBuy(player, itemId, price);
     }
 
     public void onTradeSell(net.minecraft.server.level.ServerPlayer player, String itemId, int price) {
         executor.onTradeSell(player, itemId, price);
+    }
+
+    public void onRelGift(net.minecraft.server.level.ServerPlayer player, String npcId, String itemId, int repDelta) {
+        executor.onRelGift(player, npcId, itemId, repDelta);
+    }
+
+    public void onRelRepChange(net.minecraft.server.level.ServerPlayer player, String npcId, int oldRep, int newRep) {
+        executor.onRelRepChange(player, npcId, oldRep, newRep);
+    }
+
+    public void onRelTalk(net.minecraft.server.level.ServerPlayer player, String npcId) {
+        executor.onRelTalk(player, npcId);
+    }
+
+    public void onRelButton(net.minecraft.server.level.ServerPlayer player, String npcId, String btnId) {
+        executor.onRelButton(player, npcId, btnId);
     }
 
     /**
@@ -347,6 +367,39 @@ public class ScriptManager {
     private String getScriptName(Path file) {
         String fileName = file.getFileName().toString();
         return fileName.substring(0, fileName.length() - SCRIPT_EXTENSION.length());
+    }
+
+    /**
+     * Load one .spr file. Scripts under {@code plugins/...} are registered by short name (filename only)
+     * so {@code import("npc_relations")} works from any script.
+     */
+    private boolean loadScriptFile(Path file) {
+        String relative = scriptsDir.relativize(file).toString().replace('\\', '/');
+        String fullName = relative.endsWith(SCRIPT_EXTENSION)
+                ? relative.substring(0, relative.length() - SCRIPT_EXTENSION.length())
+                : relative;
+        String primaryName = fullName;
+        if (fullName.startsWith("plugins/")) {
+            int slash = fullName.lastIndexOf('/');
+            if (slash >= 0 && slash < fullName.length() - 1) {
+                primaryName = fullName.substring(slash + 1);
+            }
+        }
+        try {
+            String source = Files.readString(file, StandardCharsets.UTF_8);
+            CompiledScript compiled = compileSource(primaryName, source);
+            compiledScripts.put(primaryName, compiled);
+            if (!primaryName.equals(fullName) && !compiledScripts.containsKey(fullName)) {
+                compiledScripts.put(fullName, compiled);
+            }
+            LOGGER.info("Compiled script: {} ({} instructions)", primaryName, compiled.getInstructions().size());
+            return true;
+        } catch (Exception e) {
+            String errorMsg = formatCompileError(e);
+            failedScripts.put(primaryName, errorMsg);
+            LOGGER.error("Failed to compile script '{}': {}", file.getFileName(), e.getMessage());
+            return false;
+        }
     }
 
     private String formatCompileError(Throwable e) {

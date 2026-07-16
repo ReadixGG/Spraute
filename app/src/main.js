@@ -127,6 +127,7 @@ const sprauteFunctionsList = [
   "setBillboardTexture(${1:uuid}, ${2:texture})",
   "teleportEntity(${1:uuid}, ${2:x}, ${3:y}, ${4:z})",
   "getEntityPos(${1:uuid})",
+  "getProjectilePos(${1:uuid})",
   "createGroup(${1:name})",
   "getGroup(${1:name})",
   "groupAdd(${1:group}, ${2:npc})",
@@ -155,12 +156,19 @@ const sprauteFunctionsList = [
   "setPlayerAttackDamage(${1:player}, ${2:damage})",
   "getPlayerDigSpeed(${1:player})",
   "setPlayerDigSpeed(${1:player}, ${2:mult})",
+  "setPlayerFlight(${1:player}, ${2:true})",
+  "getPlayerFlight(${1:player})",
+  "setPlayerGamemode(${1:player}, \"${2:survival}\")",
+  "getPlayerGamemode(${1:player})",
+  "isPlayerGamemode(${1:player}, \"${2:survival}\")",
   "getPlayerFacing(${1:player})",
   "playersInRadius(${1:x}, ${2:y}, ${3:z}, ${4:radius})",
   "playersNear(${1:anchor}, ${2:radius})",
   "entitiesInRadius(${1:x}, ${2:y}, ${3:z}, ${4:radius}, \"${5:any}\")",
   "entitiesNear(${1:anchor}, ${2:radius}, \"${3:any}\")",
   "setBlock(${1:x}, ${2:y}, ${3:z}, ${4:block_id})",
+  "useBlock(${1:x}, ${2:y}, ${3:z})",
+  "useBlock(${1:npc}, ${2:x}, ${3:y}, ${4:z})",
   "heldItem(${1:hand})",
   "heldItemNbt(${1:hand})",
   "giveItem(${1:player}, ${2:item_id}, ${3:count})",
@@ -186,6 +194,7 @@ const sprauteFunctionsList = [
   "getItemNbt(${1:player}, ${2:slot})",
   "setItemNbt(${1:player}, ${2:slot}, ${3:nbt})",
   "execute(${1:command})",
+  "execute(${1:command}, ${2:executor})",
   "taskDone(${1:task_id})",
   "intStr(${1:x})",
   "wholeStr(${1:x})",
@@ -1963,9 +1972,11 @@ const VisualEngine = {
       const plugins = await window.spraute.listDir('plugins');
       for (const p of plugins) {
         if (!p.isDir) continue;
+        const pluginJsonPath = `${p.rel}/plugin.json`;
+        if (!(await window.spraute.isFile(pluginJsonPath))) continue;
         let isEnabled = true;
         try {
-          const pData = JSON.parse(await window.spraute.readFile(`${p.rel}/plugin.json`, 'utf8'));
+          const pData = JSON.parse(await window.spraute.readFile(pluginJsonPath, 'utf8'));
           if (pData.enabled === false) isEnabled = false;
         } catch(e){}
         if (!isEnabled) continue;
@@ -3783,12 +3794,15 @@ async function loadPluginsList() {
     
     allPluginsData = [];
     for (const p of pluginFolders) {
+      const pluginJsonPath = `${p.rel}/plugin.json`;
+      if (!(await window.spraute.isFile(pluginJsonPath))) continue;
+
       let desc = "Пользовательский плагин / библиотека блоков";
       let author = "";
       let isEnabled = true;
       let hasIcon = false;
       try {
-        const jsonContent = await window.spraute.readFile(`${p.rel}/plugin.json`, 'utf8');
+        const jsonContent = await window.spraute.readFile(pluginJsonPath, 'utf8');
         const data = JSON.parse(jsonContent);
         if (data.description) desc = data.description;
         if (data.author) author = data.author;
@@ -3796,7 +3810,7 @@ async function loadPluginsList() {
       } catch(e) {}
       
       try {
-        hasIcon = await window.spraute.exists(`${p.rel}/icon.png`);
+        hasIcon = await window.spraute.isFile(`${p.rel}/icon.png`);
       } catch(e) {}
       
       allPluginsData.push({
@@ -4083,7 +4097,7 @@ document.addEventListener('click', async (e) => {
       
       // Иконка
       const iconPath = `plugins/${pluginName}/icon.png`;
-      const hasIcon = await window.spraute.exists(iconPath);
+      const hasIcon = await window.spraute.isFile(iconPath);
       const elIconFile = document.getElementById('plugin-settings-icon-file');
       if (elIconFile) elIconFile.value = ''; // сброс файла
       window._tempPluginIconBase64 = null; // временная переменная

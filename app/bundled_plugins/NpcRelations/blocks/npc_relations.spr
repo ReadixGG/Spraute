@@ -1,0 +1,689 @@
+#\ block: rel_start
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\
+#\ row: "запустить библиотеку отношений"
+#\ template: startScript("npc_relations")
+
+#\ block: rel_configure
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "настроить отношения"
+#\ row: [requireSneak: dropdown(ПКМ+Shift: yes, без Shift: no)]
+#\ row: "мин. реп." (minRep: number: -100) "макс. реп." (maxRep: number: 100)
+#\
+#\ if requireSneak == "yes":
+#\   template: relConfigure(true, {minRep}, {maxRep})
+#\ if requireSneak == "no":
+#\   template: relConfigure(false, {minRep}, {maxRep})
+
+#\ block: rel_register_npc
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "зарегистрировать НПС" [npc: dropdown_npc]
+#\ row: "имя" (displayName: text: НПС)
+#\ row: "подзаголовок" (title: text: )
+#\
+#\ template: relRegisterNpc("{npc}", dict("name", "{displayName}", "title", "{title}"))
+
+#\ block: rel_update_npc
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "обновить профиль НПС" [npc: dropdown_npc]
+#\ row: "имя" (displayName: text: НПС)
+#\ row: "подзаголовок" (title: text: )
+#\
+#\ template: relUpdateNpc("{npc}", dict("name", "{displayName}", "title", "{title}"))
+
+#\ block: rel_gift_item
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: value
+#\
+#\ row: "подарок" (itemId: text: minecraft:diamond)
+#\ row: "репутация" (rep: number: 10)
+#\ row: [consume: dropdown(забрать предмет: yes, не забирать: no)]
+#\ row: "сообщение НПС" (message: text: )
+#\
+#\ if consume == "yes":
+#\   template: dict("item", "{itemId}", "rep", {rep}, "consume", true, "message", "{message}")
+#\ if consume == "no":
+#\   template: dict("item", "{itemId}", "rep", {rep}, "consume", false, "message", "{message}")
+
+#\ block: rel_add_gift
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "добавить подарок НПС" [npc: dropdown_npc]
+#\ row: "предмет" (itemId: text: minecraft:diamond)
+#\ row: "репутация" (rep: number: 10)
+#\ row: [consume: dropdown(забрать: yes, не забирать: no)]
+#\ row: "сообщение" (message: text: )
+#\
+#\ if consume == "yes":
+#\   template: relAddGift("{npc}", "{itemId}", {rep}, true, "{message}")
+#\ if consume == "no":
+#\   template: relAddGift("{npc}", "{itemId}", {rep}, false, "{message}")
+
+#\ block: rel_remove_gift
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "убрать подарок у НПС" [npc: dropdown_npc]
+#\ row: "предмет" (itemId: text: minecraft:diamond)
+#\
+#\ template: relRemoveGift("{npc}", "{itemId}")
+
+#\ block: rel_add_button
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "добавить кнопку в меню НПС" [npc: dropdown_npc]
+#\ row: "id кнопки" (btnId: text: quest)
+#\ row: "текст" (label: text: §6Квесты)
+#\ row: "цвет" (color: text: #55332288) "hover" (hover: text: #886644CC)
+#\
+#\ template: relAddButton("{npc}", "{btnId}", "{label}", "{color}", "{hover}")
+
+#\ block: rel_set_builtin_visible
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "показать/скрыть кнопку" [npc: dropdown_npc]
+#\ row: [btn: dropdown(отношения: relations, подарок: gift, поговорить: talk)]
+#\ row: [visible: dropdown(показать: yes, скрыть: no)]
+#\
+#\ if visible == "yes":
+#\   template: relSetBuiltInVisible("{npc}", "{btn}", true)
+#\ if visible == "no":
+#\   template: relSetBuiltInVisible("{npc}", "{btn}", false)
+
+#\ block: rel_set_button_visible
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "показать/скрыть свою кнопку" [npc: dropdown_npc]
+#\ row: "id кнопки" (btnId: text: quest)
+#\ row: [visible: dropdown(показать: yes, скрыть: no)]
+#\
+#\ if visible == "yes":
+#\   template: relSetButtonVisible("{npc}", "{btnId}", true)
+#\ if visible == "no":
+#\   template: relSetButtonVisible("{npc}", "{btnId}", false)
+
+#\ block: rel_get_rep
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: value
+#\ write_start: import("npc_relations")
+#\
+#\ row: "репутация у" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "к НПС" [npc: dropdown_npc]
+#\
+#\ if who == "event":
+#\   template: relGetRep(_eventPlayer, "{npc}")
+#\ if who == "first":
+#\   template: relGetRep(getFirstPlayer(), "{npc}")
+#\ if who == "custom":
+#\   template: relGetRep({player}, "{npc}")
+
+#\ block: rel_set_rep
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "установить репутацию" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "к НПС" [npc: dropdown_npc]
+#\ row: "значение" input: amount (type: value)
+#\
+#\ if who == "event":
+#\   template: relSetRep(_eventPlayer, "{npc}", {amount})
+#\ if who == "first":
+#\   template: relSetRep(getFirstPlayer(), "{npc}", {amount})
+#\ if who == "custom":
+#\   template: relSetRep({player}, "{npc}", {amount})
+
+#\ block: rel_add_rep
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "изменить репутацию на" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "к НПС" [npc: dropdown_npc]
+#\ row: "дельта" input: delta (type: value)
+#\
+#\ if who == "event":
+#\   template: relAddRep(_eventPlayer, "{npc}", {delta})
+#\ if who == "first":
+#\   template: relAddRep(getFirstPlayer(), "{npc}", {delta})
+#\ if who == "custom":
+#\   template: relAddRep({player}, "{npc}", {delta})
+
+#\ block: rel_get_tier
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: value
+#\ write_start: import("npc_relations")
+#\
+#\ row: "статус отношений" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "к НПС" [npc: dropdown_npc]
+#\
+#\ if who == "event":
+#\   template: relGetTierName(_eventPlayer, "{npc}")
+#\ if who == "first":
+#\   template: relGetTierName(getFirstPlayer(), "{npc}")
+#\ if who == "custom":
+#\   template: relGetTierName({player}, "{npc}")
+
+#\ block: rel_get_tier_id
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: value
+#\ write_start: import("npc_relations")
+#\
+#\ row: "id уровня отношений" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "к НПС" [npc: dropdown_npc]
+#\
+#\ if who == "event":
+#\   template: relGetTierId(_eventPlayer, "{npc}")
+#\ if who == "first":
+#\   template: relGetTierId(getFirstPlayer(), "{npc}")
+#\ if who == "custom":
+#\   template: relGetTierId({player}, "{npc}")
+
+#\ block: rel_rep_at_least
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: value
+#\ write_start: import("npc_relations")
+#\
+#\ row: "репутация не ниже уровня" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "к НПС" [npc: dropdown_npc]
+#\ row: [tier: dropdown(враждебный: hostile, недружелюбный: unfriendly, нейтральный: neutral, дружелюбный: friendly, союзник: ally)]
+#\
+#\ if who == "event":
+#\   template: relRepAtLeast(_eventPlayer, "{npc}", "{tier}")
+#\ if who == "first":
+#\   template: relRepAtLeast(getFirstPlayer(), "{npc}", "{tier}")
+#\ if who == "custom":
+#\   template: relRepAtLeast({player}, "{npc}", "{tier}")
+
+#\ block: rel_configure_rep_tiers
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "пороги уровней репутации"
+#\ row: "враждебный от" (hostile: number: -30)
+#\ row: "недружелюбный от" (unfriendly: number: -10)
+#\ row: "нейтральный от" (neutral: number: 10)
+#\ row: "дружелюбный от" (friendly: number: 30)
+#\ row: "союзник от" (ally: number: 60)
+#\
+#\ template: relConfigureRepTiers({hostile}, {unfriendly}, {neutral}, {friendly}, {ally})
+
+#\ block: rel_configure_rep_names
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "названия уровней (рус.)"
+#\ row: "враждебный" (hostileName: text: §cВраждебный)
+#\ row: "недружелюбный" (unfriendlyName: text: §eНедружелюбный)
+#\ row: "нейтральный" (neutralName: text: §7Нейтральный)
+#\ row: "дружелюбный" (friendlyName: text: §aДружелюбный)
+#\ row: "союзник" (allyName: text: §bСоюзник)
+#\
+#\ template: relConfigureRepTierNames("{hostileName}", "{unfriendlyName}", "{neutralName}", "{friendlyName}", "{allyName}")
+
+#\ block: rel_open_menu
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "открыть меню НПС" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [npc: dropdown_npc]
+#\
+#\ if who == "event":
+#\   template: relOpenMainMenu(_eventPlayer, "{npc}")
+#\ if who == "first":
+#\   template: relOpenMainMenu(getFirstPlayer(), "{npc}")
+#\ if who == "custom":
+#\   template: relOpenMainMenu({player}, "{npc}")
+
+#\ block: rel_refresh_uuid
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "обновить UUID НПС (после респавна)" [npc: dropdown_npc]
+#\
+#\ template: relRefreshUuid("{npc}")
+
+#\ block: on_rel_gift
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: wrapper
+#\
+#\ row: "когда подарок НПС" [who: dropdown(любой: any, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [npcFilter: dropdown(любой НПС: any, указать: custom)]
+#\ if npcFilter == "custom":
+#\   row: [npc: dropdown_npc]
+#\ row: [itemFilter: dropdown(любой предмет: any, указать: custom)]
+#\ if itemFilter == "custom":
+#\   row: "предмет" (itemId: text: minecraft:diamond)
+#\ row: "→" (handler: text: h_rel_gift)
+#\
+#\ if who == "any" and npcFilter == "any" and itemFilter == "any":
+#\   template: on relGift() -> {handler} {\n{DO}}
+#\ if who == "custom" and npcFilter == "any" and itemFilter == "any":
+#\   template: on relGift({player}) -> {handler} {\n{DO}}
+#\ if who == "any" and npcFilter == "custom" and itemFilter == "any":
+#\   template: on relGift(any, "{npc}") -> {handler} {\n{DO}}
+#\ if who == "custom" and npcFilter == "custom" and itemFilter == "any":
+#\   template: on relGift({player}, "{npc}") -> {handler} {\n{DO}}
+#\ if who == "any" and npcFilter == "any" and itemFilter == "custom":
+#\   template: on relGift(any, "{itemId}") -> {handler} {\n{DO}}
+#\ if who == "custom" and npcFilter == "any" and itemFilter == "custom":
+#\   template: on relGift({player}, "{itemId}") -> {handler} {\n{DO}}
+#\ if who == "any" and npcFilter == "custom" and itemFilter == "custom":
+#\   template: on relGift(any, "{npc}", "{itemId}") -> {handler} {\n{DO}}
+#\ if who == "custom" and npcFilter == "custom" and itemFilter == "custom":
+#\   template: on relGift({player}, "{npc}", "{itemId}") -> {handler} {\n{DO}}
+
+#\ block: on_rel_rep_change
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: wrapper
+#\
+#\ row: "когда изменилась репутация" [who: dropdown(любой: any, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [npcFilter: dropdown(любой НПС: any, указать: custom)]
+#\ if npcFilter == "custom":
+#\   row: [npc: dropdown_npc]
+#\ row: "→" (handler: text: h_rel_rep)
+#\
+#\ if who == "any" and npcFilter == "any":
+#\   template: on relRepChange() -> {handler} {\n{DO}}
+#\ if who == "custom" and npcFilter == "any":
+#\   template: on relRepChange({player}) -> {handler} {\n{DO}}
+#\ if who == "any" and npcFilter == "custom":
+#\   template: on relRepChange(any, "{npc}") -> {handler} {\n{DO}}
+#\ if who == "custom" and npcFilter == "custom":
+#\   template: on relRepChange({player}, "{npc}") -> {handler} {\n{DO}}
+
+#\ block: on_rel_talk
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: wrapper
+#\
+#\ row: "когда разговор с НПС" [who: dropdown(любой: any, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [npcFilter: dropdown(любой НПС: any, указать: custom)]
+#\ if npcFilter == "custom":
+#\   row: [npc: dropdown_npc]
+#\ row: "→" (handler: text: h_rel_talk)
+#\
+#\ if who == "any" and npcFilter == "any":
+#\   template: on relTalk() -> {handler} {\n{DO}}
+#\ if who == "custom" and npcFilter == "any":
+#\   template: on relTalk({player}) -> {handler} {\n{DO}}
+#\ if who == "any" and npcFilter == "custom":
+#\   template: on relTalk(any, "{npc}") -> {handler} {\n{DO}}
+#\ if who == "custom" and npcFilter == "custom":
+#\   template: on relTalk({player}, "{npc}") -> {handler} {\n{DO}}
+
+#\ block: on_rel_button
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: wrapper
+#\
+#\ row: "когда нажата своя кнопка меню" [who: dropdown(любой: any, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [btnFilter: dropdown(любая: any, указать: custom)]
+#\ if btnFilter == "custom":
+#\   row: "id кнопки" (btnId: text: quest)
+#\ row: "→" (handler: text: h_rel_btn)
+#\
+#\ if who == "any" and btnFilter == "any":
+#\   template: on relButton() -> {handler} {\n{DO}}
+#\ if who == "custom" and btnFilter == "any":
+#\   template: on relButton({player}) -> {handler} {\n{DO}}
+#\ if who == "any" and btnFilter == "custom":
+#\   template: on relButton(any, "{btnId}") -> {handler} {\n{DO}}
+#\ if who == "custom" and btnFilter == "custom":
+#\   template: on relButton({player}, "{btnId}") -> {handler} {\n{DO}}
+
+#\ block: await_rel_gift
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\
+#\ row: "ждать подарок НПС" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [npcFilter: dropdown(любой НПС: any, указать: custom)]
+#\ if npcFilter == "custom":
+#\   row: [npc: dropdown_npc]
+#\ row: [itemFilter: dropdown(любой предмет: any, указать: custom)]
+#\ if itemFilter == "custom":
+#\   row: "предмет" (itemId: text: minecraft:diamond)
+#\
+#\ if who == "event" and npcFilter == "any" and itemFilter == "any":
+#\   template: await relGift(_eventPlayer)
+#\ if who == "first" and npcFilter == "any" and itemFilter == "any":
+#\   template: await relGift(getFirstPlayer())
+#\ if who == "custom" and npcFilter == "any" and itemFilter == "any":
+#\   template: await relGift({player})
+#\ if who == "event" and npcFilter == "custom" and itemFilter == "any":
+#\   template: await relGift(_eventPlayer, "{npc}")
+#\ if who == "first" and npcFilter == "custom" and itemFilter == "any":
+#\   template: await relGift(getFirstPlayer(), "{npc}")
+#\ if who == "custom" and npcFilter == "custom" and itemFilter == "any":
+#\   template: await relGift({player}, "{npc}")
+#\ if who == "event" and npcFilter == "any" and itemFilter == "custom":
+#\   template: await relGift(_eventPlayer, "{itemId}")
+#\ if who == "first" and npcFilter == "any" and itemFilter == "custom":
+#\   template: await relGift(getFirstPlayer(), "{itemId}")
+#\ if who == "custom" and npcFilter == "any" and itemFilter == "custom":
+#\   template: await relGift({player}, "{itemId}")
+#\ if who == "event" and npcFilter == "custom" and itemFilter == "custom":
+#\   template: await relGift(_eventPlayer, "{npc}", "{itemId}")
+#\ if who == "first" and npcFilter == "custom" and itemFilter == "custom":
+#\   template: await relGift(getFirstPlayer(), "{npc}", "{itemId}")
+#\ if who == "custom" and npcFilter == "custom" and itemFilter == "custom":
+#\   template: await relGift({player}, "{npc}", "{itemId}")
+
+#\ block: await_rel_rep_change
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\
+#\ row: "ждать изменение репутации" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [npcFilter: dropdown(любой НПС: any, указать: custom)]
+#\ if npcFilter == "custom":
+#\   row: [npc: dropdown_npc]
+#\
+#\ if who == "event" and npcFilter == "any":
+#\   template: await relRepChange(_eventPlayer)
+#\ if who == "first" and npcFilter == "any":
+#\   template: await relRepChange(getFirstPlayer())
+#\ if who == "custom" and npcFilter == "any":
+#\   template: await relRepChange({player})
+#\ if who == "event" and npcFilter == "custom":
+#\   template: await relRepChange(_eventPlayer, "{npc}")
+#\ if who == "first" and npcFilter == "custom":
+#\   template: await relRepChange(getFirstPlayer(), "{npc}")
+#\ if who == "custom" and npcFilter == "custom":
+#\   template: await relRepChange({player}, "{npc}")
+
+#\ block: await_rel_talk
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\
+#\ row: "ждать разговор с НПС" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [npcFilter: dropdown(любой НПС: any, указать: custom)]
+#\ if npcFilter == "custom":
+#\   row: [npc: dropdown_npc]
+#\
+#\ if who == "event" and npcFilter == "any":
+#\   template: await relTalk(_eventPlayer)
+#\ if who == "first" and npcFilter == "any":
+#\   template: await relTalk(getFirstPlayer())
+#\ if who == "custom" and npcFilter == "any":
+#\   template: await relTalk({player})
+#\ if who == "event" and npcFilter == "custom":
+#\   template: await relTalk(_eventPlayer, "{npc}")
+#\ if who == "first" and npcFilter == "custom":
+#\   template: await relTalk(getFirstPlayer(), "{npc}")
+#\ if who == "custom" and npcFilter == "custom":
+#\   template: await relTalk({player}, "{npc}")
+
+#\ block: await_rel_button
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\
+#\ row: "ждать нажатие кнопки меню" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [btnFilter: dropdown(любая кнопка: any, указать: custom)]
+#\ if btnFilter == "custom":
+#\   row: "id кнопки" (btnId: text: quest)
+#\ row: [npcFilter: dropdown(любой НПС: any, указать: custom)]
+#\ if npcFilter == "custom":
+#\   row: [npc: dropdown_npc]
+#\
+#\ if who == "event" and btnFilter == "any" and npcFilter == "any":
+#\   template: await relButton(_eventPlayer)
+#\ if who == "first" and btnFilter == "any" and npcFilter == "any":
+#\   template: await relButton(getFirstPlayer())
+#\ if who == "custom" and btnFilter == "any" and npcFilter == "any":
+#\   template: await relButton({player})
+#\ if who == "event" and btnFilter == "custom" and npcFilter == "any":
+#\   template: await relButton(_eventPlayer, "{btnId}")
+#\ if who == "first" and btnFilter == "custom" and npcFilter == "any":
+#\   template: await relButton(getFirstPlayer(), "{btnId}")
+#\ if who == "custom" and btnFilter == "custom" and npcFilter == "any":
+#\   template: await relButton({player}, "{btnId}")
+#\ if who == "event" and btnFilter == "custom" and npcFilter == "custom":
+#\   template: await relButton(_eventPlayer, "{btnId}", "{npc}")
+#\ if who == "first" and btnFilter == "custom" and npcFilter == "custom":
+#\   template: await relButton(getFirstPlayer(), "{btnId}", "{npc}")
+#\ if who == "custom" and btnFilter == "custom" and npcFilter == "custom":
+#\   template: await relButton({player}, "{btnId}", "{npc}")
+
+#\ block: rel_define_gifts
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: value
+#\
+#\ row: "пустой список подарков (добавляйте через «добавить в список»)"
+#\ template: []
+
+#\ block: rel_clear_gifts
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "очистить все подарки у" [npc: dropdown_npc]
+#\
+#\ template: relClearGifts("{npc}")
+
+#\ block: rel_remove_button
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "убрать кнопку у" [npc: dropdown_npc]
+#\ row: "id кнопки" (btnId: text: quest)
+#\
+#\ template: relRemoveButton("{npc}", "{btnId}")
+
+#\ block: rel_has_npc
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: value
+#\ write_start: import("npc_relations")
+#\
+#\ row: "НПС зарегистрирован в отношениях" [npc: dropdown_npc]
+#\
+#\ template: relHasNpc("{npc}")
+
+#\ block: rel_has_rep
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: value
+#\ write_start: import("npc_relations")
+#\
+#\ row: "есть репутация у" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "к НПС" [npc: dropdown_npc]
+#\
+#\ if who == "event":
+#\   template: relHasRep(_eventPlayer, "{npc}")
+#\ if who == "first":
+#\   template: relHasRep(getFirstPlayer(), "{npc}")
+#\ if who == "custom":
+#\   template: relHasRep({player}, "{npc}")
+
+#\ block: rel_format_rep
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: value
+#\ write_start: import("npc_relations")
+#\
+#\ row: "репутация текстом" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "к НПС" [npc: dropdown_npc]
+#\
+#\ if who == "event":
+#\   template: relFormatRep(_eventPlayer, "{npc}")
+#\ if who == "first":
+#\   template: relFormatRep(getFirstPlayer(), "{npc}")
+#\ if who == "custom":
+#\   template: relFormatRep({player}, "{npc}")
+
+#\ block: rel_npc_name
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: value
+#\ write_start: import("npc_relations")
+#\
+#\ row: "имя НПС в меню" [npc: dropdown_npc]
+#\
+#\ template: relNpcDisplayName("{npc}")
+
+#\ block: rel_open_relations
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "открыть экран отношений" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [npc: dropdown_npc]
+#\
+#\ if who == "event":
+#\   template: relOpenRelationsMenu(_eventPlayer, "{npc}")
+#\ if who == "first":
+#\   template: relOpenRelationsMenu(getFirstPlayer(), "{npc}")
+#\ if who == "custom":
+#\   template: relOpenRelationsMenu({player}, "{npc}")
+
+#\ block: rel_open_gift_menu
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "открыть экран подарка" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [npc: dropdown_npc]
+#\
+#\ if who == "event":
+#\   template: relOpenGiftMenu(_eventPlayer, "{npc}")
+#\ if who == "first":
+#\   template: relOpenGiftMenu(getFirstPlayer(), "{npc}")
+#\ if who == "custom":
+#\   template: relOpenGiftMenu({player}, "{npc}")
+
+#\ block: rel_tier_level
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: value
+#\
+#\ row: [preset: dropdown(свой: custom, враждебный: hostile, недружелюбный: unfriendly, нейтральный: neutral, дружелюбный: friendly, союзник: ally)]
+#\ row: "от реп." (minRep: number: -30)
+#\ row: "название" (tierName: text: §cВраждебный)
+#\
+#\ if preset == "custom":
+#\   template: dict("min", {minRep}, "name", "{tierName}")
+#\ if preset == "hostile":
+#\   template: dict("min", -999999, "id", "hostile", "name", "§cВраждебный")
+#\ if preset == "unfriendly":
+#\   template: dict("min", -10, "id", "unfriendly", "name", "§eНедружелюбный")
+#\ if preset == "neutral":
+#\   template: dict("min", 10, "id", "neutral", "name", "§7Нейтральный")
+#\ if preset == "friendly":
+#\   template: dict("min", 30, "id", "friendly", "name", "§aДружелюбный")
+#\ if preset == "ally":
+#\   template: dict("min", 60, "id", "ally", "name", "§bСоюзник")
+
+#\ block: rel_set_default_tiers
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "задать уровни отношений по умолчанию"
+#\ input: tiers (type: value) "список уровней"
+#\
+#\ template: relSetDefaultTiers({tiers})
+
+#\ block: rel_set_npc_tiers
+#\ category: Отношения
+#\ color: #e879f9
+#\ shape: statement
+#\ write_start: import("npc_relations")
+#\
+#\ row: "задать уровни отношений для" [npc: dropdown_npc]
+#\ input: tiers (type: value) "список уровней"
+#\
+#\ template: relSetNpcField("{npc}", "tiers", {tiers})

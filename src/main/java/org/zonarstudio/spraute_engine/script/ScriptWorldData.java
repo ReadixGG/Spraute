@@ -6,9 +6,14 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -21,6 +26,7 @@ import java.util.UUID;
  */
 public class ScriptWorldData extends SavedData {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScriptWorldData.class);
     private static final String DATA_NAME = "spraute_engine_vars";
     private static final Gson JSON = new GsonBuilder().disableHtmlEscaping().create();
 
@@ -54,7 +60,11 @@ public class ScriptWorldData extends SavedData {
 
     private void flushLiveToStorage() {
         for (Map.Entry<String, Object> e : liveCache.entrySet()) {
-            storage.put(e.getKey(), serialize(e.getValue()));
+            try {
+                storage.put(e.getKey(), serialize(e.getValue()));
+            } catch (Exception ex) {
+                LOGGER.error("[Spraute] Failed to save world var '{}': {}", e.getKey(), ex.getMessage());
+            }
         }
     }
 
@@ -126,9 +136,38 @@ public class ScriptWorldData extends SavedData {
             return "npc:" + id;
         }
         if (value instanceof java.util.List<?> || value instanceof java.util.Map<?, ?>) {
-            return "j:" + JSON.toJson(value);
+            Object safe = toJsonSafe(value);
+            return "j:" + JSON.toJson(safe);
         }
         return "s:" + value.toString();
+    }
+
+    /** Converts script/world data to JSON-safe primitives, lists and maps only. */
+    private static Object toJsonSafe(Object value) {
+        if (value == null) return null;
+        if (value instanceof Boolean || value instanceof Number || value instanceof String) return value;
+        if (value instanceof Optional<?> opt) return opt.map(ScriptWorldData::toJsonSafe).orElse(null);
+        if (value instanceof ChestLootManager.SlotEntry se) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("item", se.item);
+            m.put("count", se.count);
+            return m;
+        }
+        if (value instanceof List<?> list) {
+            List<Object> out = new ArrayList<>(list.size());
+            for (Object item : list) {
+                out.add(toJsonSafe(item));
+            }
+            return out;
+        }
+        if (value instanceof Map<?, ?> map) {
+            Map<String, Object> out = new HashMap<>();
+            for (Map.Entry<?, ?> e : map.entrySet()) {
+                out.put(String.valueOf(e.getKey()), toJsonSafe(e.getValue()));
+            }
+            return out;
+        }
+        return value.toString();
     }
 
     private static Object deserialize(String s, MinecraftServer server, ServerLevel level) {

@@ -1,0 +1,18 @@
+#\ block: set_player_flight
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "полёт" input: player (type: value) [mode: dropdown(включить: on, выключить: off)]
+#\ if mode == "on":
+#\   template: setPlayerFlight({player}, true)
+#\ if mode == "off":
+#\   template: setPlayerFlight({player}, false)
+
+#\ block: get_player_flight
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "полёт включён у" input: player (type: value)
+#\ template: getPlayerFlight({player})

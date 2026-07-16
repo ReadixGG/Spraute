@@ -657,11 +657,11 @@ public class ScriptParser {
     }
 
     private ScriptNode parseAsyncStatement() {
-        // async { body } or async "task_id" { body }
-        String taskId = null;
-        if (check(ScriptToken.TokenType.STRING)) {
-            advance();
-            taskId = previous().getValue();
+        // async { body } or async taskIdExpr { body }
+        ScriptNode taskIdExpr = null;
+        skipNewlines();
+        if (!check(ScriptToken.TokenType.LBRACE)) {
+            taskIdExpr = parseExpression();
         }
         skipNewlines();
         ScriptNode body;
@@ -670,7 +670,7 @@ public class ScriptParser {
         } else {
             body = parseDeclaration();
         }
-        return withPos(new ScriptNode.AsyncNode(taskId, body), previous());
+        return withPos(new ScriptNode.AsyncNode(taskIdExpr, body), previous());
     }
 
     private void skipNewlines() {

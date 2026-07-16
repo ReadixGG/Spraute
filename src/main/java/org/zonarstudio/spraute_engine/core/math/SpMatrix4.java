@@ -29,23 +29,32 @@ public final class SpMatrix4 {
 
     /** Set from translation + quaternion rotation + uniform scale. */
     public SpMatrix4 compose(SpVec3 translate, SpQuaternion rot, float scale) {
+        return compose(translate, rot, new SpVec3(scale, scale, scale));
+    }
+
+    /** Set from translation + quaternion rotation + non-uniform scale (bone stretch). */
+    public SpMatrix4 compose(SpVec3 translate, SpQuaternion rot, SpVec3 scale) {
+        float sx = scale.x;
+        float sy = scale.y;
+        float sz = scale.z;
+
         float xx = rot.x * rot.x, xy = rot.x * rot.y, xz = rot.x * rot.z, xw = rot.x * rot.w;
         float yy = rot.y * rot.y, yz = rot.y * rot.z, yw = rot.y * rot.w;
         float zz = rot.z * rot.z, zw = rot.z * rot.w;
 
-        m[0]  = (1f - 2f * (yy + zz)) * scale;
-        m[1]  = (2f * (xy + zw)) * scale;
-        m[2]  = (2f * (xz - yw)) * scale;
+        m[0]  = (1f - 2f * (yy + zz)) * sx;
+        m[1]  = (2f * (xy + zw)) * sx;
+        m[2]  = (2f * (xz - yw)) * sx;
         m[3]  = 0f;
 
-        m[4]  = (2f * (xy - zw)) * scale;
-        m[5]  = (1f - 2f * (xx + zz)) * scale;
-        m[6]  = (2f * (yz + xw)) * scale;
+        m[4]  = (2f * (xy - zw)) * sy;
+        m[5]  = (1f - 2f * (xx + zz)) * sy;
+        m[6]  = (2f * (yz + xw)) * sy;
         m[7]  = 0f;
 
-        m[8]  = (2f * (xz + yw)) * scale;
-        m[9]  = (2f * (yz - xw)) * scale;
-        m[10] = (1f - 2f * (xx + yy)) * scale;
+        m[8]  = (2f * (xz + yw)) * sz;
+        m[9]  = (2f * (yz - xw)) * sz;
+        m[10] = (1f - 2f * (xx + yy)) * sz;
         m[11] = 0f;
 
         m[12] = translate.x;

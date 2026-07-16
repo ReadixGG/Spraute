@@ -112,6 +112,10 @@ public class ScriptCompiler {
                 if (args.size() < 2) throw new ScriptException("await orbPickup(player, amount, texture?) requires at least player and amount");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_ORB_PICKUP,
                         args.get(0), args.get(1), args.size() >= 3 ? args.get(2) : null));
+            } else if (func.equals("projectileHit") || func.equals("projectile_hit")) {
+                if (args.isEmpty()) throw new ScriptException("await projectileHit(projectile_id, [hit_type]) requires projectile id");
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_PROJECTILE_HIT,
+                        args.get(0), args.size() > 1 ? args.get(1) : null));
             } else if (func.equals("tradeBuy") || func.equals("trade_buy")) {
                 if (args.isEmpty()) throw new ScriptException("await tradeBuy(player, [item_id]) requires player");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_TRADE_BUY,
@@ -120,6 +124,22 @@ public class ScriptCompiler {
                 if (args.isEmpty()) throw new ScriptException("await tradeSell(player, [item_id]) requires player");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_TRADE_SELL,
                         args.get(0), args.size() > 1 ? args.get(1) : null));
+            } else if (func.equals("relGift") || func.equals("rel_gift")) {
+                if (args.isEmpty()) throw new ScriptException("await relGift(player, [npc_or_item], [item]) requires player");
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_REL_GIFT,
+                        args.get(0), args.size() > 1 ? args.get(1) : null, args.size() > 2 ? args.get(2) : null));
+            } else if (func.equals("relRepChange") || func.equals("rel_rep_change")) {
+                if (args.isEmpty()) throw new ScriptException("await relRepChange(player, [npc]) requires player");
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_REL_REP_CHANGE,
+                        args.get(0), args.size() > 1 ? args.get(1) : null));
+            } else if (func.equals("relTalk") || func.equals("rel_talk")) {
+                if (args.isEmpty()) throw new ScriptException("await relTalk(player, [npc]) requires player");
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_REL_TALK,
+                        args.get(0), args.size() > 1 ? args.get(1) : null));
+            } else if (func.equals("relButton") || func.equals("rel_button")) {
+                if (args.isEmpty()) throw new ScriptException("await relButton(player, [btn_id], [npc]) requires player");
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_REL_BUTTON,
+                        args.get(0), args.size() > 1 ? args.get(1) : null, args.size() > 2 ? args.get(2) : null));
             } else if (func.equals("task")) {
                 if (args.isEmpty()) throw new ScriptException("await task() requires task id");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_TASK, args.get(0)));
@@ -257,7 +277,7 @@ public class ScriptCompiler {
             List<CompiledScript.Instruction> bodyInstructions = new ArrayList<>();
             compileNode(asyncNode.getBody(), bodyInstructions);
             instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.ASYNC_START,
-                    asyncNode.getTaskId(),
+                    asyncNode.getTaskIdExpr(),
                     bodyInstructions
             ));
         } else if (node instanceof ScriptNode.UiWidgetNode widgetNode) {

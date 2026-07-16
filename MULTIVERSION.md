@@ -20,7 +20,7 @@ gradlew :1.20.1:compileJava
 # Сборка jar обеих версий (рекомендуется после правок)
 gradlew :1.19.2:build :1.20.1:build -x test
 ```
-Готовые jar: `versions/<версия>/build/libs/spraute_engine-1.2-<mc>.jar`.
+Готовые jar: `versions/<версия>/build/libs/spraute_engine-1.6-<mc>.jar`.
 
 > **Паритет функций:** `create block` (дроп, `drops`, руда `is_ore`), `create craft` (`any`/`slots`, теги и списки замен), `create drop`, `create item`, `create tab` — одинаковый синтаксис в `.spr` на **1.19.2** и **1.20.1**. Различия только во внутреннем API Minecraft (гарды Stonecutter / compat-классы).
 

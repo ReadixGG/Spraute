@@ -110,6 +110,12 @@ public class CustomBlockRegistry {
         public Integer durability;
         public Float miningSpeed;
         public Integer miningLevel;
+        /** Bedrock .geo.json path (e.g. geo/sword.geo.json) — enables 3D in-hand rendering. */
+        public String geo;
+        public org.zonarstudio.spraute_engine.item.GeoItemTransform handFirst;
+        public org.zonarstudio.spraute_engine.item.GeoItemTransform handThird;
+        public org.zonarstudio.spraute_engine.item.GeoItemTransform handGround;
+        public org.zonarstudio.spraute_engine.item.GeoItemTransform gui;
     }
 
     public static final Map<String, String> CUSTOM_RECIPES_JSON = new HashMap<>();
@@ -168,6 +174,7 @@ public class CustomBlockRegistry {
         Pattern itemPattern = Pattern.compile("create\\s+item\\s+([a-zA-Z0-9_]+)\\s*\\{");
         Pattern createDropPattern = Pattern.compile("create\\s+drop\\s+([a-zA-Z0-9_]+)\\s*\\{");
         Pattern modelPattern = Pattern.compile("model\\s*=\\s*\"([^\"]+)\"");
+        Pattern geoPattern = Pattern.compile("geo\\s*=\\s*\"([^\"]+)\"");
         Pattern texturePattern = Pattern.compile("texture\\s*=\\s*\"([^\"]+)\"");
         Pattern iconPattern = Pattern.compile("icon\\s*=\\s*\"([^\"]+)\"");
         Pattern tabIdPattern = Pattern.compile("tab\\s*=\\s*\"([^\"]+)\"");
@@ -540,6 +547,14 @@ public class CustomBlockRegistry {
                         Matcher miningLevelM = miningLevelPattern.matcher(body);
                         if (miningLevelM.find()) def.miningLevel = Integer.parseInt(miningLevelM.group(1));
 
+                        Matcher geoM = geoPattern.matcher(body);
+                        if (geoM.find()) def.geo = geoM.group(1);
+
+                        def.handFirst = parseGeoItemTransform(body, "hand_first");
+                        def.handThird = parseGeoItemTransform(body, "hand_third");
+                        def.handGround = parseGeoItemTransform(body, "hand_ground");
+                        def.gui = parseGeoItemTransform(body, "gui");
+
                         ITEMS.put(def.id, def);
                         LOGGER.info("[Spraute Engine] Found custom item declaration: {}", def.id);
                     }
@@ -551,6 +566,7 @@ public class CustomBlockRegistry {
         } catch (IOException e) {
             LOGGER.error("Failed to walk scripts directory", e);
         }
+        org.zonarstudio.spraute_engine.item.GeoItemVisualRegistry.rebuild();
     }
 
     private static ItemStack makeTabIcon(String iconStr) {
@@ -957,6 +973,12 @@ public class CustomBlockRegistry {
         if (!m.find()) return defaultValue;
         String v = m.group(1) != null ? m.group(1) : m.group(2);
         return Boolean.parseBoolean(v);
+    }
+
+    private static org.zonarstudio.spraute_engine.item.GeoItemTransform parseGeoItemTransform(String body, String field) {
+        String raw = extractBracketArrayValue(body, field);
+        if (raw == null) return null;
+        return org.zonarstudio.spraute_engine.item.GeoItemTransform.parse(raw);
     }
 
     /** Извлекает содержимое массива после {@code key = [}, учитывая вложенные скобки. */

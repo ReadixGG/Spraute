@@ -34,6 +34,14 @@ public class ModEntities {
                             .updateInterval(1)
                             .build("spraute_billboard"));
 
+    public static final RegistryObject<EntityType<SprauteProjectileEntity>> SPRAUTE_PROJECTILE =
+            ENTITIES.register("spraute_projectile",
+                    () -> EntityType.Builder.<SprauteProjectileEntity>of((type, level) -> new SprauteProjectileEntity(type, level), MobCategory.MISC)
+                            .sized(0.5f, 0.5f)
+                            .clientTrackingRange(8)
+                            .updateInterval(1)
+                            .build("spraute_projectile"));
+
     public static void register(IEventBus eventBus) {
         ENTITIES.register(eventBus);
     }

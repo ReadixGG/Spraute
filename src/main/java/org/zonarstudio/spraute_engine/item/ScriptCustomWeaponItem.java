@@ -20,7 +20,11 @@ public class ScriptCustomWeaponItem extends ScriptCustomItem {
     private final float attackSpeed;
 
     public ScriptCustomWeaponItem(Properties properties, String displayName, float damage, float attackSpeed) {
-        super(properties, displayName);
+        this(properties, displayName, damage, attackSpeed, false);
+    }
+
+    public ScriptCustomWeaponItem(Properties properties, String displayName, float damage, float attackSpeed, boolean geoVisual) {
+        super(properties, displayName, geoVisual);
         this.damage = damage;
         this.attackSpeed = attackSpeed;
     }

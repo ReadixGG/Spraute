@@ -6,7 +6,16 @@ contextBridge.exposeInMainWorld('spraute', {
   storeGet: (key) => ipcRenderer.invoke('store:get', key),
   storeSet: (key, value) => ipcRenderer.invoke('store:set', key, value),
   listDir: (relPath) => ipcRenderer.invoke('fs:list', relPath),
-  readFile: (relPath, encoding) => ipcRenderer.invoke('fs:read', relPath, encoding),
+  stat: (relPath) => ipcRenderer.invoke('fs:stat', relPath),
+  isFile: async (relPath) => {
+    const st = await ipcRenderer.invoke('fs:stat', relPath);
+    return !!st?.isFile;
+  },
+  readFile: async (relPath, encoding) => {
+    const st = await ipcRenderer.invoke('fs:stat', relPath);
+    if (!st?.isFile) throw new Error('ENOENT');
+    return ipcRenderer.invoke('fs:read', relPath, encoding);
+  },
   writeFile: (relPath, content) => ipcRenderer.invoke('fs:write', relPath, content),
   writeBase64: (relPath, base64) => ipcRenderer.invoke('fs:writeBase64', relPath, base64),
   getPluginsStoragePath: () => ipcRenderer.invoke('plugin:getStoragePath'),

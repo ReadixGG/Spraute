@@ -1,0 +1,1095 @@
+# ================================================================
+#  NpcRelations — плагин Spraute Studio (автор: Any)
+#  import("npc_relations") — API в других скриптах
+#  Автозапуск при старте сервера (см. autorun ниже)
+#
+#  Открытие: ПКМ + Shift по зарегистрированному НПС
+#
+#  События (как в economy / trade):
+#    on relGift() / on relRepChange() / on relTalk() / on relButton()
+#    on relGift(any, "minecraft:diamond")
+#    on relGift(any, "boris", "minecraft:diamond")
+#    on relRepChange(any, "boris")
+#    on relButton(any, "quest")
+#
+#    await relGift(player)
+#    await relRepChange(player, "boris")
+#    await relTalk(player)
+#
+#  Репутация: player.savedData["rel_rep"] — словарь npc_id → число.
+#  Уровни (по умолчанию): враждебный -30, недружелюбный -10, нейтральный 10,
+#  дружелюбный 30, союзник 60. Настройка: relConfigureRepTiers / relConfigureRepTierNames.
+#  relGetTierName(p, npc) — русское название; relGetTierId(p, npc) — id уровня.
+#
+#  Переменные события:
+#    _eventPlayer, _eventTarget (npc_id или btn_id)
+#    rel_event_npc, rel_event_item, rel_event_rep
+#    rel_event_old_rep, rel_event_new_rep, rel_event_button
+# ================================================================
+
+import("spraute_chat")
+import("dialog_classic")
+
+# ──── Константы событий ────
+val REL_ACT_GIFT = "relGift"
+val REL_ACT_REP = "relRepChange"
+val REL_ACT_TALK = "relTalk"
+val REL_ACT_BUTTON = "relButton"
+
+val REL_DATA_KEY = "rel_rep"
+
+var REL_REQUIRE_SNEAK = true
+var REL_DEFAULT_MIN = -100
+var REL_DEFAULT_MAX = 100
+
+# ──── Пороги уровней репутации (настраиваются через relConfigureRepTiers) ────
+var REP_TIER_HOSTILE = -30
+var REP_TIER_UNFRIENDLY = -10
+var REP_TIER_NEUTRAL = 10
+var REP_TIER_FRIENDLY = 30
+var REP_TIER_ALLY = 60
+
+# Русские названия для отображения в игре
+var REP_NAME_HOSTILE = "§cВраждебный"
+var REP_NAME_UNFRIENDLY = "§eНедружелюбный"
+var REP_NAME_NEUTRAL = "§7Нейтральный"
+var REP_NAME_FRIENDLY = "§aДружелюбный"
+var REP_NAME_ALLY = "§bСоюзник"
+
+val REP_ID_HOSTILE = "hostile"
+val REP_ID_UNFRIENDLY = "unfriendly"
+val REP_ID_NEUTRAL = "neutral"
+val REP_ID_FRIENDLY = "friendly"
+val REP_ID_ALLY = "ally"
+
+var rel_active_player = null
+var rel_active_npc = ""
+var rel_menu_mode = "main"
+var rel_gift_selected = 0
+
+if (!hasVar("rel_event_npc")) { var world rel_event_npc = "" }
+if (!hasVar("rel_event_item")) { var world rel_event_item = "" }
+if (!hasVar("rel_event_rep")) { var world rel_event_rep = 0 }
+if (!hasVar("rel_event_old_rep")) { var world rel_event_old_rep = 0 }
+if (!hasVar("rel_event_new_rep")) { var world rel_event_new_rep = 0 }
+if (!hasVar("rel_event_button")) { var world rel_event_button = "" }
+
+# ──── Реестр НПС (world) ────
+if (!hasVar("rel_npc_profiles")) {
+    var world rel_npc_profiles = dictCreate()
+}
+if (!hasVar("rel_uuid_map")) {
+    var world rel_uuid_map = dictCreate()
+}
+if (!hasVar("rel_npc_id_list")) {
+    var world rel_npc_id_list = list()
+}
+if (!hasVar("rel_default_tiers")) {
+    var world rel_default_tiers = list()
+}
+
+# ──── Внутренние хелперы ────
+
+fun relBlankProfile(name) {
+    return dict(
+        "name", name,
+        "title", "",
+        "gifts", list(),
+        "buttons", list(),
+        "show_relations", true,
+        "show_gift", true,
+        "show_talk", true,
+        "min_rep", REL_DEFAULT_MIN,
+        "max_rep", REL_DEFAULT_MAX,
+        "tiers", null,
+        "talk_question", "§fО чём поговорим?",
+        "talk_answers", list("Просто поболтать", "До встречи"),
+        "talk_lines", null
+    )
+}
+
+fun relProfile(npc_id) {
+    if (npc_id == null) { return null }
+    if (npc_id == "") { return null }
+    return dictGet(rel_npc_profiles, npc_id)
+}
+
+fun relHasNpc(npc_id) {
+    if (relProfile(npc_id) != null) { return true }
+    return false
+}
+
+fun relTrackUuid(npc_id) {
+    val ent = get_npc(npc_id)
+    if (ent == null) { return }
+    val uid = ent.uuid
+    if (uid == null) { return }
+    if (uid == "") { return }
+    dictSet(rel_uuid_map, uid, npc_id)
+}
+
+fun relResolveNpcId(npc_ent) {
+    if (npc_ent == null) { return "" }
+    val uid = npc_ent.uuid
+    if (uid != null) {
+        if (uid != "") {
+            val mapped = dictGet(rel_uuid_map, uid)
+            if (mapped != null) {
+                if (mapped != "") { return mapped }
+            }
+            var i = 0
+            while (i < listSize(rel_npc_id_list)) {
+                val nid = listGet(rel_npc_id_list, i)
+                val ent = get_npc(nid)
+                if (ent != null) {
+                    if (ent.uuid == uid) {
+                        dictSet(rel_uuid_map, uid, nid)
+                        return nid
+                    }
+                }
+                i = i + 1
+            }
+        }
+    }
+    return ""
+}
+
+fun relRefreshUuid(npc_id) {
+    relTrackUuid(npc_id)
+}
+
+fun relInit(p) {
+    if (p == null) { return }
+    val d = p.savedData
+    if (d == null) { return }
+    if (d[REL_DATA_KEY] == null) {
+        d[REL_DATA_KEY] = dictCreate()
+    }
+}
+
+fun relRepDict(p) {
+    relInit(p)
+    return p.savedData[REL_DATA_KEY]
+}
+
+# Повторно записать словарь репутации в savedData (чтобы сохранилось при выходе из мира)
+fun relSaveRep(p) {
+    if (p == null) { return }
+    val d = p.savedData
+    if (d == null) { return }
+    val rd = d[REL_DATA_KEY]
+    if (rd != null) {
+        d[REL_DATA_KEY] = rd
+    }
+}
+
+fun relClamp(value, lo, hi) {
+    var v = value
+    if (v < lo) { v = lo }
+    if (v > hi) { v = hi }
+    return v
+}
+
+fun relGetBounds(npc_id) {
+    val prof = relProfile(npc_id)
+    var lo = REL_DEFAULT_MIN
+    var hi = REL_DEFAULT_MAX
+    if (prof != null) {
+        var v = dictGet(prof, "min_rep")
+        if (v != null) { lo = v }
+        v = dictGet(prof, "max_rep")
+        if (v != null) { hi = v }
+    }
+    return dict("min", lo, "max", hi)
+}
+
+fun relGetRep(p, npc_id) {
+    if (p == null) { return 0 }
+    if (npc_id == null) { return 0 }
+    if (npc_id == "") { return 0 }
+    val rd = relRepDict(p)
+    var v = dictGet(rd, npc_id)
+    if (v == null) { return 0 }
+    return v
+}
+
+fun relSetRep(p, npc_id, value) {
+    if (p == null) { return }
+    if (npc_id == null) { return }
+    if (npc_id == "") { return }
+    val b = relGetBounds(npc_id)
+    val lo = dictGet(b, "min")
+    val hi = dictGet(b, "max")
+    var old = relGetRep(p, npc_id)
+    var next = relClamp(value, lo, hi)
+    val rd = relRepDict(p)
+    dictSet(rd, npc_id, next)
+    relSaveRep(p)
+    if (old != next) {
+        relFireRepChange(p, npc_id, old, next)
+    }
+}
+
+fun relAddRep(p, npc_id, delta) {
+    if (p == null) { return }
+    var cur = relGetRep(p, npc_id)
+    relSetRep(p, npc_id, cur + delta)
+}
+
+fun relHasRep(p, npc_id) {
+    if (relGetRep(p, npc_id) != 0) { return true }
+    val rd = relRepDict(p)
+    if (dictGet(rd, npc_id) != null) { return true }
+    return false
+}
+
+fun relGetTiers(npc_id) {
+    val prof = relProfile(npc_id)
+    if (prof != null) {
+        val custom = dictGet(prof, "tiers")
+        if (custom != null) { return custom }
+    }
+    return rel_default_tiers
+}
+
+fun relPickTier(p, npc_id) {
+    val rep = relGetRep(p, npc_id)
+    val tiers = relGetTiers(npc_id)
+    var best = null
+    var best_min = -999999
+    var i = 0
+    while (i < listSize(tiers)) {
+        val t = listGet(tiers, i)
+        var m = dictGet(t, "min")
+        if (m == null) { m = 0 }
+        if (rep >= m) {
+            if (m >= best_min) {
+                best_min = m
+                best = t
+            }
+        }
+        i = i + 1
+    }
+    return best
+}
+
+fun relGetTierName(p, npc_id) {
+    val t = relPickTier(p, npc_id)
+    if (t == null) { return "§7?" }
+    var name = dictGet(t, "name")
+    if (name == null) { return "§7?" }
+    if (name == "") { return "§7?" }
+    return name
+}
+
+fun relGetTierId(p, npc_id) {
+    val t = relPickTier(p, npc_id)
+    if (t == null) { return REP_ID_HOSTILE }
+    var id = dictGet(t, "id")
+    if (id == null) { return REP_ID_HOSTILE }
+    if (id == "") { return REP_ID_HOSTILE }
+    return id
+}
+
+fun relGetTierMin(p, npc_id) {
+    val t = relPickTier(p, npc_id)
+    if (t == null) { return -999999 }
+    var m = dictGet(t, "min")
+    if (m == null) { return -999999 }
+    return m
+}
+
+fun relTierRank(tier_id) {
+    if (tier_id == REP_ID_ALLY) { return 4 }
+    if (tier_id == REP_ID_FRIENDLY) { return 3 }
+    if (tier_id == REP_ID_NEUTRAL) { return 2 }
+    if (tier_id == REP_ID_UNFRIENDLY) { return 1 }
+    return 0
+}
+
+fun relRepAtLeast(p, npc_id, min_tier_id) {
+    val cur = relGetTierId(p, npc_id)
+    return relTierRank(cur) >= relTierRank(min_tier_id)
+}
+
+fun relRebuildDefaultTiers() {
+    rel_default_tiers = list(
+        dict("min", -999999, "id", REP_ID_HOSTILE, "name", REP_NAME_HOSTILE),
+        dict("min", REP_TIER_HOSTILE, "id", REP_ID_HOSTILE, "name", REP_NAME_HOSTILE),
+        dict("min", REP_TIER_UNFRIENDLY, "id", REP_ID_UNFRIENDLY, "name", REP_NAME_UNFRIENDLY),
+        dict("min", REP_TIER_NEUTRAL, "id", REP_ID_NEUTRAL, "name", REP_NAME_NEUTRAL),
+        dict("min", REP_TIER_FRIENDLY, "id", REP_ID_FRIENDLY, "name", REP_NAME_FRIENDLY),
+        dict("min", REP_TIER_ALLY, "id", REP_ID_ALLY, "name", REP_NAME_ALLY)
+    )
+}
+
+fun relConfigureRepTiers(hostile, unfriendly, neutral, friendly, ally) {
+    if (hostile != null) { REP_TIER_HOSTILE = hostile }
+    if (unfriendly != null) { REP_TIER_UNFRIENDLY = unfriendly }
+    if (neutral != null) { REP_TIER_NEUTRAL = neutral }
+    if (friendly != null) { REP_TIER_FRIENDLY = friendly }
+    if (ally != null) { REP_TIER_ALLY = ally }
+    relRebuildDefaultTiers()
+}
+
+fun relConfigureRepTierNames(hostile_name, unfriendly_name, neutral_name, friendly_name, ally_name) {
+    if (hostile_name != null) {
+        if (hostile_name != "") { REP_NAME_HOSTILE = hostile_name }
+    }
+    if (unfriendly_name != null) {
+        if (unfriendly_name != "") { REP_NAME_UNFRIENDLY = unfriendly_name }
+    }
+    if (neutral_name != null) {
+        if (neutral_name != "") { REP_NAME_NEUTRAL = neutral_name }
+    }
+    if (friendly_name != null) {
+        if (friendly_name != "") { REP_NAME_FRIENDLY = friendly_name }
+    }
+    if (ally_name != null) {
+        if (ally_name != "") { REP_NAME_ALLY = ally_name }
+    }
+    relRebuildDefaultTiers()
+}
+
+fun relFormatRep(p, npc_id) {
+    val b = relGetBounds(npc_id)
+    return relGetRep(p, npc_id) + " / " + dictGet(b, "max")
+}
+
+fun relFormatRepDelta(delta) {
+    var d = delta
+    if (d == null) { d = 0 }
+    if (d > 0) { return "§e+" + d }
+    return "§e" + d
+}
+
+fun relSetDefaultTiers(tier_list) {
+    if (tier_list != null) {
+        rel_default_tiers = tier_list
+    }
+}
+
+fun relConfigure(require_sneak, min_rep, max_rep) {
+    if (require_sneak != null) { REL_REQUIRE_SNEAK = require_sneak }
+    if (min_rep != null) { REL_DEFAULT_MIN = min_rep }
+    if (max_rep != null) { REL_DEFAULT_MAX = max_rep }
+}
+
+# ──── Регистрация НПС ────
+
+fun relRegisterNpc(npc_id, profile) {
+    if (npc_id == null) { return }
+    if (npc_id == "") { return }
+    if (relHasNpc(npc_id)) { return }
+
+    var name = npc_id
+    if (profile != null) {
+        var n = dictGet(profile, "name")
+        if (n != null) {
+            if (n != "") { name = n }
+        }
+    }
+
+    val base = relBlankProfile(name)
+    if (profile != null) {
+        relMergeProfile(base, profile)
+    }
+    dictSet(rel_npc_profiles, npc_id, base)
+    var found = false
+    var li = 0
+    while (li < listSize(rel_npc_id_list)) {
+        if (listGet(rel_npc_id_list, li) == npc_id) { found = true }
+        li = li + 1
+    }
+    if (!found) { listAdd(rel_npc_id_list, npc_id) }
+    relTrackUuid(npc_id)
+}
+
+fun relMergeProfile(dst, src) {
+    if (dst == null) { return }
+    if (src == null) { return }
+    var sn = dictGet(src, "name")
+    if (sn != null) {
+        if (sn != "") { dictSet(dst, "name", sn) }
+    }
+    if (dictGet(src, "title") != null) { dictSet(dst, "title", dictGet(src, "title")) }
+    if (dictGet(src, "gifts") != null) { dictSet(dst, "gifts", dictGet(src, "gifts")) }
+    if (dictGet(src, "buttons") != null) { dictSet(dst, "buttons", dictGet(src, "buttons")) }
+    if (dictGet(src, "show_relations") != null) { dictSet(dst, "show_relations", dictGet(src, "show_relations")) }
+    if (dictGet(src, "show_gift") != null) { dictSet(dst, "show_gift", dictGet(src, "show_gift")) }
+    if (dictGet(src, "show_talk") != null) { dictSet(dst, "show_talk", dictGet(src, "show_talk")) }
+    if (dictGet(src, "min_rep") != null) { dictSet(dst, "min_rep", dictGet(src, "min_rep")) }
+    if (dictGet(src, "max_rep") != null) { dictSet(dst, "max_rep", dictGet(src, "max_rep")) }
+    if (dictGet(src, "tiers") != null) { dictSet(dst, "tiers", dictGet(src, "tiers")) }
+    if (dictGet(src, "talk_question") != null) { dictSet(dst, "talk_question", dictGet(src, "talk_question")) }
+    if (dictGet(src, "talk_answers") != null) { dictSet(dst, "talk_answers", dictGet(src, "talk_answers")) }
+    if (dictGet(src, "talk_lines") != null) { dictSet(dst, "talk_lines", dictGet(src, "talk_lines")) }
+}
+
+fun relUpdateNpc(npc_id, profile) {
+    if (!relHasNpc(npc_id)) {
+        relRegisterNpc(npc_id, profile)
+        return
+    }
+    val dst = relProfile(npc_id)
+    relMergeProfile(dst, profile)
+    relTrackUuid(npc_id)
+}
+
+fun relSetNpcField(npc_id, field, value) {
+    if (!relHasNpc(npc_id)) { return }
+    val prof = relProfile(npc_id)
+    dictSet(prof, field, value)
+}
+
+fun relSetBuiltInVisible(npc_id, key, visible) {
+    if (key == "relations") { relSetNpcField(npc_id, "show_relations", visible) }
+    else if (key == "gift") { relSetNpcField(npc_id, "show_gift", visible) }
+    else if (key == "talk") { relSetNpcField(npc_id, "show_talk", visible) }
+}
+
+fun relFindGift(prof, item_id) {
+    val gifts = dictGet(prof, "gifts")
+    if (gifts == null) { return null }
+    var i = 0
+    while (i < listSize(gifts)) {
+        val g = listGet(gifts, i)
+        if (dictGet(g, "item") == item_id) { return g }
+        i = i + 1
+    }
+    return null
+}
+
+fun relAddGift(npc_id, item_id, rep_gain, consume, message) {
+    if (!relHasNpc(npc_id)) { return }
+    val prof = relProfile(npc_id)
+    var gifts = dictGet(prof, "gifts")
+    if (gifts == null) {
+        gifts = list()
+        dictSet(prof, "gifts", gifts)
+    }
+    if (relFindGift(prof, item_id) != null) { return }
+    var c = true
+    if (consume != null) { c = consume }
+    var msg = ""
+    if (message != null) { msg = message }
+    listAdd(gifts, dict("item", item_id, "rep", rep_gain, "consume", c, "message", msg))
+}
+
+fun relRemoveGift(npc_id, item_id) {
+    if (!relHasNpc(npc_id)) { return }
+    val prof = relProfile(npc_id)
+    val gifts = dictGet(prof, "gifts")
+    if (gifts == null) { return }
+    var i = 0
+    var rm = -1
+    while (i < listSize(gifts)) {
+        val g = listGet(gifts, i)
+        if (dictGet(g, "item") == item_id) { rm = i }
+        i = i + 1
+    }
+    if (rm >= 0) { listRemove(gifts, rm) }
+}
+
+fun relClearGifts(npc_id) {
+    relSetNpcField(npc_id, "gifts", list())
+}
+
+fun relFindButton(prof, btn_id) {
+    val buttons = dictGet(prof, "buttons")
+    if (buttons == null) { return null }
+    var i = 0
+    while (i < listSize(buttons)) {
+        val b = listGet(buttons, i)
+        if (dictGet(b, "id") == btn_id) { return b }
+        i = i + 1
+    }
+    return null
+}
+
+fun relAddButton(npc_id, btn_id, label, color, hover) {
+    if (!relHasNpc(npc_id)) { return }
+    if (btn_id == null) { return }
+    if (btn_id == "") { return }
+    val prof = relProfile(npc_id)
+    var buttons = dictGet(prof, "buttons")
+    if (buttons == null) {
+        buttons = list()
+        dictSet(prof, "buttons", buttons)
+    }
+    if (relFindButton(prof, btn_id) != null) { return }
+    var col = "#33446688"
+    if (color != null) {
+        if (color != "") { col = color }
+    }
+    var hov = "#5566AACC"
+    if (hover != null) {
+        if (hover != "") { hov = hover }
+    }
+    var lbl = btn_id
+    if (label != null) {
+        if (label != "") { lbl = label }
+    }
+    listAdd(buttons, dict("id", btn_id, "label", lbl, "color", col, "hover", hov, "visible", true))
+}
+
+fun relSetButtonVisible(npc_id, btn_id, visible) {
+    val prof = relProfile(npc_id)
+    if (prof == null) { return }
+    val b = relFindButton(prof, btn_id)
+    if (b == null) { return }
+    dictSet(b, "visible", visible)
+}
+
+fun relRemoveButton(npc_id, btn_id) {
+    val prof = relProfile(npc_id)
+    if (prof == null) { return }
+    val buttons = dictGet(prof, "buttons")
+    if (buttons == null) { return }
+    var i = 0
+    var rm = -1
+    while (i < listSize(buttons)) {
+        val b = listGet(buttons, i)
+        if (dictGet(b, "id") == btn_id) { rm = i }
+        i = i + 1
+    }
+    if (rm >= 0) { listRemove(buttons, rm) }
+}
+
+# ──── События (fire / on / await) ────
+
+fun relFireGift(p, npc_id, item_id, rep_gain) {
+    rel_event_npc = npc_id
+    rel_event_item = item_id
+    rel_event_rep = rep_gain
+    fireRelGift(p, npc_id, item_id, rep_gain)
+    fireAction(p, REL_ACT_GIFT, npc_id)
+}
+
+fun relFireRepChange(p, npc_id, old_rep, new_rep) {
+    rel_event_npc = npc_id
+    rel_event_old_rep = old_rep
+    rel_event_new_rep = new_rep
+    fireRelRepChange(p, npc_id, old_rep, new_rep)
+    fireAction(p, REL_ACT_REP, npc_id)
+}
+
+fun relFireTalk(p, npc_id) {
+    rel_event_npc = npc_id
+    fireRelTalk(p, npc_id)
+    fireAction(p, REL_ACT_TALK, npc_id)
+}
+
+fun relFireButton(p, npc_id, btn_id) {
+    rel_event_npc = npc_id
+    rel_event_button = btn_id
+    fireRelButton(p, npc_id, btn_id)
+    fireAction(p, REL_ACT_BUTTON, btn_id)
+}
+
+# ──── Подарки и разговор ────
+
+fun relTryGiveGift(p, npc_id, item_id) {
+    if (p == null) { return false }
+    val prof = relProfile(npc_id)
+    if (prof == null) { return false }
+    val gift = relFindGift(prof, item_id)
+    if (gift == null) { return false }
+    if (!hasItem(p, item_id)) { return false }
+
+    var consume = dictGet(gift, "consume")
+    if (consume == null) { consume = true }
+    if (consume) {
+        execute("clear @s " + item_id + " 1", p)
+    }
+
+    var rep = dictGet(gift, "rep")
+    if (rep == null) { rep = 0 }
+    relAddRep(p, npc_id, rep)
+    relFireGift(p, npc_id, item_id, rep)
+
+    var msg = dictGet(gift, "message")
+    if (msg != null) {
+        if (msg != "") {
+            npcChat(p, npc_id, msg, "#55FF55", 4)
+        }
+    }
+
+    playSound(p, "minecraft:entity.experience_orb.pickup", 0.8, 1.3)
+    return true
+}
+
+fun relRunTalk(p, npc_id) {
+    relFireTalk(p, npc_id)
+    val prof = relProfile(npc_id)
+    if (prof == null) { return }
+
+    val lines = dictGet(prof, "talk_lines")
+    if (lines != null) {
+        if (listSize(lines) > 0) {
+            var i = 0
+            while (i < listSize(lines)) {
+                npcChat(p, npc_id, listGet(lines, i), "#EAEAEA", 4)
+                i = i + 1
+            }
+            return
+        }
+    }
+
+    val npc_ent = get_npc(npc_id)
+    var q = dictGet(prof, "talk_question")
+    if (q == null) { q = "§f..." }
+    var answers = dictGet(prof, "talk_answers")
+    if (answers == null) { answers = list("...") }
+
+    val pick = dialogClassic(p, npc_ent, q, answers)
+    val idx = dialogPickIndex(pick)
+    if (idx >= 0) {
+        if (idx < listSize(answers)) {
+            playerChat(p, listGet(answers, idx), "#AAAAFF", 3)
+        }
+    }
+}
+
+# ──── UI ────
+
+fun relNpcDisplayName(npc_id) {
+    val prof = relProfile(npc_id)
+    if (prof == null) { return npc_id }
+    var n = dictGet(prof, "name")
+    if (n == null) { return npc_id }
+    if (n == "") { return npc_id }
+    return n
+}
+
+fun relOpenMainMenu(p, npc_id) {
+    rel_active_player = p
+    rel_active_npc = npc_id
+    rel_menu_mode = "main"
+    relBuildMainMenu(p)
+}
+
+fun relOpenRelationsMenu(p, npc_id) {
+    rel_active_player = p
+    rel_active_npc = npc_id
+    rel_menu_mode = "relations"
+    relBuildRelationsMenu(p)
+}
+
+fun relOpenGiftMenu(p, npc_id) {
+    rel_active_player = p
+    rel_active_npc = npc_id
+    rel_menu_mode = "gift"
+    rel_gift_selected = 0
+    relBuildGiftMenu(p)
+}
+
+fun relCountVisibleButtons(prof) {
+    var cnt = 0
+    if (dictGet(prof, "show_relations") != false) { cnt = cnt + 1 }
+    if (dictGet(prof, "show_gift") != false) { cnt = cnt + 1 }
+    if (dictGet(prof, "show_talk") != false) { cnt = cnt + 1 }
+    val buttons = dictGet(prof, "buttons")
+    if (buttons != null) {
+        var i = 0
+        while (i < listSize(buttons)) {
+            val b = listGet(buttons, i)
+            if (dictGet(b, "visible") != false) { cnt = cnt + 1 }
+            i = i + 1
+        }
+    }
+    return cnt
+}
+
+fun relBuildMainMenu(p) {
+    val npc_id = rel_active_npc
+    val prof = relProfile(npc_id)
+    if (prof == null) { return }
+
+    val title = relNpcDisplayName(npc_id)
+    var sub = dictGet(prof, "title")
+    if (sub == null) { sub = "" }
+    val tier_line = relGetTierName(p, npc_id)
+    if (sub != "") {
+        sub = sub + " · " + tier_line
+    } else {
+        sub = tier_line
+    }
+
+    val btn_cnt = relCountVisibleButtons(prof)
+    if (btn_cnt < 1) { return }
+
+    val btn_h = 28
+    val gap = 4
+    val top = 36
+    val ui_h = top + btn_cnt * (btn_h + gap) + 10
+    val ui_w = 220
+
+    create ui rel_main_menu {
+        size = [ui_w, ui_h]
+        pos = ["center", "center"]
+        background = "#EE1A1A24"
+        can_close = true
+
+        text("m_title", "§l" + title) {
+            pos = [10, 8]
+            color = "#FFFFFF"
+            scale = 1.05
+        }
+        if (sub != "") {
+            text("m_sub", "§7" + sub) {
+                pos = [10, 22]
+                color = "#AAAAAA"
+                scale = 0.78
+            }
+        }
+        divider("m_div") {
+            pos = [6, 32]
+            size = [ui_w - 12, 1]
+            color = "#44FFFFFF"
+        }
+
+        var y = top
+        if (dictGet(prof, "show_relations") != false) {
+            button("rel_btn_relations", "§eОтношения") {
+                pos = [10, y]
+                size = [ui_w - 20, btn_h]
+                color = "#33446688"
+                hover = "#5566AACC"
+            }
+            y = y + btn_h + gap
+        }
+        if (dictGet(prof, "show_gift") != false) {
+            button("rel_btn_gift", "§aПодарок") {
+                pos = [10, y]
+                size = [ui_w - 20, btn_h]
+                color = "#33663388"
+                hover = "#55AA55CC"
+            }
+            y = y + btn_h + gap
+        }
+        if (dictGet(prof, "show_talk") != false) {
+            button("rel_btn_talk", "§bПоговорить") {
+                pos = [10, y]
+                size = [ui_w - 20, btn_h]
+                color = "#33556688"
+                hover = "#5588BBCC"
+            }
+            y = y + btn_h + gap
+        }
+
+        val buttons = dictGet(prof, "buttons")
+        if (buttons != null) {
+            var bi = 0
+            while (bi < listSize(buttons)) {
+                val b = listGet(buttons, bi)
+                if (dictGet(b, "visible") != false) {
+                    val bid = dictGet(b, "id")
+                    val blbl = dictGet(b, "label")
+                    var bcol = dictGet(b, "color")
+                    var bhov = dictGet(b, "hover")
+                    if (bcol == null) { bcol = "#33446688" }
+                    if (bhov == null) { bhov = "#5566AACC" }
+                    button("rel_btn_custom_" + bid, blbl) {
+                        pos = [10, y]
+                        size = [ui_w - 20, btn_h]
+                        color = bcol
+                        hover = bhov
+                    }
+                    y = y + btn_h + gap
+                }
+                bi = bi + 1
+            }
+        }
+    }
+
+    uiOpen(p, rel_main_menu)
+}
+
+fun relBuildRelationsMenu(p) {
+    val npc_id = rel_active_npc
+    val prof = relProfile(npc_id)
+    if (prof == null) { return }
+
+    val rep = relGetRep(p, npc_id)
+    val tier = relGetTierName(p, npc_id)
+    val b = relGetBounds(npc_id)
+    val lo = dictGet(b, "min")
+    val hi = dictGet(b, "max")
+    var span = hi - lo
+    if (span < 1) { span = 1 }
+    var pct = (rep - lo) * 100 // span
+    if (pct < 0) { pct = 0 }
+    if (pct > 100) { pct = 100 }
+    val bar_w = 180
+    var fill_w = (bar_w * pct) // 100
+    if (fill_w < 1) {
+        if (pct > 0) { fill_w = 1 }
+    }
+
+    create ui rel_rep_menu {
+        size = [220, 150]
+        pos = ["center", "center"]
+        background = "#EE1A1A24"
+        can_close = true
+
+        text("r_title", "§l§eОтношения") {
+            pos = [10, 8]
+            color = "#FFDD55"
+            scale = 1.0
+        }
+        text("r_npc", relNpcDisplayName(npc_id)) {
+            pos = [10, 24]
+            color = "#CCCCCC"
+            scale = 0.85
+        }
+        text("r_tier", "§7Статус: " + tier) {
+            pos = [10, 40]
+            color = "#AAAAAA"
+            scale = 0.9
+        }
+        text("r_val", "§fРепутация: §e" + rep + "§7 / §f" + hi) {
+            pos = [10, 56]
+            color = "#DDDDDD"
+            scale = 0.88
+        }
+        rect("r_bar_bg") {
+            pos = [10, 78]
+            size = [bar_w, 10]
+            color = "#55000000"
+        }
+        rect("r_bar_fill") {
+            pos = [10, 78]
+            size = [fill_w, 10]
+            color = "#AA55CCFF"
+        }
+        button("rel_btn_back", "§7Назад") {
+            pos = [10, 118]
+            size = [200, 22]
+            color = "#33333388"
+            hover = "#555555CC"
+        }
+    }
+
+    uiOpen(p, rel_rep_menu)
+}
+
+fun relBuildGiftMenu(p) {
+    val npc_id = rel_active_npc
+    val prof = relProfile(npc_id)
+    if (prof == null) { return }
+
+    val gifts = dictGet(prof, "gifts")
+    val count = listSize(gifts)
+    if (count < 1) {
+        create ui rel_gift_empty {
+            size = [220, 100]
+            pos = ["center", "center"]
+            background = "#EE1A1A24"
+            can_close = true
+            text("g_empty", "§7Нет подарков") {
+                pos = [10, 20]
+                color = "#AAAAAA"
+                scale = 0.9
+            }
+            button("rel_btn_back", "§7Назад") {
+                pos = [10, 60]
+                size = [200, 22]
+                color = "#33333388"
+                hover = "#555555CC"
+            }
+        }
+        uiOpen(p, rel_gift_empty)
+        return
+    }
+
+    if (rel_gift_selected >= count) { rel_gift_selected = 0 }
+    if (rel_gift_selected < 0) { rel_gift_selected = 0 }
+
+    var rows = count // 3
+    if ((count % 3) > 0) { rows = rows + 1 }
+    val grid_h = rows * 46
+    val ui_h = 70 + grid_h + 40
+    val sel = listGet(gifts, rel_gift_selected)
+    val sel_item = dictGet(sel, "item")
+    val sel_rep = dictGet(sel, "rep")
+    var has = hasItem(p, sel_item)
+
+    create ui rel_gift_menu {
+        size = [240, ui_h]
+        pos = ["center", "center"]
+        background = "#EE1A1A24"
+        can_close = true
+
+        text("g_title", "§l§aПодарок") {
+            pos = [10, 8]
+            color = "#55FF88"
+            scale = 1.0
+        }
+        text("g_npc", relNpcDisplayName(npc_id)) {
+            pos = [10, 24]
+            color = "#AAAAAA"
+            scale = 0.82
+        }
+
+        var gi = 0
+        while (gi < count) {
+            val g = listGet(gifts, gi)
+            val gid = dictGet(g, "item")
+            val col = gi - (gi // 3) * 3
+            val row = gi // 3
+            var gcol = "#33FFFFFF"
+            if (gi == rel_gift_selected) { gcol = "#8855AAFF" }
+            if (!hasItem(p, gid)) { gcol = "#22FFFFFF" }
+            button("rel_gift_pick_" + gi, "") {
+                pos = [8 + col * 46, 44 + row * 46]
+                size = [40, 40]
+                color = gcol
+                hover = "#5588CCFF"
+            }
+            item("rel_gift_item_" + gi) {
+                pos = [12 + col * 46, 48 + row * 46]
+                size = 32
+                item = gid
+            }
+            gi = gi + 1
+        }
+
+        text("g_sel_rep", relFormatRepDelta(sel_rep) + " реп.") {
+            pos = [10, 50 + grid_h]
+            color = "#FFD700"
+            scale = 0.88
+        }
+
+        if (has) {
+            button("rel_btn_give", "§aПодарить") {
+                pos = [10, 66 + grid_h]
+                size = [100, 22]
+                color = "#336633"
+                hover = "#55AA55"
+            }
+        } else {
+            text("g_no_item", "§cНет предмета в инвентаре") {
+                pos = [10, 68 + grid_h]
+                color = "#FF8888"
+                scale = 0.78
+            }
+        }
+
+        button("rel_btn_back", "§7Назад") {
+            pos = [130, 66 + grid_h]
+            size = [100, 22]
+            color = "#33333388"
+            hover = "#555555CC"
+        }
+    }
+
+    uiOpen(p, rel_gift_menu)
+}
+
+fun relHandleUiClick(p, btn) {
+    if (p == null) { return }
+    if (rel_active_npc == "") { return }
+    val npc_id = rel_active_npc
+
+    if (btn == "rel_btn_back") {
+        playSound(p, "minecraft:ui.button.click", 0.8, 1.0)
+        if (rel_menu_mode == "main") {
+            uiClose(p)
+            rel_active_npc = ""
+            rel_active_player = null
+        } else {
+            relOpenMainMenu(p, npc_id)
+        }
+        return
+    }
+
+    if (btn == "rel_btn_relations") {
+        playSound(p, "minecraft:ui.button.click", 0.8, 1.0)
+        relOpenRelationsMenu(p, npc_id)
+        return
+    }
+
+    if (btn == "rel_btn_gift") {
+        playSound(p, "minecraft:ui.button.click", 0.8, 1.0)
+        relOpenGiftMenu(p, npc_id)
+        return
+    }
+
+    if (btn == "rel_btn_talk") {
+        playSound(p, "minecraft:ui.button.click", 0.8, 1.0)
+        uiClose(p)
+        relRunTalk(p, npc_id)
+        rel_active_npc = ""
+        rel_active_player = null
+        return
+    }
+
+    if (btn == "rel_btn_give") {
+        val prof = relProfile(npc_id)
+        val gifts = dictGet(prof, "gifts")
+        val sel = listGet(gifts, rel_gift_selected)
+        val item_id = dictGet(sel, "item")
+        if (relTryGiveGift(p, npc_id, item_id)) {
+            relBuildGiftMenu(p)
+        } else {
+            playSound(p, "minecraft:block.note_block.bass", 0.8, 0.5)
+        }
+        return
+    }
+
+    if (btn.contains("rel_gift_pick_")) {
+        rel_gift_selected = btn.replace("rel_gift_pick_", "").toInt()
+        playSound(p, "minecraft:ui.button.click", 0.6, 1.1)
+        relBuildGiftMenu(p)
+        return
+    }
+
+    if (btn.contains("rel_btn_custom_")) {
+        val bid = btn.replace("rel_btn_custom_", "")
+        playSound(p, "minecraft:ui.button.click", 0.8, 1.0)
+        relFireButton(p, npc_id, bid)
+        return
+    }
+}
+
+fun relHandleInteract(p, npc_ent) {
+    if (p == null) { return }
+    if (npc_ent == null) { return }
+    if (REL_REQUIRE_SNEAK) {
+        if (!p.isSneaking) { return }
+    }
+    val npc_id = relResolveNpcId(npc_ent)
+    if (npc_id == "") { return }
+    if (!relHasNpc(npc_id)) { return }
+    relOpenMainMenu(p, npc_id)
+}
+
+# ──── Обработчики ────
+
+on interact() -> rel_global_interact {
+    relHandleInteract(_eventPlayer, _eventNpc)
+}
+
+on uiClick() -> rel_ui_click {
+    val p = _eventPlayer
+    val btn = _eventWidget
+    if (p == null) { return null }
+    if (rel_active_npc == "") { return null }
+    if (p != rel_active_player) { return null }
+    relHandleUiClick(p, btn)
+}
+
+on uiClose() -> rel_ui_close {
+    if (rel_active_npc != "") {
+        rel_active_npc = ""
+        rel_active_player = null
+        rel_menu_mode = "main"
+    }
+}
+
+# Миграция / первичная инициализация уровней репутации
+if (!hasVar("rel_rep_tier_v")) {
+    var world rel_rep_tier_v = 2
+    relRebuildDefaultTiers()
+}

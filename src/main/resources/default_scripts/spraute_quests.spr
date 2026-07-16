@@ -202,6 +202,7 @@ fun quest_set_goal_state_by_text(id, needle, state) {
 
 # ──── API: квесты ────
 fun add_quest(id, name, author, desc, goals) {
+    if (has_quest(id)) { return }
     val q = dictCreate()
     dictSet(q, "id", id)
     dictSet(q, "name", name)
@@ -220,6 +221,7 @@ fun add_quest(id, name, author, desc, goals) {
 }
 
 fun add_quest_with_goals(id, name, author, desc, goal_list) {
+    if (has_quest(id)) { return }
     val q = dictCreate()
     dictSet(q, "id", id)
     dictSet(q, "name", name)

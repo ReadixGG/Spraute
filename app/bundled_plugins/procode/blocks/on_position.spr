@@ -1,0 +1,9 @@
+#\ block: on_position
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда игрок"
+#\ input: player (type: value)
+#\ row: "в точке" (x: number: 0) (y: number: 64) (z: number: 0) "радиус" (radius: number: 2) "→" (handler: text: h_pos)
+#\ template: on position({player}, {x}, {y}, {z}, {radius}) -> {handler} {\n{DO}}

@@ -3,7 +3,7 @@
 #\ color: #a855f7
 #\ shape: wrapper
 #\
-#\ row: "когда игрок" [action: dropdown(есть: eat, рыбалка: fish, мотыга: hoe, прыжок: jump, сон: sleep, крафт: craft, выброс: drop)]
+#\ row: "когда игрок" [action: dropdown(ПКМ предметом: use, ест: eat, рыбалка: fish, мотыга: hoe, прыжок: jump, сон: sleep, крафт: craft, выброс: drop)]
 #\ input: player (type: value)
 #\ row: [target: dropdown(без цели: no, с целью: yes)] "→" (handler: text: h_action)
 #\ if target == "no":

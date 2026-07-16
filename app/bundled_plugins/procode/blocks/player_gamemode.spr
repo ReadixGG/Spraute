@@ -1,0 +1,23 @@
+#\ block: set_player_gamemode
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "режим игры" input: player (type: value) [mode: dropdown(выживание: survival, креатив: creative, приключение: adventure, наблюдатель: spectator)]
+#\ template: setPlayerGamemode({player}, "{mode}")
+
+#\ block: get_player_gamemode
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "режим игры" input: player (type: value)
+#\ template: getPlayerGamemode({player})
+
+#\ block: is_player_gamemode
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "режим" input: player (type: value) [mode: dropdown(выживание: survival, креатив: creative, приключение: adventure, наблюдатель: spectator)] "?"
+#\ template: isPlayerGamemode({player}, "{mode}")

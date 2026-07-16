@@ -1,0 +1,33 @@
+#\ block: use_block
+#\ category: Мир
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "ПКМ по блоку" [who: dropdown(просто открыть: none, НИП: npc, кликнувший: event, первый игрок: first, указать: custom)]
+#\ if who == "npc":
+#\   row: "НИП" [npc: dropdown_npc]
+#\ if who == "custom":
+#\   input: actor (type: value)
+#\ row: "x" (x: number: 0) "y" (y: number: 64) "z" (z: number: 0)
+#\ row: "рука" [hand: dropdown(основная: main, левая: off)]
+#\
+#\ if who == "none" and hand == "main":
+#\   template: useBlock({x}, {y}, {z})
+#\ if who == "none" and hand == "off":
+#\   template: useBlock({x}, {y}, {z}, "off")
+#\ if who == "npc" and hand == "main":
+#\   template: useBlock({npc}, {x}, {y}, {z})
+#\ if who == "npc" and hand == "off":
+#\   template: useBlock({npc}, {x}, {y}, {z}, "off")
+#\ if who == "event" and hand == "main":
+#\   template: useBlock(_eventPlayer, {x}, {y}, {z})
+#\ if who == "event" and hand == "off":
+#\   template: useBlock(_eventPlayer, {x}, {y}, {z}, "off")
+#\ if who == "first" and hand == "main":
+#\   template: useBlock(getFirstPlayer(), {x}, {y}, {z})
+#\ if who == "first" and hand == "off":
+#\   template: useBlock(getFirstPlayer(), {x}, {y}, {z}, "off")
+#\ if who == "custom" and hand == "main":
+#\   template: useBlock({actor}, {x}, {y}, {z})
+#\ if who == "custom" and hand == "off":
+#\   template: useBlock({actor}, {x}, {y}, {z}, "off")

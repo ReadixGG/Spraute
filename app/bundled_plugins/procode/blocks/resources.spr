@@ -127,8 +127,19 @@
 #\ shape: statement
 #\
 #\ row: "создать предмет" (id: text: my_item)
-#\ row: "текстура" (texture: text: textures/item/my_item.png)
-#\ row: "модель" (model: text: ) "необязательно"
+#\ row: [itemKind: dropdown(плоская текстура: flat, 3D Bedrock: geo)]
+#\
+#\ if itemKind == "flat":
+#\   row: "текстура" (texture: text: textures/item/my_item.png)
+#\   row: "модель" (model: text: ) "необяз., напр. minecraft:item/wooden_sword"
+#\ if itemKind == "geo":
+#\   row: "geo-модель" [geo: dropdown_model]
+#\   row: "текстура" [texture: dropdown_texture]
+#\   row: "1 лицо" (handFirst: text: 0, 0, 0, 0, 0, 0, 0.55) "ox oy oz rx ry rz scale"
+#\   row: "3 лицо" (handThird: text: 0, 0, 0, 0, 0, 0, 1)
+#\   row: "на земле" (handGround: text: 0, 0, 0, 0, 0, 0, 1)
+#\   row: "GUI / иконка" (guiTransform: text: 0, 0, 0, 25, 45, 0, 0.45)
+#\
 #\ row: "макс. стак" (maxStack: number: 64)
 #\ row: "имя" (displayName: text: )
 #\ row: "вкладка креатива" (tab: text: )
@@ -142,8 +153,19 @@
 #\ code: var lines = ['create item ' + String(_getVal('id') || '').trim() + ' {'];
 #\ code: function q(v) { return String(v || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
 #\ code: function addStr(k, v) { v = String(v || '').trim(); if (v) lines.push('    ' + k + ' = "' + q(v) + '"'); }
-#\ code: addStr('texture', _getVal('texture'));
-#\ code: addStr('model', _getVal('model'));
+#\ code: var kind = String(_getVal('itemKind') || 'flat').trim();
+#\ code: if (kind === 'geo') {
+#\ code:   addStr('geo', _getVal('geo'));
+#\ code:   addStr('texture', _getVal('texture'));
+#\ code:   function addTransform(k, field) { var v = String(_getVal(field) || '').trim(); if (v) lines.push('    ' + k + ' = [' + v + ']'); }
+#\ code:   addTransform('hand_first', 'handFirst');
+#\ code:   addTransform('hand_third', 'handThird');
+#\ code:   addTransform('hand_ground', 'handGround');
+#\ code:   addTransform('gui', 'guiTransform');
+#\ code: } else {
+#\ code:   addStr('texture', _getVal('texture'));
+#\ code:   addStr('model', _getVal('model'));
+#\ code: }
 #\ code: var ms = String(_getVal('maxStack') || '').trim();
 #\ code: if (ms) lines.push('    maxStackSize = ' + ms);
 #\ code: addStr('name', _getVal('displayName'));

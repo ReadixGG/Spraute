@@ -25,6 +25,8 @@
   "spraute_engine.camera_route.preview_done": "Просмотр завершён",
   "key.categories.spraute_engine": "Spraute Engine",
   "key.spraute_engine.camera_route_menu": "Меню маршрута камеры",
+  "key.spraute_engine.reset_gui": "Сброс GUI и камеры (Ctrl+Shift+U)",
+  "spraute_engine.reset_gui.done": "GUI и камера сброшены",
   "spraute_engine.debug.title": "Отладка Spraute",
   "spraute_engine.debug.reload.1": "Перезагрузить все",
   "spraute_engine.debug.reload.2": "скрипты",

@@ -238,7 +238,11 @@ public class SprauteScriptScreen extends Screen {
         if (!applied) {
             pendingWidgetPatches.add(new PendingWidgetPatch(widgetId, field, value));
             if ("chat_clip".equals(widgetId)) {
-                LOGGER.info("[CHAT-CLIENT] patch PENDING (no overlay yet) widget='{}' field='{}' value='{}'", widgetId, field, value);
+                boolean fadeOut = value != null && value.startsWith("~ANIM:")
+                        && (value.endsWith(":0.0") || value.endsWith(":0"));
+                if (!fadeOut) {
+                    LOGGER.info("[CHAT-CLIENT] patch PENDING (no overlay yet) widget='{}' field='{}' value='{}'", widgetId, field, value);
+                }
             }
         }
     }
@@ -271,9 +275,6 @@ public class SprauteScriptScreen extends Screen {
                         LOGGER.info("[CHAT-CLIENT] anim ADD widget='{}' field='{}' {}->{} dur={}s", widgetId, f, startVal, endVal, durationSec);
                     }
                     return true;
-                }
-                if ("chat_clip".equals(widgetId)) {
-                    LOGGER.warn("[CHAT-CLIENT] anim ADD FAILED — widget '{}' not found (field={})", widgetId, f);
                 }
             } catch (Exception e) {
             }

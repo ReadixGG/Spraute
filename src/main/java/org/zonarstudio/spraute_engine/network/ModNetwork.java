@@ -82,5 +82,9 @@ public class ModNetwork {
                 CameraRoutePlayPacket::encode,
                 CameraRoutePlayPacket::decode,
                 CameraRoutePlayPacket::handle);
+        CHANNEL.registerMessage(id++, SprauteResetPresentationPacket.class,
+                SprauteResetPresentationPacket::encode,
+                SprauteResetPresentationPacket::decode,
+                SprauteResetPresentationPacket::handle);
     }
 }

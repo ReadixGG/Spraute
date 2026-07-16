@@ -41,6 +41,64 @@ public final class SprauteResourcePath {
     private static final Pattern SIMPLE_ID = Pattern.compile("[a-z][a-z0-9_]*");
     private static final Set<String> SERVER_WARNED = ConcurrentHashMap.newKeySet();
 
+    private static boolean isLenientAssetKind(Kind kind) {
+        return kind == Kind.MODEL || kind == Kind.TEXTURE || kind == Kind.ANIMATION || kind == Kind.RESOURCE;
+    }
+
+    /**
+     * Normalizes Spraute asset paths: lowercase, removes spaces and other disallowed characters.
+     * Keeps {@code a-z}, {@code 0-9}, {@code /}, {@code .}, {@code _}, {@code -} and an optional namespace prefix.
+     */
+    public static String sanitizeAssetPath(String raw) {
+        if (raw == null) return "";
+        String trimmed = raw.trim();
+        if (trimmed.isEmpty()) return "";
+
+        String namespace = null;
+        String pathPart = trimmed;
+        int colon = trimmed.indexOf(':');
+        if (colon >= 0) {
+            namespace = sanitizePathSegment(trimmed.substring(0, colon), false);
+            pathPart = trimmed.substring(colon + 1);
+        }
+        pathPart = sanitizePathSegment(pathPart, true);
+        while (pathPart.startsWith("/")) pathPart = pathPart.substring(1);
+        while (pathPart.endsWith("/")) pathPart = pathPart.substring(0, pathPart.length() - 1);
+
+        if (pathPart.isEmpty()) {
+            return namespace != null && !namespace.isEmpty() ? namespace + ":" : "";
+        }
+        if (namespace != null && !namespace.isEmpty()) {
+            return namespace + ":" + pathPart;
+        }
+        return pathPart;
+    }
+
+    private static String sanitizePathSegment(String segment, boolean allowSlash) {
+        if (segment == null || segment.isEmpty()) return "";
+        StringBuilder out = new StringBuilder(segment.length());
+        for (int i = 0; i < segment.length(); i++) {
+            char c = Character.toLowerCase(segment.charAt(i));
+            if (allowSlash && c == '/') {
+                if (!out.isEmpty() && out.charAt(out.length() - 1) == '/') continue;
+                out.append('/');
+            } else if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-') {
+                out.append(c);
+            }
+        }
+        return out.toString();
+    }
+
+    /** Path stored on NPC / in scripts (relative under mod namespace when possible). */
+    public static String toStoragePath(Result result) {
+        if (result == null || !result.ok()) return "";
+        ResourceLocation loc = result.location();
+        if (Spraute_engine.MODID.equals(loc.getNamespace())) {
+            return loc.getPath();
+        }
+        return loc.getNamespace() + ":" + loc.getPath();
+    }
+
     private SprauteResourcePath() {}
 
     public record Result(ResourceLocation location, Kind kind, String rawPath, String invalidChars, String detail) {
@@ -103,7 +161,15 @@ public final class SprauteResourcePath {
             return new Result(null, kind, rawPath, "", "empty");
         }
 
-        String trimmed = rawPath.trim();
+        String original = rawPath.trim();
+        String trimmed = original;
+        if (isLenientAssetKind(kind)) {
+            trimmed = sanitizeAssetPath(original);
+            if (trimmed.isBlank()) {
+                return new Result(null, kind, original, "", "empty");
+            }
+        }
+
         String namespace;
         String pathPart;
         int colon = trimmed.indexOf(':');
@@ -118,21 +184,21 @@ public final class SprauteResourcePath {
         String nsBad = collectInvalidChars(namespace);
         String pathBad = collectInvalidChars(pathPart);
         if (!nsBad.isEmpty() || !pathBad.isEmpty()) {
-            return new Result(null, kind, trimmed, nsBad + pathBad, null);
+            return new Result(null, kind, original, nsBad + pathBad, null);
         }
 
         if (namespace.isEmpty() || pathPart.isEmpty()) {
-            return new Result(null, kind, trimmed, "", "empty_part");
+            return new Result(null, kind, original, "", "empty_part");
         }
 
         try {
             ResourceLocation loc = new ResourceLocation(
                     namespace.toLowerCase(Locale.ROOT),
                     pathPart.toLowerCase(Locale.ROOT));
-            return new Result(loc, kind, trimmed, "", null);
+            return new Result(loc, kind, original, "", null);
         } catch (Exception e) {
             String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-            return new Result(null, kind, trimmed, collectInvalidChars(trimmed), msg);
+            return new Result(null, kind, original, collectInvalidChars(trimmed), msg);
         }
     }
 

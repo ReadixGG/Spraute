@@ -1,0 +1,18 @@
+#\ block: on_projectile_hit
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда попадает снаряд" [scope: dropdown(по id: id, любой: any)]
+#\ row: "тип" [hitType: dropdown(любой: any, сущность: entity, блок: block)]
+#\ row: "→" (handler: text: h_proj_hit)
+#\ if scope == "id" and hitType == "any":
+#\   row: "id снаряда" (projectileId: text: fireball)
+#\   template: on projectileHit("{projectileId}") -> {handler} {\n{DO}}
+#\ if scope == "id" and hitType != "any":
+#\   row: "id снаряда" (projectileId: text: fireball)
+#\   template: on projectileHit("{projectileId}", "{hitType}") -> {handler} {\n{DO}}
+#\ if scope == "any" and hitType == "any":
+#\   template: on projectileHit(any) -> {handler} {\n{DO}}
+#\ if scope == "any" and hitType != "any":
+#\   template: on projectileHit(any, "{hitType}") -> {handler} {\n{DO}}
