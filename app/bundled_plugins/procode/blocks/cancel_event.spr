@@ -1,0 +1,7 @@
+#\ block: cancel_event
+#\ category: События
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "отменить событие"
+#\ template: cancelEvent()

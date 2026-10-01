@@ -1,0 +1,76 @@
+#\ block: ui_text_effect
+#\ category: Интерфейс
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "эффект текста UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: title)
+#\ row: [effect: dropdown(жирный: bold, курсив: italic, подчёркивание: underline, зачёркивание: strikethrough, код: code, тень: shadow, тень мягкая: shadow_soft, обводка: outline, обводка мягкая: outline_soft, свечение: glow, свечение пиксельное: glow_pixel, радуга: rainbow, пульсация: pulse, волна: wave, тряска: shake, покачивание: wiggle)] [enabled: dropdown(включить: true, выключить: false)]
+#\ template: uiUpdate({player}, "{widget}", "{effect}", "{enabled}")
+
+#\ block: ui_text_effects
+#\ category: Интерфейс
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "эффекты текста UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: title)
+#\ row: "эффекты через запятую" (effects: text: bold,outline,wave)
+#\ template: uiUpdate({player}, "{widget}", "effects", "{effects}")
+
+#\ block: ui_text_gradient
+#\ category: Интерфейс
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "градиент текста UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: title)
+#\ row: "цвета" (colors: text: #FFFF5555,#FF55AAFF)
+#\ template: uiUpdate({player}, "{widget}", "textGradient", "{colors}")
+
+#\ block: ui_text_effect_color
+#\ category: Интерфейс
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "цвет эффекта текста UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: title) [kind: dropdown(обводка: textOutlineColor, свечение: textGlowColor)]
+#\ row: "цвет" (color: color: #FFFFFFFF)
+#\ template: uiUpdate({player}, "{widget}", "{kind}", "{color}")
+
+#\ block: ui_text_effect_motion
+#\ category: Интерфейс
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "движение эффектов текста UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: title)
+#\ row: "скорость" input: speed (type: value) "сила" input: amount (type: value)
+#\ template: uiUpdate({player}, "{widget}", "textEffectSpeed", {speed})\nuiUpdate({player}, "{widget}", "textEffectAmount", {amount})
+
+#\ block: ui_text_glow_size
+#\ category: Интерфейс
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "размер свечения текста UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: title)
+#\ row: "размер" input: size (type: value)
+#\ template: uiUpdate({player}, "{widget}", "textGlowSize", {size})
+
+#\ block: ui_text_outline_width
+#\ category: Интерфейс
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "толщина обводки текста UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: title)
+#\ row: "толщина" input: width (type: value)
+#\ template: uiUpdate({player}, "{widget}", "textOutlineWidth", {width})

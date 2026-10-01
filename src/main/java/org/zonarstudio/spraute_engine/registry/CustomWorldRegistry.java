@@ -1,7 +1,6 @@
 package org.zonarstudio.spraute_engine.registry;
 
 import com.mojang.logging.LogUtils;
-import net.minecraftforge.fml.loading.FMLPaths;
 import org.slf4j.Logger;
 import org.zonarstudio.spraute_engine.Spraute_engine;
 import org.zonarstudio.spraute_engine.util.SprauteResourcePath;
@@ -37,6 +36,8 @@ public final class CustomWorldRegistry {
         /** {@code null} = day/night cycle; otherwise fixed tick 0–23999. */
         public Long fixedTime = 6000L;
         public boolean hasSkylight = true;
+        /** When false — no clouds (NaN cloud height + cancel renderClouds). */
+        public boolean clouds = true;
     }
 
     public static void ensureParsed() {
@@ -84,8 +85,6 @@ public final class CustomWorldRegistry {
 
     public static void parseScripts() {
         WORLDS.clear();
-        Path scriptsDir = FMLPaths.GAMEDIR.get().resolve("spraute_engine").resolve("scripts");
-        if (!Files.exists(scriptsDir)) return;
 
         Pattern worldPattern = Pattern.compile("create\\s+world\\s+([a-zA-Z0-9_]+)\\s*\\{([^}]*)\\}", Pattern.DOTALL);
         Pattern skyPattern = Pattern.compile("sky\\s*=\\s*\"([^\"]+)\"");
@@ -95,9 +94,9 @@ public final class CustomWorldRegistry {
         Pattern ambientPattern = Pattern.compile("ambient\\s*=\\s*([0-9.]+)");
         Pattern fixedTimePattern = Pattern.compile("fixed_time\\s*=\\s*(-?\\d+)");
         Pattern skylightPattern = Pattern.compile("skylight\\s*=\\s*(true|false)", Pattern.CASE_INSENSITIVE);
+        Pattern cloudsPattern = Pattern.compile("clouds\\s*=\\s*(true|false)", Pattern.CASE_INSENSITIVE);
 
-        try {
-            Files.walk(scriptsDir).filter(p -> p.toString().endsWith(".spr")).forEach(file -> {
+        org.zonarstudio.spraute_engine.resource.WorkspaceContent.allSprFiles().forEach(file -> {
                 try {
                     String content = Files.readString(file);
                     Matcher m = worldPattern.matcher(content);
@@ -151,16 +150,38 @@ public final class CustomWorldRegistry {
                             def.hasSkylight = Boolean.parseBoolean(lightM.group(1));
                         }
 
-                        WORLDS.put(def.id, def);
+                        Matcher cloudsM = cloudsPattern.matcher(body);
+                        if (cloudsM.find()) {
+                            def.clouds = Boolean.parseBoolean(cloudsM.group(1));
+                        }
+
+                        putWorld(def);
                         LOGGER.info("[Spraute Engine] Found custom world declaration: {}", def.id);
                     }
                 } catch (IOException e) {
                     LOGGER.error("Failed to read script for world parsing: {}", file, e);
                 }
             });
-        } catch (IOException e) {
-            LOGGER.error("Failed to walk scripts directory for worlds", e);
-        }
+
+        // Scene RES_WORLD nodes (same maps as create world).
+        org.zonarstudio.spraute_engine.scene.resource.SceneResourceLoader.loadWorlds(
+                org.zonarstudio.spraute_engine.resource.SprautePaths.gameDir());
+    }
+
+    /** Registers or replaces a world def (from script or scene node). */
+    public static void putWorld(CustomWorldDef def) {
+        if (def == null || def.id == null || def.id.isBlank()) return;
+        def.id = SprauteResourcePath.canonicalSimpleId(def.id);
+        WORLDS.put(def.id, def);
+    }
+
+    /** Hex / #RRGGBB → RGB int. Public for scene inspector → registry. */
+    public static int parseColorPublic(String raw, int fallback) {
+        return parseColor(raw, fallback);
+    }
+
+    public static int darkenPublic(int rgb, float factor) {
+        return darken(rgb, factor);
     }
 
     public static String dimensionId(String worldId) {
@@ -204,7 +225,7 @@ public final class CustomWorldRegistry {
         String fixedTime = def.fixedTime == null ? "" :
                 "  \"fixed_time\": " + def.fixedTime + ",\n";
         String effectsKey = orphanFallbackEffects ? ORPHAN_EFFECTS_KEY : def.id;
-        //? if >=1.20.1 {
+        // Both 1.19.2 and 1.20.1 require monster_spawn_* on dimension_type (added in 1.19).
         return "{\n" +
                 "  \"ultrawarm\": false,\n" +
                 "  \"natural\": false,\n" +
@@ -225,26 +246,6 @@ public final class CustomWorldRegistry {
                 "  \"monster_spawn_light_level\": 15,\n" +
                 "  \"monster_spawn_block_light_limit\": 0\n" +
                 "}";
-        //?} else {
-        /*return "{\n" +
-                "  \"ultrawarm\": false,\n" +
-                "  \"natural\": false,\n" +
-                "  \"piglin_safe\": false,\n" +
-                "  \"respawn_anchor_works\": false,\n" +
-                "  \"bed_works\": true,\n" +
-                "  \"has_raids\": false,\n" +
-                "  \"has_skylight\": " + def.hasSkylight + ",\n" +
-                "  \"has_ceiling\": false,\n" +
-                "  \"coordinate_scale\": 1.0,\n" +
-                "  \"ambient_light\": " + def.ambientLight + ",\n" +
-                fixedTime +
-                "  \"logical_height\": 384,\n" +
-                "  \"effects\": \"" + effectsId(effectsKey) + "\",\n" +
-                "  \"infiniburn\": \"#minecraft:infiniburn_overworld\",\n" +
-                "  \"min_y\": -64,\n" +
-                "  \"height\": 384\n" +
-                "}";
-        *///?}
     }
 
     private static int parseColor(String raw, int fallback) {

@@ -1,0 +1,180 @@
+# Система стамины (HUD + трата/реген + блокировка действий)
+# Запуск: autorun / startScript("stamina")
+# Нужны API: player.isSprinting, on sprint/attack/jump, cancelEvent на dig/attack/jump/sprint
+
+autorun
+
+val ST_KEY = "stamina"
+val ST_MAX = 100.0
+val ST_BAR_X = "36%"
+val ST_BAR_Y = "88%"
+val ST_BAR_W = "28%"
+val ST_BAR_H = "1.2%"
+
+# Трата за тик спринта / за действие
+val ST_COST_SPRINT = 0.35
+val ST_COST_JUMP = 8.0
+val ST_COST_ATTACK = 6.0
+val ST_COST_DIG = 4.0
+val ST_COST_MINE_TICK = 0.25
+val ST_REGEN = 0.55
+
+create ui stamina_hud {
+    id = "stamina_hud"
+    size = ["100%", "100%"]
+    background = "#00000000"
+    can_close = false
+
+    rect("st_bg") {
+        pos = [ST_BAR_X, ST_BAR_Y]
+        size = [ST_BAR_W, ST_BAR_H]
+        color = "#88000000"
+        layer = 0
+    }
+    rect("st_fill") {
+        pos = [ST_BAR_X, ST_BAR_Y]
+        size = [ST_BAR_W, ST_BAR_H]
+        color = "#CC44CC88"
+        layer = 1
+    }
+    text("st_label", "") {
+        pos = ["50%", "86.2%"]
+        anchor = ["0.5", "0.5"]
+        color = "#AADDCC"
+        scale = 0.9
+        layer = 2
+    }
+}
+
+fun stInit(p) {
+    if (p == null) { return }
+    val d = p.data
+    if (d == null) { return }
+    if (d[ST_KEY] == null) {
+        d[ST_KEY] = ST_MAX
+    }
+}
+
+fun stGet(p) {
+    stInit(p)
+    val v = p.data[ST_KEY]
+    if (v == null) { return ST_MAX }
+    return v
+}
+
+fun stSet(p, value) {
+    stInit(p)
+    var v = value
+    if (v < 0) { v = 0 }
+    if (v > ST_MAX) { v = ST_MAX }
+    p.data[ST_KEY] = v
+}
+
+fun stHas(p, cost) {
+    return stGet(p) >= cost
+}
+
+fun stSpend(p, cost) {
+    stSet(p, stGet(p) - cost)
+}
+
+fun stUpdateHud(p) {
+    if (p == null) { return }
+    val cur = stGet(p)
+    val pct = cur * 100.0 / ST_MAX
+    var fillW = pct * 28.0 / 100.0
+    uiUpdate(p, "st_fill", "w", fillW + "%")
+    if (cur <= 0) {
+        uiUpdate(p, "st_fill", "color", "#CCAA3333")
+        uiUpdate(p, "st_label", "text", "§c0")
+    } else if (cur < ST_MAX * 0.25) {
+        uiUpdate(p, "st_fill", "color", "#CCDD8844")
+        uiUpdate(p, "st_label", "text", "§e" + intStr(cur))
+    } else {
+        uiUpdate(p, "st_fill", "color", "#CC44CC88")
+        uiUpdate(p, "st_label", "text", "")
+    }
+}
+
+fun stApplyEmptyGates(p) {
+    if (stGet(p) > 0) {
+        setPlayerDigSpeed(p, 1.0)
+        return
+    }
+    setPlayerDigSpeed(p, 0.0)
+    if (p.isSprinting) {
+        p.isSprinting = false
+    }
+}
+
+on join() -> st_join {
+    val p = _eventPlayer
+    stInit(p)
+    overlayOpen(p, stamina_hud)
+    stUpdateHud(p)
+}
+
+every(0.05) -> st_tick {
+    for (p in getPlayers()) {
+        stInit(p)
+        if (p.isSprinting) {
+            stSpend(p, ST_COST_SPRINT)
+            if (stGet(p) <= 0) {
+                p.isSprinting = false
+            }
+        } else {
+            stSet(p, stGet(p) + ST_REGEN)
+        }
+        stApplyEmptyGates(p)
+        stUpdateHud(p)
+    }
+}
+
+on sprint() -> st_sprint {
+    val p = _eventPlayer
+    if (!stHas(p, ST_COST_SPRINT)) {
+        cancelEvent()
+        return
+    }
+}
+
+on jump() -> st_jump {
+    val p = _eventPlayer
+    if (!stHas(p, ST_COST_JUMP)) {
+        cancelEvent()
+        return
+    }
+    stSpend(p, ST_COST_JUMP)
+    stUpdateHud(p)
+}
+
+on attack() -> st_attack {
+    val p = _eventPlayer
+    if (!stHas(p, ST_COST_ATTACK)) {
+        cancelEvent()
+        return
+    }
+    stSpend(p, ST_COST_ATTACK)
+    stUpdateHud(p)
+}
+
+on clickBlock() -> st_mine {
+    if (_eventAction != "left") { return }
+    val p = _eventPlayer
+    if (!stHas(p, ST_COST_MINE_TICK)) {
+        cancelEvent()
+        return
+    }
+    stSpend(p, ST_COST_MINE_TICK)
+    stUpdateHud(p)
+}
+
+on breakBlock() -> st_break {
+    val p = _eventPlayer
+    if (!stHas(p, ST_COST_DIG)) {
+        cancelEvent()
+        return
+    }
+    stSpend(p, ST_COST_DIG)
+    stUpdateHud(p)
+}

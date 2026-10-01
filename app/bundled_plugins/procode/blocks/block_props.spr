@@ -1,0 +1,37 @@
+#\ block: set_block_hardness
+#\ category: Мир
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "прочность блока" (blockId: text: my_block) "=" (hardness: number: 1.5)
+#\
+#\ template: setBlockHardness("{blockId}", {hardness})
+
+#\ block: get_block_hardness
+#\ category: Мир
+#\ color: #22c55e
+#\ shape: value
+#\ output: number
+#\
+#\ row: "прочность блока" (blockId: text: my_block)
+#\
+#\ template: getBlockHardness("{blockId}")
+
+#\ block: set_block_solid
+#\ category: Мир
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "блок" (blockId: text: my_block) "твердый" [solid: dropdown(да: true, нет: false)]
+#\
+#\ template: setBlockSolid("{blockId}", {solid})
+
+#\ block: get_block_solid
+#\ category: Мир
+#\ color: #22c55e
+#\ shape: value
+#\ output: boolean
+#\
+#\ row: "блок твердый?" (blockId: text: my_block)
+#\
+#\ template: getBlockSolid("{blockId}")

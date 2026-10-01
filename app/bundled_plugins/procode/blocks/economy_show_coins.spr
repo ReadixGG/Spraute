@@ -1,0 +1,24 @@
+#\ block: economy_show_coins
+#\ category: Экономика
+#\ color: #eab308
+#\ shape: statement
+#\ write_start: import("economy")
+#\
+#\ row: "счётчик монет" [visibility: dropdown(показать: show, спрятать: hide)]
+#\ row: "игрок" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ if visibility == "show":
+#\   row: "текстура" (texture: texture: minecraft:textures/item/gold_nugget.png)
+#\ if visibility == "show" and who == "event":
+#\   template: ecoShowCoinsHud(_eventPlayer, "{texture}")
+#\ if visibility == "show" and who == "first":
+#\   template: ecoShowCoinsHud(getFirstPlayer(), "{texture}")
+#\ if visibility == "show" and who == "custom":
+#\   template: ecoShowCoinsHud({player}, "{texture}")
+#\ if visibility == "hide" and who == "event":
+#\   template: ecoHideCoinsHud(_eventPlayer)
+#\ if visibility == "hide" and who == "first":
+#\   template: ecoHideCoinsHud(getFirstPlayer())
+#\ if visibility == "hide" and who == "custom":
+#\   template: ecoHideCoinsHud({player})

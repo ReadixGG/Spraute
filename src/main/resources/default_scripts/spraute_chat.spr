@@ -1,6 +1,12 @@
 # Библиотека кастомного чата
 # import("spraute_chat")
 #
+# Имя и цвет берутся из настроек движка (формат с $Name, цвет #RRGGBB):
+#   formatChatName(name)  — подставить имя в формат
+#   getChatNameColor()    — цвет имени
+#   getChatNameFormat()   — шаблон формата
+# Пустой/null color в npcChat/playerChat тоже берёт цвет из настроек.
+#
 # npcChat(viewer, speaker, text, color, seconds, headScale, anchorYVal)
 # playerChat(viewer, text, color, seconds)
 # customChatEx(viewer, message, who, whoRef, seconds, headScale, anchorYVal)
@@ -12,9 +18,22 @@
 global val chat_history = list()
 global val chat_msg_counter = 0
 
-global val CHAT_HEAD_SCALE = 4
-global val CHAT_HEAD_ANCHOR_Y = 0.5
+global val CHAT_HEAD_SCALE = 3.8
+global val CHAT_HEAD_ANCHOR_Y = 0.67
 global val CHAT_HOLD_SEC = 5
+
+# Layout constants — shared by live bar and history (1:1).
+global val CHAT_HEAD_W = 28
+global val CHAT_PAD_RIGHT = 8
+global val CHAT_PAD_TOP = 4
+global val CHAT_PAD_BOTTOM = 4
+global val CHAT_NAME_H = 12
+global val CHAT_LINE_H = 10
+global val CHAT_MIN_W = 100
+global val CHAT_MAX_W = 320
+global val CHAT_MIN_H = 34
+global val CHAT_BG = "#CC111111"
+global val CHAT_TEXT = "#FFFFFF"
 
 fun chatLog(tag, msg) {
     log("[spraute_chat/" + tag + "] " + msg)
@@ -52,50 +71,70 @@ fun chat_history_clear() {
     chatLog("clear", "history cleared")
 }
 
-fun calc_msg_height(text, wrap_w) {
-    val pad_top = 4
-    val pad_bottom = 4
-    val name_h = 12
-    val line_h = 10
-    val lines = calc_wrapped_lines(text, wrap_w)
-    var bar_h = pad_top + name_h + (lines * line_h) + pad_bottom
-    if (bar_h < 34) { bar_h = 34 }
-    return bar_h
-}
-
-fun calc_head_layout(bar_h) {
-    val pad_top = 4
-    val pad_bottom = 4
-    val name_h = 12
-    val line_h = 10
-    var layout_h = bar_h
-    val ref_h = pad_top + name_h + (2 * line_h) + pad_bottom
-    if (layout_h < ref_h) { layout_h = ref_h }
-    val clip_h = (layout_h - 4) // 2
-    val clip_y = (bar_h - clip_h) // 2
-    return dict("clip_h", clip_h, "clip_y", clip_y, "head_w", 28, "pad_top", pad_top, "name_h", name_h)
-}
-
 fun calc_wrapped_lines(text, wrap_w) {
     var text_w = strWidth(text)
     if (text_w <= wrap_w) { return 1 }
     return (text_w // wrap_w) + 1
 }
 
+# Same metrics as the live chat bar — used by chatShow and history.
+fun chat_msg_layout(displayName, text) {
+    val shown = formatChatName(displayName)
+    val name_w = strWidth(shown)
+    val full_text_w = strWidth(text) + 6
+    var bar_w = CHAT_HEAD_W + full_text_w + CHAT_PAD_RIGHT
+    if (bar_w < CHAT_HEAD_W + name_w + CHAT_PAD_RIGHT) { bar_w = CHAT_HEAD_W + name_w + CHAT_PAD_RIGHT }
+    if (bar_w < CHAT_MIN_W) { bar_w = CHAT_MIN_W }
+    if (bar_w > CHAT_MAX_W) { bar_w = CHAT_MAX_W }
+
+    val wrap_w = bar_w - CHAT_HEAD_W - CHAT_PAD_RIGHT
+    val lines = calc_wrapped_lines(text, wrap_w)
+    var bar_h = CHAT_PAD_TOP + CHAT_NAME_H + (lines * CHAT_LINE_H) + CHAT_PAD_BOTTOM
+    if (bar_h < CHAT_MIN_H) { bar_h = CHAT_MIN_H }
+
+    return dict(
+        "bar_w", bar_w,
+        "bar_h", bar_h,
+        "wrap_w", wrap_w,
+        "head_w", CHAT_HEAD_W,
+        "pad_top", CHAT_PAD_TOP,
+        "pad_bottom", CHAT_PAD_BOTTOM,
+        "name_h", CHAT_NAME_H
+    )
+}
+
 fun chat_entity_ref(npcRef) {
     if (npcRef == null) { return "avatar" }
-    val uid = npcRef.uuid
+    var ent = npcRef
+    if (npcRef.entity != null) { ent = npcRef.entity }
+    val uid = ent.uuid
     if (uid != null) {
         if (uid != "") { return uid }
+    }
+    if (npcRef.id != null) {
+        if (npcRef.id != "") { return "npc:" + npcRef.id }
     }
     return "npc:" + npcRef
 }
 
+fun chat_resolve_color(color) {
+    if (color == null) { return getChatNameColor() }
+    if (color == "") { return getChatNameColor() }
+    return color
+}
+
 fun npcChat(viewer, speaker, text, color, seconds, headScale, anchorYVal) {
+    var ent = speaker
+    if (speaker != null) {
+        if (speaker.entity != null) { ent = speaker.entity }
+    }
     var speakerName = speaker.name
+    if (speakerName == null || speakerName == "") {
+        if (ent != null) { speakerName = ent.name }
+    }
     if (speakerName == null || speakerName == "") { speakerName = "Неизвестный" }
     chatLogV(viewer, "npcChat", "speaker=" + speakerName + " sec=" + seconds + " scale=" + headScale + " ay=" + anchorYVal)
-    chatShow(viewer, speaker, text, color, null, speakerName, "npc", seconds, headScale, anchorYVal)
+    chatShow(viewer, ent, text, color, null, speakerName, "npc", seconds, headScale, anchorYVal)
 }
 
 fun playerChat(viewer, text, color, seconds) {
@@ -109,14 +148,19 @@ fun customChatEx(viewer, message, who, whoRef, seconds, headScale, anchorYVal) {
     var skinPlayer = null
     var npcRef = whoRef
     var displayName = ""
-    var nameColor = "#FFD700"
+    var nameColor = getChatNameColor()
     if (who == "player") {
         skinPlayer = whoRef
         displayName = whoRef.name
         if (displayName == null || displayName == "") { displayName = "Игрок" }
-        nameColor = "#55AAFF"
     } else {
+        if (whoRef != null) {
+            if (whoRef.entity != null) { npcRef = whoRef.entity }
+        }
         displayName = whoRef.name
+        if (displayName == null || displayName == "") {
+            if (npcRef != null) { displayName = npcRef.name }
+        }
         if (displayName == null || displayName == "") { displayName = "Неизвестный" }
     }
     chatLogV(viewer, "customChatEx", "who=" + who + " name=" + displayName)
@@ -126,10 +170,13 @@ fun customChatEx(viewer, message, who, whoRef, seconds, headScale, anchorYVal) {
 fun chatShow(viewer, npcRef, text, color, skinPlayer, displayName, who, seconds, headScale, anchorYVal) {
     stopTask("chat_fade")
 
+    val shown = formatChatName(displayName)
+    val nameCol = chat_resolve_color(color)
+
     chat_history.add(dict(
         "name", displayName,
         "text", text,
-        "color", color,
+        "color", nameCol,
         "npc", npcRef,
         "skinPlayer", skinPlayer,
         "who", who,
@@ -146,30 +193,13 @@ fun chatShow(viewer, npcRef, text, color, skinPlayer, displayName, who, seconds,
 
     chatLogV(viewer, "chatShow", "counter=" + my_counter + " hold=" + chat_fade_sec + " scale=" + head_scale + " ay=" + head_anchor_y)
 
-    val head_w = 28
-    val pad_right = 8
-    val pad_top = 4
-    val pad_bottom = 4
-    val name_h = 12
-    val line_h = 10
-    val min_w = 100
-    val max_w = 320
-
-    val name_w = strWidth(displayName + ": ")
-    val full_text_w = strWidth(text) + 6
-    var bar_w = head_w + full_text_w + pad_right
-    if (bar_w < head_w + name_w + pad_right) { bar_w = head_w + name_w + pad_right }
-    if (bar_w < min_w) { bar_w = min_w }
-    if (bar_w > max_w) { bar_w = max_w }
-
-    val wrap_w = bar_w - head_w - pad_right
-    val lines = calc_wrapped_lines(text, wrap_w)
-    var bar_h = pad_top + name_h + (lines * line_h) + pad_bottom
-    if (bar_h < 34) { bar_h = 34 }
-
-    var layout_h = bar_h
-    val ref_h = pad_top + name_h + (2 * line_h) + pad_bottom
-    if (layout_h < ref_h) { layout_h = ref_h }
+    val lay = chat_msg_layout(displayName, text)
+    val bar_w = lay["bar_w"]
+    val bar_h = lay["bar_h"]
+    val wrap_w = lay["wrap_w"]
+    val head_w = lay["head_w"]
+    val pad_top = lay["pad_top"]
+    val name_h = lay["name_h"]
     val ent_ref = chat_entity_ref(npcRef)
 
     if (who == "player") {
@@ -195,7 +225,7 @@ fun chatShow(viewer, npcRef, text, color, skinPlayer, displayName, who, seconds,
                 rect("chat_bg") {
                     pos = [0, 0]
                     size = [bar_w, bar_h]
-                    color = "#CC111111"
+                    color = CHAT_BG
                 }
                 image("chat_head", skin_tex + "/head") {
                     pos = [head_x, head_y]
@@ -206,14 +236,14 @@ fun chatShow(viewer, npcRef, text, color, skinPlayer, displayName, who, seconds,
                     size = [hat_sz, hat_sz]
                     layer = 1
                 }
-                text("chat_name", displayName + ": ") {
+                text("chat_name", shown) {
                     pos = [head_w, pad_top]
-                    color = color
+                    color = nameCol
                     scale = 1.0
                 }
                 text("textText", text) {
                     pos = [head_w, pad_top + name_h]
-                    color = "#FFFFFF"
+                    color = CHAT_TEXT
                     wrap = wrap_w
                 }
             }
@@ -233,36 +263,37 @@ fun chatShow(viewer, npcRef, text, color, skinPlayer, displayName, who, seconds,
                 rect("chat_bg") {
                     pos = [0, 0]
                     size = [bar_w, bar_h]
-                    color = "#CC111111"
+                    color = CHAT_BG
                 }
-                text("chat_name", displayName + ": ") {
+                entity(ent_ref, "chat_head") {
+                    pos = [0, 0]
+                    size = [28, bar_h]
+                    scale = head_scale
+                    anchor_y = head_anchor_y
+                    nameTag = false
+                    noLookAt = true
+                    noFollowCursor = true
+                    noHurtAnim = true
+                    animation = false
+                    renderBones = "Head"
+                }
+                text("chat_name", shown) {
                     pos = [head_w, pad_top]
-                    color = color
+                    color = nameCol
                     scale = 1.0
+                    layer = 1
                 }
                 text("textText", text) {
                     pos = [head_w, pad_top + name_h]
-                    color = "#FFFFFF"
+                    color = CHAT_TEXT
                     wrap = wrap_w
+                    layer = 1
                 }
-            }
-            entity(ent_ref, "chat_head") {
-                pos = [0, 0]
-                size = [28, bar_h]
-                scale = head_scale
-                anchor_y = head_anchor_y
-                nameTag = false
-                noLookAt = true
-                noFollowCursor = true
-                noHurtAnim = true
-                animation = false
-                renderBones = "Head"
             }
         }
     }
 
     overlayOpen(viewer, chat_bar)
-    playSound(viewer, "minecraft:entity.experience_orb.pickup", 0.5, 1.0)
     uiAnimate(viewer, "chat_clip", "alpha", 1.0, 0.3, "easeOut")
 
     async "chat_fade" {
@@ -284,16 +315,32 @@ on keybind("B") -> chat_history_kb {
         return
     }
 
+    val gap = 4
+    val title_h = 25
+    val panel_pad = 5
+    val scroll_bottom_pad = 5
+
+    var max_bar_w = CHAT_MIN_W
     var total_h = 0
     var i = 0
     while (i < chat_history.size()) {
         val msg = chat_history.get(i)
-        total_h = total_h + calc_msg_height(msg["text"], 280) + 4
+        val lay = chat_msg_layout(msg["name"], msg["text"])
+        if (lay["bar_w"] > max_bar_w) { max_bar_w = lay["bar_w"] }
+        total_h = total_h + lay["bar_h"] + gap
         i = i + 1
     }
+    if (total_h > gap) { total_h = total_h - gap }
+
+    val scroll_w = max_bar_w
+    val panel_w = scroll_w + panel_pad * 2
+    var scroll_h = 190
+    if (total_h < scroll_h) { scroll_h = total_h }
+    if (scroll_h < 40) { scroll_h = 40 }
+    val panel_h = title_h + scroll_h + scroll_bottom_pad
 
     create ui history_ui {
-        size = [340, 220]
+        size = [panel_w, panel_h]
         background = "#EE111111"
         canClose = true
 
@@ -304,37 +351,44 @@ on keybind("B") -> chat_history_kb {
         }
 
         scroll("scroll_view") {
-            pos = [5, 25]
-            size = [330, 190]
+            pos = [panel_pad, title_h]
+            size = [scroll_w, scroll_h]
             content_h = total_h
 
             var current_y = 0
             var j = 0
             while (j < chat_history.size()) {
                 val msg = chat_history.get(j)
-                val wrap_w = 280
-                val m_h = calc_msg_height(msg["text"], wrap_w)
-                val head = calc_head_layout(m_h)
+                val lay = chat_msg_layout(msg["name"], msg["text"])
+                val bar_w = lay["bar_w"]
+                val bar_h = lay["bar_h"]
+                val wrap_w = lay["wrap_w"]
+                val head_w = lay["head_w"]
+                val pad_top = lay["pad_top"]
+                val name_h = lay["name_h"]
+
                 var hist_who = msg["who"]
                 if (hist_who == null || hist_who == "") { hist_who = "npc" }
                 var hist_ent = chat_entity_ref(msg["npc"])
                 val hist_scale = chat_head_scale(msg["headScale"])
                 val hist_ay = chat_head_anchor_y(msg["anchorYVal"])
-                val head_sz = 16
-                val hat_sz = 18
-                val head_x = 3
-                val head_y = head["clip_y"] + (head["clip_h"] - head_sz) // 2
-                val hat_x = 2
-                val hat_y = head_y - 1
 
+                # Same block as live chat: bg + name + text (+ head).
                 rect("bg_" + j) {
                     pos = [0, current_y]
-                    size = [320, m_h]
-                    color = "#33FFFFFF"
+                    size = [bar_w, bar_h]
+                    color = CHAT_BG
                 }
 
                 if (hist_who == "player") {
                     val hist_skin_tex = getPlayerSkinTexture(msg["skinPlayer"])
+                    val head_sz = 16
+                    val hat_sz = 18
+                    val head_x = 6
+                    val head_y = (bar_h - head_sz) // 2
+                    val hat_x = 5
+                    val hat_y = head_y - 1
+
                     image("hist_head_" + j, hist_skin_tex + "/head") {
                         pos = [head_x, current_y + head_y]
                         size = [head_sz, head_sz]
@@ -345,35 +399,34 @@ on keybind("B") -> chat_history_kb {
                         layer = 1
                     }
                 } else {
-                    clip("hist_clip_" + j) {
-                        pos = [head_x, current_y + head["clip_y"]]
-                        size = [head["head_w"] - 4, head["clip_h"]]
-                        entity(hist_ent, "hist_head_" + j) {
-                            pos = [0, 0]
-                            size = [24, head["clip_h"] * 2]
-                            scale = hist_scale
-                            anchor_y = hist_ay
-                            clipEntity = true
-                            nameTag = false
-                            noLookAt = true
-                            noFollowCursor = true
-                            noHurtAnim = true
-                            animation = false
-                            renderBones = "Head"
-                        }
+                    entity(hist_ent, "hist_head_" + j) {
+                        pos = [0, current_y]
+                        size = [28, bar_h]
+                        scale = hist_scale
+                        anchor_y = hist_ay
+                        nameTag = false
+                        noLookAt = true
+                        noFollowCursor = true
+                        noHurtAnim = true
+                        animation = false
+                        renderBones = "Head"
                     }
                 }
 
-                text("name_" + j, msg["name"] + ": ") {
-                    pos = [head["head_w"], current_y + head["pad_top"]]
-                    color = msg["color"]
+                text("name_" + j, formatChatName(msg["name"])) {
+                    pos = [head_w, current_y + pad_top]
+                    color = chat_resolve_color(msg["color"])
+                    scale = 1.0
+                    layer = 1
                 }
                 text("textText" + j, msg["text"]) {
-                    pos = [head["head_w"], current_y + head["pad_top"] + head["name_h"]]
-                    color = "#DDDDDD"
+                    pos = [head_w, current_y + pad_top + name_h]
+                    color = CHAT_TEXT
                     wrap = wrap_w
+                    layer = 1
                 }
-                current_y = current_y + m_h + 4
+
+                current_y = current_y + bar_h + gap
                 j = j + 1
             }
         }

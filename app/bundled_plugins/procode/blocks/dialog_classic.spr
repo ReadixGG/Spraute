@@ -20,20 +20,17 @@
 #\ shape: value
 #\ write_start: import("dialog_classic")
 #\
-#\ row: "классический диалог"
-#\ row: "игрок" [playerMode: dropdown(кликнувший: event, первый: first, указать: custom)]
-#\ if playerMode == "custom":
-#\   input: player (type: value)
+#\ row: "классическое меню выбора"
+#\ row: "кому показать"
+#\ input: player (type: value)
 #\ row: "НИП" [hasNpc: dropdown(есть: yes, нет: no)]
 #\ if hasNpc == "yes":
 #\   row: [npc: dropdown_npc]
-#\ row: "вопрос" (question: text: Что вы выберете?)
+#\ row: "вопрос" (question: textmultiline: Что вы выберете?)
 #\ row: "ответы"
 #\ input: answers (type: value)
-#\ code: var pm = String(_getVal('playerMode') || 'event');
-#\ code: var pl = '_eventPlayer';
-#\ code: if (pm === 'first') { pl = 'getFirstPlayer()'; }
-#\ code: if (pm === 'custom') { var cp = String(_getVal('player') || '').trim(); if (cp) { pl = cp; } }
+#\ code: var pl = String(_getVal('player') || '').trim();
+#\ code: if (!pl) { pl = '_eventPlayer'; }
 #\ code: var q = _str('question');
 #\ code: var ans = _getVal('answers');
 #\ code: var hasNpc = String(_getVal('hasNpc') || 'yes');

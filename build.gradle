@@ -3,8 +3,9 @@ plugins {
     id 'idea'
     id 'dev.kikugie.stonecutter'
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'org.spongepowered.mixin' version '0.7.+'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
-
 
 group = mod_group_id
 version = mod_version
@@ -61,6 +62,9 @@ minecraft {
         // applies to all the run configs below
         configureEach {
             workingDirectory project.file('run')
+            arg "-mixin.config=spraute_engine.mixins.json"
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
 
             // Recommended logging data for a userdev environment
             // The markers can be added/remove as needed separated by commas.
@@ -113,14 +117,27 @@ minecraft {
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
-    // Put repositories for dependencies here
-    // ForgeGradle automatically adds the Forge maven and Maven Central for you
+    // Forge first: cpw.mods (modlauncher, etc.) — Sponge mirror often 404/500
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
+    mavenCentral()
+    maven {
+        name = 'Sponge'
+        url = 'https://repo.spongepowered.org/repository/maven-public/'
+    }
 
     // If you have mod jar dependencies in ./libs, you can declare them as a repository like so.
     // See https://docs.gradle.org/current/userguide/declaring_repositories.html#sub:flat_dir_resolver
     // flatDir {
     //     dir 'libs'
     // }
+}
+
+configurations {
+    shade
+    implementation.extendsFrom shade
 }
 
 dependencies {
@@ -130,6 +147,48 @@ dependencies {
     // If the group id is "net.minecraft" and the artifact id is one of ["client", "server", "joined"],
     // then special handling is done to allow a setup of a vanilla dependency without the use of an external repository.
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    // ImGui: shade for release fat-jar; jarJar so Forge mod classloader sees it in dev + prod slim jar.
+    def imgui = [
+            "io.github.spair:imgui-java-binding:${imgui_version}",
+            "io.github.spair:imgui-java-lwjgl3:${imgui_version}",
+    ]
+    def imguiNatives = [
+            "io.github.spair:imgui-java-natives-windows:${imgui_version}",
+            "io.github.spair:imgui-java-natives-linux:${imgui_version}",
+            "io.github.spair:imgui-java-natives-macos:${imgui_version}",
+    ]
+    imgui.each { dep ->
+        shade dep
+        minecraftLibrary dep
+        jarJar(dep) { jarJar.ranged(it, "[${imgui_version},1.90.0)") }
+    }
+    imguiNatives.each { dep ->
+        shade dep
+        jarJar(dep) { jarJar.ranged(it, "[${imgui_version},1.90.0)") }
+    }
+    // Rhino: JS for visual block `code:` lines. Shade+relocate so package names don't clash
+    // with WorldEdit (and others) that also ship org.mozilla.javascript — JPMS forbids two
+    // modules exporting the same package.
+    def rhino = 'org.mozilla:rhino:1.7.15'
+    shade rhino
+    minecraftLibrary rhino
+    // Do NOT jarJar Rhino: JiJ would re-export org.mozilla.* and break WorldEdit coexistence.
+
+    // Pure-Java MP4/H.264 decoder for UI_VIDEO widgets (video only, no native runtime).
+    ['org.jcodec:jcodec:0.2.5', 'org.jcodec:jcodec-javase:0.2.5'].each { dep ->
+        shade dep
+        minecraftLibrary dep
+    }
+    // Dev run: only the current OS natives (the DLL resource must be visible to the mod classloader)
+    def devOs = org.gradle.internal.os.OperatingSystem.current()
+    def devNativeSuffix = devOs.isWindows() ? 'windows' : (devOs.isMacOsX() ? 'macos' : 'linux')
+    minecraftLibrary "io.github.spair:imgui-java-natives-${devNativeSuffix}:${imgui_version}"
+    // Natives jar is resource-only; puts the platform DLL on the dev classpath.
+    def os = org.gradle.internal.os.OperatingSystem.current()
+    def nativesSuffix = os.isWindows() ? 'windows' : (os.isMacOsX() ? 'macos' : 'linux')
+    minecraftLibrary "io.github.spair:imgui-java-natives-${nativesSuffix}:${imgui_version}"
 
     // Example mod dependency with JEI - using fg.deobf() ensures the dependency is remapped to your development mappings
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
@@ -146,6 +205,11 @@ dependencies {
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
 
+}
+
+mixin {
+    add sourceSets.main, 'spraute_engine.refmap.json'
+    config 'spraute_engine.mixins.json'
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
@@ -171,7 +235,8 @@ tasks.named('processResources', ProcessResources).configure {
 
 // Example for how to get properties into the manifest for reading at runtime.
 tasks.named('jar', Jar).configure {
-    archiveFileName.set("${mod_id}-${mod_version}-${minecraft_version}.jar")
+    archiveClassifier.set('slim')
+    archiveFileName.set("${mod_id}-${mod_version}-${minecraft_version}-slim.jar")
     manifest {
         attributes(["Specification-Title"     : mod_id,
                     "Specification-Vendor"    : mod_authors,
@@ -179,13 +244,133 @@ tasks.named('jar', Jar).configure {
                     "Implementation-Title"    : project.name,
                     "Implementation-Version"  : project.jar.archiveVersion,
                     "Implementation-Vendor"   : mod_authors,
-                    "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")])
+                    "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+                    "MixinConfigs"             : "spraute_engine.mixins.json"])
     }
 
     // This is the preferred method to reobfuscate your jar file
     finalizedBy 'reobfJar'
 }
 
+shadowJar {
+    manifest.inheritFrom tasks.named('jar').get().manifest
+    configurations = [project.configurations.shade]
+    archiveClassifier.set('')
+    archiveFileName.set("${mod_id}-${mod_version}-${minecraft_version}.jar")
+    dependencies {
+        exclude(dependency('org.lwjgl:.*:.*'))
+    }
+    // Avoid JPMS clash: WorldEdit (and others) also export org.mozilla.javascript.*
+    relocate 'org.mozilla', 'org.zonarstudio.spraute_engine.shaded.mozilla'
+    relocate 'org.jcodec', 'org.zonarstudio.spraute_engine.shaded.jcodec'
+    mergeServiceFiles()
+    finalizedBy 'reobfShadowJar'
+}
+
+reobf {
+    shadowJar {}
+}
+
+tasks.named('build').configure {
+    dependsOn tasks.named('reobfShadowJar')
+}
+
+// Forge dev runs load exploded classes; copy jarJar libs so ImGui is on the mod classloader.
+tasks.register('extractJarJarForDev', Copy) {
+    dependsOn tasks.named('jarJar')
+    from {
+        zipTree(tasks.named('jarJar').get().archiveFile.get())
+    }
+    include 'META-INF/jarjar/**'
+    into layout.buildDirectory.dir('resources/main')
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
+
+// Nested jarJar JARs don't expose native resources; unpack the platform DLL into generated resources.
+def imguiNativeDir = layout.buildDirectory.dir('generated/imgui-natives')
+sourceSets.main.resources.srcDir imguiNativeDir
+
+tasks.register('extractImGuiNativesForDev', Copy) {
+    from {
+        def os = org.gradle.internal.os.OperatingSystem.current()
+        def suffix = os.isWindows() ? 'natives-windows' : (os.isMacOsX() ? 'natives-macos' : 'natives-linux')
+        configurations.shade.filter { it.name.contains("imgui-java-${suffix}") }
+                .collect { zipTree(it) }
+    }
+    include 'io/imgui/java/native-bin/**'
+    into imguiNativeDir
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
+
+tasks.named('processResources').configure {
+    dependsOn tasks.named('extractImGuiNativesForDev')
+}
+
+// Ship Studio's bundled visual-block plugins inside the mod jar (unpacked to the
+// workspace plugins/ folder at runtime). index.txt lists files for jar enumeration.
+def bundledPluginsDir = layout.buildDirectory.dir('generated/bundled-plugins')
+sourceSets.main.resources.srcDir bundledPluginsDir
+
+tasks.register('prepareBundledPlugins') {
+    def srcDir = rootProject.file('app/bundled_plugins')
+    def outDirProvider = bundledPluginsDir
+    // Only ship ProCode (+ future official core plugins listed here).
+    def bundledPluginNames = ['procode'] as Set
+    inputs.dir(srcDir)
+    outputs.dir(outDirProvider)
+    doLast {
+        def outRoot = new File(outDirProvider.get().asFile, 'bundled_plugins')
+        outRoot.deleteDir()
+        outRoot.mkdirs()
+        def index = []
+        srcDir.eachDir { pluginDir ->
+            if (!(pluginDir.name in bundledPluginNames)) return
+            pluginDir.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+                def rel = pluginDir.name + '/' + pluginDir.toPath().relativize(f.toPath()).toString().replace('\\', '/')
+                def dest = new File(outRoot, rel)
+                dest.parentFile.mkdirs()
+                dest.bytes = f.bytes
+                index << rel
+            }
+        }
+        new File(outRoot, 'index.txt').text = index.sort().join('\n') + '\n'
+    }
+}
+
+tasks.named('processResources').configure {
+    dependsOn tasks.named('prepareBundledPlugins')
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+}
+
+tasks.register('runScriptLanguageSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Parse/compile smoke for scene scripting language'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.zonarstudio.spraute_engine.script.ScriptLanguageSmoke'
+}
+
+tasks.register('runSceneModelTest', JavaExec) {
+    group = 'verification'
+    description = 'Scene transform/document model smoke test'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'SceneModelTest'
+    // tools class is not on main classpath; compile it on the fly against main output
+    doFirst {
+        def toolsDir = rootProject.file('tools/scene_model_test')
+        def outDir = layout.buildDirectory.dir('tmp/sceneModelTest').get().asFile
+        outDir.mkdirs()
+        ant.javac(
+                srcdir: toolsDir.absolutePath,
+                destdir: outDir.absolutePath,
+                classpath: sourceSets.main.runtimeClasspath.asPath,
+                includeantruntime: false,
+                source: '17',
+                target: '17',
+                encoding: 'UTF-8'
+        )
+        classpath = files(outDir) + sourceSets.main.runtimeClasspath
+    }
 }

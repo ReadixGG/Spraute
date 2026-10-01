@@ -1,0 +1,7 @@
+#\ block: get_player
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "игрок по нику" (name: text: Steve)
+#\ code: var n = _getVal("name"); return "getPlayer(" + JSON.stringify(String(n == null ? "" : n)) + ")";

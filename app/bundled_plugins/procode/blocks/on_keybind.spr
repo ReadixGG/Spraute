@@ -1,0 +1,7 @@
+#\ block: on_keybind
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда нажата клавиша" (key: text: g) "→" (handler: text: h_key)
+#\ template: on keybind("{key}") -> {handler} {\n{DO}}

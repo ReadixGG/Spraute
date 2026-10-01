@@ -14,31 +14,34 @@ import org.zonarstudio.spraute_engine.cameraroute.CameraRouteStorage;
 import org.zonarstudio.spraute_engine.script.CameraRouteScriptUtil;
 import org.zonarstudio.spraute_engine.script.ScriptManager;
 import org.zonarstudio.spraute_engine.script.ScriptWorldData;
+import org.zonarstudio.spraute_engine.scene.SceneRepository;
+import org.zonarstudio.spraute_engine.scene.SceneRuntime;
 
 import java.util.Collections;
+import java.util.List;
 
 /**
  * Registers all /spraute commands.
  * 
  * Commands:
- *   /spraute run <script_name>  — run a compiled script
- *   /spraute reload             — reload all scripts from disk
- *   /spraute list               — list all loaded scripts
+ *   /spraute engine             — open in-game editor (OP 2+, player only)
+ *   /spraute run <scene_name>   — load a scene, spawn its objects and start its enabled scripts
+ *   /spraute stop [scene_name]  — unload scene(s): remove objects and stop scene scripts
+ *   /spraute reload             — re-read .spr from the server workspace
+ *   /spraute list               — list loaded scenes and scripts
  *   /spraute var clear global [имя] — сброс глобальных переменных скриптов
  *   /spraute var clear world [имя] — сброс переменных сейва (общие для всех измерений)
  *   /spraute var list global|world — список имён
  */
 public class SprauteCommands {
 
-    private static final SuggestionProvider<CommandSourceStack> SCRIPT_SUGGESTIONS =
+    private static final SuggestionProvider<CommandSourceStack> SCENE_SUGGESTIONS =
             (context, builder) -> SharedSuggestionProvider.suggest(
-                    ScriptManager.getInstance().getScriptNames(), builder
+                    SceneRepository.listPlayableSceneIds(org.zonarstudio.spraute_engine.resource.SprautePaths.gameDir()), builder
             );
 
-    private static final SuggestionProvider<CommandSourceStack> RUNNING_SCRIPT_SUGGESTIONS =
-            (context, builder) -> SharedSuggestionProvider.suggest(
-                    ScriptManager.getInstance() != null ? ScriptManager.getInstance().getRunningScriptNames() : Collections.emptySet(), builder
-            );
+    private static final SuggestionProvider<CommandSourceStack> LOADED_SCENE_SUGGESTIONS =
+            (context, builder) -> SharedSuggestionProvider.suggest(SceneRuntime.listLoaded(), builder);
 
     private static final SuggestionProvider<CommandSourceStack> ROUTE_SUGGESTIONS =
             (context, builder) -> SharedSuggestionProvider.suggest(
@@ -49,15 +52,15 @@ public class SprauteCommands {
                 Commands.literal("spraute")
                         .requires(source -> source.hasPermission(2)) // OP level 2+
 
-                        // /spraute run <script>
-                        .then(Commands.literal("run")
-                                .then(Commands.argument("script", StringArgumentType.word())
-                                        .suggests(SCRIPT_SUGGESTIONS)
-                                        .executes(SprauteCommands::executeRun)))
+                        // /spraute engine — enable editor mode; N opens the UI (player only)
+                        .then(Commands.literal("engine")
+                                .executes(SprauteCommands::executeEngine))
 
-                        // /spraute reload
-                        .then(Commands.literal("reload")
-                                .executes(SprauteCommands::executeReload))
+                        // /spraute run <scene>
+                        .then(Commands.literal("run")
+                                .then(Commands.argument("scene", StringArgumentType.string())
+                                        .suggests(SCENE_SUGGESTIONS)
+                                        .executes(SprauteCommands::executeRun)))
 
                         // /spraute list
                         .then(Commands.literal("list")
@@ -67,15 +70,15 @@ public class SprauteCommands {
                         .then(Commands.literal("path")
                                 .executes(SprauteCommands::executePath))
 
-                        // /spraute stop <script> — остановить указанный скрипт
-                        .then(Commands.literal("stop")
-                                .then(Commands.argument("script", StringArgumentType.word())
-                                        .suggests(RUNNING_SCRIPT_SUGGESTIONS)
-                                        .executes(SprauteCommands::executeStop)))
+                        .then(Commands.literal("reload")
+                                .executes(SprauteCommands::executeReload))
 
-                        // /spraute debug — включить/выключить отладку
-                        .then(Commands.literal("debug")
-                                .executes(SprauteCommands::executeDebug))
+                        // /spraute stop [scene] — unload scene (all objects + scene scripts)
+                        .then(Commands.literal("stop")
+                                .executes(SprauteCommands::executeStopAll)
+                                .then(Commands.argument("scene", StringArgumentType.string())
+                                        .suggests(LOADED_SCENE_SUGGESTIONS)
+                                        .executes(SprauteCommands::executeStop)))
 
                         .then(Commands.literal("sounds")
                                 .then(Commands.literal("stop")
@@ -110,6 +113,17 @@ public class SprauteCommands {
                                 .then(Commands.literal("list")
                                         .executes(SprauteCommands::executeRouteList)))
         );
+    }
+
+    private static int executeEngine(CommandContext<CommandSourceStack> context) {
+        if (!(context.getSource().getEntity() instanceof ServerPlayer player)) {
+            context.getSource().sendFailure(Component.literal("§c[Spraute]§r Редактор доступен только игроку."));
+            return 0;
+        }
+        org.zonarstudio.spraute_engine.network.ModNetwork.CHANNEL.send(
+                net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
+                new org.zonarstudio.spraute_engine.network.OpenEditorPacket());
+        return 1;
     }
 
     private static int executeLoadScreenOn(CommandContext<CommandSourceStack> context) {
@@ -181,47 +195,22 @@ public class SprauteCommands {
     }
 
     private static int executeRun(CommandContext<CommandSourceStack> context) {
-        String scriptName = StringArgumentType.getString(context, "script");
+        String sceneId = StringArgumentType.getString(context, "scene").trim();
         CommandSourceStack source = context.getSource();
 
-        ScriptManager manager = ScriptManager.getInstance();
-        if (manager == null) {
-            source.sendFailure(Component.literal("§a[Spraute]§r Script manager not initialized!"));
+        if (sceneId.isEmpty()) {
+            source.sendFailure(Component.literal("§c[Spraute]§r Не указано имя сцены."));
             return 0;
         }
 
-        if (manager.run(scriptName, source)) {
-            return 1;
-        } else {
-            // Не показывать "Script not found", если уже показали ошибку компиляции
-            if (!manager.hasCompileError(scriptName)) {
-                source.sendFailure(Component.literal("§a[Spraute]§r Script not found: '" + scriptName + "'"));
-            }
-            return 0;
-        }
-    }
+        if (!SceneRuntime.load(sceneId, source)) return 0;
 
-    private static int executeReload(CommandContext<CommandSourceStack> context) {
-        CommandSourceStack source = context.getSource();
-
-        ScriptManager manager = ScriptManager.getInstance();
-        if (manager == null) {
-            source.sendFailure(Component.literal("§a[Spraute]§r Script manager not initialized!"));
-            return 0;
-        }
-
-        manager.reload();
-        int count = manager.getScriptNames().size();
         //? if >=1.20.1 {
-        source.sendSuccess(
-                () -> Component.literal("§a[Spraute]§r §fReloaded §e" + count + "§f script(s)"),
-                true
-        );
+        source.sendSuccess(() -> Component.literal(
+                "§a[Spraute]§r Сцена §e" + sceneId + "§r запущена."), true);
         //?} else {
-        /*source.sendSuccess(
-                Component.literal("§a[Spraute]§r §fReloaded §e" + count + "§f script(s)"),
-                true
-        );
+        /*source.sendSuccess(Component.literal(
+                "§a[Spraute]§r Сцена §e" + sceneId + "§r запущена."), true);
         *///?}
         return 1;
     }
@@ -229,39 +218,48 @@ public class SprauteCommands {
     private static int executeList(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
 
-        ScriptManager manager = ScriptManager.getInstance();
-        if (manager == null) {
-            source.sendFailure(Component.literal("§a[Spraute]§r Script manager not initialized!"));
-            return 0;
-        }
-
-        var names = manager.getScriptNames();
-        if (names.isEmpty()) {
+        var loadedScenes = SceneRuntime.listLoaded();
+        if (loadedScenes.isEmpty()) {
             //? if >=1.20.1 {
-            source.sendSuccess(() -> Component.literal("§7[Spraute]§r No scripts loaded."), false);
+            source.sendSuccess(() -> Component.literal("§7[Spraute]§r Нет активных сцен."), false);
             //?} else {
-            /*source.sendSuccess(Component.literal("§7[Spraute]§r No scripts loaded."), false);
+            /*source.sendSuccess(Component.literal("§7[Spraute]§r Нет активных сцен."), false);
             *///?}
         } else {
             //? if >=1.20.1 {
             source.sendSuccess(
-                    () -> Component.literal("§6[Spraute]§r §fСкрипты (§e" + names.size() + "§f):"),
+                    () -> Component.literal("§6[Spraute]§r §fАктивные сцены (§e" + loadedScenes.size() + "§f):"),
                     false
             );
             //?} else {
             /*source.sendSuccess(
-                    Component.literal("§6[Spraute]§r §fСкрипты (§e" + names.size() + "§f):"),
+                    Component.literal("§6[Spraute]§r §fАктивные сцены (§e" + loadedScenes.size() + "§f):"),
                     false
             );
             *///?}
-            for (String name : names.stream().sorted().toList()) {
-                String suffix = manager.hasCompileError(name) ? " §c(ошибка компиляции)" : "";
+            for (String name : loadedScenes.stream().sorted().toList()) {
                 //? if >=1.20.1 {
-                source.sendSuccess(() -> Component.literal("  §7- §f" + name + suffix), false);
+                source.sendSuccess(() -> Component.literal("  §7- §f" + name), false);
                 //?} else {
-                /*source.sendSuccess(Component.literal("  §7- §f" + name + suffix), false);
+                /*source.sendSuccess(Component.literal("  §7- §f" + name), false);
                 *///?}
             }
+        }
+
+        ScriptManager manager = ScriptManager.getInstance();
+        if (manager != null) {
+            var names = manager.getScriptNames();
+            //? if >=1.20.1 {
+            source.sendSuccess(
+                    () -> Component.literal("§6[Spraute]§r §fСкрипты на диске (§e" + names.size() + "§f)"),
+                    false
+            );
+            //?} else {
+            /*source.sendSuccess(
+                    Component.literal("§6[Spraute]§r §fСкрипты на диске (§e" + names.size() + "§f)"),
+                    false
+            );
+            *///?}
         }
         return 1;
     }
@@ -276,57 +274,91 @@ public class SprauteCommands {
         }
 
         var path = manager.getScriptsDir().toAbsolutePath();
+        var workspace = org.zonarstudio.spraute_engine.resource.SprautePaths.workspace().toAbsolutePath();
+        var scenes = org.zonarstudio.spraute_engine.resource.SprautePaths.scenesDir().toAbsolutePath();
         //? if >=1.20.1 {
         source.sendSuccess(
-                () -> Component.literal("§6[Spraute]§r §fСкрипты загружаются из: §e" + path),
+                () -> Component.literal("§6[Spraute]§r §fWorkspace сервера: §e" + workspace
+                        + "\n§6[Spraute]§r §fСкрипты: §e" + path
+                        + "\n§6[Spraute]§r §fСцены: §e" + scenes),
                 false
         );
         //?} else {
         /*source.sendSuccess(
-                Component.literal("§6[Spraute]§r §fСкрипты загружаются из: §e" + path),
+                Component.literal("§6[Spraute]§r §fWorkspace сервера: §e" + workspace
+                        + "\n§6[Spraute]§r §fСкрипты: §e" + path
+                        + "\n§6[Spraute]§r §fСцены: §e" + scenes),
                 false
         );
         *///?}
         return 1;
     }
 
-    private static int executeStop(CommandContext<CommandSourceStack> context) {
-        String scriptName = StringArgumentType.getString(context, "script");
+    private static int executeReload(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-
         ScriptManager manager = ScriptManager.getInstance();
         if (manager == null) {
-            source.sendFailure(Component.literal("§a[Spraute]§r Script manager not initialized!"));
+            source.sendFailure(Component.literal("§c[Spraute]§r Script manager not initialized!"));
             return 0;
         }
-
-        if (manager.stopScript(scriptName)) {
-            //? if >=1.20.1 {
-            source.sendSuccess(() -> Component.literal("§a[Spraute]§r §fСкрипт §e" + scriptName + "§f остановлен."), false);
-            //?} else {
-            /*source.sendSuccess(Component.literal("§a[Spraute]§r §fСкрипт §e" + scriptName + "§f остановлен."), false);
-            *///?}
-            return 1;
-        } else {
-            source.sendFailure(Component.literal("§a[Spraute]§r §fСкрипт §e" + scriptName + "§f не запущен."));
-            return 0;
-        }
+        manager.refreshFromDisk();
+        org.zonarstudio.spraute_engine.registry.CustomProjectileRegistry.invalidateAndReparse();
+        org.zonarstudio.spraute_engine.registry.CustomParticleRegistry.invalidateAndReparse();
+        org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.reloadFromScripts();
+        org.zonarstudio.spraute_engine.resource.AssetSyncServer.invalidate();
+        //? if >=1.20.1 {
+        source.sendSuccess(() -> Component.literal(
+                "§a[Spraute]§r Скрипты перечитаны с диска сервера."), true);
+        //?} else {
+        /*source.sendSuccess(Component.literal(
+                "§a[Spraute]§r Скрипты перечитаны с диска сервера."), true);
+        *///?}
+        return 1;
     }
 
-    private static int executeDebug(CommandContext<CommandSourceStack> context) {
+    private static int executeStop(CommandContext<CommandSourceStack> context) {
+        String sceneId = StringArgumentType.getString(context, "scene").trim();
         CommandSourceStack source = context.getSource();
-        
-        try {
-            net.minecraft.server.level.ServerPlayer player = source.getPlayerOrException();
-            ScriptManager manager = ScriptManager.getInstance();
-            if (manager != null) {
-                manager.toggleDebug(player);
-                return 1;
-            }
-        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
-            source.sendFailure(Component.literal("§cThis command can only be run by a player."));
+
+        if (sceneId.isEmpty()) {
+            source.sendFailure(Component.literal("§c[Spraute]§r Не указано имя сцены."));
+            return 0;
         }
+
+        if (SceneRuntime.unload(sceneId, source)) {
+            //? if >=1.20.1 {
+            source.sendSuccess(() -> Component.literal(
+                    "§a[Spraute]§r Сцена §e" + sceneId + "§r остановлена (объекты удалены, скрипты остановлены)."), true);
+            //?} else {
+            /*source.sendSuccess(Component.literal(
+                    "§a[Spraute]§r Сцена §e" + sceneId + "§r остановлена (объекты удалены, скрипты остановлены)."), true);
+            *///?}
+            return 1;
+        }
+        source.sendFailure(Component.literal("§c[Spraute]§r Сцена §e" + sceneId + "§r не была запущена."));
         return 0;
+    }
+
+    private static int executeStopAll(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        var loaded = SceneRuntime.listLoaded();
+        if (loaded.isEmpty()) {
+            source.sendFailure(Component.literal("§c[Spraute]§r Нет активных сцен."));
+            return 0;
+        }
+        int n = 0;
+        for (String sceneId : List.copyOf(loaded)) {
+            if (SceneRuntime.unload(sceneId, source)) n++;
+        }
+        int stopped = n;
+        //? if >=1.20.1 {
+        source.sendSuccess(() -> Component.literal(
+                "§a[Spraute]§r Остановлено сцен: §e" + stopped), true);
+        //?} else {
+        /*source.sendSuccess(Component.literal(
+                "§a[Spraute]§r Остановлено сцен: §e" + stopped), true);
+        *///?}
+        return stopped;
     }
 
     private static int executeSoundsStop(CommandContext<CommandSourceStack> context) {

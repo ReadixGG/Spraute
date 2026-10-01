@@ -1,5 +1,6 @@
 # Тест боя НИП
 # Запуск: /spraute run test_combat
+# (сцена: spraute_engine/scenes/test_combat.scene.json)
 # НИП появится рядом, возьмёт меч в правую руку и атакует ближайшего игрока.
 
 val spawn = findSafeBlock("player", 16, 4)
@@ -12,9 +13,9 @@ if (spawn == null) {
 
     create npc combat_dummy {
         name = "§cБоец"
-        model = "geo/defolt.geo.json"
-        texture = "textures/entity/defolt.png"
-        animation = "animations/npc_classic.animation.json"
+        model = "geo/spraute_classic_by_bendy659_.geo.json"
+        texture = "textures/entity/npc_texture.png"
+        animation = "animations/npc.animation.json"
         pos = bx, by, bz
         showName = true
         hp = 40

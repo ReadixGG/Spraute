@@ -1,0 +1,8 @@
+#\ block: quest_goal_line
+#\ category: Квесты
+#\ color: #9333ea
+#\ shape: value
+#\ write_start: import("spraute_quests")
+#\
+#\ row: "цель" (text: textmultiline: Сделать задание)
+#\ template: quest_goal("{text}")

@@ -34,6 +34,8 @@ const PROP_HINTS = {
   scale: 'Масштаб: 1 — обычный размер, 0.5 — вдвое меньше, 2 — вдвое больше.',
   // text
   wrap: 'Ширина переноса текста в пикселях (или "80%"). Пусто — не переносить.',
+  autoWrap: 'true — переносить текст по ширине виджета (size/w), если wrap не задан.',
+  wrapMode: 'Режим переноса: word — по словам (по умолчанию), char — по буквам.',
   align: 'Выравнивание текста: left — слева, center — по центру, right — справа (работает с wrap).',
   anchorX: 'Точка привязки по X (0..1): 0 — левый край текста в точке pos, 0.5 — центр, 1 — правый край.',
   anchorY: 'Точка привязки по Y (0..1): 0 — верх, 0.5 — середина, 1 — низ.',
@@ -50,11 +52,17 @@ const PROP_HINTS = {
   slice_scale: 'Множитель толщины края на экране (sliceScale). 0.42 — тонкая рамка, 1 — 1:1 с borders.',
   onClick: 'Код движка, выполняющийся при клике. Игрок доступен как _eventPlayer. Пример: chat(_eventPlayer, "клик!")',
   // input
-  text: 'Начальный текст в поле ввода.',
   placeholder: 'Серая подсказка, видна пока поле пустое.',
   bgColor: 'Цвет фона поля ввода (#AARRGGBB).',
   outlineColor: 'Цвет рамки поля ввода (#AARRGGBB).',
   inputType: 'text — любой текст, number — только цифры.',
+  // стиль (скругление/градиент/рамка/тень)
+  radius: 'Радиус скругления углов в пикселях. 0 — прямые углы.',
+  gradient: 'Второй цвет градиента (#AARRGGBB). Заливка переходит от color к gradient.',
+  gradientDir: 'Направление градиента: v — сверху вниз, h — слева направо.',
+  border: 'Толщина рамки в пикселях. 0 — без рамки.',
+  borderColor: 'Цвет рамки (#AARRGGBB).',
+  shadow: 'Размер мягкой тени под виджетом в пикселях. 0 — без тени.',
   // gridBg
   gridType: 'Какие линии рисовать: hv — сетка (горизонталь + вертикаль), h — только горизонтальные, v — только вертикальные.',
   cellSize: 'Размер ячейки сетки в пикселях.',
@@ -81,9 +89,10 @@ const PROP_HINTS = {
   modelAnim: 'Файл анимаций модели.',
   modelIdle: 'Имя idle-анимации.',
   clipEntity: 'Обрезать модель по рамке виджета.',
-  // аргументы
+  // аргументы / текст
   id: 'Уникальный идентификатор виджета — по нему работают uiUpdate, uiAnimate и события (on uiClick).',
-  label: 'Надпись на кнопке.',
+  label: 'Надпись на кнопке. Обычный текст — как есть; выражение: player.name или =name_player + "?"',
+  text: 'Текст виджета / начальный текст input. Выражение: player.name или =name_player + "?"',
   item: 'ID предмета, например minecraft:diamond или apple.',
   block: 'ID блока, например minecraft:stone.',
   entity: 'Сущность: переменная НИПа (_eventNpc, npc из create npc) или игрок.',
@@ -492,10 +501,30 @@ function buildWidgetEl(w, pw, ph, scale) {
   el.style.height = Math.max(1, gameToDisp(sz.h, scale)) + 'px';
   el.style.zIndex = String(1000 + (Number(w.layer) || 0) * 10);
 
+  // Стилевые свойства (radius/gradient/border/shadow) — как в движке
+  const applyStylePreview = () => {
+    const rad = Number(p('radius')) || 0;
+    if (rad > 0) el.style.borderRadius = gameToDisp(rad, scale) + 'px';
+    const grad = p('gradient');
+    if (grad) {
+      const dir = (p('gradientDir') || 'v').startsWith('h') ? 'to right' : 'to bottom';
+      const c1 = engineColorToCss(p('color'), 'rgba(255,255,255,1)');
+      el.style.background = `linear-gradient(${dir}, ${c1}, ${engineColorToCss(grad, c1)})`;
+    }
+    const bw = Number(p('border')) || 0;
+    if (bw > 0) {
+      el.style.border = `${Math.max(1, gameToDisp(bw, scale))}px solid ${engineColorToCss(p('borderColor'), 'rgba(255,255,255,0.4)')}`;
+      el.style.boxSizing = 'border-box';
+    }
+    const sh = Number(p('shadow')) || 0;
+    if (sh > 0) el.style.boxShadow = `0 0 ${gameToDisp(sh, scale)}px rgba(0,0,0,0.4)`;
+  };
+
   switch (w.type) {
     case 'rect':
     case 'panel':
       el.style.background = engineColorToCss(p('color'), 'rgba(255,255,255,1)');
+      applyStylePreview();
       break;
     case 'divider':
       el.style.background = engineColorToCss(p('color'), 'rgba(255,255,255,0.27)');
@@ -553,6 +582,7 @@ function buildWidgetEl(w, pw, ph, scale) {
         el.style.background = engineColorToCss(p('color'), 'rgba(85,51,102,0.53)');
         el.addEventListener('mouseenter', () => { el.style.background = engineColorToCss(p('hover'), el.style.background); });
         el.addEventListener('mouseleave', () => { el.style.background = engineColorToCss(p('color'), 'rgba(85,51,102,0.53)'); });
+        applyStylePreview();
       }
       break;
     }
@@ -597,6 +627,7 @@ function buildWidgetEl(w, pw, ph, scale) {
       el.innerHTML = text
         ? escapeHtml(text)
         : `<span style="opacity:.45">${escapeHtml(w.args?.[1] ?? '')}</span>`;
+      applyStylePreview();
       break;
     }
     case 'item':
@@ -637,6 +668,7 @@ function buildWidgetEl(w, pw, ph, scale) {
     case 'scroll': {
       el.classList.add('gui-wd-container', 'gui-wd-scroll', 'gui-wd-clip');
       el.style.background = engineColorToCss(p('color'), 'rgba(0,0,0,0)');
+      applyStylePreview();
       break;
     }
   }

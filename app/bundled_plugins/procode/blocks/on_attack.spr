@@ -1,0 +1,15 @@
+#\ block: on_attack
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда атакует" [mode: dropdown(один игрок: one, несколько: many, любой: any)]
+#\ row: "→" (handler: text: h_attack)
+#\ if mode == "one":
+#\   input: player (type: value)
+#\   template: on attack({player}) -> {handler} {\n{DO}}
+#\ if mode == "many":
+#\   input: players (type: value)
+#\   template: on attack({players}) -> {handler} {\n{DO}}
+#\ if mode == "any":
+#\   template: on attack(any) -> {handler} {\n{DO}}

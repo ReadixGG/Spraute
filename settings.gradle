@@ -6,6 +6,10 @@ pluginManagement {
             url = 'https://maven.minecraftforge.net/'
         }
         maven {
+            name = 'Sponge'
+            url = 'https://repo.spongepowered.org/repository/maven-public/'
+        }
+        maven {
             name = 'KikuGie'
             url = 'https://maven.kikugie.dev/releases'
         }

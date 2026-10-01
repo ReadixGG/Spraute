@@ -1,0 +1,7 @@
+#\ block: str_lit
+#\ category: Текст
+#\ color: #10b981
+#\ shape: value
+#\
+#\ row: "текст" (t: textmultiline: Привет!)
+#\ code: var t = _getVal("t"); return JSON.stringify(String(t == null ? "" : t));

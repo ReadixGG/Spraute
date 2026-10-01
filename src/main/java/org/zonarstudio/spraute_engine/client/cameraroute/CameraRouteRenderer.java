@@ -18,7 +18,6 @@ import org.joml.Matrix4f;
 import org.zonarstudio.spraute_engine.Spraute_engine;
 import org.zonarstudio.spraute_engine.cameraroute.CameraRoutePath;
 import org.zonarstudio.spraute_engine.cameraroute.CameraRouteWaypoint;
-import org.zonarstudio.spraute_engine.item.CameraItem;
 
 import java.util.List;
 
@@ -101,8 +100,6 @@ public final class CameraRouteRenderer {
     }
 
     static boolean isHoldingCamera(Minecraft mc) {
-        if (mc.player == null) return false;
-        return mc.player.getMainHandItem().getItem() instanceof CameraItem
-                || mc.player.getOffhandItem().getItem() instanceof CameraItem;
+        return false;
     }
 }

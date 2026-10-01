@@ -79,7 +79,7 @@ public class CustomGeoBlockRenderer implements BlockEntityRenderer<CustomGeoBloc
             poseStack.translate(0, -1.5, 0);
 
             ResourceLocation textureLoc = texturePath.contains(":") ? new ResourceLocation(texturePath) : new ResourceLocation(Spraute_engine.MODID, texturePath);
-            RenderType renderType = RenderType.entityTranslucent(textureLoc);
+            RenderType renderType = SprauteRenderCompat.geoEntity(textureLoc);
             VertexConsumer consumer = bufferSource.getBuffer(renderType);
 
             SpGeoRenderer.render(instance, poseStack, consumer, packedLight, OverlayTexture.NO_OVERLAY, 1.0f, 1.0f, 1.0f, 1.0f, null);
@@ -150,7 +150,7 @@ public class CustomGeoBlockRenderer implements BlockEntityRenderer<CustomGeoBloc
                             poseStack.translate(0, -1.5, 0);
 
                             ResourceLocation texLoc = d.texture.contains(":") ? new ResourceLocation(d.texture) : new ResourceLocation(Spraute_engine.MODID, d.texture);
-                            RenderType rType = RenderType.entityTranslucent(texLoc);
+                            RenderType rType = SprauteRenderCompat.geoEntity(texLoc);
                             VertexConsumer cons = bufferSource.getBuffer(rType);
                             SpGeoRenderer.render(mInstance, poseStack, cons, packedLight, OverlayTexture.NO_OVERLAY, 1.0f, 1.0f, 1.0f, 1.0f, null);
                             

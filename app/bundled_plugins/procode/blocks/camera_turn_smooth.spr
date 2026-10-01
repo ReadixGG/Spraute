@@ -1,0 +1,8 @@
+#\ block: camera_turn_smooth
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "плавность поворота игрока" input: player (type: value)
+#\ row: "плавность 0…1" (smooth: number: 0.4)
+#\ template: {player}.camera.turnSmooth = {smooth}

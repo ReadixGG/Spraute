@@ -1,0 +1,3 @@
+﻿create model test {
+    model = "geo/test.geo.json"
+}

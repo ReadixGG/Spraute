@@ -1,0 +1,9 @@
+#\ block: player_has_tag
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "у игрока ("
+#\ input: player (type: value)
+#\ row: ") есть тег" (tag: text: vip)
+#\ template: hasPlayerTag({player}, "{tag}")

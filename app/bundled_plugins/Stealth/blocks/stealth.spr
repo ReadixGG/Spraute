@@ -1,0 +1,79 @@
+#\ block: stealth_start
+#\ category: Стелс
+#\ color: #ef4444
+#\ shape: statement
+#\
+#\ row: "запустить систему стелса"
+#\ template: startScript("stealth")
+
+#\ block: stealth_set_enabled
+#\ category: Стелс
+#\ color: #ef4444
+#\ shape: statement
+#\ write_start: import("stealth")
+#\
+#\ row: "стелс" [enabled: dropdown(включить: yes, выключить: no)]
+#\ if enabled == "yes":
+#\   template: stealthSetEnabled(true)
+#\ if enabled == "no":
+#\   template: stealthSetEnabled(false)
+
+#\ block: stealth_clear_enabled
+#\ category: Стелс
+#\ color: #ef4444
+#\ shape: statement
+#\ write_start: import("stealth")
+#\
+#\ row: "вернуть настройку стелса из ноды"
+#\ template: stealthClearEnabledOverride()
+
+#\ block: stealth_is_enabled
+#\ category: Стелс
+#\ color: #ef4444
+#\ shape: value
+#\ write_start: import("stealth")
+#\
+#\ row: "стелс включён"
+#\ template: stealthIsEnabled()
+
+#\ block: on_stealth_caught
+#\ category: Стелс
+#\ color: #ef4444
+#\ shape: wrapper
+#\ write_start: import("stealth")
+#\
+#\ row: "когда игрок замечен" [guardFilter: dropdown(любой зоной: any, указать id: custom)]
+#\ if guardFilter == "custom":
+#\   row: "id ноды зоны" (guardId: text: stealth_guard1)
+#\ row: "→" (handler: text: h_stealth_caught)
+#\
+#\ if guardFilter == "any":
+#\   template: on stealthCaught() -> {handler} {\n{DO}}
+#\ if guardFilter == "custom":
+#\   template: on stealthCaught(any, "{guardId}") -> {handler} {\n{DO}}
+
+#\ block: await_stealth_caught
+#\ category: Стелс
+#\ color: #ef4444
+#\ shape: statement
+#\ write_start: import("stealth")
+#\
+#\ row: "ждать пока заметят" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [guardFilter: dropdown(любой зоной: any, указать id: custom)]
+#\ if guardFilter == "custom":
+#\   row: "id ноды зоны" (guardId: text: stealth_guard1)
+#\
+#\ if who == "event" and guardFilter == "any":
+#\   template: await stealthCaught(_eventPlayer)
+#\ if who == "first" and guardFilter == "any":
+#\   template: await stealthCaught(getFirstPlayer())
+#\ if who == "custom" and guardFilter == "any":
+#\   template: await stealthCaught({player})
+#\ if who == "event" and guardFilter == "custom":
+#\   template: await stealthCaught(_eventPlayer, "{guardId}")
+#\ if who == "first" and guardFilter == "custom":
+#\   template: await stealthCaught(getFirstPlayer(), "{guardId}")
+#\ if who == "custom" and guardFilter == "custom":
+#\   template: await stealthCaught({player}, "{guardId}")

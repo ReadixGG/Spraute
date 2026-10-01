@@ -26,7 +26,11 @@ public final class SpQuaternion {
         return this;
     }
 
-    /** Set from Euler angles in degrees (Bedrock order: ZYX intrinsic = XYZ extrinsic). */
+    /**
+     * Set from Euler angles in degrees.
+     * Order matches GeckoLib {@code PoseStack}: mul Z, then Y, then X → R = Rz·Ry·Rx
+     * (X applied to the vector first). Same as JOML {@code rotationXYZ}.
+     */
     public SpQuaternion setEulerDeg(float degX, float degY, float degZ) {
         float rx = (float) Math.toRadians(degX) * 0.5f;
         float ry = (float) Math.toRadians(degY) * 0.5f;
@@ -34,7 +38,7 @@ public final class SpQuaternion {
         float sx = (float) Math.sin(rx), cx = (float) Math.cos(rx);
         float sy = (float) Math.sin(ry), cy = (float) Math.cos(ry);
         float sz = (float) Math.sin(rz), cz = (float) Math.cos(rz);
-        // ZYX intrinsic
+        // q = qz * qy * qx  (closed form; equals GeckoLib bone rotation compose)
         this.w = cx * cy * cz + sx * sy * sz;
         this.x = sx * cy * cz - cx * sy * sz;
         this.y = cx * sy * cz + sx * cy * sz;

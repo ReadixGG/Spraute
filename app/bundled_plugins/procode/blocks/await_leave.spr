@@ -1,0 +1,15 @@
+#\ block: await_leave
+#\ category: Ожидание
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "ждать выход игрока с сервера" [who: dropdown(любой: any, из события: event, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\
+#\ if who == "any":
+#\   template: await leave()
+#\ if who == "event":
+#\   template: await leave(_eventPlayer)
+#\ if who == "custom":
+#\   template: await leave({player})

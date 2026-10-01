@@ -3,10 +3,32 @@
 #\ color: #a855f7
 #\ shape: wrapper
 #\
-#\ row: "когда" [killer: dropdown(игрок: player, моб: mob, НИП: npc_ref)]
-#\ row: "убивает" [victim: dropdown(любую: any, игрока: player, НИПа: npc, моба: mob)] "→" (handler: text: h_kill)
+#\ row: "когда" [killer: dropdown(игрок: player, моб: mob, моб по id: mob_id, НИП: npc_ref)]
+#\ row: "убивает" [victim: dropdown(любую: any, игрока: player, НИПа: npc, НИПа по id: npc_id, моба: mob, моба по id: mob_id)] "→" (handler: text: h_kill)
 #\ if killer == "npc_ref":
 #\   row: "НИП-убийца" [npc: dropdown_npc]
+#\ if killer == "mob_id":
+#\   row: "id убийцы" (killerMobId: mob: minecraft:zombie)
+#\ if victim == "npc_id":
+#\   row: "id жертвы" [victimNpc: dropdown_npc]
+#\ if victim == "mob_id":
+#\   row: "id жертвы" (victimMobId: mob: minecraft:zombie)
+#\
+#\ if killer == "npc_ref" and victim == "npc_id":
+#\   template: on kill({npc}, {victimNpc}) -> {handler} {\n{DO}}
+#\ if killer == "npc_ref" and victim == "mob_id":
+#\   template: on kill({npc}, "{victimMobId}") -> {handler} {\n{DO}}
+#\ if killer == "npc_ref" and victim != "npc_id" and victim != "mob_id":
 #\   template: on kill({npc}, "{victim}") -> {handler} {\n{DO}}
-#\ if killer != "npc_ref":
+#\ if killer == "mob_id" and victim == "npc_id":
+#\   template: on kill("{killerMobId}", {victimNpc}) -> {handler} {\n{DO}}
+#\ if killer == "mob_id" and victim == "mob_id":
+#\   template: on kill("{killerMobId}", "{victimMobId}") -> {handler} {\n{DO}}
+#\ if killer == "mob_id" and victim != "npc_id" and victim != "mob_id":
+#\   template: on kill("{killerMobId}", "{victim}") -> {handler} {\n{DO}}
+#\ if killer != "npc_ref" and killer != "mob_id" and victim == "npc_id":
+#\   template: on kill("{killer}", {victimNpc}) -> {handler} {\n{DO}}
+#\ if killer != "npc_ref" and killer != "mob_id" and victim == "mob_id":
+#\   template: on kill("{killer}", "{victimMobId}") -> {handler} {\n{DO}}
+#\ if killer != "npc_ref" and killer != "mob_id" and victim != "npc_id" and victim != "mob_id":
 #\   template: on kill("{killer}", "{victim}") -> {handler} {\n{DO}}

@@ -1,0 +1,225 @@
+# Кастомный ХП-бар (плагин HpBar)
+# import("hp_bar")
+#
+# Как экономика / NpcRelations:
+#   1. В сцену добавь SCRIPT-ноду script = hp_bar (запуск со сценой).
+#   2. В Hierarchy → HUD → «ХП бар». Без этой ноды бар не показывается,
+#      классические сердца остаются.
+#   3. В инспекторе ноды: текстура бара (путь), обводка, цвет заполнения.
+#
+# Код = нода:
+#   create hp_bar {
+#       enabled = true
+#       hp_texture = "textures/ui/hp_fill.png"
+#       outline_color = "#FFE8E8E8"
+#       fill_color = "#CCE02020"
+#   }
+
+declare section HUD
+
+declare node type hp_bar {
+    section = "HUD"
+    label = "ХП бар"
+    icon = "plugin"
+
+    field enabled bool {
+        label = "Включено"
+        default = true
+    }
+
+    field hp_texture text {
+        label = "Текстура бара"
+        default = ""
+    }
+
+    field outline_color color {
+        label = "Обводка"
+        default = "#FFE8E8E8"
+    }
+
+    field fill_color color {
+        label = "Цвет заполнения"
+        default = "#CCE02020"
+    }
+}
+
+val HP_UI_ID = "hp_bar_hud"
+val HP_SHOWN_KEY = "hp_bar_hud"
+val HP_X = 8
+val HP_Y = "70%"
+val HP_W = 18
+val HP_H = 80
+val HP_BORDER = 2
+
+create ui hp_bar_hud {
+    id = "hp_bar_hud"
+    size = ["100%", "100%"]
+    background = "#00000000"
+    can_close = false
+
+    rect("hp_outline") {
+        pos = [HP_X, HP_Y]
+        size = [HP_W, HP_H]
+        color = "#00000000"
+        border = 2
+        borderColor = "#FFE8E8E8"
+        layer = 0
+    }
+    rect("hp_fill") {
+        pos = [HP_X + 2, HP_Y]
+        size = [HP_W - 4, HP_H]
+        color = "#CCE02020"
+        fill = "ttb"
+        fillAmount = 1
+        layer = 1
+    }
+    image("hp_tex", "") {
+        pos = [HP_X + 2, HP_Y]
+        size = [HP_W - 4, HP_H]
+        fill = "ttb"
+        fillAmount = 0
+        layer = 2
+    }
+}
+
+fun hpNodeGet(node, key) {
+    if (node == null) { return null }
+    var data = node.data
+    if (data != null) {
+        var v = data[key]
+        if (v != null) { return v }
+    }
+    return null
+}
+
+fun hpIsBarNode(node) {
+    if (node == null) { return false }
+    var t = node.typeId
+    if (t == null) { t = node.customType }
+    if (t == null) { t = node.custom_type }
+    if (t == "hp_bar") { return true }
+    return false
+}
+
+fun hpNodeEnabled(node) {
+    var v = hpNodeGet(node, "enabled")
+    if (v == null) { return true }
+    if (v == false) { return false }
+    return true
+}
+
+fun hpFindConfig() {
+    var nodes = sceneListNodes()
+    if (nodes == null) { return null }
+    var i = 0
+    var ncount = listSize(nodes)
+    while (i < ncount) {
+        var n = nodes[i]
+        if (hpIsBarNode(n)) {
+            if (hpNodeEnabled(n)) { return n }
+        }
+        i = i + 1
+    }
+    return null
+}
+
+fun hpBarActive() {
+    if (hpFindConfig() == null) { return false }
+    return true
+}
+
+fun hpIsShown(p) {
+    if (p == null) { return false }
+    var d = p.data
+    if (d == null) { return false }
+    if (d[HP_SHOWN_KEY] == true) { return true }
+    return false
+}
+
+fun hpMarkShown(p, shown) {
+    if (p == null) { return }
+    var d = p.data
+    if (d == null) { return }
+    d[HP_SHOWN_KEY] = shown
+}
+
+fun hpRatio(p) {
+    var max = p.maxHp
+    if (max == null) { max = 20 }
+    if (max <= 0) { max = 20 }
+    var cur = p.hp
+    if (cur == null) { cur = 0 }
+    var amt = cur / max
+    if (amt < 0) { amt = 0 }
+    if (amt > 1) { amt = 1 }
+    return amt
+}
+
+fun hpHide(p) {
+    if (p == null) { return }
+    if (hpIsShown(p)) {
+        overlayClose(p, "hp_bar_hud")
+        hpMarkShown(p, false)
+    }
+    showHud(p, "health")
+}
+
+fun hpShow(p, cfg) {
+    if (p == null) { return }
+    hideHud(p, "health")
+    if (!hpIsShown(p)) {
+        overlayOpen(p, hp_bar_hud)
+        hpMarkShown(p, true)
+    }
+
+    var amt = hpRatio(p)
+    var outline = hpNodeGet(cfg, "outline_color")
+    if (outline == null) { outline = "#FFE8E8E8" }
+    if (outline == "") { outline = "#FFE8E8E8" }
+    var fillCol = hpNodeGet(cfg, "fill_color")
+    if (fillCol == null) { fillCol = "#CCE02020" }
+    if (fillCol == "") { fillCol = "#CCE02020" }
+    var tex = hpNodeGet(cfg, "hp_texture")
+    if (tex == null) { tex = "" }
+
+    uiUpdate(p, "hp_outline", "borderColor", outline)
+    uiUpdate(p, "hp_fill", "color", fillCol)
+
+    if (tex == "") {
+        uiUpdate(p, "hp_fill", "fillAmount", amt)
+        uiUpdate(p, "hp_tex", "fillAmount", 0)
+    } else {
+        uiUpdate(p, "hp_tex", "texture", tex)
+        uiUpdate(p, "hp_tex", "fill", "ttb")
+        uiUpdate(p, "hp_tex", "fillAmount", amt)
+        uiUpdate(p, "hp_fill", "fillAmount", 0)
+    }
+}
+
+fun hpApply(p) {
+    if (p == null) { return }
+    var cfg = hpFindConfig()
+    if (cfg == null) {
+        hpHide(p)
+        return
+    }
+    hpShow(p, cfg)
+}
+
+fun hpApplyAll() {
+    for (p in getPlayers()) {
+        hpApply(p)
+    }
+}
+
+on join() -> hp_join {
+    hpApply(_eventPlayer)
+}
+
+on leave() -> hp_leave {
+    hpHide(_eventPlayer)
+}
+
+every(0.1) -> hp_tick {
+    hpApplyAll()
+}

@@ -1,0 +1,91 @@
+#\ block: notify
+#\ category: Диалоги
+#\ color: #38bdf8
+#\ shape: statement
+#\ write_start: import("notification")
+#\
+#\ row: "уведомление" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "текст" (text: textmultiline: Квест выполнен!)
+#\
+#\ if who == "event":
+#\   template: notify(_eventPlayer, "{text}")
+#\ if who == "first":
+#\   template: notify(getFirstPlayer(), "{text}")
+#\ if who == "custom":
+#\   template: notify({player}, "{text}")
+
+#\ block: notify_ex
+#\ category: Диалоги
+#\ color: #38bdf8
+#\ shape: statement
+#\ write_start: import("notification")
+#\
+#\ row: "уведомление +" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "текст" (text: textmultiline: +100 монет)
+#\ row: "секунд" (hold: number: 3)
+#\ row: "иконка" [iconMode: dropdown(нет: none, блок/предмет: block, текстура: texture)]
+#\ if iconMode == "block":
+#\   row: "id" (iconId: item: minecraft:gold_nugget)
+#\ if iconMode == "texture":
+#\   row: "текстура" (iconTex: texture: minecraft:textures/item/ender_pearl.png)
+#\
+#\ code: var who = String(_getVal('who') || 'event');
+#\ code: var player = '_eventPlayer';
+#\ code: if (who === 'first') player = 'getFirstPlayer()';
+#\ code: if (who === 'custom') { var p = String(_getVal('player') || '').trim(); if (p) player = p; }
+#\ code: var text = _str('text');
+#\ code: var hold = String(_getVal('hold') || '3').trim() || '3';
+#\ code: var mode = String(_getVal('iconMode') || 'none');
+#\ code: if (mode === 'block') {
+#\ code:   var id = _str('iconId');
+#\ code:   return 'notifyBlock(' + player + ', ' + text + ', ' + hold + ', ' + id + ')\n';
+#\ code: }
+#\ code: if (mode === 'texture') {
+#\ code:   var tex = _str('iconTex');
+#\ code:   return 'notifyTexture(' + player + ', ' + text + ', ' + hold + ', ' + tex + ')\n';
+#\ code: }
+#\ code: return 'notifyEx(' + player + ', ' + text + ', ' + hold + ', null)\n';
+
+#\ block: notify_block
+#\ category: Диалоги
+#\ color: #38bdf8
+#\ shape: statement
+#\ write_start: import("notification")
+#\
+#\ row: "уведомление с блоком" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "текст" (text: textmultiline: Получен предмет)
+#\ row: "секунд" (hold: number: 3)
+#\ row: "блок / предмет" (blockId: item: minecraft:diamond)
+#\
+#\ if who == "event":
+#\   template: notifyBlock(_eventPlayer, "{text}", {hold}, "{blockId}")
+#\ if who == "first":
+#\   template: notifyBlock(getFirstPlayer(), "{text}", {hold}, "{blockId}")
+#\ if who == "custom":
+#\   template: notifyBlock({player}, "{text}", {hold}, "{blockId}")
+
+#\ block: notify_texture
+#\ category: Диалоги
+#\ color: #38bdf8
+#\ shape: statement
+#\ write_start: import("notification")
+#\
+#\ row: "уведомление с текстурой" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "текст" (text: textmultiline: Новый скин)
+#\ row: "секунд" (hold: number: 3)
+#\ row: "текстура" (texture: texture: minecraft:textures/item/ender_pearl.png)
+#\
+#\ if who == "event":
+#\   template: notifyTexture(_eventPlayer, "{text}", {hold}, "{texture}")
+#\ if who == "first":
+#\   template: notifyTexture(getFirstPlayer(), "{text}", {hold}, "{texture}")
+#\ if who == "custom":
+#\   template: notifyTexture({player}, "{text}", {hold}, "{texture}")

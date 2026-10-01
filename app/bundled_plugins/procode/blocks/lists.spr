@@ -23,11 +23,3 @@
 #\ input: list (type: value) "в список"
 #\ row: "добавить" input: value (type: value)
 #\ template: listAdd({list}, {value})
-
-#\ block: list_new
-#\ category: Списки
-#\ color: #f59e0b
-#\ shape: value
-#\
-#\ row: "новый список"
-#\ template: []

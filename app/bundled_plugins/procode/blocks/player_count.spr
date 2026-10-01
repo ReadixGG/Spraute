@@ -1,0 +1,7 @@
+#\ block: player_count
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "количество игроков онлайн"
+#\ template: playerCount()

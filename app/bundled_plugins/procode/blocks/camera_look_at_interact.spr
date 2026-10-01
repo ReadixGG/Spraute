@@ -1,0 +1,8 @@
+#\ block: camera_look_at_interact
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "игрок смотрит на взаимодействие" input: player (type: value)
+#\ row: [enabled: dropdown(да: true, нет: false)]
+#\ template: {player}.camera.lookAtInteract = {enabled}

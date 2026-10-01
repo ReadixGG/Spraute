@@ -1,0 +1,10 @@
+#\ block: list_get
+#\ category: Списки
+#\ color: #3b82f6
+#\ shape: value
+#\
+#\ row: "из списка"
+#\ input: list (type: value)
+#\ row: "элемент"
+#\ input: index (type: value)
+#\ code: return "listGet(" + _getVal("list").trim() + ", " + _getVal("index").trim() + ")";

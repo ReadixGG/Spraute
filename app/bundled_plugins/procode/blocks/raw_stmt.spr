@@ -1,0 +1,7 @@
+#\ block: raw_stmt
+#\ category: Действия
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "код:" (code: text: x = 1)
+#\ template: {code}

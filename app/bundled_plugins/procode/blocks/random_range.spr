@@ -1,0 +1,10 @@
+#\ block: random_range
+#\ category: Математика
+#\ color: #ef4444
+#\ shape: value
+#\
+#\ row: "случайное от"
+#\ input: min (type: value)
+#\ row: "до"
+#\ input: max (type: value)
+#\ code: return "random(" + _getVal("min").trim() + ", " + _getVal("max").trim() + ")";

@@ -1,0 +1,7 @@
+#\ block: comment
+#\ category: Действия
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "# коммент:" (text: textmultiline: заметка)
+#\ template: # {text}

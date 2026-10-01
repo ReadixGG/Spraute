@@ -100,7 +100,8 @@ public final class NpcBonePoseSolver {
         float pitch = net.minecraft.util.Mth.clamp(headPitch,
                 -SprauteNpcEntity.MAX_HEAD_PITCH_UP, SprauteNpcEntity.MAX_HEAD_PITCH_DOWN);
 
-        rot.y -= localYaw;
+        // SpModelInstance applies bone Y as +(rest+anim); add so look yaw matches client.
+        rot.y += localYaw;
         rot.x += pitch;
     }
 

@@ -1,0 +1,13 @@
+#\ block: create_projectile
+#\ category: Снаряды
+#\ color: #fb923c
+#\ shape: statement
+#\
+#\ row: "создать снаряд" (projectileId: text: fireball)
+#\ row: "текстура" (texture: text: textures/projectile/fire.png)
+#\ row: "отрисовка" [renderStyle: dropdown(к камере: billboard, по скорости: velocity, крест X: cross)]
+#\ row: "размер" (width: number: 0.5) (height: number: 0.5)
+#\ row: "урон" (damage: number: 0) "lifetime" (lifetime: number: 200)
+#\ row: "гравитация" (gravity: number: 0) "drag" (drag: number: 1)
+#\
+#\ template: create projectile {projectileId} {\n    texture = "{texture}"\n    renderStyle = "{renderStyle}"\n    width = {width}\n    height = {height}\n    damage = {damage}\n    lifetime = {lifetime}\n    gravity = {gravity}\n    drag = {drag}\n}\n

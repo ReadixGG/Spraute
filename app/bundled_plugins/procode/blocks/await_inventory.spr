@@ -5,7 +5,7 @@
 #\
 #\ row: "ждать когда у игрока"
 #\ input: player (type: value)
-#\ row: "появится" (item: text: minecraft:diamond)
+#\ row: "появится" (item: item: minecraft:diamond)
 #\ row: [countMode: dropdown(любое кол-во: any, минимум: min)]
 #\ if countMode == "min":
 #\   row: (count: number: 1) "шт."

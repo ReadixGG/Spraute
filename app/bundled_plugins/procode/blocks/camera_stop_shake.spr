@@ -1,0 +1,7 @@
+#\ block: camera_stop_shake
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "остановить тряску камеры" input: player (type: value)
+#\ template: stopCameraShake({player})

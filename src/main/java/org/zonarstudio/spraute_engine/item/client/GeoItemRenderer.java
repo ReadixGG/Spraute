@@ -113,7 +113,7 @@ public class GeoItemRenderer extends BlockEntityWithoutLevelRenderer {
             poseStack.translate(0, -1.5, 0);
 
             ResourceLocation textureLoc = visuals.textureLocation();
-            RenderType renderType = RenderType.entityTranslucent(textureLoc);
+            RenderType renderType = SprauteRenderCompat.geoEntity(textureLoc);
             VertexConsumer consumer = buffer.getBuffer(renderType);
             SpGeoRenderer.render(instance, poseStack, consumer, packedLight, OverlayTexture.NO_OVERLAY,
                     1.0f, 1.0f, 1.0f, 1.0f, null);

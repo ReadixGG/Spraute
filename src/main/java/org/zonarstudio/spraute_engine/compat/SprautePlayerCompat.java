@@ -53,4 +53,24 @@ public final class SprautePlayerCompat {
     public static Attribute attackDamageAttr() {
         return Attributes.ATTACK_DAMAGE;
     }
+
+    /** Block break/place reach. Forge 1.20.1 splits it from entity reach. */
+    public static Attribute blockReachAttr() {
+        //? if >=1.20.1 {
+        return net.minecraftforge.common.ForgeMod.BLOCK_REACH.get();
+        //?} else {
+        /*return net.minecraftforge.common.ForgeMod.REACH_DISTANCE.get();
+        *///?}
+    }
+
+    public static Double getBlockReach(Player player) {
+        if (player == null) return null;
+        AttributeInstance inst = player.getAttribute(blockReachAttr());
+        return inst == null ? null : inst.getBaseValue();
+    }
+
+    public static boolean setBlockReach(Player player, double blocks) {
+        double clamped = Math.max(0d, Math.min(1024d, blocks));
+        return setAttributeBase(player, blockReachAttr(), clamped);
+    }
 }

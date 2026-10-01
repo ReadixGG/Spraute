@@ -1,0 +1,25 @@
+#\ block: economy_open_trade
+#\ category: Экономика
+#\ color: #eab308
+#\ shape: statement
+#\ write_start: import("economy")
+#\
+#\ row: "открыть трейд ID" (tradeId: text: shop)
+#\ row: "игрок" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "чат НИП" [npcChat: dropdown(выкл: off, указать: custom)]
+#\ if npcChat == "custom":
+#\   row: "НИП" (npcId: dropdown_npc)
+#\ if who == "event" and npcChat == "off":
+#\   template: ecoOpenTrade(_eventPlayer, {tradeId}_ITEMS, {tradeId}_TITLE, "")
+#\ if who == "event" and npcChat == "custom":
+#\   template: ecoOpenTrade(_eventPlayer, {tradeId}_ITEMS, {tradeId}_TITLE, {npcId})
+#\ if who == "first" and npcChat == "off":
+#\   template: ecoOpenTrade(getFirstPlayer(), {tradeId}_ITEMS, {tradeId}_TITLE, "")
+#\ if who == "first" and npcChat == "custom":
+#\   template: ecoOpenTrade(getFirstPlayer(), {tradeId}_ITEMS, {tradeId}_TITLE, {npcId})
+#\ if who == "custom" and npcChat == "off":
+#\   template: ecoOpenTrade({player}, {tradeId}_ITEMS, {tradeId}_TITLE, "")
+#\ if who == "custom" and npcChat == "custom":
+#\   template: ecoOpenTrade({player}, {tradeId}_ITEMS, {tradeId}_TITLE, {npcId})

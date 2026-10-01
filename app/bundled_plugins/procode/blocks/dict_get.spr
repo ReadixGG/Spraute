@@ -1,0 +1,14 @@
+#\ block: dict_get
+#\ category: Словари
+#\ color: #ec4899
+#\ shape: value
+#\
+#\ input: dict (type: value) "из словаря"
+#\ row: "значение по ключу" (key: text: ключ)
+#\ row: [mode: dropdown(без запасного: plain, иначе: fallback)]
+#\ if mode == "fallback":
+#\   input: fallback (type: value) "иначе"
+#\ if mode == "plain":
+#\   template: dictGet({dict}, "{key}")
+#\ if mode == "fallback":
+#\   template: dictGetOr({dict}, "{key}", {fallback})

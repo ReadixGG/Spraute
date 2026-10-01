@@ -1,0 +1,43 @@
+#\ block: prefab_spawn
+#\ category: Иерархия
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "спавн префаба" [prefab: dropdown_prefab]
+#\ row: [where: dropdown(в корне сцены: root, под нодой: parent)]
+#\ row: "сцена" (sceneId: text: my_scene)
+#\ if where == "parent":
+#\   row: "родитель"
+#\   input: parent (type: value)
+#\ row: "позиция" (x: number: 0) (y: number: 64) (z: number: 0)
+#\
+#\ if where == "root":
+#\   template: prefabSpawn("{sceneId}", "{prefab}", {x}, {y}, {z})
+#\ if where == "parent":
+#\   template: prefabSpawnIn("{sceneId}", "{prefab}", {parent}, {x}, {y}, {z})
+
+#\ block: prefab_spawn_stmt
+#\ category: Иерархия
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "заспавнить префаб" [prefab: dropdown_prefab]
+#\ row: [where: dropdown(в корне сцены: root, под нодой: parent)]
+#\ row: "сцена" (sceneId: text: my_scene)
+#\ if where == "parent":
+#\   row: "родитель"
+#\   input: parent (type: value)
+#\ row: "позиция" (x: number: 0) (y: number: 64) (z: number: 0)
+#\
+#\ if where == "root":
+#\   template: prefabSpawn("{sceneId}", "{prefab}", {x}, {y}, {z})
+#\ if where == "parent":
+#\   template: prefabSpawnIn("{sceneId}", "{prefab}", {parent}, {x}, {y}, {z})
+
+#\ block: prefab_list
+#\ category: Иерархия
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "список префабов"
+#\ template: prefabList()

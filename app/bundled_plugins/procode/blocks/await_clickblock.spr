@@ -1,0 +1,13 @@
+#\ block: await_clickblock
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать клик по блоку" [filter: dropdown(любому: any, по ID: id, по координатам: pos, координаты + ID: pos_id)]
+#\ input: player (type: value)
+#\ row: "мир" [dimf: dropdown(любой: any, обычный: overworld, ад: nether, край: the_end)]
+#\ if filter == "id" or filter == "pos_id":
+#\   row: "блок" (block: block: minecraft:stone)
+#\ if filter == "pos" or filter == "pos_id":
+#\   row: "координаты" (bx: number: 0) (by: number: 64) (bz: number: 0)
+#\ code: return (function(){ var p=_getVal("player").trim(); var f=_getVal("filter"); var dim=_getVal("dimf"); var sfx=(dim&&dim!=="any")?', "'+String(dim).replace(/"/g,'')+'"':''; if(f==="any")return "await clickBlock("+p+sfx+")"; if(f==="id")return "await clickBlock("+p+", "+_str("block")+sfx+")"; if(f==="pos")return "await clickBlock("+p+", "+_getVal("bx")+", "+_getVal("by")+", "+_getVal("bz")+sfx+")"; if(f==="pos_id")return "await clickBlock("+p+", "+_getVal("bx")+", "+_getVal("by")+", "+_getVal("bz")+", "+_str("block")+sfx+")"; return "await clickBlock("+p+")"; })();

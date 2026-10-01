@@ -1,0 +1,14 @@
+#\ block: on_uidragend
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда закончили тащить UI" [filter: dropdown(любой: any, один игрок: one, несколько: many)] "→" (handler: text: h_uidragend)
+#\ if filter == "any":
+#\   template: on uiDragEnd() -> {handler} {\n{DO}}
+#\ if filter == "one":
+#\   input: player (type: value)
+#\   template: on uiDragEnd({player}) -> {handler} {\n{DO}}
+#\ if filter == "many":
+#\   input: players (type: value)
+#\   template: on uiDragEnd({players}) -> {handler} {\n{DO}}

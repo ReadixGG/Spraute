@@ -1,0 +1,16 @@
+#\ block: on_tradebuy
+#\ category: Экономика
+#\ color: #eab308
+#\ shape: wrapper
+#\ write_start: import("economy")
+#\
+#\ row: "когда покупка в трейде" [filter: dropdown(любой: any, у игрока: player, предмет: item)] "→" (handler: text: h_buy)
+#\ if filter == "any":
+#\   template: on tradeBuy() -> {handler} {\n{DO}}
+#\ if filter == "player":
+#\   input: player (type: value)
+#\   template: on tradeBuy({player}) -> {handler} {\n{DO}}
+#\ if filter == "item":
+#\   input: player (type: value)
+#\   row: "id предмета" (itemId: item: minecraft:bread)
+#\   template: on tradeBuy({player}, "{itemId}") -> {handler} {\n{DO}}

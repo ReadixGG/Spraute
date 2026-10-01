@@ -1,0 +1,10 @@
+#\ block: for_range
+#\ category: Циклы
+#\ color: #06b6d4
+#\ shape: wrapper
+#\
+#\ row: "для" (var: text: i) "от"
+#\ input: from (type: value)
+#\ row: "до"
+#\ input: to (type: value)
+#\ template: for ({var} in range({from}, {to})) {\n{DO}}

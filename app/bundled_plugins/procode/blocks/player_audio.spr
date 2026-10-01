@@ -1,0 +1,69 @@
+#\ block: player_audio
+#\ category: Аудио
+#\ color: #2dd4bf
+#\ shape: value
+#\
+#\ row: "аудио игрока" input: player (type: value)
+#\ template: {player}.audio
+
+#\ block: play_sound
+#\ category: Аудио
+#\ color: #2dd4bf
+#\ shape: statement
+#\
+#\ row: "проиграть звук" input: player (type: value)
+#\ row: "звук" [sound: dropdown_sound]
+#\ row: "громкость" (volume: number: 1) "тон" (pitch: number: 1)
+#\ row: "зациклить" (loop: bool: false)
+#\ template: {player}.audio.play("{sound}", {volume}, {pitch}, {loop})
+
+#\ block: stop_sound
+#\ category: Аудио
+#\ color: #2dd4bf
+#\ shape: statement
+#\
+#\ row: "остановить звук" input: player (type: value)
+#\ row: "звук (пусто = все)" [sound: dropdown_sound]
+#\ if sound == "":
+#\   template: {player}.audio.stopAll()
+#\ if sound != "":
+#\   template: {player}.audio.stop("{sound}")
+
+#\ block: audio_volume
+#\ category: Аудио
+#\ color: #2dd4bf
+#\ shape: statement
+#\
+#\ row: "громкость аудио" input: player (type: value)
+#\ row: "master" (volume: number: 1)
+#\ template: {player}.audio.volume = {volume}
+
+#\ block: audio_pitch
+#\ category: Аудио
+#\ color: #2dd4bf
+#\ shape: statement
+#\
+#\ row: "тон аудио" input: player (type: value)
+#\ row: "master pitch" (pitch: number: 1)
+#\ template: {player}.audio.pitch = {pitch}
+
+#\ block: audio_mute
+#\ category: Аудио
+#\ color: #2dd4bf
+#\ shape: statement
+#\
+#\ row: "мут аудио" input: player (type: value)
+#\ row: [muted: dropdown(выкл звук: true, вкл звук: false)]
+#\ if muted == "true":
+#\   template: {player}.audio.mute()
+#\ if muted == "false":
+#\   template: {player}.audio.unmute()
+
+#\ block: audio_enabled
+#\ category: Аудио
+#\ color: #2dd4bf
+#\ shape: statement
+#\
+#\ row: "аудио включено" input: player (type: value)
+#\ row: [enabled: dropdown(да: true, нет: false)]
+#\ template: {player}.audio.enabled = {enabled}

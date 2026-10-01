@@ -1,0 +1,18 @@
+#\ block: on_breakblock
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда сломан блок" [filter: dropdown(любой: any, по ID: id, по координатам: pos, координаты + ID: pos_id)] "→" (handler: text: h_break)
+#\ if filter == "id" or filter == "pos_id":
+#\   row: "блок" (block: block: minecraft:stone)
+#\ if filter == "pos" or filter == "pos_id":
+#\   row: "координаты" (bx: number: 0) (by: number: 64) (bz: number: 0)
+#\ if filter == "any":
+#\   template: on breakBlock() -> {handler} {\n{DO}}
+#\ if filter == "id":
+#\   template: on breakBlock("{block}") -> {handler} {\n{DO}}
+#\ if filter == "pos":
+#\   template: on breakBlock({bx}, {by}, {bz}) -> {handler} {\n{DO}}
+#\ if filter == "pos_id":
+#\   template: on breakBlock({bx}, {by}, {bz}, "{block}") -> {handler} {\n{DO}}

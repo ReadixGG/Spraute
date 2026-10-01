@@ -3,7 +3,7 @@
 #\ color: #0ea5e9
 #\ shape: statement
 #\
-#\ row: "НИП" [npc: dropdown_npc] "выкинуть" (item: text: minecraft:diamond)
+#\ row: "НИП" [npc: dropdown_npc] "выкинуть" (item: item: minecraft:diamond)
 #\ row: "кол-во" (count: number: 1)
 #\
 #\ template: {npc}.throwItem("{item}", {count})

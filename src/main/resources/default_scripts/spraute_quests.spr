@@ -15,48 +15,9 @@ val QS_HIDDEN = "§8Скрыт"
 
 # Состояния отдельных целей: active | done | failed
 
-# ──── Список квестов сейва (общий для всех измерений, сохраняется между сессиями) ────
+# ──── Список квестов мира (сохраняется между сессиями) ────
 if (!hasVar("quest_list")) {
     var world quest_list = listCreate()
-
-    val q1 = dictCreate()
-    dictSet(q1, "id", "iron_forge")
-    dictSet(q1, "name", "Железный заказ")
-    dictSet(q1, "author", "Кузнец Борис")
-    dictSet(q1, "status", QS_PROGRESS)
-    dictSet(q1, "goal_list", list(
-        dict("text", "Принести 30 слитков железа", "state", "active"),
-        dict("text", "Отдать кузнецу Борису", "state", "active")
-    ))
-    dictSet(q1, "goals", "")
-    dictSet(q1, "desc", "Кузнец Борис из деревни у реки попросил тебя раздобыть 30 железных слитков.\nБез них он не сможет выковать новый меч для капитана стражи.\nЗагляни в шахты к югу от деревни — там всегда было полно руды.")
-    listAdd(quest_list, q1)
-
-    val q2 = dictCreate()
-    dictSet(q2, "id", "lost_crystal")
-    dictSet(q2, "name", "Потерянный артефакт")
-    dictSet(q2, "author", "Маг Элара")
-    dictSet(q2, "status", QS_AVAILABLE)
-    dictSet(q2, "goal_list", list(
-        dict("text", "Найти Кристалл Бури в подземелье", "state", "active"),
-        dict("text", "Вернуть кристалл магу Эларе", "state", "active")
-    ))
-    dictSet(q2, "goals", "")
-    dictSet(q2, "desc", "Маг Элара из башни на холме потеряла древний Кристалл Бури, который унесли скелеты в подземелье под руинами.\nБез этого кристалла она не может защитить деревню от надвигающегося шторма.")
-    listAdd(quest_list, q2)
-
-    val q3 = dictCreate()
-    dictSet(q3, "id", "oak_spirit")
-    dictSet(q3, "name", "Страж леса")
-    dictSet(q3, "author", "Дух Дуба")
-    dictSet(q3, "status", QS_COMPLETED)
-    dictSet(q3, "goal_list", list(
-        dict("text", "Посадить 10 саженцев дуба", "state", "done"),
-        dict("text", "Поговорить с Духом Дуба", "state", "done")
-    ))
-    dictSet(q3, "goals", "")
-    dictSet(q3, "desc", "Древний Дух Дуба попросил восстановить вырубленный участок леса.\nТы посадил саженцы и лес начал возрождаться.\nДух благословил тебя силой природы.")
-    listAdd(quest_list, q3)
 }
 
 # ──── Статусы (алиасы) ────
@@ -84,6 +45,24 @@ fun find_quest(id) {
         i = i + 1
     }
     return null
+}
+
+fun quest_dedupe() {
+    var i = 0
+    while (i < listSize(quest_list)) {
+        val q = listGet(quest_list, i)
+        val id = dictGet(q, "id")
+        var j = i + 1
+        while (j < listSize(quest_list)) {
+            val other = listGet(quest_list, j)
+            if (dictGet(other, "id") == id) {
+                listRemove(quest_list, j)
+            } else {
+                j = j + 1
+            }
+        }
+        i = i + 1
+    }
 }
 
 fun quest_goal(text) {
@@ -202,7 +181,7 @@ fun quest_set_goal_state_by_text(id, needle, state) {
 
 # ──── API: квесты ────
 fun add_quest(id, name, author, desc, goals) {
-    if (has_quest(id)) { return }
+    if (find_quest(id) != null) { return }
     val q = dictCreate()
     dictSet(q, "id", id)
     dictSet(q, "name", name)
@@ -221,7 +200,7 @@ fun add_quest(id, name, author, desc, goals) {
 }
 
 fun add_quest_with_goals(id, name, author, desc, goal_list) {
-    if (has_quest(id)) { return }
+    if (find_quest(id) != null) { return }
     val q = dictCreate()
     dictSet(q, "id", id)
     dictSet(q, "name", name)
@@ -250,20 +229,17 @@ fun set_quest_status(id, status) {
 }
 
 fun remove_quest(id) {
-    val count = listSize(quest_list)
-    var i = 0
-    var to_remove = -1
-    while (i < count) {
+    var i = listSize(quest_list) - 1
+    while (i >= 0) {
         val q = listGet(quest_list, i)
         if (dictGet(q, "id") == id) {
-            to_remove = i
+            listRemove(quest_list, i)
         }
-        i = i + 1
-    }
-    if (to_remove >= 0) {
-        listRemove(quest_list, to_remove)
+        i = i - 1
     }
 }
+
+quest_dedupe()
 
 # ──── API: цели (index с 0) ────
 fun add_quest_goal(id, goal) {
@@ -313,11 +289,18 @@ fun append_quest_desc(id, text) {
     }
 }
 
+fun set_quest_desc(id, text) {
+    val q = find_quest(id)
+    if (q == null) { return }
+    if (text == null) { text = "" }
+    dictSet(q, "desc", text)
+}
+
 # ================================================================
 #  UI: Полноэкранный журнал квестов
 # ================================================================
 
-val player = getNearestPlayer()
+val player = getFirstPlayer()
 var selected_idx = 0
 
 fun quest_row_h(quest_name) {

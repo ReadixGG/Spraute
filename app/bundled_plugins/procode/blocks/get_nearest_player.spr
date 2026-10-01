@@ -1,0 +1,8 @@
+#\ block: get_nearest_player
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "ближайший игрок к"
+#\ input: anchor (type: value)
+#\ code: return "getNearestPlayer(" + _getVal("anchor").trim() + ")";

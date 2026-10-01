@@ -5,7 +5,6 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity;
@@ -100,10 +99,10 @@ public final class ChestLootManager {
                     int slot = Integer.parseInt(e.getKey());
                     SlotEntry entry = e.getValue();
                     if (entry == null || entry.item == null) continue;
-                    Item item = resolveItem(entry.item);
-                    if (item == null) continue;
+                    ItemStack stack = ItemStackScriptUtil.createStack(entry.item, entry.count);
+                    if (stack.isEmpty()) continue;
                     if (slot >= 0 && slot < container.getContainerSize()) {
-                        container.setItem(slot, new ItemStack(item, entry.count));
+                        container.setItem(slot, stack);
                     }
                 } catch (NumberFormatException ignored) {}
             }
@@ -116,16 +115,10 @@ public final class ChestLootManager {
         BlockEntity be = level.getBlockEntity(pos);
         if (!(be instanceof CustomGeoBlockEntity cgbe)) return;
         if (slot < 0 || slot >= cgbe.inventory.getContainerSize()) return;
-        Item item = resolveItem(itemId);
-        if (item == null) return;
-        cgbe.inventory.setItem(slot, new ItemStack(item, Math.max(1, count)));
+        ItemStack stack = ItemStackScriptUtil.createStack(itemId, Math.max(1, count));
+        if (stack.isEmpty()) return;
+        cgbe.inventory.setItem(slot, stack);
         cgbe.setChanged();
         level.sendBlockUpdated(pos, be.getBlockState(), be.getBlockState(), 3);
-    }
-
-    private static Item resolveItem(String itemId) {
-        String full = itemId.contains(":") ? itemId : "minecraft:" + itemId;
-        Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(new net.minecraft.resources.ResourceLocation(full));
-        return item == null || item == net.minecraft.world.item.Items.AIR ? null : item;
     }
 }

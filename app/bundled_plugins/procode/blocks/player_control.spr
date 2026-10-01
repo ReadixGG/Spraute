@@ -1,0 +1,165 @@
+#\ block: lock_player_movement
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "движение" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [locked: dropdown(заблокировать: true, разблокировать: false)]
+#\
+#\ if who == "event":
+#\   template: lockPlayerMovement(_eventPlayer, {locked})
+#\ if who == "first":
+#\   template: lockPlayerMovement(getFirstPlayer(), {locked})
+#\ if who == "custom":
+#\   template: lockPlayerMovement({player}, {locked})
+
+#\ block: lock_player_move_dir
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "ходьба в сторону" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [dir: dropdown(вперёд: forward, назад: back, влево: left, вправо: right, север: north, юг: south, восток: east, запад: west)]
+#\ row: [locked: dropdown(запретить: true, разрешить: false)]
+#\
+#\ if who == "event":
+#\   template: lockPlayerMoveDir(_eventPlayer, "{dir}", {locked})
+#\ if who == "first":
+#\   template: lockPlayerMoveDir(getFirstPlayer(), "{dir}", {locked})
+#\ if who == "custom":
+#\   template: lockPlayerMoveDir({player}, "{dir}", {locked})
+
+#\ block: lock_player_move_dirs
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "стороны ходьбы" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "W" [forward: checkbox] "S" [back: checkbox] "A" [left: checkbox] "D" [right: checkbox]
+#\ row: "север" [north: checkbox] "юг" [south: checkbox] "восток" [east: checkbox] "запад" [west: checkbox]
+#\
+#\ if who == "event":
+#\   template: lockPlayerMoveDirs(_eventPlayer, {forward}, {back}, {left}, {right}, {north}, {south}, {east}, {west})
+#\ if who == "first":
+#\   template: lockPlayerMoveDirs(getFirstPlayer(), {forward}, {back}, {left}, {right}, {north}, {south}, {east}, {west})
+#\ if who == "custom":
+#\   template: lockPlayerMoveDirs({player}, {forward}, {back}, {left}, {right}, {north}, {south}, {east}, {west})
+
+#\ block: lock_player_look
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "поворот взгляда" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [locked: dropdown(заблокировать: true, разблокировать: false)]
+#\
+#\ if who == "event":
+#\   template: lockPlayerLook(_eventPlayer, {locked})
+#\ if who == "first":
+#\   template: lockPlayerLook(getFirstPlayer(), {locked})
+#\ if who == "custom":
+#\   template: lockPlayerLook({player}, {locked})
+
+#\ block: lock_player_perspective
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "смена вида F5" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [locked: dropdown(заблокировать: true, разблокировать: false)]
+#\
+#\ if who == "event":
+#\   template: lockPlayerPerspective(_eventPlayer, {locked})
+#\ if who == "first":
+#\   template: lockPlayerPerspective(getFirstPlayer(), {locked})
+#\ if who == "custom":
+#\   template: lockPlayerPerspective({player}, {locked})
+
+#\ block: set_player_look
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "взгляд игрока" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [mode: dropdown(углы: angles, на точку: coords, на цель: entity)]
+#\ if mode == "angles":
+#\   row: "yaw" (yaw: number: 0) "pitch" (pitch: number: 0)
+#\ if mode == "coords":
+#\   row: "точка" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ if mode == "entity":
+#\   row: "цель" [target: dropdown(НИП: npc_ref, игрока: player, моба: mob)]
+#\   if target == "npc_ref":
+#\     row: [npc: dropdown_npc]
+#\
+#\ if mode == "angles" and who == "event":
+#\   template: setPlayerLook(_eventPlayer, {yaw}, {pitch})
+#\ if mode == "angles" and who == "first":
+#\   template: setPlayerLook(getFirstPlayer(), {yaw}, {pitch})
+#\ if mode == "angles" and who == "custom":
+#\   template: setPlayerLook({player}, {yaw}, {pitch})
+#\
+#\ if mode == "coords" and who == "event":
+#\   template: setPlayerLookAt(_eventPlayer, {x}, {y}, {z})
+#\ if mode == "coords" and who == "first":
+#\   template: setPlayerLookAt(getFirstPlayer(), {x}, {y}, {z})
+#\ if mode == "coords" and who == "custom":
+#\   template: setPlayerLookAt({player}, {x}, {y}, {z})
+#\
+#\ if mode == "entity" and target == "npc_ref" and who == "event":
+#\   template: setPlayerLookAt(_eventPlayer, {npc})
+#\ if mode == "entity" and target == "npc_ref" and who == "first":
+#\   template: setPlayerLookAt(getFirstPlayer(), {npc})
+#\ if mode == "entity" and target == "npc_ref" and who == "custom":
+#\   template: setPlayerLookAt({player}, {npc})
+#\ if mode == "entity" and target != "npc_ref" and who == "event":
+#\   template: setPlayerLookAt(_eventPlayer, "{target}")
+#\ if mode == "entity" and target != "npc_ref" and who == "first":
+#\   template: setPlayerLookAt(getFirstPlayer(), "{target}")
+#\ if mode == "entity" and target != "npc_ref" and who == "custom":
+#\   template: setPlayerLookAt({player}, "{target}")
+
+#\ block: set_player_pos
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "позиция игрока" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "x" (x: number: 0) "y" (y: number: 64) "z" (z: number: 0)
+#\
+#\ if who == "event":
+#\   template: setPlayerPos(_eventPlayer, {x}, {y}, {z})
+#\ if who == "first":
+#\   template: setPlayerPos(getFirstPlayer(), {x}, {y}, {z})
+#\ if who == "custom":
+#\   template: setPlayerPos({player}, {x}, {y}, {z})
+
+#\ block: set_player_look_dir
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "вектор взгляда" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "dx" (dx: number: 0) "dy" (dy: number: 0) "dz" (dz: number: 1)
+#\
+#\ if who == "event":
+#\   template: setPlayerLookDir(_eventPlayer, {dx}, {dy}, {dz})
+#\ if who == "first":
+#\   template: setPlayerLookDir(getFirstPlayer(), {dx}, {dy}, {dz})
+#\ if who == "custom":
+#\   template: setPlayerLookDir({player}, {dx}, {dy}, {dz})

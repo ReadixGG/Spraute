@@ -1,0 +1,44 @@
+#\ block: on_assets_allow
+#\ category: События
+#\ color: #0ea5e9
+#\ shape: wrapper
+#\
+#\ row: "когда игрок разрешил загрузку ресурсов" [who: dropdown(любой: any, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "→" (handler: text: h_assets_allow)
+#\
+#\ if who == "any":
+#\   template: on assetsAllow() -> {handler} {\n{DO}}
+#\ if who == "custom":
+#\   template: on assetsAllow({player}) -> {handler} {\n{DO}}
+
+#\ block: on_assets_ready
+#\ category: События
+#\ color: #0ea5e9
+#\ shape: wrapper
+#\
+#\ row: "когда игрок загрузил ресурсы" [who: dropdown(любой: any, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "→" (handler: text: h_assets_ready)
+#\
+#\ if who == "any":
+#\   template: on assetsReady() -> {handler} {\n{DO}}
+#\ if who == "custom":
+#\   template: on assetsReady({player}) -> {handler} {\n{DO}}
+
+#\ block: on_assets_deny
+#\ category: События
+#\ color: #0ea5e9
+#\ shape: wrapper
+#\
+#\ row: "когда игрок отклонил загрузку ресурсов" [who: dropdown(любой: any, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "→" (handler: text: h_assets_deny)
+#\
+#\ if who == "any":
+#\   template: on assetsDeny() -> {handler} {\n{DO}}
+#\ if who == "custom":
+#\   template: on assetsDeny({player}) -> {handler} {\n{DO}}

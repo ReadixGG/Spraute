@@ -1,0 +1,31 @@
+#\ block: clothing_start
+#\ category: Одежда
+#\ color: #38bdf8
+#\ shape: statement
+#\
+#\ row: "запустить одежду"
+#\ template: startScript("clothing")
+
+#\ block: clothing_create
+#\ category: Одежда
+#\ color: #38bdf8
+#\ shape: statement
+#\ write_start: import("clothing")
+#\
+#\ row: "создать одежду" (id: text: hat1)
+#\ row: "имя предмета" (name: text: Шляпа)
+#\ row: "иконка предмета" [texture: dropdown_texture]
+#\ row: [slot: dropdown(шлем: helmet, нагрудник: chestplate, поножи: leggings, ботинки: boots)]
+#\ row: "текстура наложения" [overlay: dropdown_texture]
+#\ row: [hide: dropdown(авто по слоту: auto, не убирать: none, шапка: hat, торс: torso, куртка: jacket, рукава: sleeves, штаны: pants)]
+#\ row: "ванильная модель брони" [armor_model: checkbox]
+#\ template: create clothing {id} {\n    name = "{name}"\n    texture = "{texture}"\n    overlay = "{overlay}"\n    slot = "{slot}"\n    hide_layer = "{hide}"\n    armor_model = {armor_model}\n}
+
+#\ block: clothing_worn
+#\ category: Одежда
+#\ color: #38bdf8
+#\ shape: value
+#\ write_start: import("clothing")
+#\
+#\ row: "одежда надета на" input: player (type: value) (id: text: hat1)
+#\ template: clothingWorn({player}, "{id}")

@@ -1,0 +1,575 @@
+# ================================================================
+#  Тест сюжета «Идеальный мир» — Кейт + Радан
+#  Запуск: /spraute run ideal_world_demo
+#  (или сцена ideal_world_demo)
+#
+#  Нужны ассеты в spraute_engine/:
+#    geo/katee.geo.json, textures/katee.png, animations/kateee.animation.json
+#    geo/radan.geo.json, textures/radadan.png, animations/radan.animation.json
+# ================================================================
+
+import("spraute_chat")
+import("dialog_classic")
+import("economy")
+import("spraute_quests")
+import("notification")
+
+startScript("economy")
+startScript("spraute_quests")
+startScript("notification")
+
+chat_history_clear()
+
+val KATE_COLOR = "#FF9ECF"
+val RADAN_COLOR = "#7EC8E3"
+val ADVANCE = "f"
+
+val QUEST_ID = "imw_demo_signal"
+val NEED_IRON = 3
+val START_COINS = 40
+val REWARD_COINS = 25
+
+# каждый запуск — чистый квест для теста
+if (has_quest(QUEST_ID)) {
+    remove_quest(QUEST_ID)
+}
+if (!hasVar("imw_story_done")) {
+    var world imw_story_done = false
+}
+if (!hasVar("imw_kate_phase")) {
+    var world imw_kate_phase = "none"
+}
+imw_story_done = false
+imw_kate_phase = "none"
+
+val RADAN_SHOP = list(
+    dict("id", "minecraft:iron_ingot", "name", "Железный слиток", "buy", 8, "sell", 3, "canBuy", true, "canSell", true),
+    dict("id", "minecraft:redstone", "name", "Красная пыль", "buy", 5, "sell", 2, "canBuy", true, "canSell", true),
+    dict("id", "minecraft:bread", "name", "Паёк", "buy", 2, "sell", 1, "canBuy", true, "canSell", true)
+)
+
+var demo_busy = false
+var kate_spawned = false
+var radan_spawned = false
+var kate_talking = false
+var radan_talking = false
+
+# Общий лок на диалог — если скрипт запущен дважды (сцена + вручную), не дублируем анимации.
+if (!hasVar("imw_dialog_busy")) {
+    var world imw_dialog_busy = false
+}
+
+fun demoBeginDialog() {
+    if (imw_dialog_busy) { return false }
+    imw_dialog_busy = true
+    return true
+}
+
+fun demoEndDialog() {
+    # пауза: закрытие UI / повторный ПКМ не должен сразу открыть диалог снова
+    await time(0.6)
+    imw_dialog_busy = false
+    demo_busy = false
+}
+
+# Talk = replace поверх idle. Эмоции лица (happy/angry/…) = additive поверх talk — не гасим talk.
+fun demoKateStopTalk(kate) {
+    if (kate != null) {
+        kate.stop("anTalk1")
+    }
+    kate_talking = false
+}
+
+fun demoRadanStopTalk(radan) {
+    if (radan != null) {
+        radan.stop("anTalk1")
+    }
+    radan_talking = false
+}
+
+fun demoKateEnsureTalk(kate) {
+    if (kate == null) { return }
+    if (!kate_talking) {
+        kate.playLoop("anTalk1", false)
+        kate_talking = true
+    }
+}
+
+fun demoRadanEnsureTalk(radan) {
+    if (radan == null) { return }
+    if (!radan_talking) {
+        radan.playLoop("anTalk1", false)
+        radan_talking = true
+    }
+}
+
+# Полнотельные жесты: Hello, waving, scratch… — replace, talk гасим.
+fun demoKateAnim(kate, anim) {
+    if (kate == null) { return }
+    demoKateStopTalk(kate)
+    kate.playOnce(anim, false)
+}
+
+fun demoRadanAnim(radan, anim) {
+    if (radan == null) { return }
+    demoRadanStopTalk(radan)
+    radan.playOnce(anim, false)
+}
+
+# Эмоции лица — additive, talk продолжает крутиться под ними.
+fun demoKateFace(kate, anim) {
+    if (kate == null) { return }
+    demoKateEnsureTalk(kate)
+    kate.playOnce(anim, true)
+}
+
+fun demoRadanFace(radan, anim) {
+    if (radan == null) { return }
+    demoRadanEnsureTalk(radan)
+    radan.playOnce(anim, true)
+}
+
+fun demoKateSay(p, kate, text) {
+    if (kate == null) { return }
+    demoKateEnsureTalk(kate)
+    npcChat(p, kate, text, KATE_COLOR, 7)
+    await time(0.15)
+    await keybind(ADVANCE)
+}
+
+fun demoRadanSay(p, radan, text) {
+    if (radan == null) { return }
+    demoRadanEnsureTalk(radan)
+    npcChat(p, radan, text, RADAN_COLOR, 7)
+    await time(0.15)
+    await keybind(ADVANCE)
+}
+
+fun demoEnsureQuest() {
+    if (!has_quest(QUEST_ID)) {
+        add_quest(
+            QUEST_ID,
+            "Сигнал из купола",
+            "Кейт",
+            "Кейт просит помочь Радану собрать детали для модуля связи.",
+            "Поговорить с Раданом\nДостать 3 железных слитка\nВернуться к Кейт"
+        )
+    }
+}
+
+fun demoQuestTalkedRadan() {
+    complete_quest_goal(QUEST_ID, 0)
+}
+
+fun demoQuestCheckIron(p) {
+    if (p == null) { return false }
+    val have = countItem(p, "minecraft:iron_ingot")
+    if (have >= NEED_IRON) {
+        complete_quest_goal(QUEST_ID, 1)
+        return true
+    }
+    return false
+}
+
+fun demoQuestDone() {
+    complete_quest_goal(QUEST_ID, 2)
+    set_quest_completed(QUEST_ID)
+    imw_story_done = true
+    imw_kate_phase = "done"
+}
+
+fun demoKateRoute(p, kate) {
+    # phase: none → intro → quest → done (или declined)
+    if (imw_story_done || imw_kate_phase == "done") {
+        demoKateIdle(p, kate)
+        return
+    }
+    if (imw_kate_phase == "quest") {
+        demoKateTurnIn(p, kate)
+        return
+    }
+    if (imw_kate_phase == "declined") {
+        kate.alwaysLookAt(p)
+        demoKateFace(kate, "question")
+        demoKateSay(p, kate, "Передумала?")
+        demoKateStopTalk(kate)
+        return
+    }
+    if (imw_kate_phase == "intro") {
+        # интро уже шло / оборвалось — не начинать с «ты не из наших»
+        kate.alwaysLookAt(p)
+        demoKateSay(p, kate, "Я ещё здесь.")
+        demoKateStopTalk(kate)
+        return
+    }
+    demoKateIntro(p, kate)
+}
+
+fun demoIronLeft(p) {
+    val have = countItem(p, "minecraft:iron_ingot")
+    var left = NEED_IRON - have
+    if (left < 0) { left = 0 }
+    return left
+}
+
+# ── Сцены ─────────────────────────────────────────────────────────
+fun demoKateIntro(p, kate) {
+    # сразу лочим phase, чтобы повторный ПКМ не запустил интро с нуля
+    imw_kate_phase = "intro"
+    kate.alwaysLookAt(p)
+    demoKateAnim(kate, "Hello")
+    await time(0.6)
+    demoKateSay(p, kate, "Эй… ты не из наших.")
+    demoKateSay(p, kate, "Но имплант молчит — странно.")
+    demoKateFace(kate, "question")
+    demoKateSay(p, kate, "Я Кейт.")
+    demoKateSay(p, kate, "Мы с Раданом ловим «шум» из-за купола.")
+    demoKateSay(p, kate, "Связь рвётся.")
+
+    demoKateStopTalk(kate)
+    val q = "Поможешь нам?"
+    val answers = list(
+        "Конечно.",
+        "Что за купол?",
+        "Мне не интересно."
+    )
+    val pick = dialogClassic(p, kate, q, answers)
+    await time(0.35)
+    val idx = dialogPickIndex(pick)
+
+    if (idx == 2) {
+        imw_kate_phase = "declined"
+        demoKateFace(kate, "sad")
+        demoKateSay(p, kate, "Ладно.")
+        demoKateSay(p, kate, "Если передумаешь — я здесь.")
+        demoKateStopTalk(kate)
+        return
+    }
+
+    # квест принимаем сразу после выбора — до длинных реплик
+    imw_kate_phase = "quest"
+    demoEnsureQuest()
+    set_quest_in_progress(QUEST_ID)
+    ecoInit(p)
+    if (ecoGetCoins(p) < START_COINS) {
+        ecoAddCoins(p, START_COINS - ecoGetCoins(p))
+    }
+    ecoShowCoinsHud(p)
+    notify(p, "Квест: Сигнал из купола")
+
+    if (idx == 1) {
+        demoKateFace(kate, "hint")
+        demoKateSay(p, kate, "Купол — клетка Империи.")
+        demoKateSay(p, kate, "Снаружи — «другой мир».")
+        demoKateSay(p, kate, "Внутри — алгоритмы и Наблюдатели.")
+        demoKateAnim(kate, "scratchHead2")
+        demoKateSay(p, kate, "Мы из «Сияния».")
+        demoKateSay(p, kate, "Радан чинит технику.")
+        demoKateSay(p, kate, "Без железа он бессилен.")
+    } else {
+        demoKateFace(kate, "happy")
+        demoKateSay(p, kate, "Спасибо.")
+        demoKateSay(p, kate, "Радан стоит рядом.")
+        demoKateSay(p, kate, "У него есть всё нужное.")
+    }
+
+    demoKateAnim(kate, "waving")
+    demoKateSay(p, kate, "Удачи, " + p.name + ".")
+    demoKateStopTalk(kate)
+}
+
+fun demoKateTurnIn(p, kate) {
+    kate.alwaysLookAt(p)
+    if (!demoQuestCheckIron(p)) {
+        demoKateFace(kate, "question")
+        demoKateSay(p, kate, "Слитков мало.")
+        demoKateSay(p, kate, "Нужно ещё " + demoIronLeft(p) + ".")
+        demoKateSay(p, kate, "Радан продаёт.")
+        demoKateSay(p, kate, "Или найди сам.")
+        demoKateStopTalk(kate)
+        return
+    }
+
+    demoKateFace(kate, "gasp")
+    demoKateSay(p, kate, "Есть!")
+    demoKateSay(p, kate, "Этого хватит на катушку модуля.")
+    removeItem(p, "minecraft:iron_ingot", NEED_IRON)
+    demoQuestDone()
+    ecoAddCoins(p, REWARD_COINS)
+    notify(p, "Квест выполнен")
+    demoKateFace(kate, "happy")
+    demoKateSay(p, kate, "Держи " + REWARD_COINS + " монет.")
+    demoKateSay(p, kate, "Когда выйдем за купол — я найду тебя.")
+    demoKateAnim(kate, "waving")
+    demoKateStopTalk(kate)
+}
+
+fun demoKateIdle(p, kate) {
+    kate.alwaysLookAt(p)
+    demoKateAnim(kate, "waving")
+    demoKateSay(p, kate, "Позже.")
+    demoKateStopTalk(kate)
+}
+
+fun demoRadanTalk(p, radan) {
+    radan.alwaysLookAt(p)
+    if (!has_quest(QUEST_ID)) {
+        demoRadanAnim(radan, "crossArm")
+        demoRadanSay(p, radan, "Сначала к Кейт.")
+        demoRadanSay(p, radan, "Я не раздаю запчасти просто так.")
+        demoRadanStopTalk(radan)
+        return
+    }
+
+    demoQuestTalkedRadan()
+    demoRadanAnim(radan, "Hello")
+    demoRadanSay(p, radan, "Радан.")
+    demoRadanSay(p, radan, "Чиню то, что Империя считает «лишним».")
+    demoRadanSay(p, radan, "Для модуля нужно §e" + NEED_IRON + " железных слитка§f.")
+    demoRadanSay(p, radan, "Могу продать.")
+    demoRadanSay(p, radan, "Или тащи свои.")
+
+    demoRadanStopTalk(radan)
+    val q = "Что сделаем?"
+    val answers = list(
+        "Открыть торговлю",
+        "Спросить про Империю",
+        "Пока ничего"
+    )
+    val pick = dialogClassic(p, radan, q, answers)
+    await time(0.35)
+    val idx = dialogPickIndex(pick)
+
+    if (idx == 0) {
+        demoRadanFace(radan, "happy")
+        demoRadanSay(p, radan, "Смотри ассортимент.")
+        demoRadanSay(p, radan, "Не торгуйся с Наблюдателями.")
+        demoRadanSay(p, radan, "Только со мной.")
+        demoRadanStopTalk(radan)
+        ecoShowCoinsHud(p)
+        ecoOpenTrade(p, RADAN_SHOP, "Трейд Радана", "radan")
+        return
+    }
+
+    if (idx == 1) {
+        demoRadanFace(radan, "angry")
+        demoRadanSay(p, radan, "Rehoboam решает, кто ты.")
+        demoRadanSay(p, radan, "Сантехник, поэт или «ошибка».")
+        demoRadanSay(p, radan, "Ошибки… исчезают.")
+        demoRadanAnim(radan, "scratchHead2")
+        demoRadanSay(p, radan, "Мы ломаем этот алгоритм.")
+        demoRadanSay(p, radan, "По кусочку.")
+        demoRadanStopTalk(radan)
+        return
+    }
+
+    demoRadanAnim(radan, "nodsYes")
+    demoRadanSay(p, radan, "Ок.")
+    demoRadanSay(p, radan, "Подойди ещё раз — открою лавку.")
+    demoRadanStopTalk(radan)
+}
+
+fun demoRadanTradeOnly(p, radan) {
+    radan.alwaysLookAt(p)
+    demoRadanAnim(radan, "waving")
+    ecoShowCoinsHud(p)
+    ecoOpenTrade(p, RADAN_SHOP, "Трейд Радана", "radan")
+}
+
+# ── Спавн / поиск НПС ─────────────────────────────────────────────
+fun demoFindOrSpawn(p) {
+    var kate = getNpc("demo_kate")
+    var radan = getNpc("demo_radan")
+    if (kate == null) { kate = getNpc("kate") }
+    if (radan == null) { radan = getNpc("radan") }
+
+    if (kate != null && radan != null) {
+        return list(kate, radan)
+    }
+
+    val spot = findSafeBlock("player", 8, 3)
+    var bx = p.x + 2
+    var by = p.y
+    var bz = p.z + 2
+    if (spot != null) {
+        bx = listGet(spot, 0)
+        by = listGet(spot, 1)
+        bz = listGet(spot, 2)
+    }
+
+    if (kate == null) {
+        create npc demo_kate {
+            name = "§dКейт"
+            hp = 20
+            speed = 0.22
+            pos = bx, by, bz
+            showName = true
+            model = "geo/katee.geo.json"
+            texture = "textures/katee.png"
+            animation = "animations/kateee.animation.json"
+            idleAnim = "idle"
+            walkAnim = "walk"
+        }
+        kate = demo_kate
+        kate_spawned = true
+    }
+
+    if (radan == null) {
+        create npc demo_radan {
+            name = "§bРадан"
+            hp = 20
+            speed = 0.22
+            pos = bx + 2, by, bz
+            showName = true
+            model = "geo/radan.geo.json"
+            texture = "textures/radadan.png"
+            animation = "animations/radan.animation.json"
+            idleAnim = "idle"
+            walkAnim = "walk"
+        }
+        radan = demo_radan
+        radan_spawned = true
+    }
+
+    return list(kate, radan)
+}
+
+# ── Старт ─────────────────────────────────────────────────────────
+val fp = getFirstPlayer()
+if (fp != null) {
+    val pair = demoFindOrSpawn(fp)
+    val kate0 = listGet(pair, 0)
+    val radan0 = listGet(pair, 1)
+
+    # сброс висящих overlay после предыдущего /spraute run
+    if (kate0 != null) {
+        kate0.stopOverlay()
+        kate0.alwaysLookAt(fp)
+    }
+    if (radan0 != null) {
+        radan0.stopOverlay()
+        radan0.alwaysLookAt(fp)
+    }
+    kate_talking = false
+    radan_talking = false
+    imw_dialog_busy = false
+
+    # если Радан из сцены с нодой economy — не открывать трейд сразу по ПКМ
+    ecoDenyNpcTrade("radan")
+    ecoDenyNpcTrade(radan0)
+
+    ecoInit(fp)
+    ecoShowCoinsHud(fp)
+}
+
+on interact(demo_kate) -> imw_kate_demo {
+    val p = _eventPlayer
+    if (p == null) { return }
+    if (!demoBeginDialog()) { return }
+    demo_busy = true
+    async "imw_kate_run" {
+        val kate = getNpc("demo_kate")
+        if (kate == null) {
+            demoEndDialog()
+            return
+        }
+        demoKateRoute(p, kate)
+        demoEndDialog()
+    }
+}
+
+on interact(kate) -> imw_kate_scene {
+    val p = _eventPlayer
+    if (p == null) { return }
+    if (getNpc("demo_kate") != null) { return }
+    if (!demoBeginDialog()) { return }
+    demo_busy = true
+    async "imw_kate_scene_run" {
+        val kate = getNpc("kate")
+        if (kate == null) {
+            demoEndDialog()
+            return
+        }
+        demoKateRoute(p, kate)
+        demoEndDialog()
+    }
+}
+
+on interact(demo_radan) -> imw_radan_demo {
+    val p = _eventPlayer
+    if (p == null) { return }
+    if (!demoBeginDialog()) { return }
+    demo_busy = true
+    async "imw_radan_run" {
+        val radan = getNpc("demo_radan")
+        if (radan == null) {
+            demoEndDialog()
+            return
+        }
+        if (imw_story_done) {
+            demoRadanTradeOnly(p, radan)
+            demoEndDialog()
+            return
+        }
+        if (has_quest(QUEST_ID)) {
+            val q = find_quest(QUEST_ID)
+            val st = dictGet(q, "status")
+            if (st == questStatusCompleted()) {
+                imw_story_done = true
+                demoRadanTradeOnly(p, radan)
+                demoEndDialog()
+                return
+            }
+            demoRadanTalk(p, radan)
+            demoQuestCheckIron(p)
+        } else {
+            demoRadanTalk(p, radan)
+        }
+        demoEndDialog()
+    }
+}
+
+on interact(radan) -> imw_radan_scene {
+    val p = _eventPlayer
+    if (p == null) { return }
+    if (getNpc("demo_radan") != null) { return }
+    if (!demoBeginDialog()) { return }
+    demo_busy = true
+    async "imw_radan_scene_run" {
+        val radan = getNpc("radan")
+        if (radan == null) {
+            demoEndDialog()
+            return
+        }
+        if (imw_story_done) {
+            demoRadanTradeOnly(p, radan)
+            demoEndDialog()
+            return
+        }
+        if (has_quest(QUEST_ID)) {
+            val q = find_quest(QUEST_ID)
+            val st = dictGet(q, "status")
+            if (st == questStatusCompleted()) {
+                imw_story_done = true
+                demoRadanTradeOnly(p, radan)
+                demoEndDialog()
+                return
+            }
+            demoRadanTalk(p, radan)
+            demoQuestCheckIron(p)
+        } else {
+            demoRadanTalk(p, radan)
+        }
+        demoEndDialog()
+    }
+}
+
+on tradeBuy() -> imw_trade_buy {
+    val p = _eventPlayer
+    if (p == null) { return }
+    if (_eventItemId == "minecraft:iron_ingot") {
+        if (demoQuestCheckIron(p)) {
+            notifyBlock(p, "Слитки собраны", 3, "minecraft:iron_block")
+        }
+    }
+}

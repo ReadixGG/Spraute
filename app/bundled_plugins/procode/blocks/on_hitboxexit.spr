@@ -1,0 +1,7 @@
+#\ block: on_hitboxexit
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда игрок выходит из триггера" [hitbox: dropdown_hitbox] "→" (handler: text: h_hb_exit)
+#\ template: on hitboxExit(any, "*", "{hitbox}") -> {handler} {\n{DO}}

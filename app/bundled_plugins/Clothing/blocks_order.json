@@ -1,0 +1,7 @@
+{
+  "Одежда": [
+    "clothing_start",
+    "clothing_create",
+    "clothing_worn"
+  ]
+}

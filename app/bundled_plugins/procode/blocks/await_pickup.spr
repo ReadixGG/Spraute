@@ -4,7 +4,7 @@
 #\ shape: statement
 #\
 #\ row: "ждать подбор у НИП" [npc: dropdown_npc]
-#\ row: "кол-во" (amount: number: 1) "шт." (item: text: minecraft:iron_ingot)
+#\ row: "кол-во" (amount: number: 1) "шт. (и не больше)" (item: item: minecraft:iron_ingot)
 #\ row: [nbt: dropdown(без NBT: no, с NBT: yes)]
 #\ if nbt == "no":
 #\   template: await pickup({npc}, {amount}, "{item}")

@@ -1,0 +1,7 @@
+#\ block: await_hitboxtouch
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать вход в триггер" [player: dropdown(первый игрок: getFirstPlayer(), любой: any)] [hitbox: dropdown_hitbox]
+#\ template: await hitboxTouch({player}, "{hitbox}")

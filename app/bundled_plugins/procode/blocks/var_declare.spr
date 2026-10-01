@@ -1,0 +1,8 @@
+#\ block: var_declare
+#\ category: Переменные
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: [kind: dropdown(локальная: val, изменяемая: var, глобальная: global val, мира: world val)] (name: text: x) "="
+#\ input: value (type: value)
+#\ template: {kind} {name} = {value}

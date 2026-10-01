@@ -1,6 +1,7 @@
 # ================================================================
 #  Тест диалогов: случайный НПС + Райя + выборы
 #  Запуск: /spraute run story_dialog_test
+#  (сцена: spraute_engine/scenes/story_dialog_test.scene.json)
 #  Затем ПКМ по случайному НПС рядом с игроком.
 #
 #  1) Классическое окно — игрок представляется случайному НПС
@@ -23,9 +24,9 @@ val NARRATOR_COLOR = "#FFAA55"
 val STORY_ADVANCE_KEY = "f"
 
 val STRANGER_PROFILES = list(
-    dict("name", "§7Странник Кай", "tex", "textures/entity/defolt.png"),
-    dict("name", "§7Путник Нора", "tex", "textures/entity/defolt.png"),
-    dict("name", "§7Охотник Век", "tex", "textures/entity/defolt.png")
+    dict("name", "§7Странник Кай", "tex", "textures/entity/npc_texture.png"),
+    dict("name", "§7Путник Нора", "tex", "textures/entity/npc_texture.png"),
+    dict("name", "§7Охотник Век", "tex", "textures/entity/npc_texture.png")
 )
 
 var story_scene_done = false
@@ -163,7 +164,7 @@ fun storyRunScene(p) {
 
     story_scene_done = true
     story_scene_running = false
-    storyHintWait(p, "§d[Тест диалогов] §aСцена завершена. §7Повтор: §e/spraute reload§7 и снова §e/spraute run story_dialog_test")
+    storyHintWait(p, "§d[Тест диалогов] §aСцена завершена. §7Повтор: §e/spraute run story_dialog_test")
 }
 
 # ── Случайный НПС ────────────────────────────────────────────────
@@ -189,9 +190,9 @@ if (story_spawn == null) {
         speed = 0.22
         pos = sx, sy, sz
         showName = true
-        model = "geo/defolt.geo.json"
+        model = "geo/spraute_classic_by_bendy659_.geo.json"
         texture = story_stranger_tex
-        animation = "animations/npc_classic.animation.json"
+        animation = "animations/npc.animation.json"
         idleAnim = "idle"
         walkAnim = "idle"
     }
@@ -206,7 +207,7 @@ if (story_spawn == null) {
         if (p == null) { return }
 
         if (story_scene_done) {
-            storyHint(p, "§7[Тест] Сцена уже пройдена. §e/spraute reload §7и §e/spraute run story_dialog_test")
+            storyHint(p, "§7[Тест] Сцена уже пройдена. §e/spraute run story_dialog_test")
             return
         }
         if (story_scene_running) {

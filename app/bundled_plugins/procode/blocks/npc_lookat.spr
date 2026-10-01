@@ -1,0 +1,19 @@
+#\ block: npc_lookat
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "НИП" [npc: dropdown_npc] [mode: dropdown(посмотреть раз: lookAt, всегда смотреть: alwaysLookAt, перестать смотреть: stopLookAt)]
+#\ if mode == "stopLookAt":
+#\   template: {npc}.stopLookAt()
+#\ if mode == "lookAt" or mode == "alwaysLookAt":
+#\   row: "на" [target_type: dropdown(НИПа: npc, игрока: player, координаты: pos)]
+#\   if target_type == "npc":
+#\     row: [target_npc: dropdown_npc]
+#\     template: {npc}.{mode}("{target_npc}")
+#\   if target_type == "player":
+#\     input: target_player (type: value)
+#\     template: {npc}.{mode}({target_player})
+#\   if target_type == "pos":
+#\     row: (x: number: 0) (y: number: 64) (z: number: 0)
+#\     template: {npc}.{mode}({x}, {y}, {z})

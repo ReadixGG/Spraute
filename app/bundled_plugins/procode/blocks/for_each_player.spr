@@ -1,0 +1,13 @@
+#\ block: for_each_player
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: wrapper
+#\
+#\ row: "для каждого игрока из" [source: dropdown(все онлайн: all, с тегом: tag)]
+#\ row: "в переменную" (var: text: p)
+#\ if source == "tag":
+#\   row: "тег" (tag: text: vip)
+#\ if source == "all":
+#\   template: for ({var} in getPlayers()) {\n{DO}}
+#\ if source == "tag":
+#\   template: for ({var} in getPlayersByTag("{tag}")) {\n{DO}}

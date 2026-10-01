@@ -4,7 +4,6 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.registries.ForgeRegistries;
 import org.zonarstudio.spraute_engine.script.ItemStackScriptUtil;
 import org.zonarstudio.spraute_engine.script.ScriptContext;
 
@@ -104,7 +103,7 @@ public class PlayerInventoryFunctions {
             if (slot < 0) return false;
             ItemStack stack = ItemStackScriptUtil.getStack(player, slot);
             if (stack.isEmpty()) return false;
-            return ForgeRegistries.ITEMS.getKey(stack.getItem()).toString().equals(String.valueOf(args.get(2)));
+            return ItemStackScriptUtil.matches(stack, String.valueOf(args.get(2)));
         }
     }
 

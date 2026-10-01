@@ -3,15 +3,28 @@
 #\ color: #0ea5e9
 #\ shape: statement
 #\
-#\ row: "НИП" [npc: dropdown_npc] [mode: dropdown(идти к: moveTo, ждать прихода: moveToAwait, всегда идти к: alwaysMoveTo, остановить: stopMove)]
-#\ if mode == "moveTo" or mode == "moveToAwait" or mode == "alwaysMoveTo":
+#\ row: "НИП" [npc: dropdown_npc] [mode: dropdown(идти к: moveTo, всегда идти к: alwaysMoveTo, остановить: stopMove)]
+#\ if mode == "moveTo" or mode == "alwaysMoveTo":
+#\   row: "цель" [target: dropdown(координаты: coords, путь: route)]
+#\ if (mode == "moveTo" or mode == "alwaysMoveTo") and target == "coords":
 #\   row: "X" (x: number: 0) "Y" (y: number: 64) "Z" (z: number: 0) "скорость" (speed: number: 1)
 #\   row: "поворачивать к движению" [faceWalk: checkbox(true)]
+#\ if (mode == "moveTo" or mode == "alwaysMoveTo") and target == "route":
+#\   row: "путь" input: route (type: value) "скорость" (speed: number: 1)
+#\ if mode == "moveTo":
+#\   row: "ждать прибытия" [waitArrive: checkbox(false)]
+#\
 #\ if mode == "stopMove":
 #\   template: {npc}.stopMove()
-#\ if mode == "moveTo":
-#\   template: {npc}.moveTo({x}, {y}, {z}, {speed}, {faceWalk})
-#\ if mode == "moveToAwait":
+#\ if mode == "moveTo" and target == "coords" and waitArrive:
 #\   template: await {npc}.moveTo({x}, {y}, {z}, {speed}, {faceWalk})
-#\ if mode == "alwaysMoveTo":
+#\ if mode == "moveTo" and target == "coords" and not waitArrive:
+#\   template: {npc}.moveTo({x}, {y}, {z}, {speed}, {faceWalk})
+#\ if mode == "alwaysMoveTo" and target == "coords":
 #\   template: {npc}.alwaysMoveTo({x}, {y}, {z}, {speed}, {faceWalk})
+#\ if mode == "moveTo" and target == "route" and waitArrive:
+#\   template: await {npc}.followRoute({route}, {speed})
+#\ if mode == "moveTo" and target == "route" and not waitArrive:
+#\   template: {npc}.followRoute({route}, {speed})
+#\ if mode == "alwaysMoveTo" and target == "route":
+#\   template: {npc}.alwaysFollowRoute({route}, {speed})

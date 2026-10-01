@@ -1,0 +1,29 @@
+#\ block: hide_hud
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "классический GUI" input: player (type: value)
+#\ row: [part: dropdown(сердца: health, голод: hunger, броня: armor, воздух: air, хотбар: hotbar, опыт: xp, прицел: crosshair, зелья: effects, рука: hand, всё ванильное: vanilla)]
+#\ row: [mode: dropdown(скрыть: hide, показать: show)]
+#\ if mode == "hide":
+#\   template: hideHud({player}, "{part}")
+#\ if mode == "show":
+#\   template: showHud({player}, "{part}")
+
+#\ block: show_hud
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "показать весь классический GUI" input: player (type: value)
+#\ template: showHud({player})
+
+#\ block: is_hud_hidden
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: value
+#\
+#\ row: "скрыт GUI" input: player (type: value)
+#\ row: [part: dropdown(сердца: health, голод: hunger, броня: armor, воздух: air, хотбар: hotbar, опыт: xp, прицел: crosshair, зелья: effects, рука: hand, всё ванильное: vanilla)] "?"
+#\ template: isHudHidden({player}, "{part}")

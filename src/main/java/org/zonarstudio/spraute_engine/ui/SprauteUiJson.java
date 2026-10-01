@@ -75,6 +75,13 @@ public final class SprauteUiJson {
                         if (resolved.hasCustomName()) {
                             w.addProperty("entityName", resolved.getCustomName().getString());
                         }
+                        // Snapshot model so the client can keep drawing if the NPC later dies / despawns.
+                        if (resolved instanceof org.zonarstudio.spraute_engine.entity.SprauteNpcEntity npc) {
+                            if (!w.has("modelGeo") && npc.getModel() != null) w.addProperty("modelGeo", npc.getModel());
+                            if (!w.has("modelTexture") && npc.getTexture() != null) w.addProperty("modelTexture", npc.getTexture());
+                            if (!w.has("modelAnim") && npc.getAnimation() != null) w.addProperty("modelAnim", npc.getAnimation());
+                            if (!w.has("modelIdle") && npc.getIdleAnim() != null) w.addProperty("modelIdle", npc.getIdleAnim());
+                        }
                     } else {
                         String uuidStr = null;
                         if (entityRef.startsWith("npc:")) {

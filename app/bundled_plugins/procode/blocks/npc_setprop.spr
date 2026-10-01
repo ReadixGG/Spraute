@@ -1,0 +1,26 @@
+#\ block: npc_setprop
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "у НИП" [npc: dropdown_npc] "установить" [prop: dropdown(имя: name, здоровье: hp, скорость: speed, поворот ходьба: walkTurnSpeed, поворот стойка: idleTurnSpeed, X: x, Y: y, Z: z, поворот: yaw, наклон: pitch, модель: model, текстуру: texture, файл аним.: animation, idle-клип: idleAnim, walk-клип: walkAnim, имя видно: showName, коллизия: collision, хитбокс: hitbox, летит: flying, прозрачная_текстура: translucent, прозрачность: opacity, авто_LOD: lod, дальность_рендера: renderDistance, приоритет_катсцены: forceVisible, прогружать_чанки: loadChunks)] "="
+#\ if prop == "model":
+#\   row: [value: dropdown_model]
+#\ if prop == "texture":
+#\   row: [value: dropdown_texture]
+#\ if prop == "animation":
+#\   row: [value: dropdown_animfile]
+#\ if prop == "idleAnim" or prop == "walkAnim":
+#\   row: [value: dropdown_anim]
+#\ if prop == "collision" or prop == "showName" or prop == "flying" or prop == "translucent" or prop == "lod" or prop == "forceVisible" or prop == "loadChunks":
+#\   row: [value: dropdown(да: true, нет: false)]
+#\ if prop == "hitbox":
+#\   row: "ширина" (hit_w: number: 0.6) "высота" (hit_h: number: 1.8)
+#\ if prop != "model" and prop != "texture" and prop != "animation" and prop != "idleAnim" and prop != "walkAnim" and prop != "collision" and prop != "showName" and prop != "flying" and prop != "hitbox" and prop != "translucent" and prop != "lod" and prop != "forceVisible" and prop != "loadChunks":
+#\   input: value (type: value)
+#\ if prop == "hitbox":
+#\   template: {npc}.setHitbox({hit_w}, {hit_h})
+#\ if prop == "flying":
+#\   template: {npc}.setFlying({value})
+#\ if prop != "hitbox" and prop != "flying":
+#\   template: {npc}.{prop} = {value}

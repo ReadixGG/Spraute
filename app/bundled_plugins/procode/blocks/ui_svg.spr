@@ -1,0 +1,14 @@
+#\ block: ui_svg
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "SVG UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: heart)
+#\ row: "файл" (source: text: textures/gui/heart.svg)
+#\ row: "цвет" (color: text: #FFFFFFFF)
+#\ row: "обводка" (stroke: text: )
+#\ row: "толщина" (strokeWidth: number: 0)
+#\ row: [recolor: dropdown(нет: false, перекрасить: true)]
+#\ template: uiUpdate({player}, "{widget}", "source", "{source}")\nuiUpdate({player}, "{widget}", "color", "{color}")\nuiUpdate({player}, "{widget}", "stroke", "{stroke}")\nuiUpdate({player}, "{widget}", "strokeWidth", {strokeWidth})\nuiUpdate({player}, "{widget}", "recolor", "{recolor}")

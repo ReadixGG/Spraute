@@ -1,0 +1,7 @@
+#\ block: npc_setflying
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "НИП" [npc: dropdown_npc] [type: dropdown(полёт: setFlying, плавание: setSwimming)] [mode: dropdown(включить: true, выключить: false)]
+#\ template: {npc}.{type}({mode})

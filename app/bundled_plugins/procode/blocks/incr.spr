@@ -1,0 +1,8 @@
+#\ block: incr
+#\ category: Переменные
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "изменить" (name: text: i) [op: dropdown(увеличить на: +, уменьшить на: -)]
+#\ input: amount (type: value)
+#\ template: {name} = {name} {op} {amount}

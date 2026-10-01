@@ -45,6 +45,11 @@ public class UiOpenFunction implements ScriptFunction {
             LOGGER.warn("[Script] ui_open: not a server player");
             return null;
         }
+        // Scene canvas node (by view / name / id) opens through the scene runtime
+        var canvasRef = org.zonarstudio.spraute_engine.scene.SceneRuntime.resolveCanvas(args.get(1));
+        if (canvasRef != null) {
+            return org.zonarstudio.spraute_engine.scene.SceneRuntime.showCanvasTo(canvasRef.sceneId(), canvasRef.canvas(), sp);
+        }
         String json;
         if (args.get(1) instanceof UiTemplate ut) {
             json = ut.getJson();

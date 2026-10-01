@@ -37,6 +37,16 @@ public final class EntityFacingUtil {
         return out;
     }
 
+    /** {@code null} if the vector is too small to define a facing. */
+    public static float[] yawPitchFromDir(double dx, double dy, double dz) {
+        if (dx * dx + dy * dy + dz * dz < 1.0e-12) return null;
+        double horiz = Math.sqrt(dx * dx + dz * dz);
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        float pitch = (float) (-Math.toDegrees(Math.atan2(dy, Math.max(1.0e-6, horiz))));
+        pitch = Math.max(-90f, Math.min(90f, pitch));
+        return new float[]{yaw, pitch};
+    }
+
     public static String horizontalFromYaw(float yaw) {
         float n = (yaw % 360f + 360f) % 360f;
         if (n >= 315f || n < 45f) return "south";

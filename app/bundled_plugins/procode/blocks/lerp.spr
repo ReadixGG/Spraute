@@ -1,0 +1,74 @@
+#\ block: lerp
+#\ category: Математика
+#\ color: #ef4444
+#\ shape: value
+#\
+#\ row: "lerp" input: a (type: value) "→" input: b (type: value)
+#\ row: "t" input: t (type: value) [easing: dropdown(линейно: linear, плавно: easeInOut, в конце: easeOut, в начале: easeIn, отскок: bounceOut, пружина: elasticOut)]
+#\ template: lerp({a}, {b}, {t}, "{easing}")
+
+#\ block: lerp_angle
+#\ category: Математика
+#\ color: #ef4444
+#\ shape: value
+#\
+#\ row: "lerp угол" input: a (type: value) "→" input: b (type: value)
+#\ row: "t" input: t (type: value) [easing: dropdown(линейно: linear, плавно: easeInOut, в конце: easeOut, в начале: easeIn, отскок: bounceOut, пружина: elasticOut)]
+#\ template: lerpAngle({a}, {b}, {t}, "{easing}")
+
+#\ block: lerp_color
+#\ category: Математика
+#\ color: #ef4444
+#\ shape: value
+#\
+#\ row: "lerp цвет" input: from (type: value) "→" input: to (type: value)
+#\ row: "t" input: t (type: value) [easing: dropdown(линейно: linear, плавно: easeInOut, в конце: easeOut, в начале: easeIn, отскок: bounceOut, пружина: elasticOut)]
+#\ template: lerpColor({from}, {to}, {t}, "{easing}")
+
+#\ block: ease
+#\ category: Математика
+#\ color: #ef4444
+#\ shape: value
+#\
+#\ row: "плавность" input: t (type: value)
+#\ row: [mode: dropdown(линейно: linear, плавно: easeInOut, в конце: easeOut, в начале: easeIn, отскок: bounceOut, пружина: elasticOut)]
+#\ template: ease({t}, "{mode}")
+
+#\ block: curve_eval
+#\ category: Математика
+#\ color: #ef4444
+#\ shape: value
+#\
+#\ row: "кривая" input: curve (type: value)
+#\ row: "t" input: t (type: value)
+#\ template: curveEval({curve}, {t})
+
+#\ block: lerp_to
+#\ category: Математика
+#\ color: #ef4444
+#\ shape: statement
+#\
+#\ row: "lerp к" input: target (type: value)
+#\ row: "свойство" (prop: text: x) "=" input: end (type: value)
+#\ row: "за" (time: number: 1) "сек" [easing: dropdown(линейно: linear, плавно: easeInOut, в конце: easeOut, в начале: easeIn, отскок: bounceOut, пружина: elasticOut)]
+#\ row: [runMode: dropdown(запустить: play, ждать конца: await)]
+#\
+#\ if runMode == "play":
+#\   template: lerpTo({target}, "{prop}", {end}, {time}, "{easing}")
+#\ if runMode == "await":
+#\   template: await time(lerpTo({target}, "{prop}", {end}, {time}, "{easing}"))
+
+#\ block: lerp_stop
+#\ category: Математика
+#\ color: #ef4444
+#\ shape: statement
+#\
+#\ row: "остановить lerp" input: target (type: value)
+#\ row: [scope: dropdown(все свойства: all, одно: one)]
+#\ if scope == "one":
+#\   row: "свойство" (prop: text: x)
+#\
+#\ if scope == "all":
+#\   template: lerpStop({target})
+#\ if scope == "one":
+#\   template: lerpStop({target}, "{prop}")

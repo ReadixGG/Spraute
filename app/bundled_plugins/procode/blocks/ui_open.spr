@@ -1,0 +1,9 @@
+#\ block: ui_open
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "открыть игроку"
+#\ input: player (type: value)
+#\ row: [mode: dropdown(окно: uiOpen, оверлей: overlayOpen)] "шаблон" (template: text: my_ui)
+#\ template: {mode}({player}, {template})

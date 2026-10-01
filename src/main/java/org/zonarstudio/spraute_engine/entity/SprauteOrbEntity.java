@@ -20,6 +20,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.NetworkHooks;
 import org.zonarstudio.spraute_engine.compat.SprauteEntityCompat;
 import org.zonarstudio.spraute_engine.script.ScriptManager;
+import org.zonarstudio.spraute_engine.util.SprauteOrbTextures;
 
 public class SprauteOrbEntity extends Entity {
     private static final EntityDataAccessor<String> DATA_TEXTURE = SynchedEntityData.defineId(SprauteOrbEntity.class, EntityDataSerializers.STRING);
@@ -61,7 +62,7 @@ public class SprauteOrbEntity extends Entity {
     }
 
     public void setTexture(String texture) {
-        this.entityData.set(DATA_TEXTURE, texture);
+        this.entityData.set(DATA_TEXTURE, SprauteOrbTextures.normalize(texture));
     }
 
     @Override

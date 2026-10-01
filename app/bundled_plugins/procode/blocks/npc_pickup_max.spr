@@ -1,0 +1,26 @@
+#\ block: npc_pickup_max
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "у НИП" [npc: dropdown_npc] [mode: dropdown(лимит подбора: max, снять лимит: clear)]
+#\ if mode == "max":
+#\   row: "предмет" (item: item: minecraft:iron_ingot) "не больше" (max: number: 5)
+#\   row: [nbt: dropdown(без NBT: no, с NBT: yes)]
+#\ if mode == "max" and nbt == "no":
+#\   template: {npc}.pickupMax("{item}", {max})
+#\ if mode == "max" and nbt == "yes":
+#\   row: "NBT" (tag: text: {})
+#\   template: {npc}.pickupMax("{item}", {max}, "{tag}")
+#\ if mode == "clear":
+#\   row: [scope: dropdown(все лимиты: all, этот предмет: one)]
+#\ if mode == "clear" and scope == "all":
+#\   template: {npc}.clearPickupMax()
+#\ if mode == "clear" and scope == "one":
+#\   row: "предмет" (item: item: minecraft:iron_ingot)
+#\   row: [nbt: dropdown(без NBT: no, с NBT: yes)]
+#\ if mode == "clear" and scope == "one" and nbt == "no":
+#\   template: {npc}.clearPickupMax("{item}")
+#\ if mode == "clear" and scope == "one" and nbt == "yes":
+#\   row: "NBT" (tag: text: {})
+#\   template: {npc}.clearPickupMax("{item}", "{tag}")

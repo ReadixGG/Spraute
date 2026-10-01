@@ -1,0 +1,7 @@
+#\ block: await_keybind
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать когда нажата клавиша" (key: text: g)
+#\ template: await keybind("{key}")

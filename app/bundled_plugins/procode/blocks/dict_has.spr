@@ -1,0 +1,8 @@
+#\ block: dict_has
+#\ category: Словари
+#\ color: #ec4899
+#\ shape: value
+#\
+#\ input: dict (type: value) "в словаре"
+#\ row: "есть ключ" (key: text: ключ)
+#\ template: dictGet({dict}, "{key}") != null

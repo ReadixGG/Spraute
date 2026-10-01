@@ -4,21 +4,38 @@
 #\ shape: statement
 #\
 #\ row: "создать НИП" (id: text: my_npc)
+#\ row: "id ноды (опц.)" (nodeId: text: )
+#\ row: "родитель (сцена)" (parent: text: )
 #\ row: "имя" (name: text: НИП)
 #\ row: "HP" (hp: number: 20) "скорость" (speed: number: 0.3)
+#\ row: "поворот ходьба" (walkTurnSpeed: number: 6) "стойка" (idleTurnSpeed: number: 6)
 #\ row: "модель" [model: dropdown_model]
 #\ row: "текстура" [texture: dropdown_texture]
 #\ row: "анимации" [animation: dropdown_animfile]
 #\ row: "idle" [idleAnim: dropdown_anim] "walk" [walkAnim: dropdown_anim]
 #\ row: "позиция" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ row: "поворот XYZ" (rotationX: number: 0) (rotationY: number: 0) (rotationZ: number: 0)
+#\ row: "масштаб XYZ" (scaleX: number: 1) (scaleY: number: 1) (scaleZ: number: 1)
 #\ row: "имя над головой" [showName: dropdown(да: true, нет: false)]
+#\ row: "авто LOD" [lod: dropdown(да: true, нет: false)] "дальность (0=общая)" (renderDistance: number: 0)
+#\ row: "приоритет катсцены" [forceVisible: dropdown(нет: false, да: true)]
+#\ row: "прогружать чанки" [loadChunks: dropdown(нет: false, да: true)]
+#\ row: "дроп при смерти" (dropItem: item: )
+#\ row: "мин" (dropMin: number: 1) "макс" (dropMax: number: 1) "шанс %" (dropChance: number: 100)
+#\ row: "опыт XP" (dropXp: number: 0)
 #\
 #\ code: var id = String(_getVal('id') || '').trim();
 #\ code: function q(v) { return String(v || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
 #\ code: var lines = ['create npc ' + id + ' {'];
+#\ code: var parent = String(_getVal('parent') || '').trim();
+#\ code: if (parent) lines.push('    parent = ' + (/^[A-Za-z_][A-Za-z0-9_]*$/.test(parent) ? parent : JSON.stringify(parent)));
+#\ code: var nodeId = String(_getVal('nodeId') || '').trim();
+#\ code: if (nodeId) lines.push('    id = "' + q(nodeId) + '"');
 #\ code: var nm = String(_getVal('name') || '').trim(); if (nm) lines.push('    name = "' + q(nm) + '"');
 #\ code: var hp = String(_getVal('hp') || '').trim(); if (hp) lines.push('    hp = ' + hp);
 #\ code: var spd = String(_getVal('speed') || '').trim(); if (spd) lines.push('    speed = ' + spd);
+#\ code: var wts = String(_getVal('walkTurnSpeed') || '').trim(); if (wts) lines.push('    walkTurnSpeed = ' + wts);
+#\ code: var its = String(_getVal('idleTurnSpeed') || '').trim(); if (its) lines.push('    idleTurnSpeed = ' + its);
 #\ code: var mdl = String(_getVal('model') || '').trim(); if (mdl) lines.push('    model = "' + q(mdl) + '"');
 #\ code: var tex = String(_getVal('texture') || '').trim(); if (tex) lines.push('    texture = "' + q(tex) + '"');
 #\ code: var anim = String(_getVal('animation') || '').trim(); if (anim) lines.push('    animation = "' + q(anim) + '"');
@@ -28,7 +45,25 @@
 #\ code: var y = String(_getVal('y') || '64').trim();
 #\ code: var z = String(_getVal('z') || '0').trim();
 #\ code: lines.push('    pos = ' + x + ', ' + y + ', ' + z);
+#\ code: lines.push('    rotationX = ' + String(_getVal('rotationX') || '0').trim());
+#\ code: lines.push('    rotationY = ' + String(_getVal('rotationY') || '0').trim());
+#\ code: lines.push('    rotationZ = ' + String(_getVal('rotationZ') || '0').trim());
+#\ code: lines.push('    scaleX = ' + String(_getVal('scaleX') || '1').trim());
+#\ code: lines.push('    scaleY = ' + String(_getVal('scaleY') || '1').trim());
+#\ code: lines.push('    scaleZ = ' + String(_getVal('scaleZ') || '1').trim());
 #\ code: var sn = String(_getVal('showName') || 'true').trim();
 #\ code: if (sn === 'true' || sn === 'false') lines.push('    showName = ' + sn);
+#\ code: lines.push('    lod = ' + String(_getVal('lod') || 'true').trim());
+#\ code: lines.push('    renderDistance = ' + String(_getVal('renderDistance') || '0').trim());
+#\ code: lines.push('    forceVisible = ' + String(_getVal('forceVisible') || 'false').trim());
+#\ code: lines.push('    loadChunks = ' + String(_getVal('loadChunks') || 'false').trim());
+#\ code: var drop = String(_getVal('dropItem') || '').trim();
+#\ code: if (drop) {
+#\ code:   lines.push('    dropItem = "' + q(drop) + '"');
+#\ code:   lines.push('    dropMin = ' + String(_getVal('dropMin') || '1').trim());
+#\ code:   lines.push('    dropMax = ' + String(_getVal('dropMax') || '1').trim());
+#\ code:   lines.push('    dropChance = ' + String(_getVal('dropChance') || '100').trim());
+#\ code: }
+#\ code: var xp = String(_getVal('dropXp') || '').trim(); if (xp && xp !== '0') lines.push('    dropXp = ' + xp);
 #\ code: lines.push('}');
 #\ code: return lines.join('\n') + '\n';

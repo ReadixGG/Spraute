@@ -1,0 +1,7 @@
+#\ block: start_script
+#\ category: Мир
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: [mode: dropdown(запустить: startScript, остановить: stopScript)] "скрипт" (name: text: my_script)
+#\ template: {mode}("{name}")

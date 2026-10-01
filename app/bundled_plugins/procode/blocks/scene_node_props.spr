@@ -1,0 +1,23 @@
+#\ block: scene_node_xyz
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: value
+#\
+#\ row: "нода" (node: value) [axis: dropdown(X: x, Y: y, Z: z)]
+#\ template: {node}.{axis}
+
+#\ block: scene_node_set_xyz
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "нода" (node: value) [axis: dropdown(X: x, Y: y, Z: z)] "=" (value: number: 0)
+#\ template: {node}.{axis} = {value}
+
+#\ block: scene_find_by_tag
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: value
+#\
+#\ row: "найти ноду по тегу" (tag: text: boss)
+#\ template: sceneFindByTag("{tag}")

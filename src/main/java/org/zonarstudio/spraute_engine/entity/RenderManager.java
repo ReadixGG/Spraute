@@ -12,7 +12,16 @@ public class RenderManager {
     }
 
     public static UUID get(String name) {
-        return RENDERS.get(name.toLowerCase());
+        return name == null ? null : RENDERS.get(name.toLowerCase());
+    }
+
+    /** Tracking id used by script render entities, or null. */
+    public static String findId(UUID uuid) {
+        if (uuid == null) return null;
+        for (var e : RENDERS.entrySet()) {
+            if (uuid.equals(e.getValue())) return e.getKey();
+        }
+        return null;
     }
 
     public static net.minecraft.world.entity.Entity getEntity(String name, net.minecraft.world.level.Level level) {

@@ -1,0 +1,130 @@
+#\ block: ui_animate
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "анимировать UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: my_btn) "поле" (field: text: x)
+#\ row: "к значению" (target: text: 100) "за" (duration: number: 1) "сек" [easing: dropdown(линейно: linear, плавно: easeInOut, в конце: easeOut, в начале: easeIn)]
+#\ template: uiAnimate({player}, "{widget}", "{field}", "{target}", {duration}, "{easing}")
+
+#\ block: overlay_close
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "закрыть оверлей игроку"
+#\ input: player (type: value)
+#\ template: overlayClose({player})
+
+#\ block: ui_is_open
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: value
+#\
+#\ row: "UI открыт у" (player: text: игрок) "?"
+#\ template: uiIsOpen({player})
+
+#\ block: ui_container_open
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: value
+#\
+#\ row: "GUI со слотами открыт у" (player: text: игрок) "?"
+#\ template: uiContainerOpen({player})
+
+#\ block: ui_get_input
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: value
+#\
+#\ row: "текст поля" (widget: text: my_input) "у" (player: text: игрок)
+#\ template: uiGetInput({player}, "{widget}")
+
+#\ block: ui_set_input
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "записать в поле UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: my_input) "текст" (text: text: )
+#\ template: uiSetInput({player}, "{widget}", "{text}")
+#\ block: ui_set_slot
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "положить в слот GUI игрока"
+#\ input: player (type: value)
+#\ row: "слот" (slot: number: 0) "предмет" (item: item: minecraft:diamond) "x" (count: number: 1)
+#\ template: uiSetSlot({player}, {slot}, "{item}", {count})
+
+#\ block: ui_clear_slot
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "очистить слот GUI игрока"
+#\ input: player (type: value)
+#\ row: "слот" (slot: number: 0)
+#\ template: uiClearSlot({player}, {slot})
+
+#\ block: ui_slot_item
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: value
+#\
+#\ row: "предмет в слоте" (slot: number: 0) "GUI у" (player: text: игрок)
+#\ template: uiSlotItem({player}, {slot})
+
+#\ block: ui_slot_count
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: value
+#\
+#\ row: "кол-во в слоте" (slot: number: 0) "GUI у" (player: text: игрок)
+#\ template: uiSlotCount({player}, {slot})
+
+#\ block: ui_slot_is_empty
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: value
+#\
+#\ row: "слот" (slot: number: 0) "GUI пуст у" (player: text: игрок) "?"
+#\ template: uiSlotIsEmpty({player}, {slot})
+
+#\ block: ui_slot_has_item
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: value
+#\
+#\ row: "в слоте" (slot: number: 0) "GUI у" (player: text: игрок) "лежит" (item: item: minecraft:diamond) "?"
+#\ template: uiSlotHasItem({player}, {slot}, "{item}")
+
+#\ block: ui_slot_slots
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: value
+#\
+#\ row: "число слотов GUI у" (player: text: игрок)
+#\ template: uiSlotSlots({player})
+
+#\ block: ui_scroll_get
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: value
+#\
+#\ row: "скролл" (widget: text: my_list) "у" (player: text: игрок)
+#\ template: uiScrollGet({player}, "{widget}")
+
+#\ block: ui_scroll_set
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "установить скролл UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: my_list) "=" (offset: number: 0)
+#\ template: uiScrollSet({player}, "{widget}", {offset})

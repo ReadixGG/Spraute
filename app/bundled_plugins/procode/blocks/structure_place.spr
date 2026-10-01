@@ -1,0 +1,14 @@
+#\ block: structure_place
+#\ category: Структуры
+#\ color: #10b981
+#\ shape: statement
+#\
+#\ row: "поставить структуру" (name: text: my_house)
+#\ row: "X" (x: number: 0) "Y" (y: number: 64) "Z" (z: number: 0)
+#\ row: "поворот" [rotation: dropdown(0°: 0, 90°: 90, 180°: 180, 270°: 270)]
+#\ row: "зеркало" [mirror: dropdown(нет: NONE, лево/право: LEFT_RIGHT, перед/зад: FRONT_BACK)]
+#\ row: "мир" [dim: dropdown(текущий: current, обычный: overworld, ад: nether, край: the_end)]
+#\ if dim == "current":
+#\   template: placeStructure("{name}", {x}, {y}, {z}, "{mirror}", {rotation})
+#\ if dim != "current":
+#\   template: placeStructure("{name}", {x}, {y}, {z}, "{mirror}", {rotation}, "{dim}")

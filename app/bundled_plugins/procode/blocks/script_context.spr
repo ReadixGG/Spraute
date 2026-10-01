@@ -1,0 +1,8 @@
+#\ block: script_context
+#\ category: Иерархия
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "контекст скрипта:" [v: dropdown(эта нода (_node): _node, скрипт-нода (_scriptNode): _scriptNode, сцена (_scene): _scene)]
+#\
+#\ code: return _getVal("v");

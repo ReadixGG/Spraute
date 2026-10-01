@@ -1,0 +1,9 @@
+#\ block: str_replace
+#\ category: Текст
+#\ color: #10b981
+#\ shape: value
+#\
+#\ row: "в ("
+#\ input: s (type: value)
+#\ row: ") заменить" (target: text: a) "на" (repl: text: b)
+#\ template: ({s}).replace("{target}", "{repl}")

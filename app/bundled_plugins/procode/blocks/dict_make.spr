@@ -1,0 +1,22 @@
+#\ block: dict_make
+#\ category: Словари
+#\ color: #ec4899
+#\ shape: value
+#\
+#\ row: "словарь"
+#\ row: "ключ" (key1: text: ) "=" input val1 (type: value)
+#\ if_filled val1:
+#\   row: "ключ" (key2: text: ) "=" input val2 (type: value)
+#\ if_filled val2:
+#\   row: "ключ" (key3: text: ) "=" input val3 (type: value)
+#\ if_filled val3:
+#\   row: "ключ" (key4: text: ) "=" input val4 (type: value)
+#\ if_filled val4:
+#\   row: "ключ" (key5: text: ) "=" input val5 (type: value)
+#\ if_filled val5:
+#\   row: "ключ" (key6: text: ) "=" input val6 (type: value)
+#\ if_filled val6:
+#\   row: "ключ" (key7: text: ) "=" input val7 (type: value)
+#\ if_filled val7:
+#\   row: "ключ" (key8: text: ) "=" input val8 (type: value)
+#\ code: return (function(){ var p=[], ks=["key1","key2","key3","key4","key5","key6","key7","key8"], vs=["val1","val2","val3","val4","val5","val6","val7","val8"]; for(var i=0;i<8;i++){ var k=_getVal(ks[i]); var v=_getVal(vs[i]).trim(); if(!v) continue; var key=k!=null&&String(k).trim()?String(k).trim().replace(/"/g,'\\"'):("k"+(i+1)); p.push('"'+key+'"', v); } return p.length?'dict('+p.join(', ')+')':'dict()'; })();

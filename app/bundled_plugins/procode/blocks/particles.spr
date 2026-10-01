@@ -1,26 +1,9 @@
-#\ block: create_particle
-#\ category: Частицы
-#\ color: #f472b6
-#\ shape: statement
-#\
-#\ row: "создать частицу" (id: text: my_particle)
-#\ row: "текстура" (texture: text: textures/particle/my_particle.png)
-#\ row: "в игре: spraute_engine:id"
-#\
-#\ code: var id = String(_getVal('id') || '').trim();
-#\ code: function q(v) { return String(v || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
-#\ code: var lines = ['create particle ' + id + ' {'];
-#\ code: var tex = String(_getVal('texture') || '').trim();
-#\ code: if (tex) lines.push('    texture = "' + q(tex) + '"');
-#\ code: lines.push('}');
-#\ code: return lines.join('\n') + '\n';
-
 #\ block: particle_spawn
 #\ category: Частицы
 #\ color: #f472b6
 #\ shape: statement
 #\
-#\ row: "частицы" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, зачарование: enchant, сердце: heart, крит: crit, зелья: witch, портал: portal, облако: cloud, вспышка: flash, лава: lava, брызги: splash, свой id: custom)]
+#\ row: "частицы | OLD" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, зачарование: enchant, сердце: heart, крит: crit, зелья: witch, портал: portal, облако: cloud, вспышка: flash, лава: lava, брызги: splash, свой id: custom)]
 #\ if ptype == "custom":
 #\   row: "id" (customType: text: spraute_engine:my_particle)
 #\ row: "позиция" (x: number: 0) (y: number: 64) (z: number: 0)
@@ -37,7 +20,7 @@
 #\ color: #f472b6
 #\ shape: statement
 #\
-#\ row: "линия частиц" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, зачарование: enchant, свой id: custom)]
+#\ row: "линия частиц | OLD" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, зачарование: enchant, свой id: custom)]
 #\ if ptype == "custom":
 #\   row: "id" (customType: text: minecraft:flame)
 #\ row: "от" (x1: number: 0) (y1: number: 64) (z1: number: 0)
@@ -55,7 +38,7 @@
 #\ color: #f472b6
 #\ shape: statement
 #\
-#\ row: "круг частиц" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, зачарование: enchant, свой id: custom)]
+#\ row: "круг частиц | OLD" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, зачарование: enchant, свой id: custom)]
 #\ if ptype == "custom":
 #\   row: "id" (customType: text: minecraft:soul)
 #\ row: "центр" (cx: number: 0) (cy: number: 64) (cz: number: 0)
@@ -72,7 +55,7 @@
 #\ color: #f472b6
 #\ shape: statement
 #\
-#\ row: "спираль частиц" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, зачарование: enchant, свой id: custom)]
+#\ row: "спираль частиц | OLD" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, зачарование: enchant, свой id: custom)]
 #\ if ptype == "custom":
 #\   row: "id" (customType: text: minecraft:enchant)
 #\ row: "центр" (cx: number: 0) (cy: number: 64) (cz: number: 0)
@@ -84,12 +67,220 @@
 #\ if ptype == "custom":
 #\   template: particleSpiral("{customType}", {cx}, {cy}, {cz}, {radius}, {height}, {count}, {dx}, {dy}, {dz}, {speed})
 
+#\ block: particle_ring
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "кольцо частиц" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, свой id: custom)]
+#\ if ptype == "custom":
+#\   row: "id / png" (customType: text: minecraft:textures/particle/generic_0.png)
+#\ row: "центр" (cx: number: 0) (cy: number: 64) (cz: number: 0)
+#\ row: "радиус" (radius: number: 2) "точек" (count: number: 24)
+#\ row: "разброс" (dx: number: 0) (dy: number: 0) (dz: number: 0) "скорость" (speed: number: 0)
+#\
+#\ if ptype != "custom":
+#\   template: particleRing("{ptype}", {cx}, {cy}, {cz}, {radius}, {count}, {dx}, {dy}, {dz}, {speed})
+#\ if ptype == "custom":
+#\   template: particleRing("{customType}", {cx}, {cy}, {cz}, {radius}, {count}, {dx}, {dy}, {dz}, {speed})
+
+#\ block: particle_disc
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "диск частиц" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, свой id: custom)]
+#\ if ptype == "custom":
+#\   row: "id / png" (customType: text: minecraft:textures/particle/generic_0.png)
+#\ row: "центр" (cx: number: 0) (cy: number: 64) (cz: number: 0)
+#\ row: "радиус" (radius: number: 2) "точек" (count: number: 40)
+#\ row: "разброс" (dx: number: 0) (dy: number: 0) (dz: number: 0) "скорость" (speed: number: 0)
+#\
+#\ if ptype != "custom":
+#\   template: particleDisc("{ptype}", {cx}, {cy}, {cz}, {radius}, {count}, {dx}, {dy}, {dz}, {speed})
+#\ if ptype == "custom":
+#\   template: particleDisc("{customType}", {cx}, {cy}, {cz}, {radius}, {count}, {dx}, {dy}, {dz}, {speed})
+
+#\ block: particle_helix
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "спираль / helix" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, свой id: custom)]
+#\ if ptype == "custom":
+#\   row: "id / png" (customType: text: minecraft:textures/particle/generic_0.png)
+#\ row: "центр" (cx: number: 0) (cy: number: 64) (cz: number: 0)
+#\ row: "радиус" (radius: number: 2) "высота" (height: number: 5) "точек" (count: number: 40)
+#\ row: "разброс" (dx: number: 0) (dy: number: 0) (dz: number: 0) "скорость" (speed: number: 0)
+#\
+#\ if ptype != "custom":
+#\   template: particleHelix("{ptype}", {cx}, {cy}, {cz}, {radius}, {height}, {count}, {dx}, {dy}, {dz}, {speed})
+#\ if ptype == "custom":
+#\   template: particleHelix("{customType}", {cx}, {cy}, {cz}, {radius}, {height}, {count}, {dx}, {dy}, {dz}, {speed})
+
+#\ block: particle_box
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "коробка частиц" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, свой id: custom)]
+#\ if ptype == "custom":
+#\   row: "id / png" (customType: text: minecraft:textures/particle/generic_0.png)
+#\ row: "центр" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ row: "размер" (w: number: 2) (h: number: 2) (d: number: 2) "точек" (count: number: 64)
+#\ row: "разброс" (dx: number: 0) (dy: number: 0) (dz: number: 0) "скорость" (speed: number: 0)
+#\
+#\ if ptype != "custom":
+#\   template: particleBox("{ptype}", {x}, {y}, {z}, {w}, {h}, {d}, {count}, {dx}, {dy}, {dz}, {speed})
+#\ if ptype == "custom":
+#\   template: particleBox("{customType}", {x}, {y}, {z}, {w}, {h}, {d}, {count}, {dx}, {dy}, {dz}, {speed})
+
+#\ block: particle_box_wire
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "каркас коробки" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, свой id: custom)]
+#\ if ptype == "custom":
+#\   row: "id / png" (customType: text: minecraft:textures/particle/generic_0.png)
+#\ row: "центр" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ row: "размер" (w: number: 2) (h: number: 2) (d: number: 2) "точек на ребро" (count: number: 8)
+#\ row: "разброс" (dx: number: 0) (dy: number: 0) (dz: number: 0) "скорость" (speed: number: 0)
+#\
+#\ if ptype != "custom":
+#\   template: particleBoxWire("{ptype}", {x}, {y}, {z}, {w}, {h}, {d}, {count}, {dx}, {dy}, {dz}, {speed})
+#\ if ptype == "custom":
+#\   template: particleBoxWire("{customType}", {x}, {y}, {z}, {w}, {h}, {d}, {count}, {dx}, {dy}, {dz}, {speed})
+
+#\ block: particle_sphere
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "шар частиц" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, свой id: custom)]
+#\ if ptype == "custom":
+#\   row: "id / png" (customType: text: minecraft:textures/particle/generic_0.png)
+#\ row: "центр" (cx: number: 0) (cy: number: 64) (cz: number: 0)
+#\ row: "радиус" (radius: number: 2) "точек" (count: number: 48)
+#\ row: "разброс" (dx: number: 0) (dy: number: 0) (dz: number: 0) "скорость" (speed: number: 0)
+#\
+#\ if ptype != "custom":
+#\   template: particleSphere("{ptype}", {cx}, {cy}, {cz}, {radius}, {count}, {dx}, {dy}, {dz}, {speed})
+#\ if ptype == "custom":
+#\   template: particleSphere("{customType}", {cx}, {cy}, {cz}, {radius}, {count}, {dx}, {dy}, {dz}, {speed})
+
+#\ block: particle_shell
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "оболочка шара" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, свой id: custom)]
+#\ if ptype == "custom":
+#\   row: "id / png" (customType: text: minecraft:textures/particle/generic_0.png)
+#\ row: "центр" (cx: number: 0) (cy: number: 64) (cz: number: 0)
+#\ row: "радиус" (radius: number: 2) "точек" (count: number: 40)
+#\ row: "разброс" (dx: number: 0) (dy: number: 0) (dz: number: 0) "скорость" (speed: number: 0)
+#\
+#\ if ptype != "custom":
+#\   template: particleShell("{ptype}", {cx}, {cy}, {cz}, {radius}, {count}, {dx}, {dy}, {dz}, {speed})
+#\ if ptype == "custom":
+#\   template: particleShell("{customType}", {cx}, {cy}, {cz}, {radius}, {count}, {dx}, {dy}, {dz}, {speed})
+
+#\ block: particle_cone
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "конус частиц" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, свой id: custom)]
+#\ if ptype == "custom":
+#\   row: "id / png" (customType: text: minecraft:textures/particle/generic_0.png)
+#\ row: "начало" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ row: "направление" (dirX: number: 0) (dirY: number: 1) (dirZ: number: 0)
+#\ row: "длина" (length: number: 4) "угол°" (angle: number: 25) "точек" (count: number: 48)
+#\ row: "разброс" (dx: number: 0) (dy: number: 0) (dz: number: 0) "скорость" (speed: number: 0)
+#\
+#\ if ptype != "custom":
+#\   template: particleCone("{ptype}", {x}, {y}, {z}, {dirX}, {dirY}, {dirZ}, {length}, {angle}, {count}, {dx}, {dy}, {dz}, {speed})
+#\ if ptype == "custom":
+#\   template: particleCone("{customType}", {x}, {y}, {z}, {dirX}, {dirY}, {dirZ}, {length}, {angle}, {count}, {dx}, {dy}, {dz}, {speed})
+
+#\ block: particle_cylinder
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "цилиндр частиц" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, свой id: custom)]
+#\ if ptype == "custom":
+#\   row: "id / png" (customType: text: minecraft:textures/particle/generic_0.png)
+#\ row: "низ" (cx: number: 0) (cy: number: 64) (cz: number: 0)
+#\ row: "радиус" (radius: number: 1.5) "высота" (height: number: 3) "точек" (count: number: 48)
+#\ row: "разброс" (dx: number: 0) (dy: number: 0) (dz: number: 0) "скорость" (speed: number: 0)
+#\
+#\ if ptype != "custom":
+#\   template: particleCylinder("{ptype}", {cx}, {cy}, {cz}, {radius}, {height}, {count}, {dx}, {dy}, {dz}, {speed})
+#\ if ptype == "custom":
+#\   template: particleCylinder("{customType}", {cx}, {cy}, {cz}, {radius}, {height}, {count}, {dx}, {dy}, {dz}, {speed})
+
+#\ block: particle_arc
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "дуга частиц" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, свой id: custom)]
+#\ if ptype == "custom":
+#\   row: "id / png" (customType: text: minecraft:textures/particle/generic_0.png)
+#\ row: "центр" (cx: number: 0) (cy: number: 64) (cz: number: 0)
+#\ row: "радиус" (radius: number: 3) "от°" (startDeg: number: -45) "до°" (endDeg: number: 45)
+#\ row: "точек" (count: number: 16)
+#\ row: "разброс" (dx: number: 0) (dy: number: 0) (dz: number: 0) "скорость" (speed: number: 0)
+#\
+#\ if ptype != "custom":
+#\   template: particleArc("{ptype}", {cx}, {cy}, {cz}, {radius}, {startDeg}, {endDeg}, {count}, {dx}, {dy}, {dz}, {speed})
+#\ if ptype == "custom":
+#\   template: particleArc("{customType}", {cx}, {cy}, {cz}, {radius}, {startDeg}, {endDeg}, {count}, {dx}, {dy}, {dz}, {speed})
+
+#\ block: particle_grid
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "сетка частиц" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, свой id: custom)]
+#\ if ptype == "custom":
+#\   row: "id / png" (customType: text: minecraft:textures/particle/generic_0.png)
+#\ row: "центр" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ row: "ширина" (w: number: 4) "глубина" (d: number: 4) "шаг" (step: number: 0.5)
+#\ row: "разброс" (dx: number: 0) (dy: number: 0) (dz: number: 0) "скорость" (speed: number: 0)
+#\
+#\ if ptype != "custom":
+#\   template: particleGrid("{ptype}", {x}, {y}, {z}, {w}, {d}, {step}, {dx}, {dy}, {dz}, {speed})
+#\ if ptype == "custom":
+#\   template: particleGrid("{customType}", {x}, {y}, {z}, {w}, {d}, {step}, {dx}, {dy}, {dz}, {speed})
+
+#\ block: particle_triangle
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "треугольник частиц" [ptype: dropdown(огонь: flame, дым: smoke, души: soul, свой id: custom)]
+#\ if ptype == "custom":
+#\   row: "id / png" (customType: text: minecraft:textures/particle/generic_0.png)
+#\ row: "A" (x1: number: 0) (y1: number: 64) (z1: number: 0)
+#\ row: "B" (x2: number: 2) (y2: number: 64) (z2: number: 0)
+#\ row: "C" (x3: number: 1) (y3: number: 64) (z3: number: 2)
+#\ row: "точек на ребро" (count: number: 10)
+#\ row: "разброс" (dx: number: 0) (dy: number: 0) (dz: number: 0) "скорость" (speed: number: 0)
+#\
+#\ if ptype != "custom":
+#\   template: particleTriangle("{ptype}", {x1}, {y1}, {z1}, {x2}, {y2}, {z2}, {x3}, {y3}, {z3}, {count}, {dx}, {dy}, {dz}, {speed})
+#\ if ptype == "custom":
+#\   template: particleTriangle("{customType}", {x1}, {y1}, {z1}, {x2}, {y2}, {z2}, {x3}, {y3}, {z3}, {count}, {dx}, {dy}, {dz}, {speed})
+
 #\ block: particle_start_bone
 #\ category: Частицы
 #\ color: #f472b6
 #\ shape: statement
 #\
-#\ row: "частицы на кости" (taskId: text: aura)
+#\ row: "частицы на кости | OLD" (taskId: text: aura)
 #\ row: "НИП" [npc: dropdown_npc]
 #\ row: "кость" (bone: text: Head)
 #\ row: [ptype: dropdown(огонь: flame, дым: smoke, души: soul, свой id: custom)]
@@ -108,5 +299,148 @@
 #\ color: #f472b6
 #\ shape: statement
 #\
-#\ row: "остановить частицы кости" (taskId: text: aura)
+#\ row: "остановить частицы кости | OLD" (taskId: text: aura)
 #\ template: particleStopBone("{taskId}")
+
+#\ block: particle_emit
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "запустить частицы" (node: value)
+#\ template: particleEmit({node})
+
+#\ block: particle_system_play
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "включить Particle System" (node: value)
+#\ template: {node}.particles.emission.enabled = true\n{node}.active = true
+
+#\ block: particle_system_pause
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "пауза Particle System" (node: value)
+#\ template: {node}.particles.emission.enabled = false
+
+#\ block: particle_system_stop
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "остановить и очистить Particle System" (node: value) "id" (systemId: text: fx)
+#\ template: {node}.particles.emission.enabled = false\nparticleSystemClear("{systemId}")
+
+#\ block: particle_system_renderer
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "Particle System" (node: value)
+#\ row: "текстура" (texture: text: textures/particles/spark.png)
+#\ row: "режим" [mode: dropdown(камера: billboard, растянутый: stretched, по_скорости: velocity, крест: cross, меш: mesh)] "blend" [blend: dropdown(альфа: alpha, свечение: additive, вырез: cutout)]
+#\ template: {node}.particles.renderer.texture = "{texture}"\n{node}.particles.renderer.mode = "{mode}"\n{node}.particles.renderer.blend = "{blend}"
+
+#\ block: particle_system_emission
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "эмиссия" (node: value) "частиц/сек" (rate: number: 20)
+#\ row: "длительность" (duration: number: 5) "лимит" (max: number: 2048) "цикл" [loop: dropdown(да: true, нет: false)]
+#\ template: {node}.particles.emission.rate = {rate}\n{node}.particles.emission.duration = {duration}\n{node}.particles.emission.maxParticles = {max}\n{node}.particles.emission.loop = {loop}
+
+#\ block: particle_system_shape
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "форма Particle System" (node: value) [shape: dropdown(точка: point, линия: line, куб: box, шар: sphere, оболочка: shell, круг: circle, диск: disc, конус: cone, цилиндр: cylinder, спираль: spiral)]
+#\ row: "направление" (x: number: 0) (y: number: 1) (z: number: 0) "угол°" (angle: number: 25)
+#\ row: "радиус" (radius: number: 1) "высота" (height: number: 2)
+#\ template: {node}.particles.shape.type = "{shape}"\n{node}.particles.shape.dirX = {x}\n{node}.particles.shape.dirY = {y}\n{node}.particles.shape.dirZ = {z}\n{node}.particles.shape.angle = {angle}\n{node}.particles.shape.radius = {radius}\n{node}.particles.shape.height = {height}
+
+#\ block: particle_system_initial
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "старт частиц" (node: value)
+#\ row: "жизнь min/max" (lifeMin: number: 1) (lifeMax: number: 2) "скорость min/max" (speedMin: number: 0.05) (speedMax: number: 0.2)
+#\ row: "размер min/max" (sizeMin: number: 0.25) (sizeMax: number: 0.5)
+#\ template: {node}.particles.initial.lifetimeMin = {lifeMin}\n{node}.particles.initial.lifetimeMax = {lifeMax}\n{node}.particles.initial.speedMin = {speedMin}\n{node}.particles.initial.speedMax = {speedMax}\n{node}.particles.initial.sizeMin = {sizeMin}\n{node}.particles.initial.sizeMax = {sizeMax}
+
+#\ block: particle_system_over_lifetime
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "за время жизни" (node: value) "размер" (sizeStart: number: 1) "→" (sizeEnd: number: 0)
+#\ row: "цвет" (colorStart: text: #FFFFFFFF) "→" (colorEnd: text: #00FFFFFF) "кривая" [curve: dropdown(линейно: linear, плавно: smooth, вход: ease_in, выход: ease_out, пульс: pulse)]
+#\ template: {node}.particles.lifetime.sizeStart = {sizeStart}\n{node}.particles.lifetime.sizeEnd = {sizeEnd}\n{node}.particles.lifetime.colorStart = "{colorStart}"\n{node}.particles.lifetime.colorEnd = "{colorEnd}"\n{node}.particles.lifetime.sizeCurve = "{curve}"
+
+#\ block: particle_system_motion
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "силы частиц" (node: value)
+#\ row: "гравитация" (gx: number: 0) (gy: number: -0.04) (gz: number: 0) "drag" (drag: number: 0)
+#\ row: "turbulence" (noise: number: 0) "частота" (frequency: number: 1) "vortex" (vortex: number: 0)
+#\ template: {node}.particles.motion.gravityX = {gx}\n{node}.particles.motion.gravityY = {gy}\n{node}.particles.motion.gravityZ = {gz}\n{node}.particles.motion.drag = {drag}\n{node}.particles.motion.noiseStrength = {noise}\n{node}.particles.motion.noiseFrequency = {frequency}\n{node}.particles.motion.vortexStrength = {vortex}
+
+#\ block: particle_system_modules
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "модули частиц" (node: value)
+#\ row: "collision" [collision: dropdown(выкл: false, вкл: true)] "убить при ударе" [kill: dropdown(нет: false, да: true)] "bounce" (bounce: number: 0.35)
+#\ row: "trail" [trail: dropdown(выкл: false, вкл: true)] "gameplay proxy" [gameplay: dropdown(выкл: false, вкл: true)]
+#\ template: {node}.particles.collision.enabled = {collision}\n{node}.particles.collision.killOnCollision = {kill}\n{node}.particles.collision.bounce = {bounce}\n{node}.particles.trail.enabled = {trail}\n{node}.particles.gameplay.enabled = {gameplay}
+
+#\ block: particle_system_clear
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "очистить Particle System id" (systemId: text: fx)
+#\ template: particleSystemClear("{systemId}")
+
+#\ block: particle_system_count
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: value
+#\ output: number
+#\
+#\ row: "число gameplay-частиц id" (systemId: text: fx)
+#\ template: particleSystemCount("{systemId}")
+
+#\ block: particle_system_positions
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: value
+#\ output: list
+#\
+#\ row: "позиции gameplay-частиц id" (systemId: text: fx)
+#\ template: particleSystemPositions("{systemId}")
+
+#\ block: on_particle_system_event
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: wrapper
+#\
+#\ row: "когда частица" [event: dropdown(родилась: particleBirth, умерла: particleDeath, столкнулась: particleCollision, вошла_в_игрока: particleEnter, вышла_из_игрока: particleExit)]
+#\ row: "→" (handler: text: h_particle)
+#\ template: on {event}() -> {handler} {\n{DO}}
+
+#\ block: await_particle_system_event
+#\ category: Частицы
+#\ color: #f472b6
+#\ shape: statement
+#\
+#\ row: "ждать событие частицы" [event: dropdown(родилась: particleBirth, умерла: particleDeath, столкнулась: particleCollision, вошла_в_игрока: particleEnter, вышла_из_игрока: particleExit)]
+#\ template: await {event}()

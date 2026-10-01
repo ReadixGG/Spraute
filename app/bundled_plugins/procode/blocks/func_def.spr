@@ -1,0 +1,22 @@
+#\ block: func_def
+#\ category: Функции
+#\ color: #eab308
+#\ shape: wrapper
+#\
+#\ row: "функция" (name: text: myFunc)
+#\ row: "парам. 1" (p1: text: a)
+#\ if_filled p1:
+#\   row: "парам. 2" (p2: text: )
+#\ if_filled p2:
+#\   row: "парам. 3" (p3: text: )
+#\ if_filled p3:
+#\   row: "парам. 4" (p4: text: )
+#\ if_filled p4:
+#\   row: "парам. 5" (p5: text: )
+#\ if_filled p5:
+#\   row: "парам. 6" (p6: text: )
+#\ if_filled p6:
+#\   row: "парам. 7" (p7: text: )
+#\ if_filled p7:
+#\   row: "парам. 8" (p8: text: )
+#\ code: return (function(){ var n=String(_getVal("name")||"myFunc").trim()||"myFunc"; var p=[], vs=["p1","p2","p3","p4","p5","p6","p7","p8"]; for(var i=0;i<8;i++){ var v=String(_getVal(vs[i])||"").trim(); if(v) p.push(v); } var body=_getVal("DO")||""; return "fun "+n+"("+p.join(", ")+") {\n"+body+"}\n"; })();

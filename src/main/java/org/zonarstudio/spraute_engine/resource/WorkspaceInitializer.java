@@ -23,6 +23,8 @@ import java.util.List;
  *   textures/entity/
  *   textures/particle/
  *   sounds/
+ *   videos/
+ *   lang/
  *   pack.mcmeta
  * </pre>
  */
@@ -33,17 +35,37 @@ public final class WorkspaceInitializer {
 
     private static final List<String> DIRECTORIES = List.of(
             "scripts",
+            "scenes",
+            "prefabs",
             "geo",
             "animations",
             "textures/entity",
             "textures/particle",
-            "sounds"
+            "sounds",
+            "videos",
+            "cache/videos",
+            "cache/audio",
+            "tools",
+            "plugins",
+            "lang",
+            "fonts",
+            "routes"
     );
 
     private static final List<String> DEFAULT_FILES = List.of(
-            "geo/defolt.geo.json",
-            "animations/npc_classic.animation.json",
-            "textures/entity/defolt.png"
+            SprauteDefaultNpcAssets.MODEL,
+            SprauteDefaultNpcAssets.ANIMATION,
+            SprauteDefaultNpcAssets.TEXTURE,
+            "scripts/examples/trade_shop.spr",
+            "fonts/NotoSans-Regular.ttf"
+    );
+
+    private static final List<String> DEFAULT_SCENES = List.of(
+            "test_hitbox.scene.json",
+            "test_combat.scene.json",
+            "test_camera.scene.json",
+            "billboard_test.scene.json",
+            "story_dialog_test.scene.json"
     );
 
     private WorkspaceInitializer() {}
@@ -56,12 +78,55 @@ public final class WorkspaceInitializer {
                 Files.createDirectories(root.resolve(dir));
             }
             ensurePackMcmeta(root);
+            ensureSampleLangFiles(root);
             for (String relative : DEFAULT_FILES) {
                 copyBundledIfMissing(root, relative);
             }
+            for (String sceneFile : DEFAULT_SCENES) {
+                copyBundledSceneIfMissing(root, sceneFile);
+            }
+            BundledPluginUnpacker.unpackInto(root);
+            StoryPackInstaller.installAll(gameDir);
             LOGGER.info("[Spraute Engine] Workspace ready at {}", root.toAbsolutePath());
         } catch (IOException e) {
             LOGGER.error("[Spraute Engine] Failed to initialize workspace at {}: {}", root, e.getMessage());
+        }
+    }
+
+    private static void ensureSampleLangFiles(Path root) throws IOException {
+        Path lang = root.resolve("lang");
+        Files.createDirectories(lang);
+        Path meta = lang.resolve("_meta.json");
+        if (!Files.exists(meta)) {
+            Files.writeString(meta, """
+                    {
+                      "fallback": "en"
+                    }
+                    """);
+        }
+        Path en = lang.resolve("en.json");
+        Path ru = lang.resolve("ru.json");
+        if (!Files.exists(en)) {
+            Files.writeString(en, """
+                    {
+                      "welcome": "Welcome, {0}!",
+                      "goodbye": "Goodbye!",
+                      "quest": {
+                        "start": "Talk to {npc}"
+                      }
+                    }
+                    """);
+        }
+        if (!Files.exists(ru)) {
+            Files.writeString(ru, """
+                    {
+                      "welcome": "Добро пожаловать, {0}!",
+                      "goodbye": "До встречи!",
+                      "quest": {
+                        "start": "Поговори с {npc}"
+                      }
+                    }
+                    """);
         }
     }
 
@@ -106,6 +171,23 @@ public final class WorkspaceInitializer {
             Files.createDirectories(dest.getParent());
             Files.copy(in, dest, StandardCopyOption.REPLACE_EXISTING);
             LOGGER.info("[Spraute Engine] Installed default asset: {}", relativePath);
+        }
+    }
+
+    private static void copyBundledSceneIfMissing(Path root, String sceneFileName) throws IOException {
+        Path dest = root.resolve("scenes").resolve(sceneFileName);
+        if (Files.exists(dest)) {
+            return;
+        }
+        String resourcePath = "/default_scenes/" + sceneFileName;
+        try (InputStream in = WorkspaceInitializer.class.getResourceAsStream(resourcePath)) {
+            if (in == null) {
+                LOGGER.warn("[Spraute Engine] Bundled default scene not found in mod jar: {}", resourcePath);
+                return;
+            }
+            Files.createDirectories(dest.getParent());
+            Files.copy(in, dest, StandardCopyOption.REPLACE_EXISTING);
+            LOGGER.info("[Spraute Engine] Installed default scene: scenes/{}", sceneFileName);
         }
     }
 }

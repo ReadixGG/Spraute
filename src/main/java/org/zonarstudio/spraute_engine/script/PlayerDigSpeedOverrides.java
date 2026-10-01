@@ -15,6 +15,7 @@ public final class PlayerDigSpeedOverrides {
     public static void set(ServerPlayer player, double multiplier) {
         if (player == null) return;
         MULTIPLIERS.put(player.getUUID(), multiplier);
+        PlayerExtrasSync.send(player);
     }
 
     public static double get(ServerPlayer player) {

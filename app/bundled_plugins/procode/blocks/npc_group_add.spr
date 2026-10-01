@@ -1,0 +1,13 @@
+#\ block: npc_group_add
+#\ category: НПС Группы
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: [action: dropdown(добавить в группу: add, убрать из группы: remove)]
+#\ input: npc (type: value)
+#\ row: "группа"
+#\ input: group (type: value)
+#\ if action == "add":
+#\   template: groupAdd({group}, {npc})
+#\ if action == "remove":
+#\   template: groupRemove({group}, {npc})

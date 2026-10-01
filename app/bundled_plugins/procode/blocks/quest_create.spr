@@ -1,0 +1,13 @@
+#\ block: quest_create
+#\ category: Квесты
+#\ color: #9333ea
+#\ shape: statement
+#\ write_start: import("spraute_quests")
+#\
+#\ row: "создать квест ID" (id: text: my_quest)
+#\ row: "название" (name: text: Новый квест)
+#\ row: "квестодатель" (author: text: НПС)
+#\ row: "описание" (desc: textmultiline: Описание квеста)
+#\ row: "цели (блок «список целей» или пусто)"
+#\ input: goals (type: value)
+#\ code: return (function(){ var id=String(_getVal("id")||"quest").trim(); var name=String(_getVal("name")||"Квест"); var author=String(_getVal("author")||""); var desc=String(_getVal("desc")||""); var g=_getVal("goals").trim(); var sid=JSON.stringify(id); var sname=JSON.stringify(name); var sauthor=JSON.stringify(author); var sdesc=JSON.stringify(desc); if(g) return "add_quest_with_goals("+sid+", "+sname+", "+sauthor+", "+sdesc+", "+g+")"; return "add_quest("+sid+", "+sname+", "+sauthor+", "+sdesc+", \"\")"; })();

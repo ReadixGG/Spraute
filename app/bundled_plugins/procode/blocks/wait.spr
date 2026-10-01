@@ -1,0 +1,9 @@
+#\ block: wait
+#\ category: Действия
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "подождать"
+#\ input: seconds (type: value)
+#\ row: "сек."
+#\ template: await time({seconds})

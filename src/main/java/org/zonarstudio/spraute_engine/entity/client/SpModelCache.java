@@ -26,7 +26,7 @@ public final class SpModelCache {
 
     private SpModelCache() {}
 
-    /** Get or load a model by its path (e.g. "geo/defender.geo.json"). */
+    /** Get or load a model by its path (e.g. "geo/spraute_classic_by_bendy659_.geo.json"). */
     public static SpGeoModel getOrLoad(String modelPath) {
         SpGeoModel cached = CACHE.get(modelPath);
         if (cached != null) return cached;
@@ -36,10 +36,12 @@ public final class SpModelCache {
     /** Force reload a single model. */
     public static void invalidate(String modelPath) {
         CACHE.remove(modelPath);
+        SpGeoGpuRenderer.clear();
     }
 
     /** Clear entire cache (call on resource reload). */
     public static void clearAll() {
+        SpGeoGpuRenderer.clear();
         CACHE.clear();
         LOGGER.info("[Spraute Engine] Model cache cleared");
     }

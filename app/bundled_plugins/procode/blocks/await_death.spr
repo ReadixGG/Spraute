@@ -1,0 +1,22 @@
+#\ block: await_death
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать когда умирает" [target: dropdown(игрок: player, НИП: npc, НИП по id: npc_id, моб: mob, моб по id: mob_id, любой: any)]
+#\ if target == "npc_id":
+#\   row: "id" [npc: dropdown_npc]
+#\ if target == "mob_id":
+#\   row: "id" (entityId: mob: minecraft:zombie)
+#\ if target == "player":
+#\   template: await death("player")
+#\ if target == "npc":
+#\   template: await death("npc")
+#\ if target == "npc_id":
+#\   template: await death({npc})
+#\ if target == "mob":
+#\   template: await death("mob")
+#\ if target == "mob_id":
+#\   template: await death("{entityId}")
+#\ if target == "any":
+#\   template: await death("any")

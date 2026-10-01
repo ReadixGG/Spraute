@@ -1,0 +1,9 @@
+#\ block: dict_set
+#\ category: Словари
+#\ color: #ec4899
+#\ shape: statement
+#\
+#\ input: dict (type: value) "в словарь"
+#\ row: "записать ключ" (key: text: ключ) "="
+#\ input: value (type: value)
+#\ template: {dict}["{key}"] = {value}

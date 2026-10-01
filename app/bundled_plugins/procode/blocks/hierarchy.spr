@@ -1,0 +1,300 @@
+#\ block: scene_is_active
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: value
+#\
+#\ row: "сцена" (scene: text: my_scene) "активна ?"
+#\ template: sceneIsActive("{scene}")
+
+#\ block: scene_has_node
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: value
+#\
+#\ row: "есть нода" (path: text: area.guard) "?"
+#\ template: sceneHasNode("{path}")
+
+#\ block: scene_find_node
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: value
+#\
+#\ row: "найти ноду по имени" (name: text: guard)
+#\ template: sceneFindNode("{name}")
+
+#\ block: scene_find_node_by_id
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: value
+#\
+#\ row: "найти ноду по id" (id: text: area.guard)
+#\ template: sceneFindNodeById("{id}")
+
+#\ block: scene_nodes_with_tag
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: value
+#\
+#\ row: "все ноды с тегом" (tag: text: enemy)
+#\ template: sceneNodesWithTag("{tag}")
+
+#\ block: node_for_entity
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: value
+#\
+#\ row: "нода существа" (entity: value)
+#\ template: sceneNodeForEntity({entity})
+
+#\ block: node_child
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: value
+#\
+#\ row: "потомок" (name: text: door) "ноды" (node: value)
+#\ template: {node}.child("{name}")
+
+#\ block: node_children
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: value
+#\
+#\ row: "потомки ноды" (node: value)
+#\ template: {node}.children()
+
+#\ block: node_parent
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: value
+#\
+#\ row: "родитель ноды" (node: value)
+#\ template: {node}.parent()
+
+#\ block: node_set_active
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "нода" (node: value) [state: dropdown(включить: true, выключить: false)]
+#\ template: {node}.active = {state}
+
+#\ block: node_prop
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: value
+#\
+#\ row: "нода" (node: value) [prop: dropdown(активна: active, замок: locked, превью: preview, имя: name, тип: type, id: id, uuid: uuid, сцена: sceneId, родитель_id: parentId, x: x, y: y, z: z, поворот_гориз: yaw, поворот_верт: pitch, roll: rotationZ, масштаб: scale, масштаб_x: scaleX, масштаб_y: scaleY, масштаб_z: scaleZ, хп: hp, скорость: speed, летит: flying, скорость_полёта: flyingSpeed, плавание: swimming, коллизия: collision, неуязвим: invulnerable, беззвучный: silent, светится: glowing, прозрачная_текстура: translucent, прозрачность: opacity, авто_LOD: lod, дальность_рендера: renderDistance, приоритет_катсцены: forceVisible, прогружать_чанки: loadChunks, без_гравитации: noGravity, имя_видно: showName, модель: model, текстура: texture, анимация: animation, idle: idleAnim, walk: walkAnim, группа: group, скрипт: script, запуск_со_сценой: runOnSceneStart, ширина: width, высота: height, глубина: depth, твердый: solid, триггер: trigger, id_триггера: triggerId, число_потомков: childCount, теги: tags, число_тегов: tagCount, есть_объект: hasObject, свет: light, включен: enabled, звук: audioSound, громкость: audioVolume, цикл_звука: audioLoop, тип_частиц: particleType, цикл_частиц: particleLoop, текст_ui: uiText, цвет_ui: uiColor, альфа: uiAlpha, слой: canvasLayer, оверлей: canvasOverlay, кроп: src, кроп_u: srcU, кроп_v: srcV, кроп_w: srcW, кроп_h: srcH, форма_кропа: cropShape, размытие_кропа: feather, заполнение: fill, доля_заполнения: fillAmount, начало_заполнения: fillOrigin, custom_type: customType)]
+#\ template: {node}.{prop}
+
+#\ block: node_set_prop
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "нода" (node: value) [prop: dropdown(активна: active, замок: locked, превью: preview, имя: name, x: x, y: y, z: z, поворот_гориз: yaw, поворот_верт: pitch, roll: rotationZ, масштаб: scale, масштаб_x: scaleX, масштаб_y: scaleY, масштаб_z: scaleZ, хп: hp, скорость: speed, летит: flying, скорость_полёта: flyingSpeed, сглаживание_полёта: flySmoothing, плавание: swimming, коллизия: collision, неуязвим: invulnerable, беззвучный: silent, светится: glowing, прозрачная_текстура: translucent, прозрачность: opacity, авто_LOD: lod, дальность_рендера: renderDistance, приоритет_катсцены: forceVisible, прогружать_чанки: loadChunks, без_гравитации: noGravity, имя_видно: showName, модель: model, текстура: texture, анимация: animation, idle: idleAnim, walk: walkAnim, группа: group, скрипт: script, запуск_со_сценой: runOnSceneStart, ширина: width, высота: height, глубина: depth, твердый: solid, триггер: trigger, id_триггера: triggerId, смещение_x: offsetX, смещение_y: offsetY, смещение_z: offsetZ, свет: light, включен: enabled, показать_свет: showLight, звук: audioSound, громкость: audioVolume, питч: audioPitch, цикл_звука: audioLoop, тип_частиц: particleType, число_частиц: particleCount, скорость_частиц: particleSpeed, гравитация: particleGravity, цикл_частиц: particleLoop, коллизия_частиц: particleCollide, ширина_билборда: billboardWidth, высота_билборда: billboardHeight, насквозь: seeThrough, текст_ui: uiText, цвет_ui: uiColor, альфа: uiAlpha, ширина_ui: uiW, высота_ui: uiH, слой: canvasLayer, оверлей: canvasOverlay, автопоказ: canvasAutoShow, можно_закрыть: canvasCanClose, кроп: src, кроп_u: srcU, кроп_v: srcV, кроп_w: srcW, кроп_h: srcH, форма_кропа: cropShape, размытие_кропа: feather, заполнение: fill, доля_заполнения: fillAmount, начало_заполнения: fillOrigin)] "="
+#\ if prop == "active" or prop == "locked" or prop == "preview" or prop == "flying" or prop == "swimming" or prop == "collision" or prop == "invulnerable" or prop == "silent" or prop == "glowing" or prop == "translucent" or prop == "lod" or prop == "forceVisible" or prop == "loadChunks" or prop == "noGravity" or prop == "showName" or prop == "runOnSceneStart" or prop == "solid" or prop == "trigger" or prop == "enabled" or prop == "showLight" or prop == "audioLoop" or prop == "particleLoop" or prop == "particleCollide" or prop == "seeThrough" or prop == "canvasOverlay" or prop == "canvasAutoShow" or prop == "canvasCanClose":
+#\   row: [value: dropdown(вкл: true, выкл: false)]
+#\ if prop != "active" and prop != "locked" and prop != "preview" and prop != "flying" and prop != "swimming" and prop != "collision" and prop != "invulnerable" and prop != "silent" and prop != "glowing" and prop != "translucent" and prop != "lod" and prop != "forceVisible" and prop != "loadChunks" and prop != "noGravity" and prop != "showName" and prop != "runOnSceneStart" and prop != "solid" and prop != "trigger" and prop != "enabled" and prop != "showLight" and prop != "audioLoop" and prop != "particleLoop" and prop != "particleCollide" and prop != "seeThrough" and prop != "canvasOverlay" and prop != "canvasAutoShow" and prop != "canvasCanClose":
+#\   input: value (type: value)
+#\ template: {node}.{prop} = {value}
+
+#\ block: node_teleport
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "телепорт ноды" (node: value) "в" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ template: {node}.teleport({x}, {y}, {z})
+
+#\ block: node_reparent
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "переместить ноду" (node: value) "к родителю" (parent: value)
+#\ template: {node}.setparent({parent})
+
+#\ block: node_remove
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "удалить ноду" (node: value)
+#\ template: {node}.remove()
+
+#\ block: node_has_tag
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: value
+#\
+#\ row: "у ноды" (node: value) "есть тег" (tag: text: enemy) "?"
+#\ template: {node}.hastag("{tag}")
+
+#\ block: node_tags
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: value
+#\
+#\ row: "теги ноды" (node: value)
+#\ template: {node}.tags
+
+#\ block: node_add_tag
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "добавить ноде" (node: value) "тег" (tag: text: enemy)
+#\ template: {node}.addtag("{tag}")
+
+#\ block: node_remove_tag
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "убрать у ноды" (node: value) "тег" (tag: text: enemy)
+#\ template: {node}.removetag("{tag}")
+
+#\ block: node_clear_tags
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "очистить теги ноды" (node: value)
+#\ template: {node}.cleartags()
+
+#\ block: node_find_by_tag
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: value
+#\
+#\ row: "в ноде" (node: value) "найти потомка с тегом" (tag: text: enemy)
+#\ template: {node}.findbytag("{tag}")
+
+#\ block: hitbox_touching
+#\ category: Иерархия
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "хитбокс" (node: value) "касается игрока" (player: value) "?"
+#\ template: {node}.istouching({player})
+
+#\ block: hitbox_touching_players
+#\ category: Иерархия
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "игроки в хитбоксе" (node: value)
+#\ template: {node}.touchingplayers()
+
+#\ block: hitbox_is_solid_for
+#\ category: Иерархия
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "хитбокс" (node: value) "твердый для" (player: value) "?"
+#\ template: {node}.issolidfor({player})
+
+#\ block: hitbox_set_solid_for
+#\ category: Иерархия
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "хитбокс" (node: value) "для игрока" (player: value) [solid: dropdown(твердый: true, проходимый: false)]
+#\ template: {node}.setsolidforplayer({player}, {solid})
+
+#\ block: hitbox_clear_solid_for
+#\ category: Иерархия
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "хитбокс" (node: value) "сбросить твердость для" (player: value)
+#\ template: {node}.clearsolidforplayer({player})
+
+#\ block: hitbox_set
+#\ category: Иерархия
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "задать хитбокс ноды" (node: value) "W" (w: number: 1) "H" (h: number: 2)
+#\ template: {node}.sethitbox({w}, {h})
+
+#\ block: hitbox_set_offset
+#\ category: Иерархия
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "смещение хитбокса" (node: value) (x: number: 0) (y: number: 0) (z: number: 0)
+#\ template: {node}.sethitboxoffset({x}, {y}, {z})
+
+#\ block: hitbox_reset
+#\ category: Иерархия
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "сбросить хитбокс ноды" (node: value)
+#\ template: {node}.resethitbox()
+
+#\ block: node_set_fill
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "нода" (node: value) "заполнение" [mode: dropdown(слева направо: ltr, справа налево: rtl, сверху вниз: ttb, снизу вверх: btt, по часовой: clockwise, против часовой: counterclockwise, выкл: none)]
+#\ if mode != "none":
+#\   row: "доля" input: amount (type: value)
+#\ if mode == "clockwise" or mode == "counterclockwise":
+#\   row: "начало" [origin: dropdown(снизу: bottom, справа: right, сверху: top, слева: left)]
+#\ if mode == "none":
+#\   template: {node}.fill = "none"
+#\ if mode == "ltr" or mode == "rtl" or mode == "ttb" or mode == "btt":
+#\   template: {node}.fill = "{mode}"\n{node}.fillAmount = {amount}
+#\ if mode == "clockwise" or mode == "counterclockwise":
+#\   template: {node}.fill = "{mode}"\n{node}.fillAmount = {amount}\n{node}.fillOrigin = "{origin}"
+
+#\ block: node_set_crop_shape
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "нода" (node: value) "форма кропа" [shape: dropdown(прямоугольник: rect, круг: circle)]
+#\ template: {node}.cropShape = "{shape}"
+
+#\ block: node_set_crop
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "нода" (node: value) "кроп" "U" (u: number: 0) "V" (v: number: 0) "W" (w: number: 32) "H" (h: number: 32)
+#\ template: {node}.src = [{u}, {v}, {w}, {h}]
+
+#\ block: node_set_crop_feather
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "нода" (node: value) "размыть края" "радиус" (radius: number: 16) "px"
+#\ row: [curve: dropdown(плавная: true, линейная: false)]
+#\ row: "слева" (left: number: 1) "сверху" (top: number: 1)
+#\ row: "справа" (right: number: 1) "снизу" (bottom: number: 1)
+#\ template: {node}.feather = {radius}\n{node}.featherSmooth = {curve}\n{node}.featherL = {left}\n{node}.featherT = {top}\n{node}.featherR = {right}\n{node}.featherB = {bottom}
+
+#\ block: node_set_drag
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "нода" (node: value) "drag"
+#\ row: [enabled: dropdown(можно тащить: true, нельзя: false)] [axis: dropdown(X и Y: xy, только X: x, только Y: y)]
+#\ row: "группа" (group: text) "payload" (payload: text)
+#\ row: [constrain: dropdown(в родителе: true, свободно: false)] [revert: dropdown(вернуть если мимо: true, оставить: false)]
+#\ row: "порог" (threshold: number: 4) "px"
+#\ template: {node}.dragEnabled = {enabled}\n{node}.axis = "{axis}"\n{node}.group = "{group}"\n{node}.payload = "{payload}"\n{node}.constrain = {constrain}\n{node}.revert = {revert}\n{node}.threshold = {threshold}
+
+#\ block: node_set_drop
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "нода" (node: value) "drop"
+#\ row: [enabled: dropdown(принимает: true, выкл: false)] "группа" (group: text)
+#\ template: {node}.dropEnabled = {enabled}\n{node}.group = "{group}"

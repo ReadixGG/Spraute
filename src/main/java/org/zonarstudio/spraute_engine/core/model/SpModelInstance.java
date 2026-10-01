@@ -4,7 +4,9 @@ import org.zonarstudio.spraute_engine.core.math.SpMatrix4;
 import org.zonarstudio.spraute_engine.core.math.SpQuaternion;
 import org.zonarstudio.spraute_engine.core.math.SpVec3;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -22,6 +24,13 @@ public final class SpModelInstance {
     public final Map<String, SpVec3> boneAnimPosition = new LinkedHashMap<>();
     /** Per-bone animated scale multiplier (1 = rest pose). */
     public final Map<String, SpVec3> boneAnimScale = new LinkedHashMap<>();
+    private final Map<String, SpMatrix4> interpolationFrom = new LinkedHashMap<>();
+    private final Map<String, SpMatrix4> interpolationTo = new LinkedHashMap<>();
+    /** {@code bone} / {@code Body} → canonical geo name. */
+    private final Map<String, String> boneByLower = new HashMap<>();
+    private final SpMatrix4 identity = new SpMatrix4();
+    private final SpMatrix4 local = new SpMatrix4();
+    private final SpQuaternion rotation = new SpQuaternion();
 
     public SpModelInstance(SpGeoModel model) {
         this.model = model;
@@ -30,7 +39,31 @@ public final class SpModelInstance {
             boneAnimRotation.put(name, new SpVec3());
             boneAnimPosition.put(name, new SpVec3());
             boneAnimScale.put(name, new SpVec3(1f, 1f, 1f));
+            interpolationFrom.put(name, new SpMatrix4());
+            interpolationTo.put(name, new SpMatrix4());
+            boneByLower.putIfAbsent(name.toLowerCase(Locale.ROOT), name);
         }
+    }
+
+    /** Clip bone names often differ only by case from geo ({@code leftArm} vs {@code LeftArm}). */
+    public SpVec3 animRotation(String boneName) {
+        return lookupAnim(boneAnimRotation, boneName);
+    }
+
+    public SpVec3 animPosition(String boneName) {
+        return lookupAnim(boneAnimPosition, boneName);
+    }
+
+    public SpVec3 animScale(String boneName) {
+        return lookupAnim(boneAnimScale, boneName);
+    }
+
+    private SpVec3 lookupAnim(Map<String, SpVec3> map, String boneName) {
+        if (boneName == null || boneName.isEmpty()) return null;
+        SpVec3 exact = map.get(boneName);
+        if (exact != null) return exact;
+        String canonical = boneByLower.get(boneName.toLowerCase(Locale.ROOT));
+        return canonical == null ? null : map.get(canonical);
     }
 
     public SpGeoModel getModel() {
@@ -46,7 +79,7 @@ public final class SpModelInstance {
 
     /** Compute world matrices for entire skeleton. Call after setting anim transforms. */
     public void computeTransforms() {
-        SpMatrix4 identity = new SpMatrix4();
+        identity.identity();
         for (SpBone root : model.rootBones) {
             computeRecursive(root, identity);
         }
@@ -57,13 +90,16 @@ public final class SpModelInstance {
         SpVec3 animPos = boneAnimPosition.get(bone.name);
         SpVec3 animScale = boneAnimScale.get(bone.name);
 
-        // Negate X and Y to convert Bedrock left-handed rotations to right-handed (MC).
-        // Bedrock is left-handed, so X (pitch) and Y (yaw) are inverted relative to
-        // the right-handed quaternion math. Z (roll) stays the same.
-        // This matches GeckoLib's convention: -rotation.x, -rotation.y, +rotation.z.
-        float rotX = -(bone.rotation.x + (animRot != null ? animRot.x : 0));
-        float rotY = -(bone.rotation.y + (animRot != null ? animRot.y : 0));
-        float rotZ =  (bone.rotation.z + (animRot != null ? animRot.z : 0));
+        // Blockbench/GeckoLib bake into an X-mirrored bone space with Euler (−X,−Y,+Z).
+        // We keep Bedrock pivots and mirror X only at vertex output, so rotations must be the
+        // conjugation F·R·F (F = diag(−1,1,1)) → (−X, +Y, −Z). File Euler stays unchanged
+        // in the animation parser (no per-bone hacks).
+        float rx = bone.rotation.x + (animRot != null ? animRot.x : 0);
+        float ry = bone.rotation.y + (animRot != null ? animRot.y : 0);
+        float rz = bone.rotation.z + (animRot != null ? animRot.z : 0);
+        float rotX = -rx;
+        float rotY =  ry;
+        float rotZ = -rz;
 
         float offX = (animPos != null ? animPos.x : 0);
         float offY = (animPos != null ? animPos.y : 0);
@@ -84,9 +120,8 @@ public final class SpModelInstance {
         float scaleY = animScale != null ? animScale.y : 1f;
         float scaleZ = animScale != null ? animScale.z : 1f;
 
-        SpQuaternion q = new SpQuaternion().setEulerDeg(rotX, rotY, rotZ);
-        SpMatrix4 local = new SpMatrix4().compose(
-                new SpVec3(localX, localY, localZ), q, new SpVec3(scaleX, scaleY, scaleZ));
+        rotation.setEulerDeg(rotX, rotY, rotZ);
+        local.compose(localX, localY, localZ, rotation, scaleX, scaleY, scaleZ);
 
         SpMatrix4 world = boneWorldMatrices.get(bone.name);
         if (world == null) {
@@ -103,5 +138,52 @@ public final class SpModelInstance {
     /** Get world matrix for a named bone. */
     public SpMatrix4 getBoneMatrix(String boneName) {
         return boneWorldMatrices.get(boneName);
+    }
+
+    /** Capture the currently displayed pose before a throttled animation sample. */
+    public void captureInterpolationFrom() {
+        for (var e : boneWorldMatrices.entrySet()) interpolationFrom.get(e.getKey()).set(e.getValue());
+    }
+
+    /** Capture a freshly computed target pose. */
+    public void captureInterpolationTarget() {
+        for (var e : boneWorldMatrices.entrySet()) interpolationTo.get(e.getKey()).set(e.getValue());
+    }
+
+    /** Allocation-free matrix interpolation for distant animation LOD. */
+    public void applyInterpolation(float alpha) {
+        float t=Math.max(0f,Math.min(1f,alpha)), inv=1f-t;
+        for (var e : boneWorldMatrices.entrySet()) {
+            SpMatrix4 from=interpolationFrom.get(e.getKey()), to=interpolationTo.get(e.getKey());
+            if (from == null || to == null) continue;
+            float[] out=e.getValue().m, a=from.m, b=to.m;
+            for (int i=0;i<16;i++) out[i]=a[i]*inv+b[i]*t;
+        }
+    }
+
+    /**
+     * Locator position in Bedrock model space (pixels) after bone animation.
+     * Offset is absolute model-space at rest; relative to bone pivot is animated with the bone.
+     */
+    public SpVec3 getLocatorModelPosition(String locatorName) {
+        SpGeoModel.LocatorRef ref = model.findLocator(locatorName);
+        if (ref == null) return null;
+        SpBone bone = ref.bone();
+        SpLocator locator = ref.locator();
+        SpMatrix4 world = boneWorldMatrices.get(bone.name);
+        if (world == null) return null;
+        SpVec3 p = new SpVec3(locator.offset);
+        p.x -= bone.pivot.x;
+        p.y -= bone.pivot.y;
+        p.z -= bone.pivot.z;
+        if (locator.hasRotation()) {
+            // Same conjugation as bones: (−x, +y, −z).
+            new SpQuaternion().setEulerDeg(
+                    -locator.rotation.x,
+                    locator.rotation.y,
+                    -locator.rotation.z).rotate(p);
+        }
+        world.transformPoint(p);
+        return p;
     }
 }

@@ -1,0 +1,16 @@
+#\ block: entity_type
+#\ category: События
+#\ color: #a855f7
+#\ shape: value
+#\
+#\ row: "тип сущности" [source: dropdown(из события — сущность: event_entity, из события — убийца: event_killer, из события — цель: event_target, указать: custom)]
+#\ if source == "custom":
+#\   input: entity (type: value)
+#\ if source == "event_entity":
+#\   template: _eventEntityType
+#\ if source == "event_killer":
+#\   template: _eventKillerType
+#\ if source == "event_target":
+#\   template: _eventTargetType
+#\ if source == "custom":
+#\   template: getEntityType({entity})

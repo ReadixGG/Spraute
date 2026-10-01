@@ -1,0 +1,10 @@
+#\ block: list_remove
+#\ category: Списки
+#\ color: #3b82f6
+#\ shape: statement
+#\
+#\ row: "из списка"
+#\ input: list (type: value)
+#\ row: "удалить элемент"
+#\ input: index (type: value)
+#\ template: listRemove({list}, {index})

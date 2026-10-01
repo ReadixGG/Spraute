@@ -1,0 +1,7 @@
+#\ block: players_by_tag
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "игроки с тегом" (tag: text: vip)
+#\ template: getPlayersByTag("{tag}")

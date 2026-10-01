@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/** fadeOut([player], [timeSec], [text], [subtitle]) — осветлить экран. */
 public class FadeOutFunction implements ScriptFunction {
 
     @Override
@@ -35,6 +36,16 @@ public class FadeOutFunction implements ScriptFunction {
 
         Map<String, Object> props = new HashMap<>();
         props.put("triggerFadeOut", true);
+        for (Object arg : args) {
+            if (arg instanceof net.minecraft.world.entity.player.Player) continue;
+            if (arg instanceof Number n) {
+                if (!props.containsKey("time")) props.put("time", n.doubleValue());
+            } else if (arg instanceof String s) {
+                if (!props.containsKey("text")) props.put("text", s);
+                else if (!props.containsKey("subtitle")) props.put("subtitle", s);
+            }
+        }
+        FadeInFunction.putCurrentSceneId(props);
         ModNetwork.CHANNEL.send(
                 PacketDistributor.PLAYER.with(() -> player),
                 new SyncLoadScreenPacket(props)

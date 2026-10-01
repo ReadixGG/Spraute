@@ -1,0 +1,24 @@
+﻿{
+  "format": 2,
+  "id": "test_camera",
+  "dimension": "minecraft:overworld",
+  "root": {
+    "id": "57d3e2b5-04d8-44f0-a4cb-780246e4c202",
+    "type": "SCENE",
+    "name": "test_camera",
+    "transform": { "px": 0.0, "py": 0.0, "pz": 0.0, "rx": 0.0, "ry": 0.0, "rz": 0.0, "sx": 1.0, "sy": 1.0, "sz": 1.0 },
+    "children": [
+      {
+        "id": "b113fd1d-e950-4e52-8c89-e677fff527f9",
+        "type": "SCRIPT",
+        "name": "main",
+        "transform": { "px": 0.0, "py": 0.0, "pz": 0.0, "rx": 0.0, "ry": 0.0, "rz": 0.0, "sx": 1.0, "sy": 1.0, "sz": 1.0 },
+        "children": [],
+        "script": "test_camera",
+        "runOnSceneStart": true,
+        "tags": []
+      }
+    ],
+    "tags": []
+  }
+}

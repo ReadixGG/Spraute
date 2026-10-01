@@ -6,6 +6,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -86,8 +87,88 @@ public final class ItemStackScriptUtil {
         player.containerMenu.broadcastChanges();
     }
 
+    /**
+     * Item id plus optional SNBT, same shape as {@code /give}:
+     * {@code minecraft:diamond_sword{Enchantments:[{id:"minecraft:sharpness",lvl:5s}]}}.
+     */
+    public record ItemSpec(String id, String nbt) {
+        public boolean hasNbt() {
+            return nbt != null && !nbt.isBlank();
+        }
+    }
+
+    public static ItemSpec parseSpec(String raw) {
+        if (raw == null) return new ItemSpec("", null);
+        String s = raw.trim();
+        if (s.isEmpty()) return new ItemSpec("", null);
+        int brace = s.indexOf('{');
+        if (brace < 0) return new ItemSpec(s, null);
+        String id = s.substring(0, brace).trim();
+        return new ItemSpec(id, extractBalanced(s, brace));
+    }
+
+    public static String formatSpec(String id, String nbt) {
+        String cleanId = id == null ? "" : id.trim();
+        String wrapped = wrapNbt(nbt);
+        return wrapped == null ? cleanId : cleanId + wrapped;
+    }
+
+    public static String wrapNbt(String nbt) {
+        if (nbt == null) return null;
+        String t = nbt.trim();
+        if (t.isEmpty()) return null;
+        if (!t.startsWith("{")) t = "{" + t;
+        if (!t.endsWith("}")) t = t + "}";
+        return t;
+    }
+
+    public static String unwrapNbt(String nbt) {
+        String wrapped = wrapNbt(nbt);
+        if (wrapped == null) return "";
+        return wrapped.substring(1, wrapped.length() - 1);
+    }
+
+    private static String extractBalanced(String s, int start) {
+        int depth = 0;
+        boolean inString = false;
+        boolean escape = false;
+        for (int i = start; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (inString) {
+                if (escape) {
+                    escape = false;
+                    continue;
+                }
+                if (c == '\\') {
+                    escape = true;
+                    continue;
+                }
+                if (c == '"') inString = false;
+                continue;
+            }
+            if (c == '"') {
+                inString = true;
+                continue;
+            }
+            if (c == '{') depth++;
+            else if (c == '}') {
+                depth--;
+                if (depth == 0) return s.substring(start, i + 1);
+            }
+        }
+        return s.substring(start);
+    }
+
     public static Item resolveItem(String itemId) {
-        ResourceLocation rl = itemId.contains(":") ? new ResourceLocation(itemId) : new ResourceLocation("minecraft", itemId);
+        if (itemId == null || itemId.isBlank()) return null;
+        String id = parseSpec(itemId).id();
+        if (id.isBlank()) return null;
+        ResourceLocation rl;
+        try {
+            rl = id.contains(":") ? new ResourceLocation(id) : new ResourceLocation("minecraft", id);
+        } catch (Exception e) {
+            return null;
+        }
         Item item = ForgeRegistries.ITEMS.getValue(rl);
         if (item == null || item == net.minecraft.world.item.Items.AIR) {
             Block block = ForgeRegistries.BLOCKS.getValue(rl);
@@ -95,14 +176,41 @@ public final class ItemStackScriptUtil {
                 item = block.asItem();
             }
         }
+        if ((item == null || item == net.minecraft.world.item.Items.AIR) && !id.contains(":")) {
+            try {
+                ResourceLocation custom = new ResourceLocation("spraute_engine", id);
+                item = ForgeRegistries.ITEMS.getValue(custom);
+            } catch (Exception ignored) {
+                item = null;
+            }
+        }
         if (item == null || item == net.minecraft.world.item.Items.AIR) return null;
         return item;
+    }
+
+    /** Localized hover/display name for an item id (vanilla or mod). Falls back to {@code itemId}. */
+    public static String displayNameForItemId(String itemId) {
+        if (itemId == null || itemId.isBlank()) return "";
+        Item item = resolveItem(itemId.trim());
+        if (item == null) return itemId;
+        return new ItemStack(item).getHoverName().getString();
+    }
+
+    public static ItemStack createStack(String itemId, int count) {
+        return createStack(itemId, count, null, null, null);
+    }
+
+    public static ItemStack createStack(String itemId, int count, String extraNbt) {
+        ItemStack stack = createStack(itemId, count, null, null, null);
+        applySnbt(stack, extraNbt);
+        return stack;
     }
 
     public static ItemStack createStack(String itemId, int count, String name, List<?> lore, Map<?, ?> nbtMap) {
         Item item = resolveItem(itemId);
         if (item == null) return ItemStack.EMPTY;
         ItemStack stack = new ItemStack(item, Math.max(1, count));
+        applySnbt(stack, parseSpec(itemId).nbt());
         if (name != null && !name.isEmpty()) {
             setCustomName(stack, name);
         }
@@ -113,6 +221,81 @@ public final class ItemStackScriptUtil {
             applyNbtKeys(stack, nbtMap);
         }
         return stack;
+    }
+
+    public static void applySnbt(ItemStack stack, String nbt) {
+        String wrapped = wrapNbt(nbt);
+        if (wrapped == null || stack == null || stack.isEmpty()) return;
+        try {
+            stack.getOrCreateTag().merge(TagParser.parseTag(wrapped));
+        } catch (Exception ignored) {
+        }
+    }
+
+    /** Id match; if the spec (or extra SNBT) has NBT, the stack must contain it as a subset. */
+    public static boolean matches(ItemStack stack, String spec) {
+        return matches(stack, spec, null);
+    }
+
+    public static boolean matches(ItemStack stack, String spec, String extraNbt) {
+        if (stack == null || stack.isEmpty() || spec == null || spec.isBlank()) return false;
+        Item item = resolveItem(spec);
+        if (item == null || stack.getItem() != item) return false;
+        ItemSpec parsed = parseSpec(spec);
+        if (parsed.hasNbt() && !nbtMatches(stack, parsed.nbt())) return false;
+        return extraNbt == null || extraNbt.isBlank() || nbtMatches(stack, extraNbt);
+    }
+
+    public static boolean nbtMatches(ItemStack stack, String snbt) {
+        String wrapped = wrapNbt(snbt);
+        if (wrapped == null) return true;
+        if (stack == null || !stack.hasTag()) return false;
+        try {
+            return tagContains(stack.getTag(), TagParser.parseTag(wrapped));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** Every key/element of {@code needle} must appear in {@code hay}. */
+    static boolean tagContains(Tag hay, Tag needle) {
+        if (needle == null) return true;
+        if (hay == null) return false;
+        if (needle instanceof CompoundTag n && hay instanceof CompoundTag h) {
+            for (String key : n.getAllKeys()) {
+                if (!h.contains(key) || !tagContains(h.get(key), n.get(key))) return false;
+            }
+            return true;
+        }
+        if (needle instanceof ListTag n && hay instanceof ListTag h) {
+            for (int i = 0; i < n.size(); i++) {
+                Tag need = n.get(i);
+                boolean found = false;
+                for (int j = 0; j < h.size(); j++) {
+                    if (tagContains(h.get(j), need)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) return false;
+            }
+            return true;
+        }
+        return hay.equals(needle);
+    }
+
+    public static int countMatching(Player player, String spec) {
+        return countMatching(player, spec, null);
+    }
+
+    public static int countMatching(Player player, String spec, String extraNbt) {
+        if (player == null) return 0;
+        int total = 0;
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            ItemStack stack = player.getInventory().getItem(i);
+            if (matches(stack, spec, extraNbt)) total += stack.getCount();
+        }
+        return total;
     }
 
     public static Map<String, Object> stackToMap(ItemStack stack, int slot) {
@@ -272,23 +455,19 @@ public final class ItemStackScriptUtil {
     }
 
     public static int findFirstSlot(Player player, String itemId) {
-        ResourceLocation searchRL = new ResourceLocation(itemId);
+        if (player == null) return -1;
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            ItemStack stack = player.getInventory().getItem(i);
-            if (!stack.isEmpty() && ForgeRegistries.ITEMS.getKey(stack.getItem()).equals(searchRL)) {
-                return i;
-            }
+            if (matches(player.getInventory().getItem(i), itemId)) return i;
         }
         return -1;
     }
 
     public static int removeItems(Player player, String itemId, int count) {
-        if (count <= 0) return 0;
-        ResourceLocation searchRL = new ResourceLocation(itemId);
+        if (count <= 0 || player == null) return 0;
         int removed = 0;
         for (int i = 0; i < player.getInventory().getContainerSize() && removed < count; i++) {
             ItemStack stack = player.getInventory().getItem(i);
-            if (stack.isEmpty() || !ForgeRegistries.ITEMS.getKey(stack.getItem()).equals(searchRL)) continue;
+            if (!matches(stack, itemId)) continue;
             int take = Math.min(stack.getCount(), count - removed);
             stack.shrink(take);
             removed += take;

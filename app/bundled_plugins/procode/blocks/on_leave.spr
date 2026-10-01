@@ -1,0 +1,14 @@
+#\ block: on_leave
+#\ category: События
+#\ color: #0ea5e9
+#\ shape: wrapper
+#\
+#\ row: "когда игрок выходит с сервера" [who: dropdown(любой: any, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: "→" (handler: text: h_leave)
+#\
+#\ if who == "any":
+#\   template: on leave() -> {handler} {\n{DO}}
+#\ if who == "custom":
+#\   template: on leave({player}) -> {handler} {\n{DO}}

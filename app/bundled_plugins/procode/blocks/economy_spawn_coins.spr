@@ -1,0 +1,10 @@
+#\ block: economy_spawn_coins
+#\ category: Экономика
+#\ color: #eab308
+#\ shape: statement
+#\ write_start: import("economy")
+#\
+#\ row: "заспавнить" (orbCount: number: 1) "орбов по" (perOrb: number: 10) "монет"
+#\ row: "текстура" (texture: texture: minecraft:textures/item/gold_nugget.png)
+#\ row: "в" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ template: ecoSetCoinTexture("{texture}")\nvar __eco_oi = 0\nwhile (__eco_oi < {orbCount}) {\n    spawnOrb("{texture}", {perOrb}, {x}, {y}, {z})\n    __eco_oi = __eco_oi + 1\n}

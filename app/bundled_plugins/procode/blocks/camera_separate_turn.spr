@@ -1,0 +1,8 @@
+#\ block: camera_separate_turn
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "игрок поворачивается отдельно от камеры" input: player (type: value)
+#\ row: [enabled: dropdown(да: true, нет: false)]
+#\ template: {player}.camera.separateTurn = {enabled}

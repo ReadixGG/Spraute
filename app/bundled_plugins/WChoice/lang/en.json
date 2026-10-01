@@ -1,0 +1,14 @@
+{
+  "plugin.description": "Cinematic dialogues with choices (dialog_cinematic.spr)",
+  "plugin.name": "WChoice",
+  "Кинематографические диалоги с выбором (dialog_cinematic.spr)": "Cinematic dialogues with choices (dialog_cinematic.spr)",
+  "НИП": "NPC",
+  "вопрос": "question",
+  "из": "from",
+  "индекс выбора в диалоге": "dialog selection index",
+  "кинематографическое меню выбора": "cinematic selection menu",
+  "кому показать": "who to show to",
+  "ответы": "answers",
+  "ответы диалога": "dialogue responses",
+  "текст выбора в диалоге": "dialog selection text"
+}

@@ -77,3 +77,19 @@
 #\
 #\ row: "скорость копания" input: player (type: value) "игроку" (mult: number: 1) "×"
 #\ template: setPlayerDigSpeed({player}, {mult})
+
+#\ block: get_player_block_reach
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "дальность блоков" input: player (type: value) "игрока"
+#\ template: getPlayerBlockReach({player})
+
+#\ block: set_player_block_reach
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: statement
+#\
+#\ row: "дальность блоков" input: player (type: value) "игроку" (reach: number: 4.5) "блоков"
+#\ template: setPlayerBlockReach({player}, {reach})

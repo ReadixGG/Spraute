@@ -1,0 +1,14 @@
+#\ block: on_uidragstart
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда начали тащить UI" [filter: dropdown(любой: any, один игрок: one, несколько: many)] "→" (handler: text: h_uidragstart)
+#\ if filter == "any":
+#\   template: on uiDragStart() -> {handler} {\n{DO}}
+#\ if filter == "one":
+#\   input: player (type: value)
+#\   template: on uiDragStart({player}) -> {handler} {\n{DO}}
+#\ if filter == "many":
+#\   input: players (type: value)
+#\   template: on uiDragStart({players}) -> {handler} {\n{DO}}

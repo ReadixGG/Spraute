@@ -1,0 +1,20 @@
+#\ block: quest_set_status
+#\ category: Квесты
+#\ color: #9333ea
+#\ shape: statement
+#\ write_start: import("spraute_quests")
+#\
+#\ row: "статус квеста" (questId: text: my_quest)
+#\ row: [status: dropdown(Доступен: available, В процессе: progress, Выполнен: completed, Провален: failed, Заморожен: frozen, Скрыт: hidden)]
+#\ if status == "available":
+#\   template: set_quest_available("{questId}")
+#\ if status == "progress":
+#\   template: set_quest_in_progress("{questId}")
+#\ if status == "completed":
+#\   template: set_quest_completed("{questId}")
+#\ if status == "failed":
+#\   template: set_quest_failed("{questId}")
+#\ if status == "frozen":
+#\   template: set_quest_frozen("{questId}")
+#\ if status == "hidden":
+#\   template: set_quest_hidden("{questId}")

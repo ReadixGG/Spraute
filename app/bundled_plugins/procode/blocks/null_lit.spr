@@ -1,0 +1,7 @@
+#\ block: null_lit
+#\ category: Логика
+#\ color: #8b5cf6
+#\ shape: value
+#\
+#\ row: "null"
+#\ code: return "null";

@@ -12,7 +12,7 @@ import org.zonarstudio.spraute_engine.network.ModNetwork;
 import org.zonarstudio.spraute_engine.network.SprauteResetPresentationPacket;
 
 /**
- * Ctrl+Shift+U — сброс всех Spraute GUI/оверлеев и возврат камеры игроку.
+ * Ctrl+Shift+U — сброс всех Spraute GUI/оверлеев, билбордов и возврат камеры игроку.
  * Работает даже когда открыт скриптовый экран (диалог, квесты и т.д.).
  */
 @Mod.EventBusSubscriber(modid = Spraute_engine.MODID, value = Dist.CLIENT)

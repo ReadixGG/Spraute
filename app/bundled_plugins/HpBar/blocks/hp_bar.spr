@@ -1,0 +1,16 @@
+#\ block: hp_bar_start
+#\ category: HUD
+#\ color: #ef4444
+#\ shape: statement
+#\
+#\ row: "запустить кастомный ХП-бар"
+#\ template: startScript("hp_bar")
+
+#\ block: hp_bar_active
+#\ category: HUD
+#\ color: #ef4444
+#\ shape: value
+#\ write_start: import("hp_bar")
+#\
+#\ row: "на сцене есть нода ХП-бара"
+#\ template: hpBarActive()

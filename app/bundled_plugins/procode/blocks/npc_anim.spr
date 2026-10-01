@@ -1,0 +1,22 @@
+#\ block: npc_anim
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "НИП" [npc: dropdown_npc] [mode: dropdown(один раз: playOnce, зациклить: playLoop, заморозить: playFreeze, стоп клип: stopAnim, стоп все оверлеи: stopOverlay, idle анимация: setIdleAnim, ходьба анимация: setWalkAnim)]
+#\ if mode != "stopOverlay":
+#\   row: "анимация" [anim: dropdown_anim]
+#\ if mode == "playOnce":
+#\   template: {npc}.playOnce("{anim}")
+#\ if mode == "playLoop":
+#\   template: {npc}.playLoop("{anim}")
+#\ if mode == "playFreeze":
+#\   template: {npc}.playFreeze("{anim}")
+#\ if mode == "stopAnim":
+#\   template: {npc}.stop("{anim}")
+#\ if mode == "stopOverlay":
+#\   template: {npc}.stopOverlay()
+#\ if mode == "setIdleAnim":
+#\   template: {npc}.setIdleAnim("{anim}")
+#\ if mode == "setWalkAnim":
+#\   template: {npc}.setWalkAnim("{anim}")

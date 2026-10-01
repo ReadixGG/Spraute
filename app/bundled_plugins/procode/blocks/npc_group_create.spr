@@ -1,0 +1,7 @@
+#\ block: npc_group_create
+#\ category: НПС Группы
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "создать группу" (var: text: guards) "= createGroup(" (name: text: guards) ")"
+#\ template: {var} = createGroup("{name}")

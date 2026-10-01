@@ -1,5 +1,6 @@
 # Тест билборда с именованным id
 # Запуск: /spraute run billboard_test
+# (сцена: spraute_engine/scenes/billboard_test.scene.json)
 # Билборд появится справа от игрока. Повторный запуск удалит старый.
 
 val p = getFirstPlayer()

@@ -1,0 +1,32 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "org.zonarstudio.spraute_engine.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "spraute_engine.refmap.json",
+  "mixins": [
+    "LevelCollisionMixin",
+    "LivingEntityJumpMixin"
+  ],
+    "client": [
+    "AbstractClientPlayerSkinMixin",
+    "CameraAccess",
+    "EntityTurnMixin",
+    "GameRendererPickMixin",
+    "GameRendererHandMixin",
+    "GameRendererBobMixin",
+    "HumanoidArmorLayerMixin",
+    "HttpTextureAccess",
+    "CameraInvoker",
+    "LevelRendererOutlineMixin",
+    "OptionsCameraTypeMixin",
+    "ParticleAccessor",
+    "ParticleEngineAccessor",
+    "PlayerModelPartShownMixin",
+    "TextureSheetParticleAccessor"
+  ],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

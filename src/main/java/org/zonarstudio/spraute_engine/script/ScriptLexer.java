@@ -224,8 +224,25 @@ public class ScriptLexer {
 
     private ScriptToken readNumber() {
         int start = pos;
+        int startLine = line;
+        int startCol = pos - lineStart;
+
+        if (pos + 1 < source.length() && source.charAt(pos) == '0') {
+            char next = source.charAt(pos + 1);
+            if (next == 'x' || next == 'X') {
+                pos += 2;
+                while (pos < source.length() && isHexDigit(source.charAt(pos))) {
+                    pos++;
+                }
+                String value = source.substring(start, pos);
+                if (value.length() <= 2) {
+                    throw new ScriptException("Invalid hex literal", startLine);
+                }
+                return new ScriptToken(ScriptToken.TokenType.NUMBER, value, startLine, startCol);
+            }
+        }
+
         boolean hasDot = false;
-        
         while (pos < source.length()) {
             char c = source.charAt(pos);
             if (c == '.') {
@@ -236,9 +253,15 @@ public class ScriptLexer {
             }
             pos++;
         }
-        
+
         String value = source.substring(start, pos);
         return new ScriptToken(ScriptToken.TokenType.NUMBER, value, line, start - lineStart);
+    }
+
+    private static boolean isHexDigit(char c) {
+        return (c >= '0' && c <= '9')
+                || (c >= 'a' && c <= 'f')
+                || (c >= 'A' && c <= 'F');
     }
 
     private ScriptToken readString() {
@@ -298,6 +321,9 @@ public class ScriptLexer {
         }
         if (value.equals("npc")) {
             return new ScriptToken(ScriptToken.TokenType.NPC, value, line, start - lineStart);
+        }
+        if (value.equals("model")) {
+            return new ScriptToken(ScriptToken.TokenType.MODEL, value, line, start - lineStart);
         }
         if (value.equals("ui")) {
             return new ScriptToken(ScriptToken.TokenType.UI, value, line, start - lineStart);

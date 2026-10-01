@@ -1,8 +1,6 @@
 package org.zonarstudio.spraute_engine.script;
 
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.registries.ForgeRegistries;
 
@@ -90,17 +88,6 @@ public final class PlayerScriptMethods {
     }
 
     private static int countMatching(Player player, String itemId) {
-        Item item = ItemStackScriptUtil.resolveItem(itemId);
-        if (item == null) return 0;
-        ResourceLocation searchRL = ForgeRegistries.ITEMS.getKey(item);
-        int total = 0;
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            ItemStack stack = player.getInventory().getItem(i);
-            if (!stack.isEmpty()) {
-                ResourceLocation stackRL = ForgeRegistries.ITEMS.getKey(stack.getItem());
-                if (stackRL.equals(searchRL)) total += stack.getCount();
-            }
-        }
-        return total;
+        return ItemStackScriptUtil.countMatching(player, itemId);
     }
 }

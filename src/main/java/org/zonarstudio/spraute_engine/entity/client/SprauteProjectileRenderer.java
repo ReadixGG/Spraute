@@ -59,7 +59,7 @@ public class SprauteProjectileRenderer extends EntityRenderer<SprauteProjectileE
 
         RenderType renderType;
         if (entity.isSeeThrough()) {
-            renderType = RenderType.text(texture);
+            renderType = RenderType.textSeeThrough(texture);
         } else if (alpha < 255) {
             renderType = RenderType.entityTranslucent(texture);
         } else {
@@ -67,17 +67,28 @@ public class SprauteProjectileRenderer extends EntityRenderer<SprauteProjectileE
         }
 
         VertexConsumer consumer = buffer.getBuffer(renderType);
+        drawTexturedQuad(poseStack, consumer, w, h, alpha, light);
+
+        if (entity.isCross()) {
+            poseStack.pushPose();
+            SprauteRenderCompat.rotateY(poseStack, 90.0F);
+            drawTexturedQuad(poseStack, consumer, w, h, alpha, light);
+            poseStack.popPose();
+        }
+
+        poseStack.popPose();
+        super.render(entity, entityYaw, partialTicks, poseStack, buffer, packedLight);
+    }
+
+    private static void drawTexturedQuad(PoseStack poseStack, VertexConsumer consumer,
+                                         float w, float h, int alpha, int light) {
         PoseStack.Pose pose = poseStack.last();
         Matrix4f matrix4f = pose.pose();
         Matrix3f matrix3f = pose.normal();
-
         vertex(consumer, matrix4f, matrix3f, -w / 2f, -h / 2f, 255, 255, 255, alpha, 0f, 1f, light);
         vertex(consumer, matrix4f, matrix3f, w / 2f, -h / 2f, 255, 255, 255, alpha, 1f, 1f, light);
         vertex(consumer, matrix4f, matrix3f, w / 2f, h / 2f, 255, 255, 255, alpha, 1f, 0f, light);
         vertex(consumer, matrix4f, matrix3f, -w / 2f, h / 2f, 255, 255, 255, alpha, 0f, 0f, light);
-
-        poseStack.popPose();
-        super.render(entity, entityYaw, partialTicks, poseStack, buffer, packedLight);
     }
 
     private static void vertex(VertexConsumer consumer, Matrix4f pose, Matrix3f normal,

@@ -1,0 +1,8 @@
+#\ block: scene_load
+#\ category: Иерархия
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "загрузить сцену" (sceneId: text: my_scene)
+#\
+#\ code: return 'sceneLoad("' + String(_getVal('sceneId') || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '")\n';

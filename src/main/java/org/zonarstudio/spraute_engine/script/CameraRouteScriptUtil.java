@@ -21,6 +21,7 @@ public final class CameraRouteScriptUtil {
     public record PlayOptions(
             boolean lockMovement,
             byte hideGui,
+            boolean lockBlocks,
             float returnSmooth,
             LookAtOverride lookAt,
             float totalDurationOverride,
@@ -32,12 +33,22 @@ public final class CameraRouteScriptUtil {
             return new PlayOptions(
                     CameraControls.DEFAULT_LOCK_MOVEMENT,
                     CameraControls.DEFAULT_HIDE_GUI,
+                    CameraControls.DEFAULT_LOCK_BLOCKS,
                     0.8f,
                     null,
                     0f,
                     null,
                     null,
                     0f);
+        }
+
+        /** Backward-compat without lockBlocks. */
+        public PlayOptions(boolean lockMovement, byte hideGui, float returnSmooth,
+                           LookAtOverride lookAt, float totalDurationOverride,
+                           CameraRouteEndMode endModeOverride, CameraFlightType flightTypeOverride,
+                           float transitionSec) {
+            this(lockMovement, hideGui, CameraControls.DEFAULT_LOCK_BLOCKS, returnSmooth,
+                    lookAt, totalDurationOverride, endModeOverride, flightTypeOverride, transitionSec);
         }
     }
 
@@ -48,14 +59,71 @@ public final class CameraRouteScriptUtil {
     public static float playRoute(ServerPlayer player, String routeName,
                                   boolean lockMovement, byte hideGui, float returnSmooth) throws IOException {
         return playRoute(player, routeName,
-                new PlayOptions(lockMovement, hideGui, returnSmooth, null, 0f, null, null, 0f));
+                new PlayOptions(lockMovement, hideGui, CameraControls.DEFAULT_LOCK_BLOCKS,
+                        returnSmooth, null, 0f, null, null, 0f));
     }
 
     public static float playRoute(ServerPlayer player, String routeName,
                                   boolean lockMovement, byte hideGui, float returnSmooth,
                                   LookAtOverride lookAt) throws IOException {
         return playRoute(player, routeName,
-                new PlayOptions(lockMovement, hideGui, returnSmooth, lookAt, 0f, null, null, 0f));
+                new PlayOptions(lockMovement, hideGui, CameraControls.DEFAULT_LOCK_BLOCKS,
+                        returnSmooth, lookAt, 0f, null, null, 0f));
+    }
+
+    public static float playWorldPoints(ServerPlayer player, List<net.minecraft.world.phys.Vec3> points,
+                                        float totalDuration) throws IOException {
+        return playWorldPoints(player, points, totalDuration, CameraFlightType.SMOOTH_CAMERA);
+    }
+
+    public static float playWorldPoints(ServerPlayer player, List<net.minecraft.world.phys.Vec3> points,
+                                        float totalDuration, CameraFlightType flightType) throws IOException {
+        if (player == null || points == null || points.size() < 2) {
+            throw new IOException("route needs at least 2 points");
+        }
+        List<CameraRouteWaypoint> waypoints = org.zonarstudio.spraute_engine.scene.PlayerCameraOps.waypointsAlong(points);
+        return playWaypoints(player, waypoints, totalDuration, flightType);
+    }
+
+    public static float playWaypoints(ServerPlayer player, List<CameraRouteWaypoint> waypoints,
+                                      float totalDuration, CameraFlightType flightType) throws IOException {
+        return playWaypoints(player, waypoints, totalDuration, flightType, null);
+    }
+
+    public static float playWaypoints(ServerPlayer player, List<CameraRouteWaypoint> waypoints,
+                                      float totalDuration, CameraFlightType flightType,
+                                      PlayOptions options) throws IOException {
+        if (player == null || waypoints == null || waypoints.size() < 2) {
+            throw new IOException("route needs at least 2 points");
+        }
+        PlayOptions opts = options != null ? options : new PlayOptions(
+                false, org.zonarstudio.spraute_engine.network.CameraPacket.HIDE_NONE, false,
+                0.5f, null, totalDuration, CameraRouteEndMode.RETURN_TO_PLAYER, flightType, 0f);
+        CameraFlightType type = opts.flightTypeOverride() != null
+                ? opts.flightTypeOverride()
+                : (flightType == null ? CameraFlightType.SMOOTH_CAMERA : flightType);
+        List<CameraRoutePath.Sample> samples = CameraRoutePath.buildSamples(
+                waypoints, type, CameraRoutePath.PLAYBACK_SUBDIVISIONS);
+        if (samples.size() < 2) throw new IOException("route needs at least 2 samples");
+        float duration = opts.totalDurationOverride() > 0f ? opts.totalDurationOverride()
+                : (totalDuration > 0f ? totalDuration : Math.max(1f, (float) waypoints.size() * 0.8f));
+        CameraRouteEndMode endMode = opts.endModeOverride() != null
+                ? opts.endModeOverride()
+                : CameraRouteEndMode.RETURN_TO_PLAYER;
+        float[] timeline = CameraRoutePath.buildTimeline(waypoints, samples, duration);
+        CameraRoutePath.Sample first = samples.get(0);
+        long gen = CinematicViewTracker.activate(player, first.x(), first.y(), first.z(),
+                org.zonarstudio.spraute_engine.script.ScriptExecutor.currentInstanceId(), opts.lockBlocks());
+        org.zonarstudio.spraute_engine.network.ModNetwork.CHANNEL.send(
+                PacketDistributor.PLAYER.with(() -> player),
+                CameraRoutePlayPacket.from(samples, duration, opts.returnSmooth(),
+                        opts.lockMovement(), opts.hideGui(), opts.lockBlocks(),
+                        opts.lookAt(), endMode, timeline, opts.transitionSec())
+        );
+        float total = CameraRoutePath.estimateDuration(samples, duration, opts.returnSmooth(), endMode)
+                + Math.max(0f, opts.transitionSec());
+        CinematicViewTracker.scheduleClear(player, total, gen);
+        return total;
     }
 
     public static float playRoute(ServerPlayer player, String routeName, PlayOptions options) throws IOException {
@@ -77,12 +145,20 @@ public final class CameraRouteScriptUtil {
                 ? opts.endModeOverride()
                 : route.endMode();
         float[] timeline = CameraRoutePath.buildTimeline(waypoints, samples, totalDuration);
+        CameraRoutePath.Sample first = samples.get(0);
+        long gen = CinematicViewTracker.activate(player, first.x(), first.y(), first.z(),
+                ScriptExecutor.currentInstanceId(), opts.lockBlocks());
         ModNetwork.CHANNEL.send(
                 PacketDistributor.PLAYER.with(() -> player),
                 CameraRoutePlayPacket.from(samples, totalDuration, opts.returnSmooth(),
-                        opts.lockMovement(), opts.hideGui(), opts.lookAt(), endMode, timeline, opts.transitionSec())
+                        opts.lockMovement(), opts.hideGui(), opts.lockBlocks(),
+                        opts.lookAt(), endMode, timeline, opts.transitionSec())
         );
-        return CameraRoutePath.estimateDuration(samples, totalDuration, opts.returnSmooth(), endMode);
+        float duration = CameraRoutePath.estimateDuration(samples, totalDuration, opts.returnSmooth(), endMode)
+                + Math.max(0f, opts.transitionSec());
+        // Route ends on the client; clear server-side lock only for this generation.
+        CinematicViewTracker.scheduleClear(player, duration, gen);
+        return duration;
     }
 
     public static PlayOptions parsePlayOptions(List<Object> args, int lockIndex) {
@@ -100,6 +176,7 @@ public final class CameraRouteScriptUtil {
         CameraRouteEndMode endMode = null;
         CameraFlightType flightType = null;
         float transitionSec = 0f;
+        boolean lockBlocks = CameraControls.DEFAULT_LOCK_BLOCKS;
 
         if (args.size() > i) {
             float[] totalBox = new float[]{0f};
@@ -107,6 +184,7 @@ public final class CameraRouteScriptUtil {
             CameraRouteEndMode[] endBox = new CameraRouteEndMode[]{null};
             CameraFlightType[] interpBox = new CameraFlightType[]{null};
             float[] transBox = new float[]{0f};
+            boolean[] lockBlocksBox = new boolean[]{CameraControls.DEFAULT_LOCK_BLOCKS};
 
             if (isLegacyLookAtArgs(args, i)) {
                 lookBox[0] = parseLookAtOverride(args, i);
@@ -115,16 +193,17 @@ public final class CameraRouteScriptUtil {
                     totalBox[0] = Math.max(0f, ((Number) args.get(i)).floatValue());
                     i++;
                 }
-                consumeTrailingRouteArgs(args, i, totalBox, lookBox, endBox, interpBox, transBox);
+                consumeTrailingRouteArgs(args, i, totalBox, lookBox, endBox, interpBox, transBox, lockBlocksBox);
             }
             totalOverride = totalBox[0];
             lookAt = lookBox[0];
             endMode = endBox[0];
             flightType = interpBox[0];
             transitionSec = transBox[0];
+            lockBlocks = lockBlocksBox[0];
         }
 
-        return new PlayOptions(lock, hide, returnSmooth, lookAt, totalOverride, endMode, flightType, transitionSec);
+        return new PlayOptions(lock, hide, lockBlocks, returnSmooth, lookAt, totalOverride, endMode, flightType, transitionSec);
     }
 
     /** Legacy: playCameraRoute(p, route, lock, hide, ret, lookX, lookY, lookZ) */
@@ -141,7 +220,8 @@ public final class CameraRouteScriptUtil {
                                                  LookAtOverride[] lookBox,
                                                  CameraRouteEndMode[] endBox,
                                                  CameraFlightType[] interpBox,
-                                                 float[] transBox) {
+                                                 float[] transBox,
+                                                 boolean[] lockBlocksBox) {
         while (i < args.size()) {
             Object arg = args.get(i);
             if (arg instanceof String s) {
@@ -163,6 +243,14 @@ public final class CameraRouteScriptUtil {
                 } else if ("transition".equals(sl)) {
                     if (i + 1 < args.size() && args.get(i + 1) instanceof Number n) {
                         transBox[0] = Math.max(0f, n.floatValue());
+                        i += 2;
+                    } else {
+                        i++;
+                    }
+                } else if ("lockblocks".equals(sl) || "lock_blocks".equals(sl)
+                        || "lockblockinteraction".equals(sl) || "lock_block_interaction".equals(sl)) {
+                    if (i + 1 < args.size()) {
+                        lockBlocksBox[0] = CameraControls.parseLockBlocks(args.get(i + 1));
                         i += 2;
                     } else {
                         i++;
@@ -214,7 +302,10 @@ public final class CameraRouteScriptUtil {
         byte hide = args.size() > hideIndex
                 ? CameraControls.parseHideGui(args.get(hideIndex))
                 : CameraControls.DEFAULT_HIDE_GUI;
-        return new CameraControls.Settings(lock, hide);
+        boolean blocks = args.size() > hideIndex + 1 && !(args.get(hideIndex + 1) instanceof Number)
+                ? CameraControls.parseLockBlocks(args.get(hideIndex + 1))
+                : CameraControls.DEFAULT_LOCK_BLOCKS;
+        return new CameraControls.Settings(lock, hide, blocks);
     }
 
     public static float parseReturnSmooth(List<Object> args, int index, float defaultVal) {

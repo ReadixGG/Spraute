@@ -1,0 +1,8 @@
+{
+  "name": "Clothing",
+  "author": "ZonarStudio",
+  "version": "1.1.0",
+  "mc_version": "1.20.1",
+  "description": "Нода одежды создаёт предмет (id ноды = id предмета) и накладывает скин, когда он надет в слот брони.",
+  "enabled": true
+}

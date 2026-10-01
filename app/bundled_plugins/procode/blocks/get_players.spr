@@ -1,0 +1,7 @@
+#\ block: get_players
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "список всех игроков"
+#\ template: getPlayers()

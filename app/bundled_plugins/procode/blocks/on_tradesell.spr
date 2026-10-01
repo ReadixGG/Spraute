@@ -1,0 +1,16 @@
+#\ block: on_tradesell
+#\ category: Экономика
+#\ color: #eab308
+#\ shape: wrapper
+#\ write_start: import("economy")
+#\
+#\ row: "когда продажа в трейде" [filter: dropdown(любой: any, у игрока: player, предмет: item)] "→" (handler: text: h_sell)
+#\ if filter == "any":
+#\   template: on tradeSell() -> {handler} {\n{DO}}
+#\ if filter == "player":
+#\   input: player (type: value)
+#\   template: on tradeSell({player}) -> {handler} {\n{DO}}
+#\ if filter == "item":
+#\   input: player (type: value)
+#\   row: "id предмета" (itemId: item: minecraft:bread)
+#\   template: on tradeSell({player}, "{itemId}") -> {handler} {\n{DO}}

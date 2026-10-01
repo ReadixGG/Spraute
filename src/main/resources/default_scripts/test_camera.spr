@@ -1,5 +1,6 @@
 # Тест кинематографической камеры
 # Запуск: /spraute run test_camera
+# (сцена: spraute_engine/scenes/test_camera.scene.json)
 # Нужен хотя бы один игрок в мире. Рядом появится НИП-мишень для слежения.
 
 val spawn = findSafeBlock("player", 24, 4)
@@ -12,9 +13,9 @@ if (spawn == null) {
 
     create npc camera_target {
         name = "§bКамера-мишень"
-        model = "geo/defolt.geo.json"
-        texture = "textures/entity/knight.png"
-        animation = "animations/npc_classic.animation.json"
+        model = "geo/spraute_classic_by_bendy659_.geo.json"
+        texture = "textures/entity/npc_texture.png"
+        animation = "animations/npc.animation.json"
         pos = bx, by, bz
         showName = true
         speed = 0.2

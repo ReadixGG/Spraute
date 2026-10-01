@@ -1,0 +1,22 @@
+#\ block: call_value
+#\ category: Функции
+#\ color: #eab308
+#\ shape: value
+#\
+#\ row: (name: text: myFunc)
+#\ row: "арг. 1" input: arg1 (type: value)
+#\ if_filled arg1:
+#\   row: "арг. 2" input: arg2 (type: value)
+#\ if_filled arg2:
+#\   row: "арг. 3" input: arg3 (type: value)
+#\ if_filled arg3:
+#\   row: "арг. 4" input: arg4 (type: value)
+#\ if_filled arg4:
+#\   row: "арг. 5" input: arg5 (type: value)
+#\ if_filled arg5:
+#\   row: "арг. 6" input: arg6 (type: value)
+#\ if_filled arg6:
+#\   row: "арг. 7" input: arg7 (type: value)
+#\ if_filled arg7:
+#\   row: "арг. 8" input: arg8 (type: value)
+#\ code: return (function(){ var n=String(_getVal("name")||"myFunc").trim()||"myFunc"; var p=[], vs=["arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8"]; for(var i=0;i<8;i++){ var v=_getVal(vs[i]).trim(); if(v) p.push(v); } return n+"("+p.join(", ")+")"; })();

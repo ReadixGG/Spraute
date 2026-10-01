@@ -5,7 +5,7 @@
 #\ write_start: import("economy")
 #\
 #\ row: "настроить экономику"
-#\ row: "текстура монеты" (texture: text: minecraft:textures/item/gold_nugget.png)
+#\ row: "текстура монеты" (texture: texture: minecraft:textures/item/gold_nugget.png)
 #\ row: "ключ savedData" (coinKey: text: coins)
 #\ template: ecoConfigure("{texture}", "{coinKey}")
 
@@ -15,16 +15,24 @@
 #\ shape: statement
 #\ write_start: import("economy")
 #\
-#\ row: "показать HUD монет" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ row: "счётчик монет" [visibility: dropdown(показать: show, спрятать: hide)]
+#\ row: "игрок" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
 #\ if who == "custom":
 #\   input: player (type: value)
-#\
-#\ if who == "event":
-#\   template: ecoShowCoinsHud(_eventPlayer, "")
-#\ if who == "first":
-#\   template: ecoShowCoinsHud(getFirstPlayer(), "")
-#\ if who == "custom":
-#\   template: ecoShowCoinsHud({player}, "")
+#\ if visibility == "show":
+#\   row: "текстура" (texture: texture: minecraft:textures/item/gold_nugget.png)
+#\ if visibility == "show" and who == "event":
+#\   template: ecoShowCoinsHud(_eventPlayer, "{texture}")
+#\ if visibility == "show" and who == "first":
+#\   template: ecoShowCoinsHud(getFirstPlayer(), "{texture}")
+#\ if visibility == "show" and who == "custom":
+#\   template: ecoShowCoinsHud({player}, "{texture}")
+#\ if visibility == "hide" and who == "event":
+#\   template: ecoHideCoinsHud(_eventPlayer)
+#\ if visibility == "hide" and who == "first":
+#\   template: ecoHideCoinsHud(getFirstPlayer())
+#\ if visibility == "hide" and who == "custom":
+#\   template: ecoHideCoinsHud({player})
 
 #\ block: economy_update_coins
 #\ category: Экономика
@@ -101,7 +109,7 @@
 #\ color: #eab308
 #\ shape: value
 #\
-#\ row: "товар" (itemId: text: minecraft:diamond)
+#\ row: "товар" (itemId: item: minecraft:diamond)
 #\ row: "название" (name: text: Алмаз)
 #\ row: "купить за" (buy: number: 10) "продать за" (sell: number: 5)
 #\ row: [canBuy: dropdown(можно купить: yes, нельзя купить: no)] [canSell: dropdown(можно продать: yes, нельзя продать: no)]
@@ -151,6 +159,18 @@
 #\ if who == "custom" and npcFilter == "yes":
 #\   template: ecoOpenTrade({player}, {items}, "{title}", {npc})
 
+#\ block: economy_npc_trade
+#\ category: Экономика
+#\ color: #eab308
+#\ shape: statement
+#\ write_start: import("economy")
+#\
+#\ row: "НПС" [npc: dropdown_npc] [mode: dropdown(разрешить трейд: allow, запретить трейд: deny)]
+#\ if mode == "allow":
+#\   template: ecoAllowNpcTrade({npc})
+#\ if mode == "deny":
+#\   template: ecoDenyNpcTrade({npc})
+
 #\ block: economy_spawn_coins
 #\ category: Экономика
 #\ color: #eab308
@@ -159,7 +179,7 @@
 #\
 #\ row: "спавн монет" (amount: number: 1)
 #\ row: "x" (x: number: 0) "y" (y: number: 64) "z" (z: number: 0)
-#\ row: "текстура" (texture: text: minecraft:textures/item/gold_nugget.png)
+#\ row: "текстура" (texture: texture: minecraft:textures/item/gold_nugget.png)
 #\ template: spawnOrb("{texture}", {amount}, {x}, {y}, {z})
 
 #\ block: on_tradebuy
@@ -172,7 +192,7 @@
 #\   input: player (type: value)
 #\ row: [itemFilter: dropdown(любой предмет: any, указать: custom)]
 #\ if itemFilter == "custom":
-#\   row: "предмет" (itemId: text: minecraft:diamond)
+#\   row: "предмет" (itemId: item: minecraft:diamond)
 #\ row: "→" (handler: text: h_trade_buy)
 #\
 #\ if who == "any" and itemFilter == "any":
@@ -194,7 +214,7 @@
 #\   input: player (type: value)
 #\ row: [itemFilter: dropdown(любой предмет: any, указать: custom)]
 #\ if itemFilter == "custom":
-#\   row: "предмет" (itemId: text: minecraft:diamond)
+#\   row: "предмет" (itemId: item: minecraft:diamond)
 #\ row: "→" (handler: text: h_trade_sell)
 #\
 #\ if who == "any" and itemFilter == "any":
@@ -216,7 +236,7 @@
 #\   input: player (type: value)
 #\ row: [itemFilter: dropdown(любой предмет: any, указать: custom)]
 #\ if itemFilter == "custom":
-#\   row: "предмет" (itemId: text: minecraft:diamond)
+#\   row: "предмет" (itemId: item: minecraft:diamond)
 #\
 #\ if who == "event" and itemFilter == "any":
 #\   template: await tradeBuy(_eventPlayer)
@@ -241,7 +261,7 @@
 #\   input: player (type: value)
 #\ row: [itemFilter: dropdown(любой предмет: any, указать: custom)]
 #\ if itemFilter == "custom":
-#\   row: "предмет" (itemId: text: minecraft:diamond)
+#\   row: "предмет" (itemId: item: minecraft:diamond)
 #\
 #\ if who == "event" and itemFilter == "any":
 #\   template: await tradeSell(_eventPlayer)

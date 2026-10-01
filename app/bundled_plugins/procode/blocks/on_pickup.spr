@@ -4,10 +4,17 @@
 #\ shape: wrapper
 #\
 #\ row: "когда НИП подбирает" [npc: dropdown_npc]
-#\ row: "предмет" (item: text: minecraft:iron_ingot)
-#\ row: [nbt: dropdown(без NBT: no, с NBT: yes)] "→" (handler: text: h_pickup)
-#\ if nbt == "no":
+#\ row: "предмет" (item: item: minecraft:iron_ingot)
+#\ row: [nbt: dropdown(без NBT: no, с NBT: yes)] [limit: dropdown(без лимита: no, не больше: yes)] "→" (handler: text: h_pickup)
+#\ if limit == "yes":
+#\   row: "макс." (max: number: 5)
+#\ if nbt == "no" and limit == "no":
 #\   template: on pickup({npc}, "{item}") -> {handler} {\n{DO}}
-#\ if nbt == "yes":
+#\ if nbt == "no" and limit == "yes":
+#\   template: on pickup({npc}, "{item}", {max}) -> {handler} {\n{DO}}
+#\ if nbt == "yes" and limit == "no":
 #\   row: "NBT" (tag: text: {})
 #\   template: on pickup({npc}, "{item}", "{tag}") -> {handler} {\n{DO}}
+#\ if nbt == "yes" and limit == "yes":
+#\   row: "NBT" (tag: text: {})
+#\   template: on pickup({npc}, "{item}", "{tag}", {max}) -> {handler} {\n{DO}}

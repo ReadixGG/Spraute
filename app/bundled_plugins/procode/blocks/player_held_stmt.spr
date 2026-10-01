@@ -1,0 +1,13 @@
+#\ block: player_held_stmt
+#\ category: Инвентарь
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "предмет в" [hand: dropdown(правой: right, левой: left)] "руке у" [who: dropdown(из слота: custom, кликнувший: event, первый: first)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ row: [what: dropdown(ID предмета: id, данные: dict)]
+#\ if what == "id":
+#\   code: return (function(){ var w=_getVal("who"); var p=w==="event"?"_eventPlayer":w==="first"?"getFirstPlayer()":_getVal("player").trim(); var h=_getVal("hand"); return p+".heldItem(\""+h+"\")"; })();
+#\ if what == "dict":
+#\   code: return (function(){ var w=_getVal("who"); var p=w==="event"?"_eventPlayer":w==="first"?"getFirstPlayer()":_getVal("player").trim(); return "getHeldItem("+p+")"; })();

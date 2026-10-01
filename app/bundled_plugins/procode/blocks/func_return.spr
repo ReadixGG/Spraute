@@ -1,0 +1,8 @@
+#\ block: func_return
+#\ category: Функции
+#\ color: #eab308
+#\ shape: statement
+#\
+#\ row: "вернуть"
+#\ input: value (type: value)
+#\ template: return {value}

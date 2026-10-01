@@ -1,0 +1,50 @@
+#\ block: get_player_skin
+#\ category: Игрок
+#\ color: #f97316
+#\ shape: value
+#\
+#\ row: "скин" input: player (type: value) "игрока"
+#\ template: {player}.skin
+
+#\ block: set_player_skin
+#\ category: Игрок
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "скин" input: player (type: value) "игроку" input: texture (type: value)
+#\ template: {player}.skin = {texture}
+
+#\ block: player_add_overlay
+#\ category: Игрок
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "наложение скина" input: player (type: value)
+#\ row: "id" (id: text: hat) [texture: dropdown_texture]
+#\ template: {player}.addOverlay("{id}", "{texture}")
+
+#\ block: player_overlay
+#\ category: Игрок
+#\ color: #f97316
+#\ shape: value
+#\
+#\ row: "наложение" input: player (type: value) (id: text: hat)
+#\ template: {player}.overlay("{id}")
+
+#\ block: player_reset_skin
+#\ category: Игрок
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "сбросить скин" input: player (type: value)
+#\ template: {player}.resetSkin()
+
+#\ block: create_skin_overlay
+#\ category: Игрок
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "создать наложение скина" (id: text: hat)
+#\ row: "игрок" input: player (type: value)
+#\ row: "текстура" [texture: dropdown_texture]
+#\ template: create skin_overlay {id} {\n    parent = {player}\n    texture = "{texture}"\n}

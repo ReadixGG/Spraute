@@ -1,0 +1,24 @@
+#\ block: npc_group_anim
+#\ category: НПС Группы
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "группа"
+#\ input: group (type: value)
+#\ row: [mode: dropdown(один раз: playOnce, зациклить: playLoop, заморозить: playFreeze, стоп клип: stopAnim, стоп все оверлеи: stopOverlay, idle: setIdleAnim, ходьба: setWalkAnim)]
+#\ if mode != "stopOverlay":
+#\   row: "анимация" [anim: dropdown_anim]
+#\ if mode == "playOnce":
+#\   template: {group}.playOnce("{anim}")
+#\ if mode == "playLoop":
+#\   template: {group}.playLoop("{anim}")
+#\ if mode == "playFreeze":
+#\   template: {group}.playFreeze("{anim}")
+#\ if mode == "stopAnim":
+#\   template: {group}.stop("{anim}")
+#\ if mode == "stopOverlay":
+#\   template: {group}.stopOverlay()
+#\ if mode == "setIdleAnim":
+#\   template: {group}.setIdleAnim("{anim}")
+#\ if mode == "setWalkAnim":
+#\   template: {group}.setWalkAnim("{anim}")

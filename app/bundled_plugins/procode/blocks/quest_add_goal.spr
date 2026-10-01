@@ -1,0 +1,9 @@
+#\ block: quest_add_goal
+#\ category: Квесты
+#\ color: #9333ea
+#\ shape: statement
+#\ write_start: import("spraute_quests")
+#\
+#\ row: "добавить цель к квесту" (questId: text: my_quest)
+#\ row: "текст цели" (goal: textmultiline: Новая цель)
+#\ template: add_quest_goal("{questId}", "{goal}")

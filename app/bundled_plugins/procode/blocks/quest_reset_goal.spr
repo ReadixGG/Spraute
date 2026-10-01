@@ -1,0 +1,9 @@
+#\ block: quest_reset_goal
+#\ category: Квесты
+#\ color: #9333ea
+#\ shape: statement
+#\ write_start: import("spraute_quests")
+#\
+#\ row: "сбросить цель квеста" (questId: text: my_quest)
+#\ row: "№ цели (с 0)" (goalIndex: number: 0)
+#\ template: reset_quest_goal("{questId}", {goalIndex})

@@ -40,6 +40,17 @@ public final class SpResourceCache {
         ANIM_CACHE.clear();
     }
 
+    public static void invalidateModel(String modelPath) {
+        if (modelPath == null || modelPath.isBlank()) return;
+        String path = modelPath.replace('\\', '/').trim();
+        MODEL_CACHE.remove(path);
+        if (path.startsWith("spraute_engine:")) {
+            MODEL_CACHE.remove(path.substring("spraute_engine:".length()));
+        } else if (path.startsWith("geo/")) {
+            MODEL_CACHE.remove("spraute_engine:" + path);
+        }
+    }
+
     private static SpGeoModel loadModel(ResourceManager rm, String modelPath) {
         SprauteResourcePath.Result parsed = SprauteResourcePath.parse(modelPath, SprauteResourcePath.Kind.MODEL);
         if (!parsed.ok()) {

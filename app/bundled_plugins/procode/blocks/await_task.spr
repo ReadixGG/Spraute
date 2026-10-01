@@ -3,5 +3,5 @@
 #\ color: #f97316
 #\ shape: statement
 #\
-#\ row: "ждать завершения async-задачи" (taskId: text: task_id)
+#\ row: "ждать пока async не закончится" (taskId: text: task_id)
 #\ template: await task("{taskId}")

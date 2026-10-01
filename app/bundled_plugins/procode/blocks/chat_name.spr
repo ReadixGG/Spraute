@@ -1,0 +1,24 @@
+#\ block: chat_name_format
+#\ category: Диалоги
+#\ color: #d946ef
+#\ shape: value
+#\
+#\ row: "формат имени из настроек"
+#\ template: getChatNameFormat()
+
+#\ block: chat_name_color
+#\ category: Диалоги
+#\ color: #d946ef
+#\ shape: value
+#\
+#\ row: "цвет имени из настроек"
+#\ template: getChatNameColor()
+
+#\ block: format_chat_name
+#\ category: Диалоги
+#\ color: #d946ef
+#\ shape: value
+#\
+#\ row: "имя по формату чата"
+#\ input: name (type: value)
+#\ template: formatChatName({name})

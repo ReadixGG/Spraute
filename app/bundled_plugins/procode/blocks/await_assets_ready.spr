@@ -1,0 +1,35 @@
+#\ block: await_assets_ready
+#\ category: Ожидание
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "ждать пока игрок загрузит ресурсы" [who: dropdown(любой: any, из события: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\
+#\ if who == "any":
+#\   template: await assetsReady()
+#\ if who == "event":
+#\   template: await assetsReady(_eventPlayer)
+#\ if who == "first":
+#\   template: await assetsReady(getFirstPlayer())
+#\ if who == "custom":
+#\   template: await assetsReady({player})
+
+#\ block: await_assets_allow
+#\ category: Ожидание
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "ждать пока игрок разрешит загрузку ресурсов" [who: dropdown(любой: any, из события: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\
+#\ if who == "any":
+#\   template: await assetsAllow()
+#\ if who == "event":
+#\   template: await assetsAllow(_eventPlayer)
+#\ if who == "first":
+#\   template: await assetsAllow(getFirstPlayer())
+#\ if who == "custom":
+#\   template: await assetsAllow({player})

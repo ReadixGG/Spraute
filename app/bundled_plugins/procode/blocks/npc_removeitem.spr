@@ -1,0 +1,7 @@
+#\ block: npc_removeitem
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "НИП" [npc: dropdown_npc] "убрать предметы из рук"
+#\ template: {npc}.removeItem()

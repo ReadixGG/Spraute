@@ -1,0 +1,8 @@
+#\ block: str_len
+#\ category: Текст
+#\ color: #10b981
+#\ shape: value
+#\
+#\ row: "длина текста"
+#\ input: s (type: value)
+#\ code: return "strLen(" + _getVal("s").trim() + ")";

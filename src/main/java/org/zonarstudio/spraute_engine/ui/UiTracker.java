@@ -6,12 +6,17 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Серверное состояние скриптовых UI: открыт ли экран, текст полей ввода, позиция скролла.
+ * Серверное состояние скриптовых UI: открыт ли экран, текст полей ввода, позиция скролла, видео.
  */
 public final class UiTracker {
+    public record VideoState(double time, double duration, boolean playing, boolean ended) {
+        public static final VideoState EMPTY = new VideoState(0, 0, false, false);
+    }
+
     private static final Set<UUID> OPEN = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Map<String, String>> INPUTS = new ConcurrentHashMap<>();
     private static final Map<UUID, Map<String, Float>> SCROLLS = new ConcurrentHashMap<>();
+    private static final Map<UUID, Map<String, VideoState>> VIDEOS = new ConcurrentHashMap<>();
 
     private UiTracker() {}
 
@@ -24,6 +29,7 @@ public final class UiTracker {
         OPEN.remove(player);
         INPUTS.remove(player);
         SCROLLS.remove(player);
+        VIDEOS.remove(player);
     }
 
     public static boolean isOpen(UUID player) {
@@ -52,5 +58,19 @@ public final class UiTracker {
         Map<String, Float> m = SCROLLS.get(player);
         if (m == null) return 0f;
         return m.getOrDefault(widgetId, 0f);
+    }
+
+    public static void setVideo(UUID player, String widgetId, double time, double duration,
+                               boolean playing, boolean ended) {
+        if (player == null || widgetId == null || widgetId.isEmpty()) return;
+        VIDEOS.computeIfAbsent(player, k -> new ConcurrentHashMap<>())
+                .put(widgetId, new VideoState(Math.max(0, time), Math.max(0, duration), playing, ended));
+    }
+
+    public static VideoState getVideo(UUID player, String widgetId) {
+        if (player == null || widgetId == null) return VideoState.EMPTY;
+        Map<String, VideoState> m = VIDEOS.get(player);
+        if (m == null) return VideoState.EMPTY;
+        return m.getOrDefault(widgetId, VideoState.EMPTY);
     }
 }

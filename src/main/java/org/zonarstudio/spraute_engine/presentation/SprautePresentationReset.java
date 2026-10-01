@@ -9,6 +9,7 @@ import org.zonarstudio.spraute_engine.network.CloseSprauteUiPacket;
 import org.zonarstudio.spraute_engine.network.ModNetwork;
 import org.zonarstudio.spraute_engine.network.SprauteUiActionPacket;
 import org.zonarstudio.spraute_engine.network.SyncLoadScreenPacket;
+import org.zonarstudio.spraute_engine.scene.SceneRuntime;
 import org.zonarstudio.spraute_engine.script.ScriptManager;
 import org.zonarstudio.spraute_engine.ui.SprauteContainerMenu;
 import org.zonarstudio.spraute_engine.ui.UiTracker;
@@ -36,6 +37,9 @@ public final class SprautePresentationReset {
             mgr.cancelUiWaitsForPlayer(player);
         }
 
+        org.zonarstudio.spraute_engine.script.CinematicViewTracker.clear(player);
+        org.zonarstudio.spraute_engine.script.HudHideOverrides.clear(player);
+        SceneRuntime.discardBillboardsForPresentationReset(player);
         var target = PacketDistributor.PLAYER.with(() -> player);
         ModNetwork.CHANNEL.send(target, new CloseSprauteUiPacket());
         ModNetwork.CHANNEL.send(target, new CloseSprauteOverlayPacket());

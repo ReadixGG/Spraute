@@ -1,0 +1,7 @@
+#\ block: await_hitboxexit
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать выход из триггера" [player: dropdown(первый игрок: getFirstPlayer(), любой: any)] [hitbox: dropdown_hitbox]
+#\ template: await hitboxExit({player}, "{hitbox}")

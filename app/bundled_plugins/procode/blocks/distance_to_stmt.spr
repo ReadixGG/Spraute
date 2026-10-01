@@ -1,0 +1,10 @@
+#\ block: distance_to_stmt
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "расстояние от"
+#\ input: a (type: value)
+#\ row: "до"
+#\ input: b (type: value)
+#\ code: return _getVal("a").trim() + ".distanceTo(" + _getVal("b").trim() + ")";

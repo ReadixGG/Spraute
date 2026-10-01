@@ -3,21 +3,45 @@ package org.zonarstudio.spraute_engine.script.function;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.entity.player.Player;
+import org.zonarstudio.spraute_engine.scene.PlayerAudioOps;
+import org.zonarstudio.spraute_engine.script.CameraScriptUtil;
 import org.zonarstudio.spraute_engine.script.ScriptContext;
 
 import java.util.List;
+import java.util.Locale;
 
+/** {@code playSound} / {@code stopSound} — routed through the player's AUDIO node. */
 public class SoundFunctions {
 
-    private static Player resolvePlayer(Object target, CommandSourceStack source) {
-        if (target instanceof Player p) return p;
-        if (target instanceof String name && source.getLevel() != null) {
-            return source.getLevel().getServer().getPlayerList().getPlayerByName(name);
+    private static ServerPlayer resolvePlayer(Object target, CommandSourceStack source) {
+        return CameraScriptUtil.resolvePlayer(target, source);
+    }
+
+    private static float toFloat(Object v, float def) {
+        if (v instanceof Number n) return n.floatValue();
+        if (v == null) return def;
+        try {
+            return Float.parseFloat(String.valueOf(v).trim());
+        } catch (NumberFormatException e) {
+            return def;
         }
-        return null;
+    }
+
+    private static boolean toBool(Object v, boolean def) {
+        if (v == null) return def;
+        if (v instanceof Boolean b) return b;
+        if (v instanceof Number n) return n.doubleValue() != 0.0;
+        String s = String.valueOf(v).trim().toLowerCase(Locale.ROOT);
+        if (s.isEmpty()) return def;
+        return s.equals("true") || s.equals("yes") || s.equals("1") || s.equals("on");
+    }
+
+    private static ResourceLocation soundId(Object raw) {
+        String soundId = String.valueOf(raw == null ? "" : raw).trim();
+        if (soundId.isEmpty()) return null;
+        return soundId.contains(":")
+                ? new ResourceLocation(soundId)
+                : new ResourceLocation("minecraft", soundId);
     }
 
     public static class PlaySound implements ScriptFunction {
@@ -39,28 +63,14 @@ public class SoundFunctions {
         @Override
         public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
             if (args.size() < 2) return null;
-            Player player = resolvePlayer(args.get(0), source);
-            if (!(player instanceof ServerPlayer sp)) return null;
+            ServerPlayer sp = resolvePlayer(args.get(0), source);
+            if (sp == null) return null;
+            if (soundId(args.get(1)) == null) return null;
 
-            String soundId = String.valueOf(args.get(1));
-            ResourceLocation rl = soundId.contains(":") ? new ResourceLocation(soundId) : new ResourceLocation("minecraft", soundId);
-            
-            float volume = 1.0f;
-            float pitch = 1.0f;
-            if (args.size() > 2 && args.get(2) instanceof Number n) volume = n.floatValue();
-            if (args.size() > 3 && args.get(3) instanceof Number n) pitch = n.floatValue();
-
-            // Using reflection to bypass Registry requirements in 1.19.2 for custom sounds,
-            // or we just construct a new SoundEvent (in 1.19.2 SoundEvent(ResourceLocation) is public)
-            //? if >=1.20.1 {
-            SoundEvent event = SoundEvent.createVariableRangeEvent(rl);
-            //?} else {
-            /*SoundEvent event = new SoundEvent(rl);
-            *///?}
-            
-            // Sending directly using network packet or player method
-            // In 1.19.2, playNotifySound works well
-            sp.playNotifySound(event, SoundSource.MASTER, volume, pitch);
+            float volume = args.size() > 2 ? Math.max(0f, toFloat(args.get(2), 1f)) : 1f;
+            float pitch = args.size() > 3 ? Math.max(0.01f, toFloat(args.get(3), 1f)) : 1f;
+            boolean loop = args.size() > 4 && toBool(args.get(4), false);
+            PlayerAudioOps.playForPlayer(sp, args.get(1), volume, pitch, loop);
             return null;
         }
     }
@@ -84,15 +94,12 @@ public class SoundFunctions {
         @Override
         public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
             if (args.isEmpty()) return null;
-            Player player = resolvePlayer(args.get(0), source);
-            if (!(player instanceof ServerPlayer sp)) return null;
-
+            ServerPlayer sp = resolvePlayer(args.get(0), source);
+            if (sp == null) return null;
             if (args.size() >= 2) {
-                String soundId = String.valueOf(args.get(1));
-                ResourceLocation rl = soundId.contains(":") ? new ResourceLocation(soundId) : new ResourceLocation("minecraft", soundId);
-                sp.connection.send(new net.minecraft.network.protocol.game.ClientboundStopSoundPacket(rl, SoundSource.MASTER));
+                PlayerAudioOps.stopForPlayer(sp, args.get(1));
             } else {
-                sp.connection.send(new net.minecraft.network.protocol.game.ClientboundStopSoundPacket(null, null));
+                PlayerAudioOps.stopForPlayer(sp, null);
             }
             return null;
         }

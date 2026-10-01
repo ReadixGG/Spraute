@@ -5,6 +5,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import org.zonarstudio.spraute_engine.compat.SprautePlayerCompat;
 import org.zonarstudio.spraute_engine.script.PlayerDigSpeedOverrides;
+import org.zonarstudio.spraute_engine.script.PlayerJumpStrengthOverrides;
 import org.zonarstudio.spraute_engine.script.PlayerStepHeightOverrides;
 import org.zonarstudio.spraute_engine.script.ScriptContext;
 
@@ -87,11 +88,11 @@ public class PlayerAttributeFunctions {
     }
 
     public static class GetJumpStrength extends AttrGet {
-        public GetJumpStrength() { super("getPlayerJumpStrength", p -> SprautePlayerCompat.getAttributeValue(p, SprautePlayerCompat.jumpStrengthAttr())); }
+        public GetJumpStrength() { super("getPlayerJumpStrength", p -> (double) PlayerJumpStrengthOverrides.get(p)); }
     }
 
     public static class SetJumpStrength extends AttrSet {
-        public SetJumpStrength() { super("setPlayerJumpStrength", (p, v) -> SprautePlayerCompat.setAttributeBase(p, SprautePlayerCompat.jumpStrengthAttr(), v)); }
+        public SetJumpStrength() { super("setPlayerJumpStrength", (p, v) -> PlayerJumpStrengthOverrides.set(p, v.floatValue())); }
     }
 
     public static class GetStepHeight extends AttrGet {
@@ -117,5 +118,14 @@ public class PlayerAttributeFunctions {
 
     public static class SetDigSpeed extends AttrSet {
         public SetDigSpeed() { super("setPlayerDigSpeed", (p, v) -> PlayerDigSpeedOverrides.set(p, v)); }
+    }
+
+    /** Дальность ломания и постановки блоков (ваниль ≈ 4.5). */
+    public static class GetBlockReach extends AttrGet {
+        public GetBlockReach() { super("getPlayerBlockReach", SprautePlayerCompat::getBlockReach); }
+    }
+
+    public static class SetBlockReach extends AttrSet {
+        public SetBlockReach() { super("setPlayerBlockReach", (p, v) -> SprautePlayerCompat.setBlockReach(p, v)); }
     }
 }

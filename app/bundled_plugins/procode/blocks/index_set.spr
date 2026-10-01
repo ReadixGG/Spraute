@@ -1,0 +1,10 @@
+#\ block: index_set
+#\ category: Переменные
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: (name: text: my_list) "["
+#\ input: index (type: value)
+#\ row: "] ="
+#\ input: value (type: value)
+#\ template: {name}[{index}] = {value}

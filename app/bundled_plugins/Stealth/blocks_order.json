@@ -1,0 +1,10 @@
+{
+  "Стелс": [
+    "stealth_start",
+    "stealth_set_enabled",
+    "stealth_clear_enabled",
+    "stealth_is_enabled",
+    "on_stealth_caught",
+    "await_stealth_caught"
+  ]
+}

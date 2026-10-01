@@ -1,0 +1,11 @@
+#\ block: economy_shop_item
+#\ category: Экономика
+#\ color: #eab308
+#\ shape: value
+#\
+#\ row: "товар" (name: text: Хлеб)
+#\ row: "id предмета" (itemId: item: minecraft:bread)
+#\ row: "купить за" (buy: number: 5) "монет  продать за" (sell: number: 2)
+#\ row: "можно купить" [canBuy: dropdown(да: true, нет: false)]
+#\ row: "можно продать" [canSell: dropdown(да: true, нет: false)]
+#\ template: dict("id", "{itemId}", "name", "{name}", "buy", {buy}, "sell", {sell}, "canBuy", {canBuy}, "canSell", {canSell})

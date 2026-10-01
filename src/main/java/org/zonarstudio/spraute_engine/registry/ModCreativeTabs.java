@@ -3,6 +3,7 @@ package org.zonarstudio.spraute_engine.registry;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.RegistryObject;
@@ -22,10 +23,8 @@ public final class ModCreativeTabs {
     public static final RegistryObject<CreativeModeTab> SPRAUTE_ENGINE = TABS.register("spraute_engine",
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.spraute_engine"))
-                    .icon(() -> new ItemStack(ModItems.CAMERA.get()))
-                    .displayItems((params, output) -> {
-                        output.accept(ModItems.CAMERA.get());
-                    })
+                    .icon(() -> new ItemStack(Items.COMPASS))
+                    .displayItems((params, output) -> { })
                     .build());
 
     public static void register(IEventBus bus) {
@@ -35,7 +34,7 @@ public final class ModCreativeTabs {
     /*public static final CreativeModeTab SPRAUTE_ENGINE = new CreativeModeTab(Spraute_engine.MODID + ".spraute_engine") {
         @Override
         public ItemStack makeIcon() {
-            return new ItemStack(ModItems.CAMERA.get());
+            return new ItemStack(Items.COMPASS);
         }
     };
 

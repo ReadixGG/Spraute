@@ -1,0 +1,23 @@
+#\ block: scene_players_node
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "нода Players этой сцены"
+#\ template: _scene.node("players")
+
+#\ block: scene_player_nodes
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "все PLAYER-ноды сцены"
+#\ template: _scene.node("players").children()
+
+#\ block: scene_player_node
+#\ category: Игрок
+#\ color: #22c55e
+#\ shape: value
+#\
+#\ row: "PLAYER-нода по нику" (name: text: Steve)
+#\ template: _scene.node("players").child("{name}")

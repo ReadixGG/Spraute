@@ -1,0 +1,7 @@
+#\ block: dict_new
+#\ category: Словари
+#\ color: #ec4899
+#\ shape: value
+#\
+#\ row: "пустой словарь dict()"
+#\ code: return "dict()";

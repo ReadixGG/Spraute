@@ -6,7 +6,8 @@ import org.zonarstudio.spraute_engine.script.ScriptContext;
 import java.util.List;
 
 /**
- * task_done("task_id") — true если задача завершена или прервана.
+ * taskDone("task_id") — true/false: проверка, завершена ли async-задача.
+ * Чтобы подождать завершения, нужен {@code await task("task_id")}, не этот вызов.
  */
 public class TaskDoneFunction implements ScriptFunction {
 

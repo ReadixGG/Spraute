@@ -1,0 +1,8 @@
+{
+  "plugin.name": "HpBar",
+  "plugin.description": "Custom vertical HP bar at the bottom left. Works only if the scene has an “HP bar” node.",
+  "HUD": "HUD",
+  "Кастомный вертикальный ХП-бар слева снизу. Работает, только если на сцене есть нода «ХП бар».": "Custom vertical HP bar at the bottom left. Works only if the scene has an “HP bar” node.",
+  "запустить кастомный ХП-бар": "start custom HP bar",
+  "на сцене есть нода ХП-бара": "scene has an HP bar node"
+}

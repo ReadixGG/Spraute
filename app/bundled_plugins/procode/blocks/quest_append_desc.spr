@@ -1,0 +1,9 @@
+#\ block: quest_append_desc
+#\ category: Квесты
+#\ color: #9333ea
+#\ shape: statement
+#\ write_start: import("spraute_quests")
+#\
+#\ row: "дописать в описание квеста" (questId: text: my_quest)
+#\ row: "текст" (text: textmultiline: Новая строка описания)
+#\ template: append_quest_desc("{questId}", "{text}")

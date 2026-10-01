@@ -43,7 +43,7 @@
 #\ color: #f59e0b
 #\ shape: value
 #\
-#\ row: "в слоте" input: player (type: value) "у игрока" (slot: number: 0) "есть" (item: text: minecraft:diamond) ""
+#\ row: "в слоте" input: player (type: value) "у игрока" (slot: number: 0) "есть" (item: item: minecraft:diamond) ""
 #\ template: hasItemInSlot({player}, {slot}, {item})
 
 #\ block: is_slot_empty
@@ -59,7 +59,7 @@
 #\ color: #f59e0b
 #\ shape: value
 #\
-#\ row: "найти слот" input: player (type: value) "у игрока" (item: text: minecraft:diamond) ""
+#\ row: "найти слот" input: player (type: value) "у игрока" (item: item: minecraft:diamond) ""
 #\ template: findItemSlot({player}, {item})
 
 #\ block: set_item_in_slot
@@ -67,7 +67,7 @@
 #\ color: #f59e0b
 #\ shape: statement
 #\
-#\ row: "положить в слот" input: player (type: value) "игроку" (slot: number: 0) (item: text: minecraft:diamond) (count: number: 1) ""
+#\ row: "положить в слот" input: player (type: value) "игроку" (slot: number: 0) (item: item: minecraft:diamond) (count: number: 1) ""
 #\ template: setItemInSlot({player}, {slot}, {item}, {count})
 
 #\ block: set_item_in_slot_named
@@ -75,7 +75,7 @@
 #\ color: #f59e0b
 #\ shape: statement
 #\
-#\ row: "положить с именем" input: player (type: value) "игроку" (slot: number: 0) (item: text: minecraft:diamond) (count: number: 1) ""
+#\ row: "положить с именем" input: player (type: value) "игроку" (slot: number: 0) (item: item: minecraft:diamond) (count: number: 1) ""
 #\ row: "имя" (name: text: &6Меч)
 #\ template: setItemInSlot({player}, {slot}, {item}, {count}, {name})
 
@@ -98,9 +98,17 @@
 #\ block: remove_item
 #\ category: Инвентарь
 #\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "забрать у игрока" input: player (type: value) "" (item: item: minecraft:diamond) (count: number: 1) "шт."
+#\ template: removeItem({player}, {item}, {count})
+
+#\ block: remove_item_value
+#\ category: Инвентарь
+#\ color: #f59e0b
 #\ shape: value
 #\
-#\ row: "забрать у игрока" input: player (type: value) "" (item: text: minecraft:diamond) (count: number: 1) "шт."
+#\ row: "забрать ▶" input: player (type: value) "" (item: item: minecraft:diamond) (count: number: 1) "шт."
 #\ template: removeItem({player}, {item}, {count})
 
 #\ block: get_item_name

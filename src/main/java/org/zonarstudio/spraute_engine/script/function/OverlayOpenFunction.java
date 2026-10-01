@@ -40,6 +40,11 @@ public class OverlayOpenFunction implements ScriptFunction {
         Player player = resolvePlayer(args.get(0), source);
         if (!(player instanceof ServerPlayer sp)) return null;
 
+        // Scene canvas node opens through the scene runtime (respects overlay flag)
+        var canvasRef = org.zonarstudio.spraute_engine.scene.SceneRuntime.resolveCanvas(args.get(1));
+        if (canvasRef != null) {
+            return org.zonarstudio.spraute_engine.scene.SceneRuntime.showCanvasTo(canvasRef.sceneId(), canvasRef.canvas(), sp);
+        }
         String json;
         if (args.get(1) instanceof UiTemplate ut) {
             json = ut.getJson();

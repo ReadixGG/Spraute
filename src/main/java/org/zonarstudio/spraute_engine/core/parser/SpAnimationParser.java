@@ -64,7 +64,39 @@ public final class SpAnimationParser {
             }
         }
 
-        return new AnimationClip(lengthSec, loop, boneTracks);
+        Map<String, Map<String, PropertyTrack>> propertyTracks = new LinkedHashMap<>();
+        JsonObject targetsObj = obj.getAsJsonObject("spraute_properties");
+        if (targetsObj != null) {
+            for (Map.Entry<String, JsonElement> targetEntry : targetsObj.entrySet()) {
+                if (!targetEntry.getValue().isJsonObject()) continue;
+                Map<String, PropertyTrack> target = new LinkedHashMap<>();
+                for (Map.Entry<String, JsonElement> propertyEntry
+                        : targetEntry.getValue().getAsJsonObject().entrySet()) {
+                    if (!propertyEntry.getValue().isJsonObject()) continue;
+                    JsonObject property = propertyEntry.getValue().getAsJsonObject();
+                    String type = property.has("type") ? property.get("type").getAsString() : "number";
+                    JsonObject keys = property.getAsJsonObject("keys");
+                    if (keys == null) continue;
+                    List<PropertyKeyframe> frames = new ArrayList<>();
+                    for (Map.Entry<String, JsonElement> keyEntry : keys.entrySet()) {
+                        Float time = parseTime(keyEntry.getKey());
+                        if (time == null) continue;
+                        JsonElement value = keyEntry.getValue();
+                        int lerp = Keyframe.LERP_LINEAR;
+                        if (value.isJsonObject() && value.getAsJsonObject().has("value")) {
+                            lerp = parseLerpMode(value);
+                            value = value.getAsJsonObject().get("value");
+                        }
+                        frames.add(new PropertyKeyframe(time, value.deepCopy(), lerp));
+                    }
+                    frames.sort(Comparator.comparingDouble(PropertyKeyframe::time));
+                    if (!frames.isEmpty()) target.put(propertyEntry.getKey(), new PropertyTrack(type, frames));
+                }
+                if (!target.isEmpty()) propertyTracks.put(targetEntry.getKey(), target);
+            }
+        }
+
+        return new AnimationClip(lengthSec, loop, boneTracks, propertyTracks);
     }
 
     private static KeyframeTrack parseChannel(JsonElement channelEl) {
@@ -92,13 +124,27 @@ public final class SpAnimationParser {
                 if (time == null) continue;
                 SpVec3 vec = parseVector(entry.getValue());
                 if (vec == null) continue;
-                keyframes.add(new Keyframe(time, vec));
+                keyframes.add(new Keyframe(time, vec, parseLerpMode(entry.getValue())));
             }
             keyframes.sort(Comparator.comparingDouble(k -> k.time));
             return new KeyframeTrack(keyframes);
         }
 
         return KeyframeTrack.EMPTY;
+    }
+
+    /** Blockbench interpolation: linear (default), catmullrom (smooth), step. */
+    private static int parseLerpMode(JsonElement el) {
+        if (el == null || !el.isJsonObject()) return Keyframe.LERP_LINEAR;
+        JsonElement mode = el.getAsJsonObject().get("lerp_mode");
+        if (mode == null || mode.isJsonNull()) return Keyframe.LERP_LINEAR;
+        try {
+            String s = mode.getAsString().toLowerCase(Locale.ROOT);
+            if (s.contains("catmull") || s.contains("smooth")) return Keyframe.LERP_CATMULLROM;
+            if (s.contains("step")) return Keyframe.LERP_STEP;
+        } catch (Exception ignored) {
+        }
+        return Keyframe.LERP_LINEAR;
     }
 
     private static boolean hasVectorLikeField(JsonObject obj) {
@@ -143,6 +189,14 @@ public final class SpAnimationParser {
         }
     }
 
+    /** Blockbench files often start with author/section keys that are not real clips. */
+    public static boolean isMetaClipName(String name) {
+        if (name == null || name.isBlank()) return true;
+        String t = name.trim();
+        char c = t.charAt(0);
+        return c == '[' || c == '#' || t.startsWith("---") || t.startsWith("//");
+    }
+
     private static boolean parseLoopFlag(JsonElement el) {
         if (el == null || el.isJsonNull()) return false;
         try {
@@ -170,11 +224,67 @@ public final class SpAnimationParser {
             if (name == null || name.isEmpty()) return null;
             AnimationClip exact = byName.get(name);
             if (exact != null) return exact;
-            return byLowerName.get(name.toLowerCase(Locale.ROOT));
+            String lower = name.toLowerCase(Locale.ROOT);
+            AnimationClip byLower = byLowerName.get(lower);
+            if (byLower != null) return byLower;
+
+            // Short name → Bedrock "animation.foo.bar". Prefer a unique suffix;
+            // never grab the first JSON key just because it happens to end with the name.
+            AnimationClip unique = null;
+            int matches = 0;
+            for (Map.Entry<String, AnimationClip> e : byLowerName.entrySet()) {
+                String key = e.getKey();
+                if (isMetaClipName(key)) continue;
+                boolean hit = key.endsWith("." + lower) || key.endsWith("/" + lower);
+                if (!hit) {
+                    int dot = key.lastIndexOf('.');
+                    hit = dot >= 0 && key.substring(dot + 1).equals(lower);
+                }
+                if (!hit) continue;
+                matches++;
+                unique = e.getValue();
+            }
+            return matches == 1 ? unique : null;
+        }
+
+        /** Idle, then the first authored clip that actually moves bones. */
+        public AnimationClip playable(String preferred) {
+            if (preferred != null && !preferred.isBlank() && !isMetaClipName(preferred)) {
+                AnimationClip clip = get(preferred);
+                if (clip != null && !clip.bones.isEmpty()) return clip;
+            }
+            AnimationClip idle = get("idle");
+            if (idle != null && !idle.bones.isEmpty()) return idle;
+            for (Map.Entry<String, AnimationClip> e : byName.entrySet()) {
+                if (isMetaClipName(e.getKey())) continue;
+                if (e.getValue() != null && !e.getValue().bones.isEmpty()) return e.getValue();
+            }
+            return null;
+        }
+
+        public String firstPlayableName(String preferred) {
+            if (preferred != null && !preferred.isBlank() && get(preferred) != null && !isMetaClipName(preferred)) {
+                return preferred;
+            }
+            if (get("idle") != null) {
+                for (String key : byName.keySet()) {
+                    if (key.equalsIgnoreCase("idle")) return key;
+                }
+            }
+            for (String key : byName.keySet()) {
+                if (isMetaClipName(key)) continue;
+                AnimationClip clip = byName.get(key);
+                if (clip != null && !clip.bones.isEmpty()) return key;
+            }
+            return "";
         }
 
         public int size() {
             return byName.size();
+        }
+
+        public java.util.Set<String> names() {
+            return byName.keySet();
         }
     }
 
@@ -182,11 +292,18 @@ public final class SpAnimationParser {
         private final float lengthSec;
         private final boolean loop;
         private final Map<String, BoneTrack> bones;
+        private final Map<String, Map<String, PropertyTrack>> properties;
 
         public AnimationClip(float lengthSec, boolean loop, Map<String, BoneTrack> bones) {
+            this(lengthSec, loop, bones, Map.of());
+        }
+
+        public AnimationClip(float lengthSec, boolean loop, Map<String, BoneTrack> bones,
+                             Map<String, Map<String, PropertyTrack>> properties) {
             this.lengthSec = lengthSec;
             this.loop = loop;
             this.bones = bones;
+            this.properties = properties == null ? Map.of() : properties;
         }
 
         public float getLengthSec() {
@@ -195,6 +312,16 @@ public final class SpAnimationParser {
 
         public boolean isLoop() {
             return loop;
+        }
+
+        /** Bone name -> track; also used by the GUI animator (bone name = widget id). */
+        public Map<String, BoneTrack> bones() {
+            return bones;
+        }
+
+        /** Scene node id -> inspector property id -> sampled channel. */
+        public Map<String, Map<String, PropertyTrack>> properties() {
+            return properties;
         }
 
         public void apply(SpModelInstance instance, float elapsedSec, float weight) {
@@ -218,24 +345,23 @@ public final class SpAnimationParser {
                 BoneTrack track = boneEntry.getValue();
 
                 if (!track.rotation.isEmpty()) {
-                    SpVec3 dst = instance.boneAnimRotation.get(boneEntry.getKey());
+                    SpVec3 dst = instance.animRotation(boneEntry.getKey());
                     if (dst != null) {
                         track.rotation.sample(t, sampled);
-                        float tx = sampled.x;
-                        float ty = -sampled.y;
-                        float tz = -sampled.z;
+                        // File Euler as authored in Blockbench. Axis conversion lives in
+                        // SpModelInstance (conjugation for per-vertex X flip).
                         if (additive) {
-                            dst.add(tx * weight, ty * weight, tz * weight);
+                            dst.add(sampled.x * weight, sampled.y * weight, sampled.z * weight);
                         } else {
-                            dst.x = lerp(dst.x, tx, weight);
-                            dst.y = lerp(dst.y, ty, weight);
-                            dst.z = lerp(dst.z, tz, weight);
+                            dst.x = lerp(dst.x, sampled.x, weight);
+                            dst.y = lerp(dst.y, sampled.y, weight);
+                            dst.z = lerp(dst.z, sampled.z, weight);
                         }
                     }
                 }
 
                 if (!track.position.isEmpty()) {
-                    SpVec3 dst = instance.boneAnimPosition.get(boneEntry.getKey());
+                    SpVec3 dst = instance.animPosition(boneEntry.getKey());
                     if (dst != null) {
                         track.position.sample(t, sampled);
                         if (additive) {
@@ -249,9 +375,11 @@ public final class SpAnimationParser {
                 }
 
                 if (!track.scale.isEmpty()) {
-                    SpVec3 dst = instance.boneAnimScale.get(boneEntry.getKey());
+                    SpVec3 dst = instance.animScale(boneEntry.getKey());
                     if (dst != null) {
                         track.scale.sample(t, sampled);
+                        // Absolute clips stacked additively can go negative and mirror/stretch (e.g. eyes).
+                        // Zero is allowed (blink). Negative is not.
                         if (additive) {
                             dst.x += (sampled.x - 1f) * weight;
                             dst.y += (sampled.y - 1f) * weight;
@@ -261,6 +389,9 @@ public final class SpAnimationParser {
                             dst.y = lerp(dst.y, sampled.y, weight);
                             dst.z = lerp(dst.z, sampled.z, weight);
                         }
+                        if (dst.x < 0f) dst.x = 0f;
+                        if (dst.y < 0f) dst.y = 0f;
+                        if (dst.z < 0f) dst.z = 0f;
                     }
                 }
             }
@@ -282,6 +413,76 @@ public final class SpAnimationParser {
         }
     }
 
+    public record PropertyKeyframe(float time, JsonElement value, int lerpMode) {}
+
+    public static final class PropertyTrack {
+        private final String type;
+        private final List<PropertyKeyframe> frames;
+
+        public PropertyTrack(String type, List<PropertyKeyframe> frames) {
+            this.type = type == null ? "number" : type;
+            this.frames = frames == null ? List.of() : List.copyOf(frames);
+        }
+
+        public String type() { return type; }
+        public boolean isEmpty() { return frames.isEmpty(); }
+
+        /** Numbers interpolate; booleans, strings, enums and resources step. */
+        public JsonElement sample(float time) {
+            if (frames.isEmpty()) return null;
+            PropertyKeyframe floor = frames.get(0);
+            PropertyKeyframe ceil = floor;
+            for (PropertyKeyframe frame : frames) {
+                if (frame.time() <= time) floor = frame;
+                if (frame.time() >= time) {
+                    ceil = frame;
+                    break;
+                }
+                ceil = frame;
+            }
+            if (floor == ceil || floor.lerpMode() == Keyframe.LERP_STEP
+                    || !floor.value().isJsonPrimitive() || !ceil.value().isJsonPrimitive()) {
+                return floor.value().deepCopy();
+            }
+            float span = ceil.time() - floor.time();
+            if (span <= 0.000001f) return floor.value().deepCopy();
+            double alpha = (time - floor.time()) / span;
+            if ("color".equalsIgnoreCase(type)
+                    && floor.value().getAsJsonPrimitive().isString()
+                    && ceil.value().getAsJsonPrimitive().isString()) {
+                String mixed = interpolateColor(floor.value().getAsString(), ceil.value().getAsString(), alpha);
+                if (mixed != null) return new com.google.gson.JsonPrimitive(mixed);
+            }
+            if (!floor.value().getAsJsonPrimitive().isNumber()
+                    || !ceil.value().getAsJsonPrimitive().isNumber()) {
+                return floor.value().deepCopy();
+            }
+            double a = floor.value().getAsDouble();
+            double b = ceil.value().getAsDouble();
+            return new com.google.gson.JsonPrimitive(a + (b - a) * alpha);
+        }
+
+        private static String interpolateColor(String a, String b, double alpha) {
+            try {
+                String ah = a.replace("#", "");
+                String bh = b.replace("#", "");
+                long ca = Long.parseLong(ah, 16);
+                long cb = Long.parseLong(bh, 16);
+                if (ah.length() <= 6) ca |= 0xFF000000L;
+                if (bh.length() <= 6) cb |= 0xFF000000L;
+                int out = 0;
+                for (int shift = 0; shift <= 24; shift += 8) {
+                    int av = (int) ((ca >> shift) & 0xFF);
+                    int bv = (int) ((cb >> shift) & 0xFF);
+                    out |= (int) Math.round(av + (bv - av) * alpha) << shift;
+                }
+                return String.format(Locale.ROOT, "#%08X", out);
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
+    }
+
     public static final class BoneTrack {
         private final KeyframeTrack rotation;
         private final KeyframeTrack position;
@@ -292,25 +493,33 @@ public final class SpAnimationParser {
             this.position = position;
             this.scale = scale != null ? scale : KeyframeTrack.EMPTY;
         }
+
+        public KeyframeTrack rotation() { return rotation; }
+        public KeyframeTrack position() { return position; }
+        public KeyframeTrack scale() { return scale; }
     }
 
     public static final class KeyframeTrack {
         private static final KeyframeTrack EMPTY = new KeyframeTrack(List.of());
         private final float[] times;
         private final SpVec3[] values;
+        private final int[] lerpModes;
 
         public KeyframeTrack(List<Keyframe> keyframes) {
             if (keyframes == null || keyframes.isEmpty()) {
                 this.times = new float[0];
                 this.values = new SpVec3[0];
+                this.lerpModes = new int[0];
                 return;
             }
             this.times = new float[keyframes.size()];
             this.values = new SpVec3[keyframes.size()];
+            this.lerpModes = new int[keyframes.size()];
             for (int i = 0; i < keyframes.size(); i++) {
                 Keyframe kf = keyframes.get(i);
                 this.times[i] = kf.time;
                 this.values[i] = kf.value;
+                this.lerpModes[i] = kf.lerpMode;
             }
         }
 
@@ -344,21 +553,59 @@ public final class SpAnimationParser {
             SpVec3 v0 = values[idx];
             SpVec3 v1 = values[idx + 1];
             float alpha = (t - t0) / (t1 - t0);
+
+            // Step: hold the left keyframe value for the whole segment.
+            if (lerpModes[idx] == Keyframe.LERP_STEP) {
+                out.set(v0);
+                return;
+            }
+
+            // Catmull-Rom (Blockbench "smooth"): spline through neighbouring keys.
+            if (lerpModes[idx] == Keyframe.LERP_CATMULLROM || lerpModes[idx + 1] == Keyframe.LERP_CATMULLROM) {
+                SpVec3 p0 = values[Math.max(0, idx - 1)];
+                SpVec3 p3 = values[Math.min(last, idx + 2)];
+                out.set(
+                    catmullRom(alpha, p0.x, v0.x, v1.x, p3.x),
+                    catmullRom(alpha, p0.y, v0.y, v1.y, p3.y),
+                    catmullRom(alpha, p0.z, v0.z, v1.z, p3.z)
+                );
+                return;
+            }
+
             out.set(
                 v0.x + (v1.x - v0.x) * alpha,
                 v0.y + (v1.y - v0.y) * alpha,
                 v0.z + (v1.z - v0.z) * alpha
             );
         }
+
+        private static float catmullRom(float t, float p0, float p1, float p2, float p3) {
+            float t2 = t * t;
+            float t3 = t2 * t;
+            return 0.5f * ((2f * p1)
+                    + (-p0 + p2) * t
+                    + (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2
+                    + (-p0 + 3f * p1 - 3f * p2 + p3) * t3);
+        }
     }
 
     public static final class Keyframe {
+        public static final int LERP_LINEAR = 0;
+        public static final int LERP_CATMULLROM = 1;
+        public static final int LERP_STEP = 2;
+
         private final float time;
         private final SpVec3 value;
+        private final int lerpMode;
 
         public Keyframe(float time, SpVec3 value) {
+            this(time, value, LERP_LINEAR);
+        }
+
+        public Keyframe(float time, SpVec3 value, int lerpMode) {
             this.time = time;
             this.value = value;
+            this.lerpMode = lerpMode;
         }
     }
 }

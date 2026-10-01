@@ -18,13 +18,14 @@ public class ScriptManagementFunctions {
         public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
             if (args.isEmpty()) return false;
             String scriptName = String.valueOf(args.get(0));
-            Map<String, Object> initialVars = null;
+            Map<String, Object> vars = new java.util.HashMap<>();
             if (args.size() > 1 && args.get(1) instanceof Map<?, ?> map) {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> castMap = (Map<String, Object>) map;
-                initialVars = castMap;
+                vars.putAll(castMap);
             }
-            return ScriptManager.getInstance().run(scriptName, source, initialVars);
+            ScriptManager.seedInheritedSceneContext(vars);
+            return ScriptManager.getInstance().run(scriptName, source, vars);
         }
     }
 

@@ -1,0 +1,8 @@
+#\ block: dict_remove
+#\ category: Словари
+#\ color: #ec4899
+#\ shape: statement
+#\
+#\ input: dict (type: value) "из словаря"
+#\ row: "удалить ключ" (key: text: ключ)
+#\ template: dictRemove({dict}, "{key}")

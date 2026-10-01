@@ -1,0 +1,31 @@
+#\ block: assets_allowed
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "игрок разрешил загрузку ресурсов?" [who: dropdown(из события: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\
+#\ if who == "event":
+#\   template: assetsAllowed(_eventPlayer)
+#\ if who == "first":
+#\   template: assetsAllowed(getFirstPlayer())
+#\ if who == "custom":
+#\   template: assetsAllowed({player})
+
+#\ block: assets_ready
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "игрок загрузил ресурсы?" [who: dropdown(из события: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\
+#\ if who == "event":
+#\   template: assetsReady(_eventPlayer)
+#\ if who == "first":
+#\   template: assetsReady(getFirstPlayer())
+#\ if who == "custom":
+#\   template: assetsReady({player})

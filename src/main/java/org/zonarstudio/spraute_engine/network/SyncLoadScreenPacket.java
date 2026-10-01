@@ -81,11 +81,7 @@ public class SyncLoadScreenPacket {
                     LoadScreenOverlay.triggerLogin();
                 }
             } else {
-                if (msg.props != null && Boolean.TRUE.equals(msg.props.get("triggerFadeOut"))) {
-                    LoadScreenOverlay.triggerFadeOut();
-                } else {
-                    LoadScreenOverlay.triggerFadeIn(msg.props);
-                }
+                LoadScreenOverlay.triggerFadeIn(msg.props);
             }
         });
         ctx.get().setPacketHandled(true);

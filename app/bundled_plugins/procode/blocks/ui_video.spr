@@ -1,0 +1,99 @@
+#\ block: ui_video_play
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "запустить видео UI"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: intro_video)
+#\ template: uiVideoPlay({player}, "{widget}")
+
+#\ block: ui_video_resume
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "продолжить видео UI"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: intro_video)
+#\ template: uiVideoPlay({player}, "{widget}")
+
+#\ block: ui_video_pause
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "поставить видео UI на паузу"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: intro_video)
+#\ template: uiVideoPause({player}, "{widget}")
+
+#\ block: ui_video_stop
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "остановить видео UI"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: intro_video)
+#\ template: uiVideoStop({player}, "{widget}")
+
+#\ block: ui_video_restart
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "воспроизвести видео UI заново"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: intro_video)
+#\ template: uiVideoRestart({player}, "{widget}")
+
+#\ block: ui_video_enable
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "плеер видео UI"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: intro_video) [enabled: dropdown(включить: true, отключить: false)]
+#\ template: uiVideoEnable({player}, "{widget}", {enabled})
+
+#\ block: ui_video_time
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: value
+#\
+#\ row: "секунда видео" (widget: text: intro_video)
+#\ row: "у игрока"
+#\ input: player (type: value)
+#\ template: uiVideoTime({player}, "{widget}")
+
+#\ block: ui_video_duration
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: value
+#\
+#\ row: "длительность видео" (widget: text: intro_video)
+#\ row: "у игрока"
+#\ input: player (type: value)
+#\ template: uiVideoDuration({player}, "{widget}")
+
+#\ block: ui_video_playing
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: value
+#\
+#\ row: "видео" (widget: text: intro_video) "играет?"
+#\ row: "у игрока"
+#\ input: player (type: value)
+#\ template: uiVideoPlaying({player}, "{widget}")
+
+#\ block: ui_video_ended
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: value
+#\
+#\ row: "видео" (widget: text: intro_video) "закончилось?"
+#\ row: "у игрока"
+#\ input: player (type: value)
+#\ template: uiVideoEnded({player}, "{widget}")

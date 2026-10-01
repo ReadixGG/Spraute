@@ -1,0 +1,8 @@
+#\ block: camera_screen_raycast
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "рейкаст в центр экрана" input: player (type: value)
+#\ row: [enabled: dropdown(да: true, нет: false)]
+#\ template: {player}.camera.screenRaycast = {enabled}

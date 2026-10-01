@@ -53,12 +53,21 @@ public class FadeInFunction implements ScriptFunction {
                 }
             }
         }
+        putCurrentSceneId(props);
 
         ModNetwork.CHANNEL.send(
                 PacketDistributor.PLAYER.with(() -> player),
                 new SyncLoadScreenPacket(props)
         );
         return null;
+    }
+
+    static void putCurrentSceneId(Map<String, Object> props) {
+        if (props == null || props.containsKey("sceneId") || props.containsKey("scene")) return;
+        var state = org.zonarstudio.spraute_engine.script.ScriptExecutor.currentSceneState();
+        if (state != null && state.sceneId != null && !state.sceneId.isBlank()) {
+            props.put("sceneId", state.sceneId);
+        }
     }
 
     private static ServerPlayer resolvePlayer(List<Object> args, CommandSourceStack source) {

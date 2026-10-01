@@ -9,5 +9,5 @@
 #\ if target == "no":
 #\   template: await action({player}, "{action}")
 #\ if target == "yes":
-#\   row: "цель (предмет/блок)" (targetId: text: minecraft:bread)
+#\   row: "цель (предмет/блок)" (targetId: item: minecraft:bread)
 #\   template: await action({player}, "{action}", "{targetId}")

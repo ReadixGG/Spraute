@@ -1,0 +1,16 @@
+#\ block: economy_update_coins
+#\ category: Экономика
+#\ color: #eab308
+#\ shape: statement
+#\ write_start: import("economy")
+#\
+#\ row: "обновить счётчик монет"
+#\ row: "игрок" [who: dropdown(кликнувший: event, первый: first, указать: custom)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ if who == "event":
+#\   template: ecoUpdateCoinsHud(_eventPlayer)
+#\ if who == "first":
+#\   template: ecoUpdateCoinsHud(getFirstPlayer())
+#\ if who == "custom":
+#\   template: ecoUpdateCoinsHud({player})

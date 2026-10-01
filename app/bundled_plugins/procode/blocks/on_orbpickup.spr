@@ -1,0 +1,15 @@
+#\ block: on_orbpickup
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда подобран орб" [filter: dropdown(любой: any, у игрока: player, по текстуре: tex)] "→" (handler: text: h_orb)
+#\ if filter == "any":
+#\   template: on orbPickup() -> {handler} {\n{DO}}
+#\ if filter == "player":
+#\   input: player (type: value)
+#\   template: on orbPickup({player}) -> {handler} {\n{DO}}
+#\ if filter == "tex":
+#\   input: player (type: value)
+#\   row: "текстура" (texture: texture: minecraft:textures/item/diamond.png)
+#\   template: on orbPickup({player}, "{texture}") -> {handler} {\n{DO}}

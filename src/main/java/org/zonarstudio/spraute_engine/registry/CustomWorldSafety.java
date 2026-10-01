@@ -2,6 +2,8 @@ package org.zonarstudio.spraute_engine.registry;
 
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtIo;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -11,6 +13,8 @@ import net.minecraft.world.level.storage.LevelResource;
 import org.slf4j.Logger;
 import org.zonarstudio.spraute_engine.Spraute_engine;
 
+import java.io.BufferedInputStream;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
@@ -20,6 +24,7 @@ import java.util.Set;
 public final class CustomWorldSafety {
 
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static final String DIM_NS_PREFIX = Spraute_engine.MODID + ":";
 
     private CustomWorldSafety() {}
 
@@ -61,9 +66,33 @@ public final class CustomWorldSafety {
         Set<String> found = new HashSet<>();
         if (worldSaveRoot == null || !Files.isDirectory(worldSaveRoot)) return found;
 
-        Path dimDir = worldSaveRoot.resolve("DIM-1");
-        if (!Files.isDirectory(dimDir)) return found;
+        CustomWorldRegistry.ensureParsed();
+        scanModernDimensionFolders(worldSaveRoot, found);
+        scanLegacyDimFolders(worldSaveRoot, found);
+        scanLevelDatWorldGenSettings(worldSaveRoot, found);
+        found.removeIf(id -> id == null || id.isEmpty() || CustomWorldRegistry.hasWorld(id));
+        return found;
+    }
 
+    /** 1.16+ custom dims: {@code dimensions/<modid>/<worldId>/}. */
+    private static void scanModernDimensionFolders(Path worldSaveRoot, Set<String> found) {
+        Path dimsRoot = worldSaveRoot.resolve("dimensions").resolve(Spraute_engine.MODID);
+        if (!Files.isDirectory(dimsRoot)) return;
+        try (var stream = Files.newDirectoryStream(dimsRoot)) {
+            for (Path entry : stream) {
+                if (!Files.isDirectory(entry)) continue;
+                String worldId = entry.getFileName().toString();
+                if (!worldId.isEmpty()) found.add(worldId);
+            }
+        } catch (Exception e) {
+            LOGGER.warn("[Spraute Engine] Failed to scan orphan dimensions in {}: {}", dimsRoot, e.getMessage());
+        }
+    }
+
+    /** Legacy Forge layout: {@code DIM-1/<modid>$<worldId>/}. */
+    private static void scanLegacyDimFolders(Path worldSaveRoot, Set<String> found) {
+        Path dimDir = worldSaveRoot.resolve("DIM-1");
+        if (!Files.isDirectory(dimDir)) return;
         String prefix = Spraute_engine.MODID + "$";
         try (var stream = Files.newDirectoryStream(dimDir)) {
             for (Path entry : stream) {
@@ -71,14 +100,38 @@ public final class CustomWorldSafety {
                 String name = entry.getFileName().toString();
                 if (!name.startsWith(prefix)) continue;
                 String worldId = name.substring(prefix.length());
-                if (!worldId.isEmpty() && !CustomWorldRegistry.hasWorld(worldId)) {
-                    found.add(worldId);
-                }
+                if (!worldId.isEmpty()) found.add(worldId);
             }
         } catch (Exception e) {
             LOGGER.warn("[Spraute Engine] Failed to scan orphan dimensions in {}: {}", dimDir, e.getMessage());
         }
-        return found;
+    }
+
+    /**
+     * Worlds that never visited a custom dim still store it in {@code level.dat} WorldGenSettings.
+     * Without this, missing {@code create world} scripts break world load (lobby_type not found).
+     */
+    private static void scanLevelDatWorldGenSettings(Path worldSaveRoot, Set<String> found) {
+        Path levelDat = worldSaveRoot.resolve("level.dat");
+        if (!Files.isRegularFile(levelDat)) return;
+        try (InputStream in = new BufferedInputStream(Files.newInputStream(levelDat))) {
+            CompoundTag root = NbtIo.readCompressed(in);
+            CompoundTag data = root.getCompound("Data");
+            if (!data.contains("WorldGenSettings")) return;
+            CompoundTag wgs = data.getCompound("WorldGenSettings");
+            if (!wgs.contains("dimensions")) return;
+            CompoundTag dims = wgs.getCompound("dimensions");
+            for (String key : dims.getAllKeys()) {
+                if (key == null || !key.startsWith(DIM_NS_PREFIX)) continue;
+                String worldId = key.substring(DIM_NS_PREFIX.length());
+                if (!worldId.isEmpty() && !worldId.contains("/")) {
+                    found.add(worldId);
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.warn("[Spraute Engine] Failed to scan level.dat for orphan dimensions in {}: {}",
+                    worldSaveRoot.getFileName(), e.getMessage());
+        }
     }
 
     public static void refreshOrphansFromSaves(Path gameDir) {

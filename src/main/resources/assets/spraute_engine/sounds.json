@@ -1,0 +1,11 @@
+{
+  "ui_video": {
+    "category": "master",
+    "sounds": [
+      {
+        "name": "minecraft:music/menu/menu1",
+        "stream": true
+      }
+    ]
+  }
+}

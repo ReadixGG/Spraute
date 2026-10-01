@@ -1,0 +1,310 @@
+# ================================================================
+#  Clothing — нода одежды (как HpBar / нода «Предмет»)
+#  import("clothing")
+#
+#  1. В сцену: SCRIPT-нода script = clothing (запуск со сценой)
+#     или startScript("clothing").
+#  2. Hierarchy → Одежда → нода «Одежда».
+#  3. id ноды = id предмета (spraute_engine:hat1). Иконка, имя и слот
+#     регистрируются как create item (нужен перезапуск MC).
+#  4. overlay — скин 64×64, когда предмет надет в слот брони.
+#     hide_layer — какой 2 слой оригинального скина прятать
+#     (torso = куртка + рукава).
+#     armor_model — ванильная 3D-модель брони на теле (по умолчанию выкл).
+#
+#  Код = нода:
+#    create clothing hat1 {
+#        name = "Шляпа"
+#        texture = "textures/item/hat.png"
+#        overlay = "textures/skins/hat.png"
+#        slot = "helmet"
+#        hide_layer = "auto"
+#        armor_model = false
+#    }
+# ================================================================
+
+declare section Одежда
+
+declare node type clothing {
+    section = "Одежда"
+    label = "Одежда"
+    icon = "item"
+    creates = item
+
+    field enabled bool {
+        label = "Включено"
+        default = true
+    }
+
+    field name text {
+        label = "Имя предмета"
+        default = ""
+    }
+
+    field texture texture {
+        label = "Иконка предмета"
+        default = ""
+    }
+
+    field overlay texture {
+        label = "Текстура наложения (скин 64×64)"
+        default = ""
+    }
+
+    field slot dropdown(шлем: helmet, нагрудник: chestplate, поножи: leggings, ботинки: boots) {
+        label = "Слот брони"
+        default = "helmet"
+    }
+
+    field hide_layer dropdown(авто по слоту: auto, не убирать: none, шапка: hat, торс: torso, куртка: jacket, рукава: sleeves, штаны: pants) {
+        label = "Второй слой ориг. скина"
+        default = "auto"
+    }
+
+    field armor_model bool {
+        label = "Ванильная модель брони"
+        default = false
+    }
+}
+
+fun clothesNodeGet(node, key) {
+    if (node == null) { return null }
+    var data = node.data
+    if (data != null) {
+        var v = data[key]
+        if (v != null) { return v }
+    }
+    return null
+}
+
+fun clothesIsNode(node) {
+    if (node == null) { return false }
+    var t = node.typeId
+    if (t == null) { t = node.customType }
+    if (t == null) { t = node.custom_type }
+    if (t == "clothing") { return true }
+    return false
+}
+
+fun clothesEnabled(node) {
+    var v = clothesNodeGet(node, "enabled")
+    if (v == null) { return true }
+    if (v == false) { return false }
+    return true
+}
+
+fun clothesCollectFrom(nodes, out) {
+    if (nodes == null) { return }
+    var i = 0
+    var ncount = listSize(nodes)
+    while (i < ncount) {
+        var n = nodes[i]
+        if (clothesIsNode(n)) {
+            if (clothesEnabled(n)) { listAdd(out, n) }
+        }
+        i = i + 1
+    }
+}
+
+fun clothesFindAll() {
+    var out = list()
+    var scenes = sceneListLoaded()
+    if (scenes != null) {
+        var s = 0
+        var scount = listSize(scenes)
+        while (s < scount) {
+            clothesCollectFrom(sceneListNodes(scenes[s]), out)
+            s = s + 1
+        }
+    }
+    if (listSize(out) == 0) {
+        clothesCollectFrom(sceneListNodes(), out)
+    }
+    return out
+}
+
+fun clothesSlotIndex(slot) {
+    if (slot == "helmet") { return 39 }
+    if (slot == "head") { return 39 }
+    if (slot == "chestplate") { return 38 }
+    if (slot == "chest") { return 38 }
+    if (slot == "body") { return 38 }
+    if (slot == "leggings") { return 37 }
+    if (slot == "legs") { return 37 }
+    if (slot == "boots") { return 36 }
+    if (slot == "feet") { return 36 }
+    return 39
+}
+
+fun clothesAutoHide(slot) {
+    if (slot == "helmet") { return "hat" }
+    if (slot == "head") { return "hat" }
+    if (slot == "chestplate") { return "torso" }
+    if (slot == "chest") { return "torso" }
+    if (slot == "body") { return "torso" }
+    if (slot == "leggings") { return "pants" }
+    if (slot == "legs") { return "pants" }
+    return "none"
+}
+
+fun clothesResolveHide(node) {
+    var slot = clothesNodeGet(node, "slot")
+    if (slot == null) { slot = "helmet" }
+    if (slot == "") { slot = "helmet" }
+    var hide = clothesNodeGet(node, "hide_layer")
+    if (hide == null) { hide = "auto" }
+    if (hide == "") { hide = "auto" }
+    if (hide == "auto") { return clothesAutoHide(slot) }
+    return hide
+}
+
+fun clothesOvId(node) {
+    var id = node.id
+    if (id == null) { id = "item" }
+    if (id == "") { id = "item" }
+    return "clothes_" + id
+}
+
+fun clothesItemId(node) {
+    var id = node.id
+    if (id == null) { return "" }
+    if (id == "") { return "" }
+    return id
+}
+
+fun clothesWornNow(p, node) {
+    if (p == null) { return false }
+    if (node == null) { return false }
+    var itemId = clothesItemId(node)
+    if (itemId == "") { return false }
+    var slot = clothesNodeGet(node, "slot")
+    if (slot == null) { slot = "helmet" }
+    if (slot == "") { slot = "helmet" }
+    var slotIdx = clothesSlotIndex(slot)
+    if (hasItemInSlot(p, slotIdx, itemId)) { return true }
+    if (hasItemInSlot(p, slotIdx, "spraute_engine:" + itemId)) { return true }
+    return false
+}
+
+fun clothesWorn(p, nodeId) {
+    if (p == null) { return false }
+    if (nodeId == null) { return false }
+    var nodes = clothesFindAll()
+    var i = 0
+    var ncount = listSize(nodes)
+    while (i < ncount) {
+        var n = nodes[i]
+        if (n.id == nodeId) { return clothesWornNow(p, n) }
+        i = i + 1
+    }
+    return false
+}
+
+fun clothingWorn(p, nodeId) {
+    return clothesWorn(p, nodeId)
+}
+
+fun clothesSetOverlay(p, node, worn) {
+    if (p == null) { return }
+    var ovId = clothesOvId(node)
+    var tex = clothesNodeGet(node, "overlay")
+    if (tex == null) { tex = "" }
+    var name = clothesNodeGet(node, "name")
+    if (name == null) { name = "" }
+    if (worn) {
+        if (tex == "") { return }
+        var ov = p.addOverlay(ovId, tex)
+        if (ov != null) {
+            ov.active = true
+            ov.texture = tex
+            if (name != "") { ov.name = name }
+        }
+    } else {
+        var ov = p.overlay(ovId)
+        if (ov == null) { return }
+        ov.active = false
+    }
+}
+
+fun clothesUsesLayer(nodes, layer) {
+    var i = 0
+    var ncount = listSize(nodes)
+    while (i < ncount) {
+        var hide = clothesResolveHide(nodes[i])
+        if (hide == layer) { return true }
+        if (hide == "torso") {
+            if (layer == "jacket") { return true }
+            if (layer == "sleeves") { return true }
+        }
+        i = i + 1
+    }
+    return false
+}
+
+fun clothesSetLayer(p, nodes, layer, hidden) {
+    if (p == null) { return }
+    if (!clothesUsesLayer(nodes, layer)) { return }
+    if (hidden) { p.hideSkinLayer(layer) } else { p.showSkinLayer(layer) }
+}
+
+fun clothesApplyPlayer(p) {
+    if (p == null) { return }
+    var nodes = clothesFindAll()
+    var hat = false
+    var jacket = false
+    var sleeves = false
+    var pants = false
+    var i = 0
+    var ncount = listSize(nodes)
+    while (i < ncount) {
+        var n = nodes[i]
+        var worn = clothesWornNow(p, n)
+        clothesSetOverlay(p, n, worn)
+        if (worn) {
+            var hide = clothesResolveHide(n)
+            if (hide == "hat") { hat = true }
+            if (hide == "jacket") { jacket = true }
+            if (hide == "sleeves") { sleeves = true }
+            if (hide == "torso") { jacket = true; sleeves = true }
+            if (hide == "pants") { pants = true }
+        }
+        i = i + 1
+    }
+    clothesSetLayer(p, nodes, "hat", hat)
+    clothesSetLayer(p, nodes, "jacket", jacket)
+    clothesSetLayer(p, nodes, "sleeves", sleeves)
+    clothesSetLayer(p, nodes, "pants", pants)
+}
+
+fun clothesClearPlayer(p) {
+    if (p == null) { return }
+    var nodes = clothesFindAll()
+    var i = 0
+    var ncount = listSize(nodes)
+    while (i < ncount) {
+        clothesSetOverlay(p, nodes[i], false)
+        i = i + 1
+    }
+    clothesSetLayer(p, nodes, "hat", false)
+    clothesSetLayer(p, nodes, "jacket", false)
+    clothesSetLayer(p, nodes, "sleeves", false)
+    clothesSetLayer(p, nodes, "pants", false)
+}
+
+fun clothesApplyAll() {
+    for (p in getPlayers()) {
+        clothesApplyPlayer(p)
+    }
+}
+
+on join() -> clothes_join {
+    clothesApplyPlayer(_eventPlayer)
+}
+
+on leave() -> clothes_leave {
+    clothesClearPlayer(_eventPlayer)
+}
+
+every(0.15) -> clothes_tick {
+    clothesApplyAll()
+}

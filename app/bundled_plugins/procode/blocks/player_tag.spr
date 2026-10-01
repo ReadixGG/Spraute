@@ -1,0 +1,12 @@
+#\ block: player_tag
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "тег игрока" [action: dropdown(добавить: add, убрать: remove)]
+#\ input: player (type: value)
+#\ row: "тег" (tag: text: vip)
+#\ if action == "add":
+#\   template: addPlayerTag({player}, "{tag}")
+#\ if action == "remove":
+#\   template: removePlayerTag({player}, "{tag}")

@@ -57,6 +57,12 @@ export const WIDGET_DEFS = {
       subScale: { def: 0.65, kind: 'float' },
       slice_borders: { def: 0, kind: 'int' },
       slice_scale: { def: 1, kind: 'float' },
+      radius: { def: 0, kind: 'float' },
+      gradient: { def: '', kind: 'color' },
+      gradientDir: { def: 'v', kind: 'enum', options: ['v', 'h'] },
+      border: { def: 0, kind: 'float' },
+      borderColor: { def: '', kind: 'color' },
+      shadow: { def: 0, kind: 'float' },
       tooltip: { def: '', kind: 'str' },
     },
     events: ['onClick'],
@@ -80,6 +86,12 @@ export const WIDGET_DEFS = {
     defaults: { w: 32, h: 32 },
     props: {
       color: { def: '#FFFFFFFF', kind: 'color' },
+      radius: { def: 0, kind: 'float' },
+      gradient: { def: '', kind: 'color' },
+      gradientDir: { def: 'v', kind: 'enum', options: ['v', 'h'] },
+      border: { def: 0, kind: 'float' },
+      borderColor: { def: '', kind: 'color' },
+      shadow: { def: 0, kind: 'float' },
     },
   },
   panel: {
@@ -88,6 +100,12 @@ export const WIDGET_DEFS = {
     defaults: { w: 32, h: 32 },
     props: {
       color: { def: '#FFFFFFFF', kind: 'color' },
+      radius: { def: 0, kind: 'float' },
+      gradient: { def: '', kind: 'color' },
+      gradientDir: { def: 'v', kind: 'enum', options: ['v', 'h'] },
+      border: { def: 0, kind: 'float' },
+      borderColor: { def: '', kind: 'color' },
+      shadow: { def: 0, kind: 'float' },
     },
   },
   divider: {
@@ -124,6 +142,12 @@ export const WIDGET_DEFS = {
       scale: { def: 1, kind: 'float' },
       maxChars: { def: 32, kind: 'int' },
       inputType: { def: 'text', kind: 'enum', options: ['text', 'number'] },
+      radius: { def: 0, kind: 'float' },
+      gradient: { def: '', kind: 'color' },
+      gradientDir: { def: 'v', kind: 'enum', options: ['v', 'h'] },
+      border: { def: 0, kind: 'float' },
+      borderColor: { def: '', kind: 'color' },
+      shadow: { def: 0, kind: 'float' },
       tooltip: { def: '', kind: 'str' },
     },
   },
@@ -214,6 +238,12 @@ export const WIDGET_DEFS = {
       color: { def: '#00000000', kind: 'color' },
       scrollbar: { def: true, kind: 'bool' },
       autoScrollbar: { def: false, kind: 'bool' },
+      radius: { def: 0, kind: 'float' },
+      gradient: { def: '', kind: 'color' },
+      gradientDir: { def: 'v', kind: 'enum', options: ['v', 'h'] },
+      border: { def: 0, kind: 'float' },
+      borderColor: { def: '', kind: 'color' },
+      shadow: { def: 0, kind: 'float' },
     },
   },
 };
@@ -445,15 +475,33 @@ function isIdentifierLike(s) {
   return /^[a-zA-Z_][a-zA-Z0-9_.]*$/.test(String(s));
 }
 
+/** Свойство/цепочка: player.name, npc.displayName — без кавычек в create ui. */
+function isPropertyPath(s) {
+  return /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)+$/.test(String(s).trim());
+}
+
+/**
+ * Аргумент виджета: строка в кавычках, либо выражение.
+ * Явное выражение: префикс "=" (например =name_player + "?").
+ * Для text/button content и entity — также player.name / переменная без кавычек.
+ */
+export function formatWidgetArg(type, index, a) {
+  const s = String(a ?? '').trim();
+  if (s.startsWith('=')) {
+    const expr = s.slice(1).trim();
+    return expr || '""';
+  }
+  if (type === 'entity' && index === 0 && isIdentifierLike(s)) return s;
+  // text("id", player.name) / button("id", player.name)
+  if ((type === 'text' || type === 'button') && index === 1 && isPropertyPath(s)) return s;
+  return q(s);
+}
+
 function widgetLines(w, indent) {
   const def = WIDGET_DEFS[w.type];
   if (!def) return [];
   const pad = '    '.repeat(indent);
-  // entity(сущность, id): первый аргумент — выражение (переменная НИП/игрок), не строка
-  const args = w.args.map((a, i) => {
-    if (w.type === 'entity' && i === 0 && isIdentifierLike(a)) return String(a);
-    return q(a);
-  }).join(', ');
+  const args = w.args.map((a, i) => formatWidgetArg(w.type, i, a)).join(', ');
   const lines = [`${pad}${w.type}(${args}) {`];
   lines.push(`${pad}    pos = [${coordVal(w.pos[0])}, ${coordVal(w.pos[1])}]`);
   if (w.size && !def.defaults.noSize && w.type !== 'text') {

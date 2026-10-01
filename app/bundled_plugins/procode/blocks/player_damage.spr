@@ -1,0 +1,9 @@
+#\ block: player_damage
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "нанести урон"
+#\ input: target (type: value)
+#\ row: "урон" (amount: number: 1)
+#\ template: {target}.damage({amount})

@@ -14,7 +14,12 @@ import java.util.List;
 
 /**
  * ui_update(player, widget_id, field, value) — обновить свойство виджета на клиенте (S2C).
- * Поля: text, color, scale (text); label, color, hover, texture (button); color (rect); texture (image); scale, feet_crop, crop, anchor_x, anchor_y, viewport (entity).
+ * Поля: text, color, scale (text); label, color, hover, texture (button); color, fill, fillAmount, fillOrigin, cropShape (rect/panel);
+ * texture, src, cropShape, fill, fillAmount, fillOrigin (image); scale, feet_crop, crop, anchor_x, anchor_y, viewport (entity);
+ * feather, featherL/T/R/B, featherSmooth (clip / UI_CROP);
+ * axis, group, payload, constrain, revert, threshold, enabled (drag / drop).
+ * source, playerEnabled, playing, loop, action (video);
+ * source, color, stroke, strokeWidth, recolor (svg).
  */
 public class UiUpdateFunction implements ScriptFunction {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -31,7 +36,7 @@ public class UiUpdateFunction implements ScriptFunction {
 
     @Override
     public Class<?>[] getArgTypes() {
-        return new Class<?>[]{Object.class, String.class, String.class, String.class};
+        return new Class<?>[]{Object.class, Object.class, String.class, String.class};
     }
 
     @Override
@@ -42,13 +47,21 @@ public class UiUpdateFunction implements ScriptFunction {
             LOGGER.warn("[Script] ui_update: not a server player");
             return null;
         }
-        String widgetId = args.get(1) == null ? "" : String.valueOf(args.get(1));
+        String widgetId = widgetIdOf(args.get(1));
         String field = args.get(2) == null ? "" : String.valueOf(args.get(2));
         String value = args.get(3) == null ? "" : String.valueOf(args.get(3));
         if (widgetId.isEmpty()) return null;
         ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> sp),
                 new UpdateSprauteUiWidgetPacket(widgetId, field, value));
         return null;
+    }
+
+    /** UI-нода сцены отдаёт свой widget id (= идентификатор ноды), иначе — строка как есть. */
+    static String widgetIdOf(Object arg) {
+        if (arg instanceof org.zonarstudio.spraute_engine.scene.SceneNodeView view) {
+            return view.getNodeId();
+        }
+        return arg == null ? "" : String.valueOf(arg);
     }
 
     private static Player resolvePlayer(Object target, CommandSourceStack source) {

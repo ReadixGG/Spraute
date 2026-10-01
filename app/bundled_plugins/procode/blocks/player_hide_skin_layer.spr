@@ -1,0 +1,51 @@
+#\ block: player_hide_skin_layer
+#\ category: Игрок
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "скрыть 2 слой оригинального скина" input: player (type: value)
+#\ row: [part: dropdown(шапка: hat, куртка: jacket, левый рукав: left_sleeve, правый рукав: right_sleeve, оба рукава: sleeves, левая штанина: left_pants, правая штанина: right_pants, обе штанины: pants, плащ: cape, весь второй слой: all)]
+#\ template: {player}.hideSkinLayer("{part}")
+
+#\ block: player_show_skin_layer
+#\ category: Игрок
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "показать 2 слой оригинального скина" input: player (type: value)
+#\ row: [part: dropdown(шапка: hat, куртка: jacket, левый рукав: left_sleeve, правый рукав: right_sleeve, оба рукава: sleeves, левая штанина: left_pants, правая штанина: right_pants, обе штанины: pants, плащ: cape, весь второй слой: all)]
+#\ template: {player}.showSkinLayer("{part}")
+
+#\ block: player_reset_skin_layers
+#\ category: Игрок
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "вернуть 2 слой оригинального скина" input: player (type: value)
+#\ template: {player}.resetSkinLayers()
+
+#\ block: overlay_hide_skin_layer
+#\ category: Игрок
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "скрыть 2 слой наложения" input: overlay (type: value)
+#\ row: [part: dropdown(шапка: hat, куртка: jacket, левый рукав: left_sleeve, правый рукав: right_sleeve, оба рукава: sleeves, левая штанина: left_pants, правая штанина: right_pants, обе штанины: pants, весь второй слой: all)]
+#\ template: {overlay}.hideSkinLayer("{part}")
+
+#\ block: overlay_show_skin_layer
+#\ category: Игрок
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "показать 2 слой наложения" input: overlay (type: value)
+#\ row: [part: dropdown(шапка: hat, куртка: jacket, левый рукав: left_sleeve, правый рукав: right_sleeve, оба рукава: sleeves, левая штанина: left_pants, правая штанина: right_pants, обе штанины: pants, весь второй слой: all)]
+#\ template: {overlay}.showSkinLayer("{part}")
+
+#\ block: overlay_reset_skin_layers
+#\ category: Игрок
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "вернуть 2 слой наложения" input: overlay (type: value)
+#\ template: {overlay}.resetSkinLayers()

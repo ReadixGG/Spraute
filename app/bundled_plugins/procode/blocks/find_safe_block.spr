@@ -1,0 +1,17 @@
+#\ block: find_safe_block
+#\ category: Мир
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "безопасная позиция рядом с" [anchor: dropdown(игроком: player, кликнувшим: event, НИП: npc, указать: custom)]
+#\ row: "радиус" (radius: number: 32) "высота ±" (maxHeight: number: 3)
+#\ if anchor == "player":
+#\   template: findSafeBlock("player", {radius}, {maxHeight})
+#\ if anchor == "event":
+#\   template: findSafeBlock(_eventPlayer, {radius}, {maxHeight})
+#\ if anchor == "npc":
+#\   row: [npcId: dropdown_npc]
+#\   template: findSafeBlock({npcId}, {radius}, {maxHeight})
+#\ if anchor == "custom":
+#\   input: target (type: value)
+#\   template: findSafeBlock({target}, {radius}, {maxHeight})

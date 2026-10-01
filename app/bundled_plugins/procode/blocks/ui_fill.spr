@@ -1,0 +1,88 @@
+#\ block: ui_fill
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "заполнение UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: hp_bar)
+#\ row: [mode: dropdown(слева направо: ltr, справа налево: rtl, сверху вниз: ttb, снизу вверх: btt, по часовой: clockwise, против часовой: counterclockwise, выкл: none)]
+#\ if mode != "none":
+#\   row: "доля" input: amount (type: value)
+#\ if mode == "clockwise" or mode == "counterclockwise":
+#\   row: "начало" [origin: dropdown(снизу: bottom, справа: right, сверху: top, слева: left)]
+#\ if mode == "none":
+#\   template: uiUpdate({player}, "{widget}", "fill", "none")
+#\ if mode == "ltr" or mode == "rtl" or mode == "ttb" or mode == "btt":
+#\   template: uiUpdate({player}, "{widget}", "fill", "{mode}")\nuiUpdate({player}, "{widget}", "fillAmount", {amount})
+#\ if mode == "clockwise" or mode == "counterclockwise":
+#\   template: uiUpdate({player}, "{widget}", "fill", "{mode}")\nuiUpdate({player}, "{widget}", "fillAmount", {amount})\nuiUpdate({player}, "{widget}", "fillOrigin", "{origin}")
+
+#\ block: ui_crop_shape
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "форма кропа UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: hp_bar) [shape: dropdown(прямоугольник: rect, круг: circle)]
+#\ template: uiUpdate({player}, "{widget}", "cropShape", "{shape}")
+
+#\ block: ui_crop
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "кроп UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: icon)
+#\ row: "U" (u: number: 0) "V" (v: number: 0) "W" (w: number: 32) "H" (h: number: 32)
+#\ template: uiUpdate({player}, "{widget}", "src", "{u},{v},{w},{h}")
+
+#\ block: ui_crop_feather
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "размыть края кропа UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: crop)
+#\ row: "радиус" (radius: number: 16) "px"
+#\ row: [curve: dropdown(плавная: true, линейная: false)]
+#\ row: "слева" (left: number: 1) "сверху" (top: number: 1)
+#\ row: "справа" (right: number: 1) "снизу" (bottom: number: 1)
+#\ template: uiUpdate({player}, "{widget}", "feather", {radius})\nuiUpdate({player}, "{widget}", "featherSmooth", "{curve}")\nuiUpdate({player}, "{widget}", "featherL", {left})\nuiUpdate({player}, "{widget}", "featherT", {top})\nuiUpdate({player}, "{widget}", "featherR", {right})\nuiUpdate({player}, "{widget}", "featherB", {bottom})
+
+#\ block: ui_drag_set
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "настроить drag UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: card)
+#\ row: [enabled: dropdown(можно тащить: true, нельзя: false)] [axis: dropdown(X и Y: xy, только X: x, только Y: y)]
+#\ row: "группа" (group: text) "payload" (payload: text)
+#\ template: uiUpdate({player}, "{widget}", "enabled", "{enabled}")\nuiUpdate({player}, "{widget}", "axis", "{axis}")\nuiUpdate({player}, "{widget}", "group", "{group}")\nuiUpdate({player}, "{widget}", "payload", "{payload}")
+
+#\ block: ui_drop_set
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "настроить drop UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: slot)
+#\ row: [enabled: dropdown(принимает: true, выкл: false)] "группа" (group: text)
+#\ template: uiUpdate({player}, "{widget}", "enabled", "{enabled}")\nuiUpdate({player}, "{widget}", "group", "{group}")
+
+#\ block: ui_animate_fill
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "анимировать заполнение UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: hp_bar)
+#\ row: "к значению" input: target (type: value) "за" (duration: number: 0.3) "сек" [easing: dropdown(линейно: linear, плавно: easeInOut, в конце: easeOut, в начале: easeIn)]
+#\ template: uiAnimate({player}, "{widget}", "fillAmount", {target}, {duration}, "{easing}")

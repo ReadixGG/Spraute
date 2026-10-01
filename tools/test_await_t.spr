@@ -1,0 +1,3 @@
+﻿async "x" {
+    await 1t
+}

@@ -1,0 +1,224 @@
+#\ block: hitbox_create
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "создать хитбокс" (id: text: zone)
+#\ row: "id ноды (опц.)" (nodeId: text: )
+#\ row: "родитель" (parent: text: )
+#\ row: "шир." (width: number: 1) "выс." (height: number: 1) "глуб." (depth: number: 1)
+#\ row: "позиция" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ row: "твёрдый" [solid: dropdown(да: true, нет: false)] "триггер" [trigger: dropdown(да: true, нет: false)]
+#\ row: "id триггера" (triggerId: text: )
+#\
+#\ code: var id = String(_getVal('id') || '').trim();
+#\ code: if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(id)) return '// hitbox_create: неверный id\n';
+#\ code: var lines = ['create hitbox ' + id + ' {'];
+#\ code: var parent = String(_getVal('parent') || '').trim();
+#\ code: if (parent) lines.push('    parent = ' + (/^[A-Za-z_][A-Za-z0-9_]*$/.test(parent) ? parent : JSON.stringify(parent)));
+#\ code: var nodeId = String(_getVal('nodeId') || '').trim();
+#\ code: if (nodeId) lines.push('    id = ' + JSON.stringify(nodeId));
+#\ code: lines.push('    width = ' + String(_getVal('width') || '1').trim());
+#\ code: lines.push('    height = ' + String(_getVal('height') || '1').trim());
+#\ code: lines.push('    depth = ' + String(_getVal('depth') || '1').trim());
+#\ code: lines.push('    x = ' + String(_getVal('x') || '0').trim());
+#\ code: lines.push('    y = ' + String(_getVal('y') || '64').trim());
+#\ code: lines.push('    z = ' + String(_getVal('z') || '0').trim());
+#\ code: var solid = String(_getVal('solid') || 'true').trim();
+#\ code: var trigger = String(_getVal('trigger') || 'false').trim();
+#\ code: if (solid === 'true' || solid === 'false') lines.push('    solid = ' + solid);
+#\ code: if (trigger === 'true' || trigger === 'false') lines.push('    trigger = ' + trigger);
+#\ code: var triggerId = String(_getVal('triggerId') || '').trim();
+#\ code: if (triggerId) lines.push('    triggerId = ' + JSON.stringify(triggerId));
+#\ code: lines.push('}');
+#\ code: return lines.join('\n') + '\n';
+
+#\ block: particle_emitter_create
+#\ category: Иерархия
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "создать эмиттер частиц" (id: text: fx)
+#\ row: "id ноды (опц.)" (nodeId: text: )
+#\ row: "родитель" (parent: text: )
+#\ row: "текстура PNG" (texture: text: textures/particles/spark.png)
+#\ row: "рендер" [renderer: dropdown(камера: billboard, растянутый: stretched, по_скорости: velocity, крест: cross, меш: mesh)] "материал" [blend: dropdown(альфа: alpha, свечение: additive, вырез: cutout)]
+#\ row: "форма" [shape: dropdown(точка: point, линия: line, куб: box, шар: sphere, оболочка: shell, круг: circle, диск: disc, конус: cone, цилиндр: cylinder, спираль: spiral)]
+#\ row: "частиц/сек" (rate: number: 20) "burst" (count: number: 12) "лимит" (maxParticles: number: 2048)
+#\ row: "объём спавна" (dx: number: 0.1) (dy: number: 0.1) (dz: number: 0.1)
+#\ row: "скорость" (speed: number: 0.2) "разброс%" (speedSpread: number: 0.25) "gravity Y" (gravityY: number: -0.04)
+#\ row: "конус°" (cone: number: 25) "жизнь сек" (lifetimeMin: number: 1) (lifetimeMax: number: 2)
+#\ row: "размер" (sizeMin: number: 0.25) (sizeMax: number: 0.5) "цвет" (color: text: #FFFFFFFF) (colorEnd: text: #00FFFFFF)
+#\ row: "направление" (dirX: number: 0) (dirY: number: 1) (dirZ: number: 0)
+#\ row: "радиус" (radius: number: 1) "высота" (height: number: 2)
+#\ row: "цикл" [loop: dropdown(да: true, нет: false)]
+#\ row: "коллизия с блоками" [collide: dropdown(нет: false, да: true)]
+#\ row: "след" [trail: dropdown(нет: false, да: true)] "gameplay proxy" [gameplay: dropdown(нет: false, да: true)]
+#\ row: "позиция" (x: number: 0) (y: number: 64) (z: number: 0)
+#\
+#\ code: var id = String(_getVal('id') || '').trim();
+#\ code: if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(id)) return '// particle_emitter_create: неверный id\n';
+#\ code: var lines = ['create particleSystem ' + id + ' {'];
+#\ code: var parent = String(_getVal('parent') || '').trim();
+#\ code: if (parent) lines.push('    parent = ' + (/^[A-Za-z_][A-Za-z0-9_]*$/.test(parent) ? parent : JSON.stringify(parent)));
+#\ code: var nodeId = String(_getVal('nodeId') || '').trim();
+#\ code: if (nodeId) lines.push('    id = ' + JSON.stringify(nodeId));
+#\ code: lines.push('    custom = true');
+#\ code: lines.push('    texture = ' + JSON.stringify(String(_getVal('texture') || 'textures/particles/spark.png').trim()));
+#\ code: lines.push('    renderer = ' + JSON.stringify(String(_getVal('renderer') || 'billboard').trim()));
+#\ code: lines.push('    blend = ' + JSON.stringify(String(_getVal('blend') || 'alpha').trim()));
+#\ code: var shape = String(_getVal('shape') || 'point').trim();
+#\ code: lines.push('    shape = ' + JSON.stringify(shape));
+#\ code: lines.push('    count = ' + String(_getVal('count') || '12').trim());
+#\ code: lines.push('    rate = ' + String(_getVal('rate') || '20').trim());
+#\ code: lines.push('    maxParticles = ' + String(_getVal('maxParticles') || '2048').trim());
+#\ code: lines.push('    spreadX = ' + String(_getVal('dx') || '0.1').trim());
+#\ code: lines.push('    spreadY = ' + String(_getVal('dy') || '0.1').trim());
+#\ code: lines.push('    spreadZ = ' + String(_getVal('dz') || '0.1').trim());
+#\ code: lines.push('    speed = ' + String(_getVal('speed') || '0.2').trim());
+#\ code: lines.push('    speedSpread = ' + String(_getVal('speedSpread') || '0.25').trim());
+#\ code: lines.push('    gravityY = ' + String(_getVal('gravityY') || '-0.04').trim());
+#\ code: lines.push('    cone = ' + String(_getVal('cone') || '25').trim());
+#\ code: lines.push('    lifetimeMin = ' + String(_getVal('lifetimeMin') || '1').trim());
+#\ code: lines.push('    lifetimeMax = ' + String(_getVal('lifetimeMax') || '2').trim());
+#\ code: lines.push('    sizeMin = ' + String(_getVal('sizeMin') || '0.25').trim());
+#\ code: lines.push('    sizeMax = ' + String(_getVal('sizeMax') || '0.5').trim());
+#\ code: lines.push('    color = ' + JSON.stringify(String(_getVal('color') || '#FFFFFFFF').trim()));
+#\ code: lines.push('    colorEnd = ' + JSON.stringify(String(_getVal('colorEnd') || '#00FFFFFF').trim()));
+#\ code: lines.push('    dirX = ' + String(_getVal('dirX') || '0').trim());
+#\ code: lines.push('    dirY = ' + String(_getVal('dirY') || '1').trim());
+#\ code: lines.push('    dirZ = ' + String(_getVal('dirZ') || '0').trim());
+#\ code: lines.push('    radius = ' + String(_getVal('radius') || '1').trim());
+#\ code: lines.push('    height = ' + String(_getVal('height') || '2').trim());
+#\ code: var loop = String(_getVal('loop') || 'true').trim();
+#\ code: if (loop === 'true' || loop === 'false') lines.push('    loop = ' + loop);
+#\ code: var collide = String(_getVal('collide') || 'false').trim();
+#\ code: if (collide === 'true' || collide === 'false') lines.push('    collide = ' + collide);
+#\ code: var trail = String(_getVal('trail') || 'false').trim();
+#\ code: if (trail === 'true' || trail === 'false') lines.push('    trail = ' + trail);
+#\ code: var gameplay = String(_getVal('gameplay') || 'false').trim();
+#\ code: if (gameplay === 'true' || gameplay === 'false') lines.push('    gameplay = ' + gameplay);
+#\ code: lines.push('    x = ' + String(_getVal('x') || '0').trim());
+#\ code: lines.push('    y = ' + String(_getVal('y') || '64').trim());
+#\ code: lines.push('    z = ' + String(_getVal('z') || '0').trim());
+#\ code: lines.push('}');
+#\ code: return lines.join('\n') + '\n';
+
+#\ block: light_create
+#\ category: Иерархия
+#\ color: #fbbf24
+#\ shape: statement
+#\
+#\ row: "создать свет" (id: text: lamp)
+#\ row: "id ноды (опц.)" (nodeId: text: )
+#\ row: "родитель" (parent: text: )
+#\ row: "уровень 0–15" (level: number: 15)
+#\ row: "включён" [enabled: dropdown(да: true, нет: false)]
+#\ row: "позиция" (x: number: 0) (y: number: 64) (z: number: 0)
+#\
+#\ code: var id = String(_getVal('id') || '').trim();
+#\ code: if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(id)) return '// light_create: неверный id\n';
+#\ code: var lines = ['create light ' + id + ' {'];
+#\ code: var parent = String(_getVal('parent') || '').trim();
+#\ code: if (parent) lines.push('    parent = ' + (/^[A-Za-z_][A-Za-z0-9_]*$/.test(parent) ? parent : JSON.stringify(parent)));
+#\ code: var nodeId = String(_getVal('nodeId') || '').trim();
+#\ code: if (nodeId) lines.push('    id = ' + JSON.stringify(nodeId));
+#\ code: lines.push('    level = ' + String(_getVal('level') || '15').trim());
+#\ code: var enabled = String(_getVal('enabled') || 'true').trim();
+#\ code: if (enabled === 'true' || enabled === 'false') lines.push('    enabled = ' + enabled);
+#\ code: lines.push('    x = ' + String(_getVal('x') || '0').trim());
+#\ code: lines.push('    y = ' + String(_getVal('y') || '64').trim());
+#\ code: lines.push('    z = ' + String(_getVal('z') || '0').trim());
+#\ code: lines.push('}');
+#\ code: return lines.join('\n') + '\n';
+
+#\ block: post_create
+#\ category: Камера
+#\ color: #c084fc
+#\ shape: statement
+#\
+#\ row: "создать пост-обработку на камере" (id: text: look)
+#\ row: "игрок" input: player (type: value)
+#\ row: "id ноды (опц.)" (nodeId: text: )
+#\ row: "включён" [enabled: dropdown(да: true, нет: false)]
+#\ row: "приоритет" (priority: number: 0) "вес" (weight: number: 1)
+#\ row: "bloom" (bloom: number: 0.35)
+#\ row: "порог bloom" (bloomThreshold: number: 0.75)
+#\ row: "vignette" (vignette: number: 0.4)
+#\ row: "экспозиция" (exposure: number: 0) "контраст" (contrast: number: 0)
+#\ row: "насыщенность" (saturation: number: 0)
+#\ row: "хроматическая аберрация" (chromatic: number: 0)
+#\ row: "зерно" (grain: number: 0) "резкость" (sharpen: number: 0)
+#\
+#\ code: var id = String(_getVal('id') || '').trim();
+#\ code: if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(id)) return '// post_create: неверный id\n';
+#\ code: var player = String(_getVal('player') || '_eventPlayer').trim() || '_eventPlayer';
+#\ code: var lines = ['create postProcess ' + id + ' {'];
+#\ code: lines.push('    parent = ' + player + '.camera');
+#\ code: var nodeId = String(_getVal('nodeId') || '').trim();
+#\ code: if (nodeId) lines.push('    id = ' + JSON.stringify(nodeId));
+#\ code: var enabled = String(_getVal('enabled') || 'true').trim();
+#\ code: if (enabled === 'true' || enabled === 'false') lines.push('    enabled = ' + enabled);
+#\ code: lines.push('    priority = ' + String(_getVal('priority') || '0').trim());
+#\ code: lines.push('    weight = ' + String(_getVal('weight') || '1').trim());
+#\ code: var bloom = String(_getVal('bloom') || '').trim();
+#\ code: if (bloom) lines.push('    bloom = ' + bloom);
+#\ code: lines.push('    bloomThreshold = ' + String(_getVal('bloomThreshold') || '0.75').trim());
+#\ code: var vignette = String(_getVal('vignette') || '').trim();
+#\ code: if (vignette) lines.push('    vignette = ' + vignette);
+#\ code: lines.push('    exposure = ' + String(_getVal('exposure') || '0').trim());
+#\ code: lines.push('    contrast = ' + String(_getVal('contrast') || '0').trim());
+#\ code: lines.push('    saturation = ' + String(_getVal('saturation') || '0').trim());
+#\ code: var chromatic = String(_getVal('chromatic') || '0').trim();
+#\ code: if (chromatic !== '0') lines.push('    chromatic = ' + chromatic);
+#\ code: var grain = String(_getVal('grain') || '0').trim();
+#\ code: if (grain !== '0') lines.push('    grain = ' + grain);
+#\ code: var sharpen = String(_getVal('sharpen') || '0').trim();
+#\ code: if (sharpen !== '0') lines.push('    sharpen = ' + sharpen);
+#\ code: lines.push('}');
+#\ code: return lines.join('\n') + '\n';
+
+#\ block: particle_def_create
+#\ category: Ресурсы
+#\ color: #c084fc
+#\ shape: statement
+#\
+#\ row: "создать тип частицы | OLD" (id: text: spark)
+#\ row: "id ноды (опц.)" (nodeId: text: )
+#\ row: "родитель" (parent: text: )
+#\ row: "текстура" (texture: text: textures/particle/spark.png)
+#\
+#\ code: var id = String(_getVal('id') || '').trim();
+#\ code: if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(id)) return '// particle_def_create: неверный id\n';
+#\ code: var lines = ['create particle ' + id + ' {'];
+#\ code: var parent = String(_getVal('parent') || '').trim();
+#\ code: if (parent) lines.push('    parent = ' + (/^[A-Za-z_][A-Za-z0-9_]*$/.test(parent) ? parent : JSON.stringify(parent)));
+#\ code: var nodeId = String(_getVal('nodeId') || '').trim();
+#\ code: if (nodeId) lines.push('    id = ' + JSON.stringify(nodeId));
+#\ code: var texture = String(_getVal('texture') || '').trim();
+#\ code: if (texture) lines.push('    texture = ' + JSON.stringify(texture));
+#\ code: lines.push('}');
+#\ code: return lines.join('\n') + '\n';
+
+#\ block: empty_create
+#\ category: Иерархия
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "создать пустую ноду" (id: text: pivot)
+#\ row: "id ноды (опц.)" (nodeId: text: )
+#\ row: "родитель" (parent: text: )
+#\ row: "позиция" (x: number: 0) (y: number: 64) (z: number: 0)
+#\
+#\ code: var id = String(_getVal('id') || '').trim();
+#\ code: if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(id)) return '// empty_create: неверный id\n';
+#\ code: var lines = ['create empty ' + id + ' {'];
+#\ code: var parent = String(_getVal('parent') || '').trim();
+#\ code: if (parent) lines.push('    parent = ' + (/^[A-Za-z_][A-Za-z0-9_]*$/.test(parent) ? parent : JSON.stringify(parent)));
+#\ code: var nodeId = String(_getVal('nodeId') || '').trim();
+#\ code: if (nodeId) lines.push('    id = ' + JSON.stringify(nodeId));
+#\ code: lines.push('    x = ' + String(_getVal('x') || '0').trim());
+#\ code: lines.push('    y = ' + String(_getVal('y') || '64').trim());
+#\ code: lines.push('    z = ' + String(_getVal('z') || '0').trim());
+#\ code: lines.push('}');
+#\ code: return lines.join('\n') + '\n';

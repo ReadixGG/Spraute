@@ -54,7 +54,7 @@ public final class WorldFunctions {
         if (player == null || source.getServer() == null) return false;
 
         if (worldIdOrNull == null || worldIdOrNull.isBlank()) {
-            player.teleportTo(x, y, z);
+            player.connection.teleport(x, y, z, player.getYRot(), player.getXRot());
             return true;
         }
 

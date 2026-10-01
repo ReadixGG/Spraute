@@ -1,24 +1,3 @@
-#\ block: create_world
-#\ category: Измерения
-#\ color: #0ea5e9
-#\ shape: statement
-#\
-#\ row: "создать мир" (id: text: lobby)
-#\ row: "цвет неба" (sky: text: #1b2838)
-#\ row: "цвет тумана" (fog: text: )
-#\ row: "освещение" (ambient: number: 0.4) "0–1"
-#\ row: "время" (fixedTime: number: 6000) "тик, -1 = сутки"
-#\ row: "небесный свет" [skylight: dropdown(да: true, нет: false)]
-#\
-#\ if fog == "" and fixedTime == "-1":
-#\   template: create world {id} {\n    sky = "{sky}"\n    ambient = {ambient}\n    fixed_time = -1\n    skylight = {skylight}\n}\n
-#\ if fog == "" and fixedTime != "-1":
-#\   template: create world {id} {\n    sky = "{sky}"\n    ambient = {ambient}\n    fixed_time = {fixedTime}\n    skylight = {skylight}\n}\n
-#\ if fog != "" and fixedTime == "-1":
-#\   template: create world {id} {\n    sky = "{sky}"\n    fog = "{fog}"\n    ambient = {ambient}\n    fixed_time = -1\n    skylight = {skylight}\n}\n
-#\ if fog != "" and fixedTime != "-1":
-#\   template: create world {id} {\n    sky = "{sky}"\n    fog = "{fog}"\n    ambient = {ambient}\n    fixed_time = {fixedTime}\n    skylight = {skylight}\n}\n
-
 #\ block: get_world_id
 #\ category: Измерения
 #\ color: #0ea5e9

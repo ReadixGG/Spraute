@@ -1,0 +1,7 @@
+#\ block: bool_lit
+#\ category: Логика
+#\ color: #8b5cf6
+#\ shape: value
+#\
+#\ row: [v: dropdown(истина: true, ложь: false)]
+#\ code: return _getVal("v");

@@ -1,0 +1,7859 @@
+[
+  {
+    "ru": "Юг",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 2
+  },
+  {
+    "ru": "Бой",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 3
+  },
+  {
+    "ru": "Имя",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 3
+  },
+  {
+    "ru": "Мир",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 3
+  },
+  {
+    "ru": "Моб",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 3
+  },
+  {
+    "ru": "НПС",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 3
+  },
+  {
+    "ru": "Низ",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 3
+  },
+  {
+    "ru": "Тип",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 3
+  },
+  {
+    "ru": "Фон",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 3
+  },
+  {
+    "ru": "Шаг",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 3
+  },
+  {
+    "ru": "Шар",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 3
+  },
+  {
+    "ru": "мир",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/ProjectExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 3
+  },
+  {
+    "ru": "мод",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 3
+  },
+  {
+    "ru": "на ",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 3
+  },
+  {
+    "ru": " бл.",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Блок",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Бока",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Верх",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Дроп",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Жила",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Имя:",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Кадр",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Клип",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Ниже",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Нода",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Окна",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Печь",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java",
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Руда",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Свет",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Слот",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Стоп",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Теги",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Тип:",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Урон",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Файл",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Цвет",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "руда",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 4
+  },
+  {
+    "ru": "Автор",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java",
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Блоки",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Запад",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Игрок",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "КОСТЬ",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Кирка",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Крафт",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Линия",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Объём",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Папка",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/scene/PluginManagerPanel.java",
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Показ",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Полёт",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Пусто",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Север",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Сетка",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Стиль",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Сцена",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Сцены",
+    "files": [
+      "client/editor/scene/SceneExportCollector.java",
+      "client/editor/scene/SceneExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Текст",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Тип «",
+    "files": [
+      "client/editor/scene/CustomNodeInspector.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Топор",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Файл ",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "Форма",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "видна",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "для: ",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 5
+  },
+  {
+    "ru": "  Зум:",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "(клип)",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "+ Клип",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Ассеты",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Версия",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Восток",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Высота",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Группа",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Защита",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Канвас",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Ключ: ",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Кнопка",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Костёр",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java",
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Логика",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Лопата",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Модели",
+    "files": [
+      "client/editor/scene/SceneExportCollector.java",
+      "client/editor/scene/SceneExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Модель",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Мотыга",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Облака",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Объект",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Отмена",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/PluginManagerPanel.java",
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Панель",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Поиск…",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/TabItemsEditor.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Правка",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Проект",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Прочее",
+    "files": [
+      "client/editor/scene/SceneExportCollector.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Радиус",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Размер",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Рендер",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Рецепт",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Скрипт",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Скролл",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Смерть",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Файл: ",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Физика",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Ходьба",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "Шанс %",
+    "files": [
+      "client/editor/scene/DropRulesEditor.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "нода 2",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "нода 3",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": "скрыта",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 6
+  },
+  {
+    "ru": " Время:",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "(пусто)",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "fun из ",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Билборд",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Броня: ",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "В конец",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Вкладка",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Включён",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Глубина",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Закрыть",
+    "files": [
+      "client/editor/scene/EditorGrid.java",
+      "client/editor/scene/ProjectExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java",
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Иконка…",
+    "files": [
+      "client/editor/scene/TabItemsEditor.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Колонок",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Консоль",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Кость '",
+    "files": [
+      "client/editor/scene/GeoBoneEditor.java",
+      "client/editor/scene/GeoBoneEditor.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Кость: ",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Масштаб",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Надпись",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Объекты",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Обычный",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Открыть",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Папка: ",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Плавная",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Плагины",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Поворот",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Позиция",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Понятно",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Предмет",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Префабы",
+    "files": [
+      "client/editor/scene/SceneExportCollector.java",
+      "client/editor/scene/SceneExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Ресурсы",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Скачать",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java",
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Скрипты",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java",
+      "client/editor/scene/SceneExportCollector.java",
+      "client/editor/scene/SceneExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Словарь",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Создать",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/PluginManagerPanel.java",
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Спираль",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Справка",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Сцена: ",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Удалить",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Условие",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Хитбокс",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Частица",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Частицы",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "Эффекты",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "сцена «",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 7
+  },
+  {
+    "ru": "  Режим:",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": " выбрано",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": " скрипт.",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "// тип «",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "» создан",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Аниматор",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Анимации",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/SceneExportCollector.java",
+      "client/editor/scene/SceneExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "В начало",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Включить",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Готово: ",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Градиент",
+    "files": [
+      "client/editor/scene/UiStyleEditor.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Движение",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Добавить",
+    "files": [
+      "client/editor/scene/CustomNodeInspector.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Иерархия",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Камера: ",
+    "files": [
+      "client/editor/scene/ScriptCodeEditor.java",
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Картинка",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Коллизия",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Линейная",
+    "files": [
+      "client/editor/scene/TimelinePanel.java",
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "На земле",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Название",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java",
+      "client/editor/scene/ProjectExportPanel.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Обновить",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Ожидание",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Описание",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java",
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Отменить",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Ошибка: ",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java",
+      "client/editor/visual/VisualBlockRegistry.java",
+      "client/editor/visual/VisualBlockRegistry.java",
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Плавание",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Плагин «",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java",
+      "client/editor/scene/PluginManagerPanel.java",
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Плагины…",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Сам блок",
+    "files": [
+      "client/editor/scene/DropRulesEditor.java",
+      "client/editor/scene/DropRulesEditor.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Свечение",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Сетка  [",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Скорость",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Смещение",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "ТАЙМЛАЙН",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Таймлайн",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Текстура",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Текстуры",
+    "files": [
+      "client/editor/scene/SceneExportCollector.java",
+      "client/editor/scene/SceneExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "Телепорт",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "выключен",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "локально",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": "нода 2 2",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 8
+  },
+  {
+    "ru": " объектов",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": " скриптов",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": " файл(ов)",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "# Плагин ",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "(выбрать)",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java",
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "3D-модель",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "» включен",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Без формы",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java",
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "В архив: ",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "В скрипте",
+    "files": [
+      "client/editor/scene/EditorInspectorUi.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Все грани",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Выключить",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Зациклить",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Избранное",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Измерение",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Имя файла",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Инспектор",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Коптильня",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java",
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Настройки",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Опыт (XP)",
+    "files": [
+      "client/editor/scene/DropRulesEditor.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Опыт (xp)",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Параметры",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "По буквам",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "По словам",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Повторить",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Прочность",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Результат",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Свет 0–15",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Сетка 3×3",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Снять всё",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Создание…",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Сохранено",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Сохранить",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Структура",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Твёрдость",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Тень (px)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Удалить (",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": "Цвет неба",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 9
+  },
+  {
+    "ru": " · автор: ",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": " блоков · ",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": " категорий",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": " сцен  /  ",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "(очистить)",
+    "files": [
+      "client/editor/scene/EditorItemPicker.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Geo-модель",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "» выключен",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Архив пуст",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Без звуков",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Ветка else",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Выбор  [Q]",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Высота (%)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Гравитация",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Закрыть UI",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Имя пустое",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Иначе если",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Ингредиент",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Ключ##key-",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Количество",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Копировать",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Макс. стак",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Мой проект",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Неуязвимый",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Новое имя:",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Поле ввода",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Пустой код",
+    "files": [
+      "client/editor/scene/ScriptConsolePanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Размер (%)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Рамка (px)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Рука атаки",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Установить",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Цвет рамки",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Цель дропа",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Цикл while",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Шаблон GUI",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Шаг (step)",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Шаг угла °",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "Ширина (%)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "встроенный",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "новый тег…",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "— разные —",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 10
+  },
+  {
+    "ru": "  Скорость:",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": " · выбрано ",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "(без имени)",
+    "files": [
+      "client/editor/scene/EditorInspectorUi.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "(не выбран)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Y плоскости",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "В избранное",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java",
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Верстак 3×3",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java",
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Верх и бока",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Внешний вид",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Выбрать всё",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Высота (px)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Дублировать",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Ингредиенты",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Камера  [F]",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Новая сцена",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Одна на все",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Отсоединить",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Поворот (°)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Пустая нода",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Разделитель",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Размер (px)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Создать ZIP",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Сохранено: ",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Тип частицы",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Урон (опц.)",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Цвет текста",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Цвет тумана",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "Ширина (px)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "новый клип…",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "скопировано",
+    "files": [
+      "client/editor/scene/ScriptConsolePanel.java"
+    ],
+    "len": 11
+  },
+  {
+    "ru": "     Кости (",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "  Менеджер  ",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "  ● ЗАПУЩЕНА",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "(не выбрана)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "(не выбрано)",
+    "files": [
+      "client/editor/scene/DropRulesEditor.java",
+      "client/editor/scene/EditorItemPicker.java",
+      "client/editor/scene/EditorItemPicker.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/TabItemsEditor.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "(не выбраны)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "GUI / иконка",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "ID объекта: ",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "_node: сцена",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Алиас action",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java",
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Время (тики)",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Время / цикл",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Вставить на ",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Выравнивание",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Ждать прыжок",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Ждать смерть",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Инструмент: ",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Копировать (",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Кость головы",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Летающий NPC",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Любой / рука",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Масштаб  [R]",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Масштаб 100%",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "НЕ СОХРАНЕНО",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Не сохранять",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Новая папка…",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Отбрасывание",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Очистить лог",
+    "files": [
+      "client/editor/scene/ScriptConsolePanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Поворот  [E]",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Показать все",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Попыток/чанк",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Предпросмотр",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Режим вылета",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Скрипт сцены",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Столкновения",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Удалить клип",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "Шаг GUI (px)",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 12
+  },
+  {
+    "ru": "  Плагины ⟳  ",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "  Сохранить  ",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Idle-анимация",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Алиас uiTouch",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java",
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Добавить ноду",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Дублировать (",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Ждать подарок",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Ждать покупку",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Ждать продажу",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Закрыть сцену",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Игрок по нику",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Идентификатор",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Кадр (20 FPS)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Контекст ноды",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Локальные оси",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Ломание блока",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Модель (опц.)",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Новый скрипт…",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Очистить ввод",
+    "files": [
+      "client/editor/scene/ScriptConsolePanel.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Переименовать",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Плавающий NPC",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Позиция X (%)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Позиция Y (%)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Полёт к точке",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Прыжок игрока",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Пустой список",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Размер ячейки",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Режим текстур",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Скрипт (.spr)",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Текущая сцена",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Удалить папку",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Файл анимаций",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Файл уже есть",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Хитбокс сцены",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": "Что рендерить",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 13
+  },
+  {
+    "ru": " · разные типы",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "(нет префабов)",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Анимации атаки",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Без гравитации",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Возврат из fun",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Выберите сцену",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Выдать предмет",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Высота спирали",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Градиент рамки",
+    "files": [
+      "client/editor/scene/UiStyleEditor.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Ждать разговор",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Ждать убийство",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Зум##tex-zoom-",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Иконка вкладки",
+    "files": [
+      "client/editor/scene/TabItemsEditor.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Кастомный блок",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Копировать всё",
+    "files": [
+      "client/editor/scene/ScriptConsolePanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Макс. символов",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Масштаб текста",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Моб (источник)",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Моб / сущность",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Не указан файл",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Обрезка (crop)",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Открыть скрипт",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Очистить выбор",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Позиция X (px)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Позиция Y (px)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Показывать имя",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Предмет / Блок",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Радиус (ячеек)",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Режим переноса",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Скорость атаки",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Создать скрипт",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Сохранить файл",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Спираль частиц",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Сцена уже есть",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Тип интерфейса",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Удалить файл «",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Уровень (0–15)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Уровень добычи",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Файл не найден",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Форма эмиттера",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Ширина (блоки)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "Экспорт сцены…",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "лог скопирован",
+    "files": [
+      "client/editor/scene/ScriptConsolePanel.java"
+    ],
+    "len": 14
+  },
+  {
+    "ru": "  Сохранить *  ",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "' не найдена в ",
+    "files": [
+      "client/editor/scene/GeoBoneEditor.java",
+      "client/editor/scene/GeoBoneEditor.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "\\n\\n**Автор:** ",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Алиас inventory",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java",
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Блок (источник)",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Вставить внутрь",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Выбрать предмет",
+    "files": [
+      "client/editor/scene/DropRulesEditor.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Выгрузить сцену",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Дальность атаки",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Джиттер углов °",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Дроп при смерти",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Ждать репутацию",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Заблокировать (",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Запасная (опц.)",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Запустить сцену",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Масштаб надписи",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Мин. количество",
+    "files": [
+      "client/editor/scene/DropRulesEditor.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Название архива",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Настройки сетки",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Начальный текст",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Новое имя ноды:",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Обновить ассеты",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Обновить проект",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Обновить список",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Обычная (точка)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Ожидание в воде",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Ошибка записи: ",
+    "files": [
+      "client/editor/scene/GeoBoneEditor.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Ошибка чтения: ",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/scene/ProjectExportPanel.java",
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Плавильная печь",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java",
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Поиск по блокам",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Поиск текстуры…",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Поиск файлов...",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Скорость вылета",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Скорость полёта",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Скрипт уже есть",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Случайное число",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Смена измерения",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Сохранить сцену",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Твёрдый (solid)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Текстура модели",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "Удалить папку «",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "…уточните поиск",
+    "files": [
+      "client/editor/scene/EditorItemPicker.java",
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "●  СЦЕНА ГОТОВА",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 15
+  },
+  {
+    "ru": "+  Добавить дроп",
+    "files": [
+      "client/editor/scene/DropRulesEditor.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "true — повторять",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Активна (active)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Анимация (ключи)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Асинхронный блок",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Взгляд и подпись",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Вкладка креатива",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Закрыть редактор",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Закрыть таймлайн",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Инвентарь игрока",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Кнопка Relations",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Макс. количество",
+    "files": [
+      "client/editor/scene/DropRulesEditor.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "НПС (нода сцены)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Не указан плагин",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Отображаемое имя",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Отступ по X (px)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Отступ по Y (px)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Очистить вкладку",
+    "files": [
+      "client/editor/scene/TabItemsEditor.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Пауза в секундах",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Переменная сейва",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Переместить выше",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Переместить ниже",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Перемещение  [W]",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Плоская текстура",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Поворот к игроку",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Показывать сетку",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Привязка размера",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Проект###Project",
+    "files": [
+      "client/editor/SprauteEditorDocking.java",
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Прочность (опц.)",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Разблокировать (",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Разброс скорости",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "СЦЕНА НЕ ОТКРЫТА",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Свой цвет тумана",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Скорость копания",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Слой (z-порядок)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Сменить родителя",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Сохранить плагин",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Уже существует: ",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Физика и хитбокс",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "Экспорт проекта…",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 16
+  },
+  {
+    "ru": "+ Добавить цвет##",
+    "files": [
+      "client/editor/scene/UiStyleEditor.java",
+      "client/editor/scene/UiStyleEditor.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Geo-модель без AI",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "UUID скина игрока",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "x, y, z — позиция",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Визуальный скрипт",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Выполнить команду",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Высота (% экрана)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Гео-модель без ИИ",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Добавить ноду в: ",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Ждать ПКМ по цели",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Ждать ввод текста",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Ждать вход игрока",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Ждать закрытие UI",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Ждать первый вход",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Здоровье и max HP",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Иконка / текстура",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Кастомный предмет",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Консоль###Console",
+    "files": [
+      "client/editor/SprauteEditorDocking.java",
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Конус / разброс °",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Копировать ошибки",
+    "files": [
+      "client/editor/scene/ScriptConsolePanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Менеджер плагинов",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Модель не выбрана",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Ничего не найдено",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Ожидание в полёте",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Ошибка экспорта: ",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Палитра предметов",
+    "files": [
+      "client/editor/scene/TabItemsEditor.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Поиск в иерархии…",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Поиск плагинов...",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Попадание снаряда",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Привязка поворота",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Прочность ломания",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Пустая нода-якорь",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Путь недоступен: ",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Рантайм: scripts/",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Сетка (раскладка)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Скорость движения",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Снять выбор кости",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Сохранить  Ctrl+S",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Сцена###Workspace",
+    "files": [
+      "client/editor/SprauteEditorDocking.java",
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Тип внешнего вида",
+    "files": [
+      "client/editor/scene/ResourceInspector.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Триггер (касание)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Установить плагин",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "Ширина (% экрана)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "имя нового файла…",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": "нечего копировать",
+    "files": [
+      "client/editor/scene/ScriptConsolePanel.java"
+    ],
+    "len": 17
+  },
+  {
+    "ru": " блоков · масштаб ",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "(нет НИП на сцене)",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "+ Добавить предмет",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Geo-модель без AI.",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "NBT (опц., на все)",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Аниматор виджета «",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Анимации (необяз.)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Анимации состояний",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "В начало координат",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Виден сквозь блоки",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Визуальный (.sprv)",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Выбрано объектов: ",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Высота ячейки (px)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Выход из редактора",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Ждать подбор орбов",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Затемнять фон игры",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Инструмент / броня",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Ключ##bone-pos-key",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Ключ##bone-rot-key",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Модель (.geo.json)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Надпись на канвасе",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Объявление функции",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Основные параметры",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Переименовать ноду",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Переместить выше (",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Переместить ниже (",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Плагин не найден: ",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Показывать хитбокс",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Покупка в торговле",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Продажа в торговле",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Редактор: scripts/",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Сглаживание полёта",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Смещение X (якорь)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Смещение Y (якорь)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Содержимое вкладки",
+    "files": [
+      "client/editor/scene/TabItemsEditor.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Твёрдый (коллизия)",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Цвет при наведении",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "Ширина ячейки (px)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "выпадает этот блок",
+    "files": [
+      "client/editor/scene/DropRulesEditor.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "ошибки скопированы",
+    "files": [
+      "client/editor/scene/ScriptConsolePanel.java"
+    ],
+    "len": 18
+  },
+  {
+    "ru": "# Сгенерировано из ",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "%.3f сек · клип: %s",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "1 лицо (hand_first)",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "3 лицо (hand_third)",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "declare section Имя",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "» и всё содержимое?",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Автоперенос надписи",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "В сцене нет НПС-нод",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Введите имя скрипта",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Ждать клик по блоку",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Ждать ломание блока",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Ждать пролёт камеры",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Изменение репутации",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Исчезновение (тики)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Количество за burst",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Копировать (Ctrl+C)",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Модель не найдена: ",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Не удалось открыть ",
+    "files": [
+      "client/editor/scene/AnimatorTimelineSession.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Открыть в таймлайне",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Ошибка сохранения: ",
+    "files": [
+      "client/editor/scene/AnimatorTimelineSession.java",
+      "client/editor/scene/SceneEditorSession.java",
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Плагин установлен: ",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Подарок (Relations)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Предмет в инвентаре",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Предпросмотр в мире",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Родитель в иерархии",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java",
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Сетка GUI (канвасы)",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Смещение имени по Y",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Содержимое из сцены",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Таймлайн###Timeline",
+    "files": [
+      "client/editor/SprauteEditorDocking.java",
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "Цикл for по range()",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "нет превью текстуры",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "○  СЦЕНА НЕ ОТКРЫТА",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "⚠ устаревший блок: ",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 19
+  },
+  {
+    "ru": "(нет клипов в файле)",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "+ Кость на таймлайн…",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "N — войти в редактор",
+    "files": [
+      "client/editor/SprauteEditorOverlayRenderer.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Вернуть обычное поле",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Высота контента (px)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Горизонтальная линия",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Ждать открытие двери",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Ждать пересечение UI",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Ждать позицию игрока",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Ждать предметы у NPC",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Иерархия###Hierarchy",
+    "files": [
+      "client/editor/SprauteEditorDocking.java",
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Ключ##bone-scale-key",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Локальная переменная",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Можно закрыть по ESC",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Обновить зависимости",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Открыть в проводнике",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Периодический таймер",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Плавная (catmullrom)",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Подбор орба spawnOrb",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Показывать сетку GUI",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Префаб под родителем",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Привязка GUI к сетке",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Привязка перемещения",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Пустая нода (группа)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Режим редактирования",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Скачать как .splugin",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Создать файл / папку",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Сохранить как префаб",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Список через запятую",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Убрать из избранного",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java",
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "текстуры различаются",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 20
+  },
+  {
+    "ru": "Включить мир (saves/)",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Ждать действие игрока",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Ждать нажатие клавиши",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Ждать смену измерения",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Ждать сообщение в чат",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Ждать установку блока",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Задержка удара (тики)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Игрок в радиусе точки",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Инспектор###Inspector",
+    "files": [
+      "client/editor/SprauteEditorDocking.java",
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Инструмент для добычи",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Максимальное здоровье",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Не найдено на диске: ",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Некорректное имя мира",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Нет миров с level.dat",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Новый текстовый файл…",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Обновить поле виджета",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Остановить lerp tween",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Перетащи предмет сюда",
+    "files": [
+      "client/editor/scene/TabItemsEditor.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Плагины перезагружены",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java",
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Плоскость у выделения",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Показать в проводнике",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Скругление углов (px)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Состояние и поведение",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "Частицы вдоль отрезка",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 21
+  },
+  {
+    "ru": "9-slice: масштаб рамки",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "В одну сторону (конус)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Взгляд без ограничений",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Взрыв (во все стороны)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Ждать завершения async",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Ждать кнопку Relations",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Ждать открытие сундука",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Зависимости не найдены",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Конец линии (локально)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Направление (локально)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Не удалось сохранить: ",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Обновить список частиц",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Объём спавна (позиция)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Отключить базовый дроп",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Открыть папку плагинов",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Перенос (px, 0 = выкл)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Поиск: stone, diamond…",
+    "files": [
+      "client/editor/scene/EditorItemPicker.java",
+      "client/editor/scene/EditorItemPicker.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Радиус (sphere/circle)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Сообщение всем игрокам",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Угол (0° = →, 90° = ↓)",
+    "files": [
+      "client/editor/scene/UiStyleEditor.java",
+      "client/editor/scene/UiStyleEditor.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Файл анимации не задан",
+    "files": [
+      "client/editor/scene/EditorAnimationDocument.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Файл сцены не найден: ",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Цвет #hex, опц. easing",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "Эмиттер частиц в сцене",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 22
+  },
+  {
+    "ru": "(live · не сохраняется)",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Автоперенос (по ширине)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Выбранный JAR не найден",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Выполнить  (Ctrl+Enter)",
+    "files": [
+      "client/editor/scene/ScriptConsolePanel.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Ждать попадание снаряда",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Заблокирована ли ходьба",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Заменить ванильный дроп",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Интервал вспышек (тики)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Как писать блоки (.spr)",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Обновить список ассетов",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Освещение (ambient 0–1)",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Остановить bone-частицы",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Открыть в проводнике ОС",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Относительно родителя: ",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Ошибка записи размера: ",
+    "files": [
+      "client/editor/scene/GeoBoneEditor.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Плагины###PluginManager",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Подсказка (placeholder)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Подставить координату X",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Подставить координату Y",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Подставить координату Z",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Размер multiblock W×D×H",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Создать###ProjectCreate",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Текстура (вместо цвета)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Удалить###ProjectDelete",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "Укажите название архива",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 23
+  },
+  {
+    "ru": "(выберите файл анимаций)",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Size геометрии (пиксели)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Выберите ноду в иерархии",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Высота (circle/cylinder)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Ждать клик UI / закрытие",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Имя (латиница/цифры/-/_)",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Клик — копировать ошибку",
+    "files": [
+      "client/editor/scene/ScriptConsolePanel.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Клик — копировать строку",
+    "files": [
+      "client/editor/scene/ScriptConsolePanel.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Мин. уровень инструмента",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Небесный свет (skylight)",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Новый визуальный скрипт…",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Открыть папку воркспейса",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Папка плагина не найдена",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Перезарядка атаки (тики)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Позиция X (%, 0 = центр)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Позиция Y (%, 0 = центр)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Прозрачность детей (0-1)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Размер (ширина × высота)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Укажите название проекта",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Цвета (слева → направо):",
+    "files": [
+      "client/editor/scene/UiStyleEditor.java",
+      "client/editor/scene/UiStyleEditor.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "Цикл по элементам списка",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "●  СЦЕНА ЗАПУЩЕНА (live)",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 24
+  },
+  {
+    "ru": "(пусто — введите вручную)",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "id сцены, если нет _scene",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Виден только в редакторе.",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Выше (приоритет загрузки)",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Добавить дочернюю ноду...",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Ждать предмет в инвентаре",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Закрытие UI. _eventPlayer",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Заспавнить префаб в сцене",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Настройки сетки редактора",
+    "files": [
+      "client/editor/scene/EditorGrid.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Не удалось создать файл: ",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Нет соединения с сервером",
+    "files": [
+      "client/editor/scene/ScriptConsolePanel.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Окно управления плагинами",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Открыть визуальный скрипт",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Перетащить · ПКМ — убрать",
+    "files": [
+      "client/editor/scene/TabItemsEditor.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Позиция X (px, 0 = центр)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Позиция Y (px, 0 = центр)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "См. metods.md — create ui",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Создать визуальный скрипт",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Создаёт или обновляет NPC",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Текстура из папки проекта",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 25
+  },
+  {
+    "ru": "Position / Pivot (пиксели)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": "Встроенная функция Spraute",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": "Вы хотите сохранить сцену?",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": "Единицы (px / % от экрана)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": "Замок (не выбирать в мире)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": "Не удалось открыть папку: ",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": "Не удалось открыть сцену: ",
+    "files": [
+      "client/editor/scene/SceneEditorSession.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": "Нода сцены (SceneNodeView)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": "Оверлей (HUD, поверх игры)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": "Разговор с NPC (Relations)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": "Сбросить раскладку панелей",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": "Содержимое spraute_engine/",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": "Удалить ноду сцены и детей",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": "Уровень блока 0–15 (белый)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": "Фиксированное время (тики)",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": "Цикл анимации на NPC/MODEL",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": "…уточните поиск (показано ",
+    "files": [
+      "client/editor/scene/EditorItemPicker.java"
+    ],
+    "len": 26
+  },
+  {
+    "ru": ".spr / .sprv уже существует",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 27
+  },
+  {
+    "ru": ".sprv / .spr уже существует",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 27
+  },
+  {
+    "ru": "declare section Экономика\\n",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 27
+  },
+  {
+    "ru": "» не найден — обновите блок",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 27
+  },
+  {
+    "ru": "Настройки плагина сохранены",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 27
+  },
+  {
+    "ru": "Не удалось загрузить модель",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 27
+  },
+  {
+    "ru": "Не удалось открыть диалог: ",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 27
+  },
+  {
+    "ru": "Остановить overlay-анимацию",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 27
+  },
+  {
+    "ru": "Открыть UI или канвас сцены",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 27
+  },
+  {
+    "ru": "Переменное число аргументов",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 27
+  },
+  {
+    "ru": "Показывать полосу прокрутки",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 27
+  },
+  {
+    "ru": "Растягивать детей до ячейки",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 27
+  },
+  {
+    "ru": "Сообщение источнику скрипта",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 27
+  },
+  {
+    "ru": "Экспорт сцены###SceneExport",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 27
+  },
+  {
+    "ru": "В выбранном файле нет клипов",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 28
+  },
+  {
+    "ru": "Единицы (px / % от родителя)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 28
+  },
+  {
+    "ru": "Заблокировать (выбор в мире)",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 28
+  },
+  {
+    "ru": "Загрузить сцену /spraute run",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 28
+  },
+  {
+    "ru": "Не удалось прочитать сцену: ",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 28
+  },
+  {
+    "ru": "Ничего не найдено по запросу",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 28
+  },
+  {
+    "ru": "Пересечение двух UI-виджетов",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 28
+  },
+  {
+    "ru": "Подставить координаты игрока",
+    "files": [
+      "client/editor/scene/ScriptCodeEditor.java"
+    ],
+    "len": 28
+  },
+  {
+    "ru": "Пусто — добавьте запись ниже",
+    "files": [
+      "client/editor/scene/CustomNodeInspector.java"
+    ],
+    "len": 28
+  },
+  {
+    "ru": "Тиков между burst (при loop)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 28
+  },
+  {
+    "ru": "+ На таймлайн (базовая точка)",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 29
+  },
+  {
+    "ru": "create tab — вкладка креатива",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 29
+  },
+  {
+    "ru": "Глобальная переменная скрипта",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 29
+  },
+  {
+    "ru": "Корень проекта удалить нельзя",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 29
+  },
+  {
+    "ru": "Нажатие клавиши. _eventPlayer",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 29
+  },
+  {
+    "ru": "Не запускать при старте сцены",
+    "files": [
+      "client/editor/scene/InspectorPanel.java",
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 29
+  },
+  {
+    "ru": "Не удалось загрузить текстуру",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 29
+  },
+  {
+    "ru": "Открытие двери. cancelEvent()",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 29
+  },
+  {
+    "ru": "Переименовать###ProjectRename",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 29
+  },
+  {
+    "ru": "Подключить и запустить скрипт",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 29
+  },
+  {
+    "ru": "Показывать при загрузке сцены",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 29
+  },
+  {
+    "ru": "Разблокировать (выбор в мире)",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 29
+  },
+  {
+    "ru": "Смещение (от точки transform)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 29
+  },
+  {
+    "ru": "Туман = затемнённый цвет неба",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 29
+  },
+  {
+    "ru": "Шар + взрыв: разлёт от центра",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 29
+  },
+  {
+    "ru": ".scene.json в панели «Проект».",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 30
+  },
+  {
+    "ru": "Выберите содержимое для архива",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java"
+    ],
+    "len": 30
+  },
+  {
+    "ru": "Выбрать файл .splugin или .zip",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 30
+  },
+  {
+    "ru": "Из скриптов: uiOpen(player, \\\"",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 30
+  },
+  {
+    "ru": "Остановить on/every-обработчик",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 30
+  },
+  {
+    "ru": "Перенос надписи (px, 0 = выкл)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 30
+  },
+  {
+    "ru": "Продолжение по клавише диалога",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 30
+  },
+  {
+    "ru": "Рендерить без спавна / мёртвым",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 30
+  },
+  {
+    "ru": "Создать плагин###plugin-create",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java",
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 30
+  },
+  {
+    "ru": "Сообщение в чат. _eventMessage",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 30
+  },
+  {
+    "ru": "Твёрдая коллизия и/или триггер",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 30
+  },
+  {
+    "ru": "Установка блока. cancelEvent()",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 30
+  },
+  {
+    "ru": "Заблокирован ли поворот взгляда",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 31
+  },
+  {
+    "ru": "Игрок зашёл в мир. _eventPlayer",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 31
+  },
+  {
+    "ru": "ЛКМ/ПКМ по блоку. cancelEvent()",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 31
+  },
+  {
+    "ru": "Настройки плагина###plugin-edit",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java",
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 31
+  },
+  {
+    "ru": "Открытие сундука. cancelEvent()",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 31
+  },
+  {
+    "ru": "Папка spraute_engine не найдена",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java"
+    ],
+    "len": 31
+  },
+  {
+    "ru": "Первый вход в мир. _eventPlayer",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 31
+  },
+  {
+    "ru": "Пользовательская fun из скрипта",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 31
+  },
+  {
+    "ru": "Свойства: parent, x, y, z, name",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 31
+  },
+  {
+    "ru": "Синтаксис блоков###block-syntax",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java",
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 31
+  },
+  {
+    "ru": "Случайный сдвиг точки появления",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 31
+  },
+  {
+    "ru": "Экспорт проекта###ProjectExport",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java"
+    ],
+    "len": 31
+  },
+  {
+    "ru": "true/false — событие пересечения",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 32
+  },
+  {
+    "ru": "true/false — физическая коллизия",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 32
+  },
+  {
+    "ru": "Идентификатор сцены (имя файла):",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 32
+  },
+  {
+    "ru": "Нет дропов — добавь предмет ниже",
+    "files": [
+      "client/editor/scene/DropRulesEditor.java"
+    ],
+    "len": 32
+  },
+  {
+    "ru": "Нет сцен в spraute_engine/scenes",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 32
+  },
+  {
+    "ru": "Плагины Spraute (.splugin, .zip)",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java",
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 32
+  },
+  {
+    "ru": " (канвас создастся автоматически)",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 33
+  },
+  {
+    "ru": "ЛКМ — вращение · Колесо — масштаб",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 33
+  },
+  {
+    "ru": "Облака отключены (clouds = false)",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 33
+  },
+  {
+    "ru": "ПКМ: меню · двойной клик: открыть",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 33
+  },
+  {
+    "ru": "Превратить поле в сокет для блока",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 33
+  },
+  {
+    "ru": "Раздел в Hierarchy для custom-нод",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 33
+  },
+  {
+    "ru": "Свет сцены (minecraft:light 0–15)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 33
+  },
+  {
+    "ru": "Создайте новую сцену или откройте",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 33
+  },
+  {
+    "ru": ".spr (генерируется при сохранении)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 34
+  },
+  {
+    "ru": "Автозапуск при старте мира/сервера",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 34
+  },
+  {
+    "ru": "Живой персонаж: ИИ, здоровье и бой",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 34
+  },
+  {
+    "ru": "Перечитать spraute_engine/plugins/",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 34
+  },
+  {
+    "ru": "После вылета постепенно тянет вниз",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 34
+  },
+  {
+    "ru": "Прокручиваемая область с виджетами",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 34
+  },
+  {
+    "ru": "Смерть. _eventEntity, _eventKiller",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 34
+  },
+  {
+    "ru": "\\nБлок-действие (перетащи на холст)",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 35
+  },
+  {
+    "ru": "\\nБлок-значение (перетащи на холст)",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 35
+  },
+  {
+    "ru": "spreadX, spreadY, spreadZ — разброс",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 35
+  },
+  {
+    "ru": "Анимация до последнего кадра и стоп",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 35
+  },
+  {
+    "ru": "Кастомный партикл spraute_engine:id",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 35
+  },
+  {
+    "ru": "Новый файл в spraute_engine/scripts",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 35
+  },
+  {
+    "ru": "ПКМ по блоку — убрать из избранного",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 35
+  },
+  {
+    "ru": "Пустая нода-якорь в иерархии сцены.",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 35
+  },
+  {
+    "ru": "Родительская нода больше недоступна",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java",
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 35
+  },
+  {
+    "ru": "Свойства: texture — путь к текстуре",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 35
+  },
+  {
+    "ru": "Сетка 9x3 + хотбар инвентаря игрока",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 35
+  },
+  {
+    "ru": "Угол (кратчайший путь), опц. easing",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 35
+  },
+  {
+    "ru": "Картинка, всегда повёрнутая к камере",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 36
+  },
+  {
+    "ru": "Контейнер/точка привязки без визуала",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 36
+  },
+  {
+    "ru": "Обработчик события (Tab — другие on)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 36
+  },
+  {
+    "ru": "Плагин с таким именем уже существует",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 36
+  },
+  {
+    "ru": "Предмет у NPC. _eventNpc, _eventItem",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 36
+  },
+  {
+    "ru": "Путь к точке; await — ждать прибытия",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 36
+  },
+  {
+    "ru": "Совпадает с gizmo и хитбоксом в мире",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 36
+  },
+  {
+    "ru": "Телепорт: teleportToWorld(player, \\\"",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 36
+  },
+  {
+    "ru": "Убийство. _eventEntity, _eventKiller",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 36
+  },
+  {
+    "ru": "  (сцена запущена — сохранение выкл.)",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 37
+  },
+  {
+    "ru": "dirX, dirY, dirZ — направление (cone)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 37
+  },
+  {
+    "ru": "ЛКМ + движение: вращать   колесо: зум",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 37
+  },
+  {
+    "ru": "Сцена запущена — сохранение отключено",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 37
+  },
+  {
+    "ru": "Только правильным инструментом (дроп)",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 37
+  },
+  {
+    "ru": "Хитбокс сцены (нужна активная сцена).",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 37
+  },
+  {
+    "ru": "  ·  ПКМ: меню · двойной клик: открыть",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 38
+  },
+  {
+    "ru": "9-slice: рамка (px текстуры, 0 = выкл)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 38
+  },
+  {
+    "ru": "\\\"), uiSetSlot, uiSlotHasItem и т.д.\\n",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 38
+  },
+  {
+    "ru": "create item — инструмент / броня / geo",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 38
+  },
+  {
+    "ru": "Для HITBOX используется только Y (yaw)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 38
+  },
+  {
+    "ru": "Имя: только латиница, цифры, «-» и «_»",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 38
+  },
+  {
+    "ru": "Клик ПКМ по NPC/сущности. _eventPlayer",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 38
+  },
+  {
+    "ru": "Не удалось определить размер геометрии",
+    "files": [
+      "client/editor/scene/GeoBoneEditor.java"
+    ],
+    "len": 38
+  },
+  {
+    "ru": "Невидимый minecraft:light 0–15 (белый)",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 38
+  },
+  {
+    "ru": "Остановить сцену, её объекты и скрипты",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 38
+  },
+  {
+    "ru": "Родительская нода сцены (id или _node)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 38
+  },
+  {
+    "ru": "Спавн NPC по шаблону create npc_prefab",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 38
+  },
+  {
+    "ru": "Текстовое поле (on uiInput в скриптах)",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 38
+  },
+  {
+    "ru": ".spr-файл, запускаемый вместе со сценой",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 39
+  },
+  {
+    "ru": "Ввод в input. _eventInput, _eventWidget",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 39
+  },
+  {
+    "ru": "Пиксели (клик — пересчитать в проценты)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 39
+  },
+  {
+    "ru": "Появится в spraute_engine/plugins/<имя>",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 39
+  },
+  {
+    "ru": "Рендер игрока, НПС сцены или моба в GUI",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 39
+  },
+  {
+    "ru": "Эта нода не принимает дочерние элементы",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 39
+  },
+  {
+    "ru": "⚠ Не найдены блоки (показаны красным): ",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 39
+  },
+  {
+    "ru": "true/false — выключить без удаления ноды",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 40
+  },
+  {
+    "ru": "Ванильный или модовый моб по registry id",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 40
+  },
+  {
+    "ru": "Выберите JAR Spraute Engine в папке mods",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 40
+  },
+  {
+    "ru": "Ждать выход. Алиасы: logout, playerLeave",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 40
+  },
+  {
+    "ru": "Игрок вышел. Алиасы: logout, playerLeave",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 40
+  },
+  {
+    "ru": "Кольцо частиц в горизонтальной плоскости",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 40
+  },
+  {
+    "ru": "Контейнер: дети выравниваются по ячейкам",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 40
+  },
+  {
+    "ru": "Наведение на UI. _eventHover enter/leave",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 40
+  },
+  {
+    "ru": "Нет jar с «spraute» в имени в папке mods",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 40
+  },
+  {
+    "ru": "Нет файлов для экспорта — выберите сцену",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 40
+  },
+  {
+    "ru": "Рендерится игрок, который смотрит на GUI",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 40
+  },
+  {
+    "ru": "Создайте клип, чтобы редактировать ключи",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 40
+  },
+  {
+    "ru": "Файл .animation.json и таймлайн родителя",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 40
+  },
+  {
+    "ru": ".sprv — блоки; рантайм читает парный .spr",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 41
+  },
+  {
+    "ru": "0 = без опыта · орбы при ломании / смерти",
+    "files": [
+      "client/editor/scene/DropRulesEditor.java"
+    ],
+    "len": 41
+  },
+  {
+    "ru": "create craft — верстак / печь / без формы",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 41
+  },
+  {
+    "ru": "В файле нет клипов — создайте в таймлайне",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 41
+  },
+  {
+    "ru": "Выберите мир или отключите «Включить мир»",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java",
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 41
+  },
+  {
+    "ru": "Интерполяция или tween: время + плавность",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 41
+  },
+  {
+    "ru": "Скачать плагин как .splugin на устройство",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 41
+  },
+  {
+    "ru": "Эмиттер: форма, разброс, гравитация, цикл",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 41
+  },
+  {
+    "ru": "Контейнер: всё за его границами обрезается",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 42
+  },
+  {
+    "ru": "Нет тегов — добавьте для поиска в скриптах",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 42
+  },
+  {
+    "ru": "Прямоугольник/фон, может содержать виджеты",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 42
+  },
+  {
+    "ru": "Рендер только если живой NPC сейчас в мире",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 42
+  },
+  {
+    "ru": "То же что timed lerp(...); await time(...)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 42
+  },
+  {
+    "ru": "У аниматора не выбран файл .animation.json",
+    "files": [
+      "client/editor/scene/AnimatorTimelineSession.java"
+    ],
+    "len": 42
+  },
+  {
+    "ru": "Частицы из кости NPC (до particleStopBone)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 42
+  },
+  {
+    "ru": " плагинов  ·  папка: spraute_engine/plugins",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 43
+  },
+  {
+    "ru": "+ Базовые ключи Position / Rotation / Scale",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 43
+  },
+  {
+    "ru": "UI трейда из economy.spr (монеты savedData)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 43
+  },
+  {
+    "ru": "Ввод в скриптах: on uiInput / await uiInput",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 43
+  },
+  {
+    "ru": "Дополнение  (↑↓ / колесо · Tab/Enter · Esc)",
+    "files": [
+      "client/editor/scene/ScriptCodeEditor.java"
+    ],
+    "len": 43
+  },
+  {
+    "ru": "Кликабельная кнопка (on uiClick в скриптах)",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 43
+  },
+  {
+    "ru": "Мир не найден или повреждён (нет level.dat)",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java"
+    ],
+    "len": 43
+  },
+  {
+    "ru": "Форма = где появляются · Режим = куда летят",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 43
+  },
+  {
+    "ru": "Ctrl+клик — добавить · Shift+клик — диапазон",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 44
+  },
+  {
+    "ru": "Создание объекта (Tab ещё раз — другие типы)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 44
+  },
+  {
+    "ru": "create world — измерение, небо, туман, облака",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 45
+  },
+  {
+    "ru": "Изменения вступят после перезапуска Minecraft",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 45
+  },
+  {
+    "ru": "Клик по кнопке UI. _eventPlayer, _eventWidget",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 45
+  },
+  {
+    "ru": "Пауза / ожидание события (Tab — другие await)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 45
+  },
+  {
+    "ru": "Слоты привязаны к настоящему инвентарю игрока",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 45
+  },
+  {
+    "ru": "Код (несколько строк) · Ctrl+Enter — выполнить",
+    "files": [
+      "client/editor/scene/ScriptConsolePanel.java"
+    ],
+    "len": 46
+  },
+  {
+    "ru": "Перетаскивай предметы · порядок как в креативе",
+    "files": [
+      "client/editor/scene/TabItemsEditor.java"
+    ],
+    "len": 46
+  },
+  {
+    "ru": "Эмиттер частиц в сцене (нужна активная сцена).",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 46
+  },
+  {
+    "ru": "переменные консоли сохраняются между запусками",
+    "files": [
+      "client/editor/scene/ScriptConsolePanel.java"
+    ],
+    "len": 46
+  },
+  {
+    "ru": "Анимация один раз (MODEL: replace по умолчанию)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 47
+  },
+  {
+    "ru": "Как create drop · block = \\\"…\\\" или mob = \\\"…\\\"",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 47
+  },
+  {
+    "ru": "Кликни слот / поле — выбор из реестра предметов",
+    "files": [
+      "client/editor/scene/CraftRecipeEditor.java"
+    ],
+    "len": 47
+  },
+  {
+    "ru": "Основа GUI: панель, на которую ставятся виджеты",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 47
+  },
+  {
+    "ru": "Повернуть игрока взглядом на точку или сущность",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 47
+  },
+  {
+    "ru": "У каждой строки свой предмет, количество и шанс",
+    "files": [
+      "client/editor/scene/DropRulesEditor.java"
+    ],
+    "len": 47
+  },
+  {
+    "ru": "0 = как у типа частицы · 20 ≈ 1 сек · 40 ≈ 2 сек",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 48
+  },
+  {
+    "ru": "create block — регистрируется при перезапуске MC",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 48
+  },
+  {
+    "ru": "Зажмите и перетащите — изменить порядок разделов",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 48
+  },
+  {
+    "ru": "Перетащи в сетку сверху · двойной клик — в конец",
+    "files": [
+      "client/editor/scene/TabItemsEditor.java"
+    ],
+    "len": 48
+  },
+  {
+    "ru": ".sprv — правки затрутся при сохранении блоков\\n\\n",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 49
+  },
+  {
+    "ru": "Классическое меню выбора (кому показать = player)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 49
+  },
+  {
+    "ru": "Клик в скриптах: on uiClick { if (_uiWidget == \\\"",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 49
+  },
+  {
+    "ru": "Регистрирует кастомный партикл spraute_engine:id.",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 49
+  },
+  {
+    "ru": " · движок использует вычисленный мировой transform",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 50
+  },
+  {
+    "ru": "UI трейда из economy.spr (монеты savedData coins).",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 50
+  },
+  {
+    "ru": "Превью %d×%d px · клик — выбрать, тянуть — двигать",
+    "files": [
+      "client/editor/scene/UiStyleEditor.java"
+    ],
+    "len": 50
+  },
+  {
+    "ru": "Предмет или блок Minecraft (блоки рендерятся в 3D)",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 50
+  },
+  {
+    "ru": "Управление камерой активно — Esc: отпустить курсор",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 50
+  },
+  {
+    "ru": "Один раз: вспышка при старте сцены / появлении ноды",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 51
+  },
+  {
+    "ru": "Проценты от родителя (клик — пересчитать в пиксели)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 51
+  },
+  {
+    "ru": "Шаблон GUI (виджеты: text, button, image, rect, …).",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 51
+  },
+  {
+    "ru": "камень≈1.5 · руда≈3 · обсидиан≈50 · <0 = неломаемый",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 51
+  },
+  {
+    "ru": "* — значения различаются · правка ставит одно у всех",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 52
+  },
+  {
+    "ru": "0=дерево · 1=камень · 2=железо · 3=алмаз · 4=незерит",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 52
+  },
+  {
+    "ru": "Tab — выбрать из списка · Ctrl+Space — все подсказки",
+    "files": [
+      "client/editor/scene/ScriptCodeEditor.java"
+    ],
+    "len": 52
+  },
+  {
+    "ru": "Дочерние виджеты позиционируются относительно панели",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 52
+  },
+  {
+    "ru": "0 = одинаковая · 0.5 = ±50% к скорости каждой частицы",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 53
+  },
+  {
+    "ru": "ЛКМ по миру: управление камерой   ЛКМ по NPC: выбрать",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 53
+  },
+  {
+    "ru": "Скрипты: plugins/.../scripts → scripts/plugins/<имя>/",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 53
+  },
+  {
+    "ru": "Слот контейнера 18x18: игрок кладёт/забирает предметы",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 53
+  },
+  {
+    "ru": "Схема ноды; economy — лавка на NPC через ecoOpenTrade",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 53
+  },
+  {
+    "ru": "Цвет рамки не используется — все цвета задаются здесь",
+    "files": [
+      "client/editor/scene/UiStyleEditor.java"
+    ],
+    "len": 53
+  },
+  {
+    "ru": "0° = точный луч · 15–40° = веер · 90°+ = широкий конус",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 54
+  },
+  {
+    "ru": "create world · id ноды = id мира · нужен перезапуск MC",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 54
+  },
+  {
+    "ru": "Выберите хотя бы один файл или папку из spraute_engine",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java"
+    ],
+    "len": 54
+  },
+  {
+    "ru": "Дочерние виджеты живут внутри области и прокручиваются",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 54
+  },
+  {
+    "ru": "Крутится с нодой · (0,1,0)=вверх · (0,0,1)=вперёд по Z",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 54
+  },
+  {
+    "ru": "Всегда повёрнут к камере · масштаб ноды умножает размер",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 55
+  },
+  {
+    "ru": "Отрицательные значения — отступ от правого/нижнего края",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 55
+  },
+  {
+    "ru": "Плагины не найдены — создайте новый или установите .zip",
+    "files": [
+      "client/editor/scene/PluginManagerPanel.java"
+    ],
+    "len": 55
+  },
+  {
+    "ru": "Создаёт или обновляет NPC. id — переменная с сущностью.",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 55
+  },
+  {
+    "ru": "Текст переносится, когда не помещается в ширину виджета",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 55
+  },
+  {
+    "ru": "Канвас со слотами открывается как контейнер (не оверлей)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 56
+  },
+  {
+    "ru": "Основной цвет не используется — все цвета задаются здесь",
+    "files": [
+      "client/editor/scene/UiStyleEditor.java"
+    ],
+    "len": 56
+  },
+  {
+    "ru": " (who: text: мир)\n                    #\\\\ template: chat(",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 57
+  },
+  {
+    "ru": "Дети раскладываются по ячейкам слева направо, сверху вниз",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 57
+  },
+  {
+    "ru": "Замок унаследован от родителя — во вьюпорте не выбирается",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 57
+  },
+  {
+    "ru": "Регистрация при старте MC · нужен перезапуск после правок",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 57
+  },
+  {
+    "ru": "Якорь модели в ячейке: X 0=лево…1=право, Y 0=верх…1=низ\\n",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 57
+  },
+  {
+    "ru": "ID частицы: minecraft:flame или spraute_engine:my_particle",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 58
+  },
+  {
+    "ru": "W / E / R — двигать, вращать и масштабировать кость в мире",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 58
+  },
+  {
+    "ru": "items — список dict(id, name, buy, sell, canBuy, canSell).",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 58
+  },
+  {
+    "ru": "Невидимый контейнер: смещает и группирует дочерние виджеты",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 58
+  },
+  {
+    "ru": "Парный .spr появится при сохранении визуального редактора.",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 58
+  },
+  {
+    "ru": "Слот контейнера 18x18 px. Идентификатор ноды — id слота:\\n",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 58
+  },
+  {
+    "ru": "-1 = сутки · 0 = рассвет · 6000 = полдень · 18000 = полночь",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 59
+  },
+  {
+    "ru": "Полные примеры: spraute_engine/plugins/procode/blocks/*.spr",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 59
+  },
+  {
+    "ru": "Да = блок не дропает ванильные предметы, только правила ниже",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 60
+  },
+  {
+    "ru": "Кликните по ключу, чтобы выбрать (интерполяция, копирование)",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 60
+  },
+  {
+    "ru": "Порядок слотов = порядок в креатив-вкладке после перезапуска",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 60
+  },
+  {
+    "ru": "(Y < 0 или > 1 — за пределами ячейки). Как anchor в create ui",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 61
+  },
+  {
+    "ru": ":          — условные строки\n\n                template: chat(",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 61
+  },
+  {
+    "ru": "Выберите кость (в треках или в иерархии), чтобы ставить ключи",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 61
+  },
+  {
+    "ru": "Модель НПС рисуется всегда (даже если не заспавнен или мёртв)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 61
+  },
+  {
+    "ru": "Невидимый контейнер: группировка виджетов, общая прозрачность",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 61
+  },
+  {
+    "ru": "Все зарегистрированные простые частицы (vanilla + моды + свои)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 62
+  },
+  {
+    "ru": "Да = очистить ванильный лут моба, оставить только правила ниже",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 62
+  },
+  {
+    "ru": "Файл модели недоступен для редактирования или кость не найдена",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 62
+  },
+  {
+    "ru": "Частицы видны в редакторе · ANIMATOR-ребёнок двигает transform",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 62
+  },
+  {
+    "ru": "dialogClassic(|player, npc, \\\"Вопрос?\\\", list(\\\"Да\\\", \\\"Нет\\\"))",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 63
+  },
+  {
+    "ru": "|  ЛКМ по линейке — время · ключ: тянуть — сдвиг, ПКМ — удалить",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 63
+  },
+  {
+    "ru": "В одиночной игре ставит реальный minecraft:light в позиции узла",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 63
+  },
+  {
+    "ru": "Ванильный minecraft:light — белый свет, радиус ≈ уровень блоков",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 63
+  },
+  {
+    "ru": "Перемещение двигает геометрию кости и всю её дочернюю иерархию.",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 63
+  },
+  {
+    "ru": "Свойства: parent, x, y, z, width, height, depth, solid, trigger",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 63
+  },
+  {
+    "ru": "Сетка 9x3 + хотбар (162x76 px). Позиция — левый верхний угол.\\n",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 63
+  },
+  {
+    "ru": "Только общие поля (active / lock / transform) · имя не меняется",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 63
+  },
+  {
+    "ru": "  |  правки не сохраняются   /spraute stop   N: закрыть редактор",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 64
+  },
+  {
+    "ru": "create drop — дроп с блока или моба, replace = отключить базовый",
+    "files": [
+      "client/editor/scene/HierarchyPanel.java"
+    ],
+    "len": 64
+  },
+  {
+    "ru": "Импортирован .sprv из Spraute Studio — сохраните для конвертации",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 64
+  },
+  {
+    "ru": "либо добавьте ноду «Аниматор» вручную и укажите .animation.json.",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 64
+  },
+  {
+    "ru": "dialogCinematic(|player, npc, \\\"Вопрос?\\\", list(\\\"Да\\\", \\\"Нет\\\"))",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 65
+  },
+  {
+    "ru": "Изменение значения сразу пишет ключ на текущем времени (auto-key)",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 65
+  },
+  {
+    "ru": "Кинематографическое меню выбора + камера (кому показать = player)",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 65
+  },
+  {
+    "ru": "Кривая: linear, easeIn, easeOut, easeInOut, bounceOut, elasticOut",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 65
+  },
+  {
+    "ru": "Углы не растягиваются, стороны тянутся, центр заполняет остальное",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 65
+  },
+  {
+    "ru": "Solid блокирует игроков · Trigger — on hitboxTouch / on hitboxExit",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 66
+  },
+  {
+    "ru": "Наведите на поле — подсказка скрипта · _node.x · _node.transform.x",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 66
+  },
+  {
+    "ru": "Выберите NPC или модель с файлом анимаций — аниматор создастся сам,",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 67
+  },
+  {
+    "ru": "(как экспорт проекта: mods/ + spraute_engine/ + опционально saves/).",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 68
+  },
+  {
+    "ru": "Встроенные ресурсы нельзя сохранять — скопируйте модель в workspace.",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 68
+  },
+  {
+    "ru": "Нода выключена: при запуске сцены она и все её дети ничего не делают",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 68
+  },
+  {
+    "ru": "  |  N: закрыть редактор   Ctrl+S: сохранить   Ctrl+Z/Ctrl+Y: история",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 69
+  },
+  {
+    "ru": "СКМ — панорама · рамка — выделение · Del — удалить · ↔ — поле в сокет",
+    "files": [
+      "client/editor/scene/VisualScriptEditor.java"
+    ],
+    "len": 69
+  },
+  {
+    "ru": "W / E / R — перемещение, поворот и размер; изменения сразу сохраняются.",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 71
+  },
+  {
+    "ru": "Схема кастомной ноды. После сохранения .spr тип появляется в Hierarchy.",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 71
+  },
+  {
+    "ru": "Нода и все дети не выбираются кликом во вьюпорте — только через иерархию",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 72
+  },
+  {
+    "ru": "Сцена запущена — сохранение отключено. Остановите сцену (/spraute stop).",
+    "files": [
+      "client/editor/scene/SceneEditorSession.java"
+    ],
+    "len": 72
+  },
+  {
+    "ru": "Выкл = ванильный дроп если таблица пуста/не выпала · Вкл = только таблица",
+    "files": [
+      "client/editor/scene/ResourceInspector.java"
+    ],
+    "len": 73
+  },
+  {
+    "ru": "Разовый burst частиц в точке. type: minecraft:flame или spraute_engine:id",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 73
+  },
+  {
+    "ru": "» не найден — добавь SCRIPT с declare node type в эту сцену и сохрани .spr",
+    "files": [
+      "client/editor/scene/CustomNodeInspector.java"
+    ],
+    "len": 74
+  },
+  {
+    "ru": "Собирает сцену и все связанные скрипты, модели, текстуры и анимации в ZIP ",
+    "files": [
+      "client/editor/scene/SceneExportPanel.java"
+    ],
+    "len": 74
+  },
+  {
+    "ru": "\\n\\nКладите `.spr` с блоками в `blocks/`, runtime-скрипты — в `scripts/`.\\n",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 75
+  },
+  {
+    "ru": "Общие параметры · разные значения → правка ставит одно у всех (кроме имени)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 75
+  },
+  {
+    "ru": "Свойства: type, shape, count, speed, spread, loop, interval, parent, x, y, z",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 76
+  },
+  {
+    "ru": "Заблокировать/разблокировать поворот мышью; при lock фиксирует текущий взгляд",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 77
+  },
+  {
+    "ru": "При установке `.splugin` скрипты копируются в `spraute_engine/scripts/plugins/",
+    "files": [
+      "client/editor/visual/VisualBlockRegistry.java"
+    ],
+    "len": 78
+  },
+  {
+    "ru": "Установить куда смотрит игрок (градусы). Если look locked — обновляет фиксацию",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 78
+  },
+  {
+    "ru": "Свойства: name, model, texture, animation, idleAnim, pos, rotate, parent, scene",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 79
+  },
+  {
+    "ru": "Источник света в сцене (нужна активная сцена). Ставит невидимый minecraft:light.",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 80
+  },
+  {
+    "ru": "Файл модели не найден в spraute_engine (встроенные ресурсы редактировать нельзя)",
+    "files": [
+      "client/editor/scene/GeoBoneEditor.java",
+      "client/editor/scene/GeoBoneEditor.java"
+    ],
+    "len": 80
+  },
+  {
+    "ru": "Заблокировать/разблокировать ходьбу (WASD), независимо от кинематографической камеры",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 84
+  },
+  {
+    "ru": "create item id {\\n    texture = \\\"textures/item/item.png\\\"\\n    name = \\\"Предмет\\\"\\n}",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 85
+  },
+  {
+    "ru": "Дочерние виджеты позиционируются относительно области; всё за её границами обрезается",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 85
+  },
+  {
+    "ru": "В клипе пока нет анимированных костей — добавьте кость выше или выберите её в иерархии",
+    "files": [
+      "client/editor/scene/TimelinePanel.java"
+    ],
+    "len": 86
+  },
+  {
+    "ru": "Свойства: level (0–15), enabled, parent, x, y, z. Цветной свет пока не поддерживается.",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 86
+  },
+  {
+    "ru": "Поля: field name kind { label, default }, list name { field… }. economy → ecoOpenTrade.",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 87
+  },
+  {
+    "ru": "Размер хранится в cubes[].size; сетка переводится из блоков в пиксели (1 блок = 16 px).",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 87
+  },
+  {
+    "ru": "Свойства: name, hp, speed, pos, rotate, model, texture, animation, idleAnim, walkAnim, ",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 87
+  },
+  {
+    "ru": "ZIP как в Spraute Studio: JAR мода, выбранное содержимое spraute_engine и мир по желанию.",
+    "files": [
+      "client/editor/scene/ProjectExportPanel.java"
+    ],
+    "len": 89
+  },
+  {
+    "ru": "»: кости клипа двигают этот виджет (position → X/Y, rotation.z → поворот, scale → размер)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 89
+  },
+  {
+    "ru": ")        — генерация кода\n                code: return '...';             — либо JS-генератор",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 93
+  },
+  {
+    "ru": "Канвасы рисуются по возрастанию слоя; слой < 0 — под интерфейсом Minecraft (хотбар, чат и т.п.)",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 95
+  },
+  {
+    "ru": "Блоки описываются в файлах blocks/*.spr плагина (формат Spraute Studio, префикс #\\\\ необязателен):",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 98
+  },
+  {
+    "ru": "GUI-аниматор канваса: имя кости в клипе = идентификатор виджета. position → X/Y (px), rotation.z → поворот (°), scale → множитель размера",
+    "files": [
+      "client/editor/scene/InspectorPanel.java"
+    ],
+    "len": 137
+  },
+  {
+    "ru": " (поле: text: значение) [выбор: dropdown(да: true, нет: false)]\n                input: player (type: value)     — сокет для другого блока\n                if поле == ",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 165
+  },
+  {
+    "ru": "create ui name {\\n    text title {\\n        id = \\\"title\\\"\\n        text = \\\"Заголовок\\\"\\n        x = 10\\n        y = 10\\n    }\\n    button ok {\\n        id = \\\"ok\\\"\\n        text = \\\"OK\\\"\\n        x = 10\\n        y = 40\\n    }\\n}",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 230
+  },
+  {
+    "ru": "\n                block: my_block          — id блока\n                category: Моя категория  — раздел палитры\n                color: #38bdf8           — цвет\n                shape: statement | value | wrapper\n\n                row: ",
+    "files": [
+      "client/editor/SprauteEngineEditorScreen.java"
+    ],
+    "len": 232
+  },
+  {
+    "ru": "declare node type economy {\\n    section = \\\"Экономика\\\"\\n    label = \\\"Торговля\\\"\\n    field canTrade bool { default = true }\\n    field title text { default = \\\"Торговля\\\" }\\n    list items {\\n        field item item { }\\n        field buyPrice number { default = 10 }\\n        field sellPrice number { default = 5 }\\n        field canBuy bool { default = true }\\n        field canSell bool { default = true }\\n    }\\n}",
+    "files": [
+      "client/editor/scene/ScriptEditorHints.java"
+    ],
+    "len": 421
+  }
+]

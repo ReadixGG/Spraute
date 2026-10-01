@@ -1,0 +1,14 @@
+#\ block: quest_complete_goal
+#\ category: Квесты
+#\ color: #9333ea
+#\ shape: statement
+#\ write_start: import("spraute_quests")
+#\
+#\ row: "выполнить цель в квесте" (questId: text: my_quest)
+#\ row: [mode: dropdown(по номеру: index, по тексту: text)]
+#\ if mode == "index":
+#\   row: "№ цели (с 0)" (goalIndex: number: 0)
+#\   template: complete_quest_goal("{questId}", {goalIndex})
+#\ if mode == "text":
+#\   row: "текст содержит" (needle: text: железа)
+#\   template: complete_quest_goal_by_text("{questId}", "{needle}")

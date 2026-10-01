@@ -89,6 +89,7 @@ const sprauteProperties = [
   "anchor", "anchorX", "anchorY", "scale", "crop", "feetCrop",
   "rotation", "pivot", "pivotX", "pivotY",
   "color", "hover", "bgColor", "outlineColor",
+  "radius", "gradient", "gradientDir", "border", "borderColor", "shadow",
   "wrap", "align", "tooltip", "layer", "order", "id",
   "maxLines", "maxChars", "inputType", "placeholder",
   "contentH", "scrollbar",
@@ -1992,11 +1993,18 @@ const VisualEngine = {
           if (await window.spraute.exists(catPath)) {
             catData = JSON.parse(await window.spraute.readFile(catPath, 'utf8'));
             registerPluginCategoryOrder(Object.keys(catData));
-            for (const [catName, catColor] of Object.entries(catData)) {
+            for (const [catName, catRaw] of Object.entries(catData)) {
+              const meta = (catRaw && typeof catRaw === 'object' && !Array.isArray(catRaw))
+                ? {
+                    color: typeof catRaw.color === 'string' && catRaw.color ? catRaw.color : '#555555',
+                    note: typeof catRaw.note === 'string' && catRaw.note.trim() ? catRaw.note.trim() : null,
+                  }
+                : { color: typeof catRaw === 'string' && catRaw ? catRaw : '#555555', note: null };
               if (!customCategories[catName]) {
-                customCategories[catName] = { color: catColor, blocks: [] };
+                customCategories[catName] = { color: meta.color, blocks: [], note: meta.note };
               } else {
-                customCategories[catName].color = catColor;
+                customCategories[catName].color = meta.color;
+                if (meta.note) customCategories[catName].note = meta.note;
               }
             }
           }
@@ -4313,11 +4321,16 @@ async function savePluginCategories(pluginName) {
   } catch(e) { console.error("Save categories error:", e); }
 }
 
+function categoryColorOf(raw) {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw.color || '#555555';
+  return typeof raw === 'string' && raw ? raw : '#555555';
+}
+
 function renderCategories() {
   categoriesList.innerHTML = Object.entries(pluginCategories).map(([name, color]) => `
     <div class="flex items-center justify-between p-2 rounded-lg bg-black/20 border border-white/5">
       <div class="flex items-center gap-2">
-        <div class="w-5 h-5 rounded" style="background-color: ${color};"></div>
+        <div class="w-5 h-5 rounded" style="background-color: ${categoryColorOf(color)};"></div>
         <span class="text-sm text-white">${name}</span>
       </div>
       <button class="text-red-400 hover:text-red-300 text-xs btn-delete-category" data-cat="${name}">Удалить</button>
@@ -4329,7 +4342,7 @@ function updateCategorySelect() {
   const select = document.getElementById('builder-category');
   if (!select) return;
   select.innerHTML = Object.entries(pluginCategories).map(([name, color]) => 
-    `<option value="${name}" data-color="${color}">${name}</option>`
+    `<option value="${name}" data-color="${categoryColorOf(color)}">${name}</option>`
   ).join('');
   
   // Добавляем обработчик смены категории

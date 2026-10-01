@@ -1,0 +1,86 @@
+#\ block: player_language
+#\ category: Локализация
+#\ color: #38bdf8
+#\ shape: value
+#\
+#\ row: "язык игрока" input: player (type: value)
+#\ code: return (function(){ var p=_getVal("player").trim(); return p?"playerLanguage("+p+")":"playerLanguage()"; })();
+
+#\ block: player_lang
+#\ category: Локализация
+#\ color: #38bdf8
+#\ shape: value
+#\
+#\ row: "короткий язык" input: player (type: value)
+#\ code: return (function(){ var p=_getVal("player").trim(); return p?"playerLang("+p+")":"playerLang()"; })();
+
+#\ block: is_english
+#\ category: Локализация
+#\ color: #38bdf8
+#\ shape: value
+#\
+#\ row: "английский?" input: player (type: value)
+#\ code: return (function(){ var p=_getVal("player").trim(); return p?"isEnglish("+p+")":"isEnglish()"; })();
+
+#\ block: tr
+#\ category: Локализация
+#\ color: #38bdf8
+#\ shape: value
+#\
+#\ row: "перевод" (key: text: welcome)
+#\ row: "игрок" input: player (type: value)
+#\ row: "аргумент" input: arg (type: value)
+#\ code: return (function(){ var parts=[_str("key")]; var p=_getVal("player").trim(); var a=_getVal("arg").trim(); if(p) parts.push(p); if(a) parts.push(a); return "tr("+parts.join(", ")+")"; })();
+
+#\ block: t_ru_en
+#\ category: Локализация
+#\ color: #38bdf8
+#\ shape: value
+#\
+#\ row: "по-русски" (ru: text: Привет)
+#\ row: "по-английски" (en: text: Hello)
+#\ row: "игрок" input: player (type: value)
+#\ code: return (function(){ var p=_getVal("player").trim(); var s="t("+_str("ru")+", "+_str("en"); return p?s+", "+p+")":s+")"; })();
+
+#\ block: translate_map
+#\ category: Локализация
+#\ color: #38bdf8
+#\ shape: value
+#\
+#\ row: "из словаря" input: map (type: value)
+#\ row: "игрок" input: player (type: value)
+#\ code: return (function(){ var m=_getVal("map").trim()||"dict()"; var p=_getVal("player").trim(); return p?"translate("+p+", "+m+")":"translate("+m+")"; })();
+
+#\ block: has_tr
+#\ category: Локализация
+#\ color: #38bdf8
+#\ shape: value
+#\
+#\ row: "есть перевод?" (key: text: welcome)
+#\ row: "игрок" input: player (type: value)
+#\ code: return (function(){ var k=_str("key"); var p=_getVal("player").trim(); return p?"hasTr("+k+", "+p+")":"hasTr("+k+")"; })();
+
+#\ block: format_text
+#\ category: Локализация
+#\ color: #38bdf8
+#\ shape: value
+#\
+#\ row: "формат строки" input: text (type: value)
+#\ row: "аргумент" input: arg (type: value)
+#\ code: return (function(){ var t=_getVal("text").trim()||"\"\""; var a=_getVal("arg").trim(); return a?"format("+t+", "+a+")":"format("+t+")"; })();
+
+#\ block: languages_list
+#\ category: Локализация
+#\ color: #38bdf8
+#\ shape: value
+#\
+#\ row: "языки проекта"
+#\ template: languages()
+
+#\ block: reload_lang
+#\ category: Локализация
+#\ color: #38bdf8
+#\ shape: statement
+#\
+#\ row: "перечитать переводы"
+#\ template: reloadLang()

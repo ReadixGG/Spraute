@@ -1,9 +1,7 @@
 package org.zonarstudio.spraute_engine.script.function;
 
 import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import org.zonarstudio.spraute_engine.script.ScriptContext;
 
 import java.util.List;
@@ -25,16 +23,7 @@ public class HasItemFunction implements ScriptFunction {
 
         Player player = resolvePlayer(target, source);
         if (player == null) return false;
-
-        ResourceLocation searchRL = new ResourceLocation(itemId);
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            ItemStack stack = player.getInventory().getItem(i);
-            if (!stack.isEmpty()) {
-                ResourceLocation stackRL = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
-                if (stackRL.equals(searchRL)) return true;
-            }
-        }
-        return false;
+        return org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.countMatching(player, itemId) > 0;
     }
 
     private Player resolvePlayer(Object target, CommandSourceStack source) {

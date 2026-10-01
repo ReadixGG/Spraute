@@ -1,0 +1,31 @@
+#\ block: quest_goals_list
+#\ category: Квесты
+#\ color: #9333ea
+#\ shape: value
+#\ write_start: import("spraute_quests")
+#\
+#\ row: "список целей"
+#\ row: "цель 1"
+#\ input: goal1 (type: value)
+#\ if_filled goal1:
+#\   row: "цель 2"
+#\   input: goal2 (type: value)
+#\ if_filled goal2:
+#\   row: "цель 3"
+#\   input: goal3 (type: value)
+#\ if_filled goal3:
+#\   row: "цель 4"
+#\   input: goal4 (type: value)
+#\ if_filled goal4:
+#\   row: "цель 5"
+#\   input: goal5 (type: value)
+#\ if_filled goal5:
+#\   row: "цель 6"
+#\   input: goal6 (type: value)
+#\ if_filled goal6:
+#\   row: "цель 7"
+#\   input: goal7 (type: value)
+#\ if_filled goal7:
+#\   row: "цель 8"
+#\   input: goal8 (type: value)
+#\ code: return (function(){ var p=[], vs=["goal1","goal2","goal3","goal4","goal5","goal6","goal7","goal8"]; for(var i=0;i<8;i++){ var v=_getVal(vs[i]).trim(); if(v) p.push(v); } if(p.length===0) return 'list()'; return "list("+p.join(", ")+")"; })();

@@ -1,0 +1,8 @@
+#\ block: for_each
+#\ category: Циклы
+#\ color: #06b6d4
+#\ shape: wrapper
+#\
+#\ row: "для" (var: text: x) "в"
+#\ input: list (type: value)
+#\ template: for ({var} in {list}) {\n{DO}}

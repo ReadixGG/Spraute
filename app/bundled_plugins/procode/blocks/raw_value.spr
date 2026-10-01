@@ -1,0 +1,7 @@
+#\ block: raw_value
+#\ category: Действия
+#\ color: #14b8a6
+#\ shape: value
+#\
+#\ row: "выражение:" (code: text: 1 + 1)
+#\ code: return _getVal("code").trim();

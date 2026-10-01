@@ -1,0 +1,106 @@
+#\ block: route_create
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: value
+#\
+#\ row: "создать путь" (id: text: route1) "замкнуть" [closed: dropdown(нет: false, да: true)]
+#\ template: routeCreate("{id}", {closed})
+
+#\ block: route_get
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: value
+#\
+#\ row: "путь" (id: text: route1)
+#\ template: routeGet("{id}")
+
+#\ block: route_add_point
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: statement
+#\
+#\ row: "добавить точку в" input: route (type: value)
+#\ row: "X" input: x (type: value) "Y" input: y (type: value) "Z" input: z (type: value)
+#\ template: {route}.addPoint({x}, {y}, {z})
+
+#\ block: route_remove_point
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: statement
+#\
+#\ row: "удалить точку" (index: number: 0) "из" input: route (type: value)
+#\ template: {route}.removePoint({index})
+
+#\ block: route_set_point
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: statement
+#\
+#\ row: "точке" (index: number: 0) "пути" input: route (type: value)
+#\ row: "задать X" input: x (type: value) "Y" input: y (type: value) "Z" input: z (type: value)
+#\ template: {route}.setPoint({index}, {x}, {y}, {z})
+
+#\ block: route_point
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: value
+#\
+#\ row: "точка" (index: number: 0) "пути" input: route (type: value)
+#\ template: {route}.point({index})
+
+#\ block: route_points
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: value
+#\
+#\ row: "все точки пути" input: route (type: value)
+#\ template: {route}.points()
+
+#\ block: route_point_coord
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: value
+#\
+#\ row: [axis: dropdown(X: x, Y: y, Z: z)] "точки" (index: number: 0) "пути" input: route (type: value)
+#\ template: {route}.point({index}).{axis}
+
+#\ block: route_point_count
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: value
+#\
+#\ row: "количество точек пути" input: route (type: value)
+#\ template: {route}.pointCount()
+
+#\ block: route_point_look
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: statement
+#\
+#\ row: "точке" (index: number: 0) "пути" input: route (type: value)
+#\ row: "взгляд yaw" (yaw: number: 0) "pitch" (pitch: number: 0)
+#\ template: {route}.setPointLook({index}, {yaw}, {pitch})
+
+#\ block: route_clear
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: statement
+#\
+#\ row: "удалить все точки пути" input: route (type: value)
+#\ template: {route}.clearPoints()
+
+#\ block: route_set_closed
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: statement
+#\
+#\ row: "замкнуть путь" input: route (type: value) [closed: dropdown(нет: false, да: true)]
+#\ template: {route}.closed = {closed}
+
+#\ block: route_save
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: statement
+#\
+#\ row: "сохранить путь" input: route (type: value)
+#\ template: {route}.saveRoute()

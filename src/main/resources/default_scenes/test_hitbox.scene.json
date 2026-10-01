@@ -1,0 +1,24 @@
+﻿{
+  "format": 2,
+  "id": "test_hitbox",
+  "dimension": "minecraft:overworld",
+  "root": {
+    "id": "b4a70778-54f1-4c88-9302-279ee993927c",
+    "type": "SCENE",
+    "name": "test_hitbox",
+    "transform": { "px": 0.0, "py": 0.0, "pz": 0.0, "rx": 0.0, "ry": 0.0, "rz": 0.0, "sx": 1.0, "sy": 1.0, "sz": 1.0 },
+    "children": [
+      {
+        "id": "e48be495-28df-46d4-85fb-56d52639b9fd",
+        "type": "SCRIPT",
+        "name": "main",
+        "transform": { "px": 0.0, "py": 0.0, "pz": 0.0, "rx": 0.0, "ry": 0.0, "rz": 0.0, "sx": 1.0, "sy": 1.0, "sz": 1.0 },
+        "children": [],
+        "script": "test_hitbox",
+        "runOnSceneStart": true,
+        "tags": []
+      }
+    ],
+    "tags": []
+  }
+}

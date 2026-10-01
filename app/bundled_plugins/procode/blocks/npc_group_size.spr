@@ -1,0 +1,9 @@
+#\ block: npc_group_size
+#\ category: НПС Группы
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: "кол-во НПС в группе ("
+#\ input: group (type: value)
+#\ row: ")"
+#\ template: groupSize({group})

@@ -929,23 +929,32 @@ export function registerGuiBlocks(SprauteGenerator) {
     const y = Math.round(Number(getSprauteBlockVal(block, SprauteGenerator, 'Y')) || 0);
     const w = Math.round(Number(getSprauteBlockVal(block, SprauteGenerator, 'W')) || 80);
     const h = Math.round(Number(getSprauteBlockVal(block, SprauteGenerator, 'H')) || 20);
-    const a1 = (getSprauteBlockVal(block, SprauteGenerator, 'ARG1') || '').replace(/"/g, '\\"');
-    const a2 = (getSprauteBlockVal(block, SprauteGenerator, 'ARG2') || '').replace(/"/g, '\\"');
+    const a1Raw = getSprauteBlockVal(block, SprauteGenerator, 'ARG1') || '';
+    const a2Raw = getSprauteBlockVal(block, SprauteGenerator, 'ARG2') || '';
+    const qArg = (s, fallback) => {
+      const t = String(s || fallback || '');
+      if (t.startsWith('=')) return t.slice(1).trim() || '""';
+      if (/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)+$/.test(t.trim())) return t.trim();
+      return '"' + t.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+    };
     const lines = [];
     if (kind === 'text') {
-      lines.push(`text("${wid}", "${a1 || 'Текст'}") {`, `    pos = [${x}, ${y}]`, `    scale = 1`, `}`);
+      lines.push(`text("${wid}", ${qArg(a1Raw, 'Текст')}) {`, `    pos = [${x}, ${y}]`, `    scale = 1`, `}`);
     } else if (kind === 'button') {
-      lines.push(`button("${wid}", "${a1 || 'OK'}") {`, `    pos = [${x}, ${y}]`, `    size = [${w}, ${h}]`, `}`);
+      lines.push(`button("${wid}", ${qArg(a1Raw, 'OK')}) {`, `    pos = [${x}, ${y}]`, `    size = [${w}, ${h}]`, `}`);
     } else if (kind === 'rect') {
-      lines.push(`rect("${wid}") {`, `    pos = [${x}, ${y}]`, `    size = [${w}, ${h}]`, `    color = "${a1 || '#55FFFFFF'}"`, `}`);
+      const color = (a1Raw || '#55FFFFFF').replace(/"/g, '\\"');
+      lines.push(`rect("${wid}") {`, `    pos = [${x}, ${y}]`, `    size = [${w}, ${h}]`, `    color = "${color}"`, `}`);
     } else if (kind === 'image') {
-      lines.push(`image("${wid}", "${a1 || 'minecraft:textures/gui/icons.png'}") {`, `    pos = [${x}, ${y}]`, `    size = [${w}, ${h}]`, `}`);
+      const tex = (a1Raw || 'minecraft:textures/gui/icons.png').replace(/"/g, '\\"');
+      lines.push(`image("${wid}", "${tex}") {`, `    pos = [${x}, ${y}]`, `    size = [${w}, ${h}]`, `}`);
     } else if (kind === 'slot') {
       lines.push(`slot("${wid}") {`, `    pos = [${x}, ${y}]`, `}`);
     } else if (kind === 'input') {
-      lines.push(`input("${wid}") {`, `    pos = [${x}, ${y}]`, `    size = [${w}, ${h}]`, `    placeholder = "${a1}"`, `}`);
+      const ph = (a1Raw || '').replace(/"/g, '\\"');
+      lines.push(`input("${wid}") {`, `    pos = [${x}, ${y}]`, `    size = [${w}, ${h}]`, `    placeholder = "${ph}"`, `}`);
     } else if (kind === 'scroll') {
-      lines.push(`scroll("${wid}") {`, `    pos = [${x}, ${y}]`, `    size = [${w}, ${h}]`, `    contentH = ${Math.max(h, w)}`, `}`, ...(a2 ? [] : []));
+      lines.push(`scroll("${wid}") {`, `    pos = [${x}, ${y}]`, `    size = [${w}, ${h}]`, `    contentH = ${Math.max(h, w)}`, `}`, ...(a2Raw ? [] : []));
     } else if (kind === 'clip') {
       lines.push(`clip("${wid}") {`, `    pos = [${x}, ${y}]`, `    size = [${w}, ${h}]`, `}`);
     }

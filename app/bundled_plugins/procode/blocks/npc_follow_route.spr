@@ -1,0 +1,46 @@
+#\ block: npc_follow_route
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: statement
+#\
+#\ row: "НИП" [npc: dropdown_npc] [mode: dropdown(идти по точкам: walk, лететь по кривой: fly)]
+#\ row: [repeat: dropdown(один раз: once, всегда: always)] "путь" input: route (type: value)
+#\ row: "скорость" (speed: number: 1)
+#\ if repeat == "once":
+#\   row: "ждать окончания" [waitDone: checkbox(false)]
+#\ if mode == "walk" and repeat == "once" and waitDone:
+#\   template: await {npc}.followRoute({route}, {speed})
+#\ if mode == "walk" and repeat == "once" and not waitDone:
+#\   template: {npc}.followRoute({route}, {speed})
+#\ if mode == "walk" and repeat == "always":
+#\   template: {npc}.alwaysFollowRoute({route}, {speed})
+#\ if mode == "fly" and repeat == "once" and waitDone:
+#\   template: await {npc}.flyRoute({route}, {speed})
+#\ if mode == "fly" and repeat == "once" and not waitDone:
+#\   template: {npc}.flyRoute({route}, {speed})
+#\ if mode == "fly" and repeat == "always":
+#\   template: {npc}.alwaysFlyRoute({route}, {speed})
+
+#\ block: npc_route_index
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: value
+#\
+#\ row: "индекс точки пути у" [npc: dropdown_npc]
+#\ template: {npc}.routeIndex
+
+#\ block: npc_route_point_count
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: value
+#\
+#\ row: "число точек пути у" [npc: dropdown_npc]
+#\ template: {npc}.routePointCount
+
+#\ block: npc_following_route
+#\ category: Маршруты
+#\ color: #06b6d4
+#\ shape: value
+#\
+#\ row: "идёт по пути" [npc: dropdown_npc]
+#\ template: {npc}.followingRoute

@@ -1,0 +1,7 @@
+#\ block: npc_getprop
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: value
+#\
+#\ row: "у НИП" [npc: dropdown_npc] "свойство" [prop: dropdown(имя: name, здоровье: hp, макс. HP: maxHp, скорость: speed, поворот ходьба: walkTurnSpeed, поворот стойка: idleTurnSpeed, X: x, Y: y, Z: z, поворот: yaw, наклон: pitch, UUID: uuid, дроп: dropItem, дроп мин: dropMin, дроп макс: dropMax, шанс дропа: dropChance, прозрачная_текстура: translucent, прозрачность: opacity, авто_LOD: lod, дальность_рендера: renderDistance, приоритет_катсцены: forceVisible, прогружать_чанки: loadChunks)]
+#\ code: return _getVal("npc") + "." + _getVal("prop");

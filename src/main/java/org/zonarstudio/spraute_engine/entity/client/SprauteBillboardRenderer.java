@@ -27,6 +27,9 @@ public class SprauteBillboardRenderer extends EntityRenderer<SprauteBillboardEnt
 
     @Override
     public void render(SprauteBillboardEntity pEntity, float pEntityYaw, float pPartialTicks, PoseStack pMatrixStack, MultiBufferSource pBuffer, int pPackedLight) {
+        if (!org.zonarstudio.spraute_engine.client.BillboardClientState.shouldRender()) {
+            return;
+        }
         pMatrixStack.pushPose();
 
         String texStr = pEntity.getTexture();
@@ -36,11 +39,17 @@ public class SprauteBillboardRenderer extends EntityRenderer<SprauteBillboardEnt
         pMatrixStack.translate(0.0D, pEntity.getBillboardHeight() / 2.0D, 0.0D);
         pMatrixStack.mulPose(this.entityRenderDispatcher.cameraOrientation());
         SprauteRenderCompat.rotateY(pMatrixStack, 180.0F);
+        // Separate coplanar/overlapping billboards under shader TAA / shadows.
+        float depthBias = ((pEntity.getId() & 0xFF) - 127.5f) * 0.0004f;
+        pMatrixStack.translate(0.0D, 0.0D, depthBias);
         
         float w = pEntity.getBillboardWidth();
         float h = pEntity.getBillboardHeight();
         
-        RenderType renderType = pEntity.isSeeThrough() ? RenderType.text(texture) : RenderType.entityCutoutNoCull(texture);
+        // text() still depth-tests; textSeeThrough() is the nametag layer (visible through blocks).
+        RenderType renderType = pEntity.isSeeThrough()
+                ? RenderType.textSeeThrough(texture)
+                : RenderType.entityCutoutNoCull(texture);
 
 
         VertexConsumer vertexconsumer = pBuffer.getBuffer(renderType);

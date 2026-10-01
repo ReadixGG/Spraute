@@ -1,0 +1,21 @@
+{
+  "plugin.description": "Visual blocks for companion Raya (raya.spr)",
+  "plugin.name": "Raya",
+  "Визуальные блоки для компаньона Райя (raya.spr)": "Visual blocks for companion Raya (raya.spr)",
+  "Райя": "Raya",
+  "авто": "auto",
+  "баланс ПМ у": "PM balance",
+  "включить": "turn on",
+  "выключить": "turn off",
+  "добавить ПМ": "add PM",
+  "за спиной": "behind my back",
+  "игроку": "to the player",
+  "найти Райю рядом с": "find Raya near",
+  "открыть магазин Райи для": "open Raya's store for",
+  "режим следования Райи": "Raya's following mode",
+  "следование Райи за игроком": "Raya following the player",
+  "создать / найти Райю у": "create/find Raya",
+  "спереди": "front",
+  "списать ПМ": "write off PM",
+  "у игрока": "from the player"
+}

@@ -1,0 +1,22 @@
+#\ block: on_death
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда умирает" [target: dropdown(игрок: player, НИП: npc, НИП по id: npc_id, моб: mob, моб по id: mob_id, любой: any)] "→" (handler: text: h_death)
+#\ if target == "npc_id":
+#\   row: "id" [npc: dropdown_npc]
+#\ if target == "mob_id":
+#\   row: "id" (entityId: mob: minecraft:zombie)
+#\ if target == "player":
+#\   template: on death("player") -> {handler} {\n{DO}}
+#\ if target == "npc":
+#\   template: on death("npc") -> {handler} {\n{DO}}
+#\ if target == "npc_id":
+#\   template: on death({npc}) -> {handler} {\n{DO}}
+#\ if target == "mob":
+#\   template: on death("mob") -> {handler} {\n{DO}}
+#\ if target == "mob_id":
+#\   template: on death("{entityId}") -> {handler} {\n{DO}}
+#\ if target == "any":
+#\   template: on death("any") -> {handler} {\n{DO}}

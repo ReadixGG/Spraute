@@ -50,10 +50,10 @@
 #\ color: #e879f9
 #\ shape: value
 #\
-#\ row: "подарок" (itemId: text: minecraft:diamond)
+#\ row: "подарок" (itemId: item: minecraft:diamond)
 #\ row: "репутация" (rep: number: 10)
 #\ row: [consume: dropdown(забрать предмет: yes, не забирать: no)]
-#\ row: "сообщение НПС" (message: text: )
+#\ row: "сообщение НПС" (message: textmultiline: )
 #\
 #\ if consume == "yes":
 #\   template: dict("item", "{itemId}", "rep", {rep}, "consume", true, "message", "{message}")
@@ -67,10 +67,10 @@
 #\ write_start: import("npc_relations")
 #\
 #\ row: "добавить подарок НПС" [npc: dropdown_npc]
-#\ row: "предмет" (itemId: text: minecraft:diamond)
+#\ row: "предмет" (itemId: item: minecraft:diamond)
 #\ row: "репутация" (rep: number: 10)
 #\ row: [consume: dropdown(забрать: yes, не забирать: no)]
-#\ row: "сообщение" (message: text: )
+#\ row: "сообщение" (message: textmultiline: )
 #\
 #\ if consume == "yes":
 #\   template: relAddGift("{npc}", "{itemId}", {rep}, true, "{message}")
@@ -84,7 +84,7 @@
 #\ write_start: import("npc_relations")
 #\
 #\ row: "убрать подарок у НПС" [npc: dropdown_npc]
-#\ row: "предмет" (itemId: text: minecraft:diamond)
+#\ row: "предмет" (itemId: item: minecraft:diamond)
 #\
 #\ template: relRemoveGift("{npc}", "{itemId}")
 
@@ -313,7 +313,7 @@
 #\   row: [npc: dropdown_npc]
 #\ row: [itemFilter: dropdown(любой предмет: any, указать: custom)]
 #\ if itemFilter == "custom":
-#\   row: "предмет" (itemId: text: minecraft:diamond)
+#\   row: "предмет" (itemId: item: minecraft:diamond)
 #\ row: "→" (handler: text: h_rel_gift)
 #\
 #\ if who == "any" and npcFilter == "any" and itemFilter == "any":
@@ -412,7 +412,7 @@
 #\   row: [npc: dropdown_npc]
 #\ row: [itemFilter: dropdown(любой предмет: any, указать: custom)]
 #\ if itemFilter == "custom":
-#\   row: "предмет" (itemId: text: minecraft:diamond)
+#\   row: "предмет" (itemId: item: minecraft:diamond)
 #\
 #\ if who == "event" and npcFilter == "any" and itemFilter == "any":
 #\   template: await relGift(_eventPlayer)

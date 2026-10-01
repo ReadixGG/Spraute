@@ -1,0 +1,9 @@
+#\ block: player_get_tags
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "все теги игрока ("
+#\ input: player (type: value)
+#\ row: ")"
+#\ template: getPlayerTags({player})

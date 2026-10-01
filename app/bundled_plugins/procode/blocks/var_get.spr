@@ -1,0 +1,7 @@
+#\ block: var_get
+#\ category: Переменные
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: (name: text: x)
+#\ code: return _getVal("name").trim();

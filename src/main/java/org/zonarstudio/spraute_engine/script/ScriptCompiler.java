@@ -3,12 +3,15 @@ package org.zonarstudio.spraute_engine.script;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
  * Compiler that converts an AST (list of ScriptNodes) into a CompiledScript.
  */
 public class ScriptCompiler {
+
+    private int forLoopId;
 
     /**
      * Compile a list of AST nodes into a CompiledScript.
@@ -18,6 +21,7 @@ public class ScriptCompiler {
      * @return compiled script ready for execution
      */
     public CompiledScript compile(String name, List<ScriptNode> nodes) {
+        forLoopId = 0;
         List<CompiledScript.Instruction> instructions = new ArrayList<>();
         boolean autorunSelf = false;
         List<String> autorunTargets = new ArrayList<>();
@@ -56,6 +60,50 @@ public class ScriptCompiler {
             instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.NPC_BLOCK,
                     blockNode.getEntityId(), blockNode.getProperties()
             ));
+        } else if (node instanceof ScriptNode.ModelBlockNode modelBlock) {
+            instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.MODEL_BLOCK,
+                    modelBlock.getEntityId(), modelBlock.getProperties()
+            ));
+        } else if (node instanceof ScriptNode.HitboxBlockNode hitboxBlock) {
+            instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.HITBOX_BLOCK,
+                    hitboxBlock.getEntityId(), hitboxBlock.getProperties()
+            ));
+        } else if (node instanceof ScriptNode.EmptyBlockNode emptyBlock) {
+            instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.EMPTY_BLOCK,
+                    emptyBlock.getEntityId(), emptyBlock.getProperties()
+            ));
+        } else if (node instanceof ScriptNode.SkinOverlayBlockNode overlayBlock) {
+            instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.SKIN_OVERLAY_BLOCK,
+                    overlayBlock.getEntityId(), overlayBlock.getProperties()
+            ));
+        } else if (node instanceof ScriptNode.ParticleEmitterBlockNode particleBlock) {
+            instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.PARTICLE_EMITTER_BLOCK,
+                    particleBlock.getEntityId(), particleBlock.getProperties()
+            ));
+        } else if (node instanceof ScriptNode.ParticleDefBlockNode particleDef) {
+            instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.PARTICLE_DEF_BLOCK,
+                    particleDef.getEntityId(), particleDef.getProperties()
+            ));
+        } else if (node instanceof ScriptNode.ProjectileDefBlockNode projectileDef) {
+            instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.PROJECTILE_DEF_BLOCK,
+                    projectileDef.getEntityId(), projectileDef.getProperties()
+            ));
+        } else if (node instanceof ScriptNode.LightBlockNode lightBlock) {
+            instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.LIGHT_BLOCK,
+                    lightBlock.getEntityId(), lightBlock.getProperties()
+            ));
+        } else if (node instanceof ScriptNode.AudioSourceBlockNode audioBlock) {
+            instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AUDIO_SOURCE_BLOCK,
+                    audioBlock.getEntityId(), audioBlock.getProperties()
+            ));
+        } else if (node instanceof ScriptNode.PostProcessBlockNode postBlock) {
+            instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.POST_PROCESS_BLOCK,
+                    postBlock.getEntityId(), postBlock.getProperties()
+            ));
+        } else if (node instanceof ScriptNode.CustomNodeBlockNode customBlock) {
+            instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.CUSTOM_NODE_BLOCK,
+                    customBlock.getTypeId(), customBlock.getEntityId(), customBlock.getProperties()
+            ));
         } else if (node instanceof ScriptNode.NpcPrefabBlockNode prefabNode) {
             instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.NPC_PREFAB_DEF,
                     prefabNode.getPrefabId(), prefabNode.getProperties()
@@ -83,6 +131,12 @@ public class ScriptCompiler {
                     propNode.getObject(), propNode.getPropertyName(), propNode.getValue()
             ));
         } else if (node instanceof ScriptNode.AwaitNode awaitNode) {
+            if (awaitNode.getMethodCall() != null) {
+                ScriptNode.MethodCallNode methodNode = awaitNode.getMethodCall();
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.CALL_METHOD,
+                        methodNode.getObject(), methodNode.getMethodName(), methodNode.getArgs(), Boolean.TRUE
+                ));
+            } else if (awaitNode.getCall() != null) {
             String func = awaitNode.getCall().getFunctionName();
             List<ScriptNode> args = awaitNode.getCall().getArgs();
 
@@ -116,14 +170,6 @@ public class ScriptCompiler {
                 if (args.isEmpty()) throw new ScriptException("await projectileHit(projectile_id, [hit_type]) requires projectile id");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_PROJECTILE_HIT,
                         args.get(0), args.size() > 1 ? args.get(1) : null));
-            } else if (func.equals("tradeBuy") || func.equals("trade_buy")) {
-                if (args.isEmpty()) throw new ScriptException("await tradeBuy(player, [item_id]) requires player");
-                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_TRADE_BUY,
-                        args.get(0), args.size() > 1 ? args.get(1) : null));
-            } else if (func.equals("tradeSell") || func.equals("trade_sell")) {
-                if (args.isEmpty()) throw new ScriptException("await tradeSell(player, [item_id]) requires player");
-                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_TRADE_SELL,
-                        args.get(0), args.size() > 1 ? args.get(1) : null));
             } else if (func.equals("relGift") || func.equals("rel_gift")) {
                 if (args.isEmpty()) throw new ScriptException("await relGift(player, [npc_or_item], [item]) requires player");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_REL_GIFT,
@@ -152,6 +198,9 @@ public class ScriptCompiler {
             } else if (func.equals("uiInput")) {
                 if (args.isEmpty()) throw new ScriptException("await uiInput(player, [widget_id]) requires player");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_UI_INPUT, args.get(0), args.size() > 1 ? args.get(1) : null));
+            } else if (func.equals("uiDrop") || func.equals("uidrop")) {
+                if (args.isEmpty()) throw new ScriptException("await uiDrop(player) requires player");
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_UI_DROP, args.get(0)));
             } else if (func.equals("position")) {
                 if (args.size() < 4) throw new ScriptException("await position(player, x, y, z, [radius]) requires at least 4 arguments");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_POSITION, args.get(0), args.get(1), args.get(2), args.get(3), args.size() > 4 ? args.get(4) : null));
@@ -173,6 +222,9 @@ public class ScriptCompiler {
             } else if (func.equals("openDoor")) {
                 if (args.isEmpty()) throw new ScriptException("await openDoor(player, [block_id/coords]) requires player");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_OPEN_DOOR, args));
+            } else if (func.equals("useBlock")) {
+                if (args.isEmpty()) throw new ScriptException("await useBlock(player, [block_id/coords]) requires player");
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_USE_BLOCK, args));
             } else if (func.equals("chat")) {
                 if (args.size() < 2) throw new ScriptException("await chat(player, message, [ignore_case], [ignore_punctuation]) requires player and message");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_CHAT, args));
@@ -199,6 +251,13 @@ public class ScriptCompiler {
                         : args.get(0);
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_JOIN,
                         playerNode, Boolean.TRUE));
+            } else if (func.equals("leave") || func.equals("logout")
+                    || func.equals("playerLeave") || func.equals("player_leave")) {
+                ScriptNode playerNode = args.isEmpty()
+                        ? new ScriptNode.LiteralNode("any")
+                        : args.get(0);
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(),
+                        CompiledScript.Opcode.AWAIT_LEAVE, playerNode));
             } else if (func.equals("cameraRoute") || func.equals("camera_route") || func.equals("playCameraRoute")) {
                 if (args.size() < 2) throw new ScriptException("await cameraRoute(player, routeName, [lockMovement, hideGui, returnSmooth, totalSeconds, afterEnd, lookMode, lookX, lookY, lookZ]) requires player and route");
                 java.util.List<Object> instrArgs = new java.util.ArrayList<>();
@@ -209,11 +268,36 @@ public class ScriptCompiler {
                 }
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_CAMERA_ROUTE,
                         instrArgs.toArray()));
+            } else if (func.equals("hitboxTouch") || func.equals("hitbox_touch")
+                    || func.equals("hitboxEnter") || func.equals("hitbox_enter")) {
+                ScriptNode playerNode = args.isEmpty()
+                        ? new ScriptNode.LiteralNode("any")
+                        : args.get(0);
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(),
+                        CompiledScript.Opcode.AWAIT_HITBOX_TOUCH,
+                        playerNode,
+                        args.size() > 1 ? args.get(1) : null,
+                        args.size() > 2 ? args.get(2) : null));
+            } else if (func.equals("hitboxExit") || func.equals("hitbox_exit")
+                    || func.equals("hitboxLeave") || func.equals("hitbox_leave")) {
+                ScriptNode playerNode = args.isEmpty()
+                        ? new ScriptNode.LiteralNode("any")
+                        : args.get(0);
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(),
+                        CompiledScript.Opcode.AWAIT_HITBOX_EXIT,
+                        playerNode,
+                        args.size() > 1 ? args.get(1) : null,
+                        args.size() > 2 ? args.get(2) : null));
             } else if (func.equals("action") || func.equals("playerAction")) {
                 if (args.size() < 2) throw new ScriptException("await action(player, action_type, [target]) requires player and action_type");
                 instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.AWAIT_PLAYER_ACTION, args.get(0), args.get(1), args.size() > 2 ? args.get(2) : null));
             } else {
-                throw new ScriptException("Unknown await trigger: " + func);
+                // Script-registered / free-form custom events: await tradeBuy(...), await myEvent(...), …
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(),
+                        CompiledScript.Opcode.AWAIT_CUSTOM, func, new java.util.ArrayList<>(args)));
+            }
+            } else {
+                throw new ScriptException("Expected function or method call after 'await'");
             }
         } else if (node instanceof ScriptNode.MethodCallNode methodNode) {
             instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.CALL_METHOD,
@@ -281,20 +365,23 @@ public class ScriptCompiler {
                     bodyInstructions
             ));
         } else if (node instanceof ScriptNode.UiWidgetNode widgetNode) {
-            if ("fadeIn".equals(widgetNode.getKind())) {
-                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(), CompiledScript.Opcode.FADE_IN, widgetNode.getProps()));
+            if ("fadeIn".equals(widgetNode.getKind()) || "fadeOut".equals(widgetNode.getKind())) {
+                boolean fadeOut = "fadeOut".equals(widgetNode.getKind());
+                instructions.add(new CompiledScript.Instruction(node.getLine(), node.getColumn(),
+                        CompiledScript.Opcode.FADE_IN, widgetNode.getProps(), fadeOut));
                 return;
             }
             Map<String, List<CompiledScript.Instruction>> eventHandlers = new HashMap<>();
             for (Map.Entry<String, ScriptNode> e : widgetNode.getEvents().entrySet()) {
-                if (!"onClick".equals(e.getKey())) continue;
+                String eventKey = normalizeWidgetEvent(e.getKey());
+                if (eventKey == null) continue;
                 ScriptNode body = e.getValue();
                 if (!(body instanceof ScriptNode.BlockNode bn)) continue;
                 List<CompiledScript.Instruction> ins = new ArrayList<>();
                 for (ScriptNode stmt : bn.getStatements()) {
                     compileNode(stmt, ins);
                 }
-                eventHandlers.put("onClick", ins);
+                eventHandlers.put(eventKey, ins);
             }
             List<CompiledScript.Instruction> childBody = null;
             if (!widgetNode.getChildren().isEmpty()) {
@@ -348,16 +435,8 @@ public class ScriptCompiler {
     }
 
     private void compileFor(ScriptNode.ForNode forNode, List<CompiledScript.Instruction> instructions) {
-        // for (i in range(start, end)) { body }
-        // Compiled as:
-        //   VAR_DECL i = start
-        //   JUMP_IF_FALSE (i < end) -> afterLoop
-        //   ... body ...
-        //   VAR_ASSIGN i = i + 1
-        //   JUMP -> condition
-        //
-        // The iterable expression must be a range() call to get start/end values.
-        // We store the range params as nodes and evaluate at runtime.
+        // for (i in range(start, end)) { body }  — index loop
+        // for (x in listExpr) { body }           — list / any listSize+listGet iterable
 
         ScriptNode iterable = forNode.getIterable();
 
@@ -408,9 +487,69 @@ public class ScriptCompiler {
             // Fix up
             int endIndex = instructions.size();
             instructions.set(jumpIfFalseIdx, new CompiledScript.Instruction(forNode.getLine(), forNode.getColumn(), CompiledScript.Opcode.JUMP_IF_FALSE, condition, endIndex));
-        } else {
-            throw new ScriptException("for loops currently only support range() as iterable, e.g.: for (i in range(10)) { ... }");
+            return;
         }
+
+        // for (x in listExpr) {
+        //   __L = listExpr; __i = 0
+        //   while (__i < listSize(__L)) { x = listGet(__L, __i); body; __i++ }
+        // }
+        int id = forLoopId++;
+        String listVar = "__spr_for_L" + id;
+        String idxVar = "__spr_for_I" + id;
+        String varName = forNode.getVariableName();
+
+        instructions.add(new CompiledScript.Instruction(forNode.getLine(), forNode.getColumn(),
+                CompiledScript.Opcode.VAR_DECL, listVar, iterable));
+        instructions.add(new CompiledScript.Instruction(forNode.getLine(), forNode.getColumn(),
+                CompiledScript.Opcode.VAR_DECL, idxVar, new ScriptNode.LiteralNode(0)));
+
+        int conditionIndex = instructions.size();
+        ScriptNode condition = new ScriptNode.BinaryExpressionNode(
+                new ScriptNode.IdentifierNode(idxVar),
+                new ScriptToken(ScriptToken.TokenType.LT, "<", -1, -1),
+                new ScriptNode.FunctionCallNode("listSize",
+                        java.util.List.of(new ScriptNode.IdentifierNode(listVar)))
+        );
+        int jumpIfFalseIdx = instructions.size();
+        instructions.add(new CompiledScript.Instruction(forNode.getLine(), forNode.getColumn(),
+                CompiledScript.Opcode.JUMP_IF_FALSE, condition, -1));
+
+        ScriptNode elementInit = new ScriptNode.FunctionCallNode("listGet",
+                java.util.List.of(
+                        new ScriptNode.IdentifierNode(listVar),
+                        new ScriptNode.IdentifierNode(idxVar)
+                ));
+        instructions.add(new CompiledScript.Instruction(forNode.getLine(), forNode.getColumn(),
+                CompiledScript.Opcode.VAR_DECL, varName, elementInit));
+
+        compileNode(forNode.getBody(), instructions);
+
+        ScriptNode increment = new ScriptNode.BinaryExpressionNode(
+                new ScriptNode.IdentifierNode(idxVar),
+                new ScriptToken(ScriptToken.TokenType.PLUS, "+", -1, -1),
+                new ScriptNode.LiteralNode(1)
+        );
+        instructions.add(new CompiledScript.Instruction(forNode.getLine(), forNode.getColumn(),
+                CompiledScript.Opcode.VAR_ASSIGN, idxVar, increment));
+        instructions.add(new CompiledScript.Instruction(forNode.getLine(), forNode.getColumn(),
+                CompiledScript.Opcode.JUMP, conditionIndex));
+
+        int endIndex = instructions.size();
+        instructions.set(jumpIfFalseIdx, new CompiledScript.Instruction(forNode.getLine(), forNode.getColumn(),
+                CompiledScript.Opcode.JUMP_IF_FALSE, condition, endIndex));
+    }
+
+    private static String normalizeWidgetEvent(String name) {
+        if (name == null) return null;
+        String k = name.replace("_", "").toLowerCase(Locale.ROOT);
+        return switch (k) {
+            case "onclick" -> "onClick";
+            case "ondrop" -> "onDrop";
+            case "ondragstart" -> "onDragStart";
+            case "ondragend" -> "onDragEnd";
+            default -> null;
+        };
     }
 
 }

@@ -1,9 +1,7 @@
 package org.zonarstudio.spraute_engine.script.function;
 
 import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import org.zonarstudio.spraute_engine.script.ScriptContext;
 
 import java.util.List;
@@ -24,19 +22,7 @@ public class CountItemFunction implements ScriptFunction {
 
         Player player = resolvePlayer(target, source);
         if (player == null) return 0;
-
-        net.minecraft.world.item.Item item = org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.resolveItem(itemId);
-        if (item == null) return 0;
-        ResourceLocation searchRL = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(item);
-        int total = 0;
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            ItemStack stack = player.getInventory().getItem(i);
-            if (!stack.isEmpty()) {
-                ResourceLocation stackRL = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
-                if (stackRL.equals(searchRL)) total += stack.getCount();
-            }
-        }
-        return total;
+        return org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.countMatching(player, itemId);
     }
 
     private Player resolvePlayer(Object target, CommandSourceStack source) {

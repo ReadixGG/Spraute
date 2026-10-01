@@ -1,0 +1,6 @@
+﻿create npc knight {
+    name = "Knight"
+    hp = 20
+    pos = 0, 64, 0
+}
+knight.model = "geo/defolt.geo.json"

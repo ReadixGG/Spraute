@@ -1,0 +1,9 @@
+#\ block: camera_shake
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "тряска камеры" input: player (type: value)
+#\ row: "сила" (intensity: number: 0.4) "сек" (duration: number: 0.45)
+#\ row: "частота" (frequency: number: 18)
+#\ template: shakeCamera({player}, {intensity}, {duration}, {frequency})

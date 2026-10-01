@@ -1,0 +1,7 @@
+#\ block: npc_remove
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "удалить НИП" [npc: dropdown_npc]
+#\ template: {npc}.remove()

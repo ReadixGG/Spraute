@@ -1,0 +1,11 @@
+#\ block: economy_npc_trade
+#\ category: Экономика
+#\ color: #eab308
+#\ shape: statement
+#\ write_start: import("economy")
+#\
+#\ row: "НПС" [npc: dropdown_npc] [mode: dropdown(разрешить трейд: allow, запретить трейд: deny)]
+#\ if mode == "allow":
+#\   template: ecoAllowNpcTrade({npc})
+#\ if mode == "deny":
+#\   template: ecoDenyNpcTrade({npc})

@@ -20,6 +20,8 @@ public class SprauteBillboardEntity extends Entity {
     public SprauteBillboardEntity(EntityType<? extends SprauteBillboardEntity> pEntityType, Level pLevel) {
         super(pEntityType, pLevel);
         this.noPhysics = true;
+        // Runtime-only: must not survive chunk save / world rejoin when the scene is stopped.
+        // save() returns false on both supported MC versions.
     }
 
     public SprauteBillboardEntity(Level pLevel, double x, double y, double z, String texture, float width, float height, boolean seeThrough) {
@@ -90,6 +92,11 @@ public class SprauteBillboardEntity extends Entity {
         tag.putFloat("SprauteWidth", this.getBillboardWidth());
         tag.putFloat("SprauteHeight", this.getBillboardHeight());
         tag.putBoolean("SprauteSeeThrough", this.isSeeThrough());
+    }
+
+    @Override
+    public boolean save(CompoundTag tag) {
+        return false;
     }
 
     @Override

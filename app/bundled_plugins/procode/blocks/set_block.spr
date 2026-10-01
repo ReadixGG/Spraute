@@ -1,0 +1,7 @@
+#\ block: set_block
+#\ category: Мир
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "поставить блок" (block: block: minecraft:stone) "в" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ template: setBlock({x}, {y}, {z}, "{block}")

@@ -39,6 +39,24 @@ public final class SprauteRenderCompat {
         *///?}
     }
 
+    /**
+     * Transforms a direction (w = 0) by the pose's current matrix. Lets editor code derive world
+     * axes from the exact same rotations the renderer applies, instead of re-deriving that
+     * trigonometry — and its sign conventions — by hand and drifting out of sync with it.
+     */
+    public static net.minecraft.world.phys.Vec3 transformDirection(PoseStack poseStack,
+                                                                   float x, float y, float z) {
+        //? if >=1.20.1 {
+        org.joml.Vector4f v = new org.joml.Vector4f(x, y, z, 0f);
+        v.mul(poseStack.last().pose());
+        return new net.minecraft.world.phys.Vec3(v.x(), v.y(), v.z());
+        //?} else {
+        /*com.mojang.math.Vector4f v = new com.mojang.math.Vector4f(x, y, z, 0f);
+        v.transform(poseStack.last().pose());
+        return new net.minecraft.world.phys.Vec3(v.x(), v.y(), v.z());
+        *///?}
+    }
+
     public static void renderItemInHand(ItemRenderer renderer, ItemStack stack, boolean leftHand,
                                         PoseStack poseStack, MultiBufferSource buffer, int packedLight, int entityId) {
         //? if >=1.20.1 {
@@ -128,5 +146,27 @@ public final class SprauteRenderCompat {
                 net.minecraft.client.renderer.block.model.ItemTransforms.TransformType.FIXED,
                 packedLight, OverlayTexture.NO_OVERLAY, poseStack, buffer, entityId);
         *///?}
+    }
+
+    /**
+     * Default geo pass uses {@code entityTranslucent} so PNG alpha actually blends.
+     * Pass {@code translucent=false} for cutout (hard holes, stabler depth under Iris).
+     */
+    public static net.minecraft.client.renderer.RenderType geoEntity(
+            net.minecraft.resources.ResourceLocation texture) {
+        return geoEntity(texture, true);
+    }
+
+    public static net.minecraft.client.renderer.RenderType geoEntity(
+            net.minecraft.resources.ResourceLocation texture, boolean translucent) {
+        return translucent
+                ? net.minecraft.client.renderer.RenderType.entityTranslucent(texture)
+                : net.minecraft.client.renderer.RenderType.entityCutoutNoCull(texture);
+    }
+
+    /** Soft glow / emissive overlay (still translucent by nature). */
+    public static net.minecraft.client.renderer.RenderType geoEntityEmissive(
+            net.minecraft.resources.ResourceLocation texture) {
+        return net.minecraft.client.renderer.RenderType.entityTranslucentEmissive(texture);
     }
 }

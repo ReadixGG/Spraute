@@ -5,7 +5,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
-import org.zonarstudio.spraute_engine.config.SprauteConfig;
+import org.zonarstudio.spraute_engine.script.ChatNameStyle;
 import org.zonarstudio.spraute_engine.script.ScriptContext;
 
 import java.util.List;
@@ -60,18 +60,8 @@ public class SayFunction implements ScriptFunction {
         }
         String message = String.valueOf(args.get(1));
 
-        SprauteConfig config = SprauteConfig.get();
-
-        // Format: context overrides config
-        String formatTemplate = (context != null && context.getNameFormat() != null)
-                ? context.getNameFormat()
-                : config.nameFormat;
-
-        String colorStr = (context != null && context.getNameColor() != null)
-                ? context.getNameColor()
-                : config.nameColor;
-
-        String formattedNameStr = formatTemplate.replace("$Name", name);
+        String formattedNameStr = ChatNameStyle.format(name, context);
+        String colorStr = ChatNameStyle.color(context);
 
         // Apply color (supports both hex #RRGGBB and named colors like "red", "gold")
         Style nameStyle = Style.EMPTY;

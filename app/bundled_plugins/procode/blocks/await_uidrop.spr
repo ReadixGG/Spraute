@@ -1,0 +1,14 @@
+#\ block: await_uidrop
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать сброс в UI" [mode: dropdown(один игрок: one, несколько: many, любой: any)]
+#\ if mode == "one":
+#\   input: player (type: value)
+#\   template: await uiDrop({player})
+#\ if mode == "many":
+#\   input: players (type: value)
+#\   template: await uiDrop({players})
+#\ if mode == "any":
+#\   template: await uiDrop(any)

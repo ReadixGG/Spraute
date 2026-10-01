@@ -1,0 +1,14 @@
+# Example: economy trade node on NPC
+# 1) Hierarchy → add SCRIPT «economy» to the scene (declare)
+# 2) On an NPC → Экономика → Торговля, fill items, toggle «Можно трейдить»
+# 3) Run scene → right-click NPC → trade UI (currency item, not savedData coins)
+
+# Or in code:
+# create economy shop {
+#     parent = myNpc
+#     canTrade = true
+#     title = "Кузнец"
+#     items = [
+#         { item = "minecraft:iron_ingot", name = "Железо", buyPrice = 20, sellPrice = 8, canBuy = true, canSell = true }
+#     ]
+# }

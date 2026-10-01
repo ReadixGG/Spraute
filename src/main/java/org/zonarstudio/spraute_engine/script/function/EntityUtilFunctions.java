@@ -218,4 +218,17 @@ public class EntityUtilFunctions {
             return model.contains(hint) || texture.contains(hint) || name.contains(hint);
         }
     }
+
+    /** getEntityType(entity) — registry id, e.g. minecraft:zombie */
+    public static class GetEntityType implements ScriptFunction {
+        @Override public String getName() { return "getEntityType"; }
+        @Override public int getArgCount() { return 1; }
+        @Override public Class<?>[] getArgTypes() { return new Class<?>[]{Object.class}; }
+
+        @Override
+        public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
+            if (args.isEmpty()) return "";
+            return EntityScriptUtil.getTypeId(resolveEntity(args.get(0), source));
+        }
+    }
 }

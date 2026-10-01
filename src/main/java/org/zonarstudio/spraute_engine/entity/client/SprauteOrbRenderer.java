@@ -17,6 +17,7 @@ import com.mojang.math.Matrix4f;
 *///?}
 import org.zonarstudio.spraute_engine.compat.SprauteRenderCompat;
 import org.zonarstudio.spraute_engine.entity.SprauteOrbEntity;
+import org.zonarstudio.spraute_engine.util.SprauteOrbTextures;
 
 public class SprauteOrbRenderer extends EntityRenderer<SprauteOrbEntity> {
 
@@ -30,9 +31,7 @@ public class SprauteOrbRenderer extends EntityRenderer<SprauteOrbEntity> {
     public void render(SprauteOrbEntity pEntity, float pEntityYaw, float pPartialTicks, PoseStack pMatrixStack, MultiBufferSource pBuffer, int pPackedLight) {
         pMatrixStack.pushPose();
 
-        String texStr = pEntity.getTexture();
-        if (texStr == null || texStr.isEmpty()) texStr = "minecraft:textures/entity/experience_orb.png";
-        ResourceLocation texture = texStr.contains(":") ? new ResourceLocation(texStr) : new ResourceLocation("minecraft", texStr);
+        ResourceLocation texture = SprauteOrbTextures.resolve(pEntity.getTexture());
 
         pMatrixStack.mulPose(this.entityRenderDispatcher.cameraOrientation());
         SprauteRenderCompat.rotateY(pMatrixStack, 180.0F);
@@ -67,8 +66,6 @@ public class SprauteOrbRenderer extends EntityRenderer<SprauteOrbEntity> {
 
     @Override
     public ResourceLocation getTextureLocation(SprauteOrbEntity pEntity) {
-        String texStr = pEntity.getTexture();
-        if (texStr == null || texStr.isEmpty()) return new ResourceLocation("minecraft", "textures/entity/experience_orb.png");
-        return texStr.contains(":") ? new ResourceLocation(texStr) : new ResourceLocation("minecraft", texStr);
+        return SprauteOrbTextures.resolve(pEntity.getTexture());
     }
 }

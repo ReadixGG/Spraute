@@ -1,0 +1,8 @@
+#\ block: ui_close
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: [mode: dropdown(окно: uiClose, оверлей: overlayClose)] "у игрока"
+#\ input: player (type: value)
+#\ template: {mode}({player})

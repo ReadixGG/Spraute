@@ -6,15 +6,18 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
 import org.zonarstudio.spraute_engine.compat.SprauteEntityCompat;
+import org.zonarstudio.spraute_engine.compat.SprautePlayerCompat;
+import org.zonarstudio.spraute_engine.resource.SprauteDefaultNpcAssets;
+import org.zonarstudio.spraute_engine.entity.path.AirPathNavigator;
+import org.zonarstudio.spraute_engine.entity.path.AirPathSettings;
+import org.zonarstudio.spraute_engine.entity.path.GroundPathNavigator;
+import org.zonarstudio.spraute_engine.entity.path.GroundPathSettings;
 import com.mojang.logging.LogUtils;
 import org.slf4j.Logger;
 
@@ -105,17 +108,21 @@ public class SprauteNpcEntity extends PathfinderMob {
     // ========== Pickup ==========
     private final SimpleContainer pickupContainer = new SimpleContainer(9);
     private java.util.UUID pickupDropperFilter = null;
-    private String pickupMaxItemId = null;
-    private String pickupMaxTag = null;
-    private int pickupMaxCount = -1;
     private java.util.UUID lastPickupThrower = null;
+    /** Per-script item filters from {@code on pickup(...)}. Vanilla loot AI also requires mobGriefing. */
+    private final java.util.Map<Object, java.util.Set<String>> pickupAllowBySource = new java.util.IdentityHashMap<>();
+    /** Caps from {@code pickupMax} / {@code await pickup}. Key = {@link #pickupAllowKey}. */
+    private final java.util.Map<String, Integer> pickupMaxByKey = new java.util.HashMap<>();
+    /** Caps from {@code on pickup(..., max)} per script. */
+    private final java.util.Map<Object, java.util.Map<String, Integer>> pickupMaxBySource = new java.util.IdentityHashMap<>();
 
     // ========== Look ==========
     private net.minecraft.world.entity.Entity lookEntity = null;
     private net.minecraft.world.phys.Vec3 lookPoint = null;
     private boolean lookActive = false;
 
-    private static final float BODY_TURN_SPEED = 6f;
+    private static final float DEFAULT_WALK_TURN_SPEED = 6f;
+    private static final float DEFAULT_IDLE_TURN_SPEED = 6f;
     private static final int BODY_START_DELAY_TICKS = 6;
     private int bodyDelayTicks = 0;
 
@@ -130,6 +137,27 @@ public class SprauteNpcEntity extends PathfinderMob {
     }
     public boolean isHeadLookUnlimited() {
         return this.entityData.get(HEAD_LOOK_UNLIMITED);
+    }
+
+    /** Body turn rate while walking (°/tick). Default {@value #DEFAULT_WALK_TURN_SPEED}. */
+    public void setWalkTurnSpeed(float degreesPerTick) {
+        this.entityData.set(WALK_TURN_SPEED, Math.max(0.1f, degreesPerTick));
+    }
+    public float getWalkTurnSpeed() {
+        return this.entityData.get(WALK_TURN_SPEED);
+    }
+
+    /** Body turn rate while standing and looking (°/tick). Default {@value #DEFAULT_IDLE_TURN_SPEED}. */
+    public void setIdleTurnSpeed(float degreesPerTick) {
+        this.entityData.set(IDLE_TURN_SPEED, Math.max(0.1f, degreesPerTick));
+    }
+    public float getIdleTurnSpeed() {
+        return this.entityData.get(IDLE_TURN_SPEED);
+    }
+
+    /** Client catch-up rate toward synced body yaw. */
+    private float clientBodyTurnSpeed() {
+        return Math.max(getWalkTurnSpeed(), getIdleTurnSpeed());
     }
 
     /** Hysteresis for walk/idle: avoid flickering when limbSwingAmount hovers near threshold. */
@@ -161,6 +189,33 @@ public class SprauteNpcEntity extends PathfinderMob {
     /** Extra Y offset applied to the rendered name tag (in blocks). Default 0. */
     private static final net.minecraft.network.syncher.EntityDataAccessor<Float> NAME_Y_OFFSET =
         net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+    // Full scene/script visual transform. Y rotation is an offset on top of body yaw.
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> MODEL_ROT_X =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> MODEL_ROT_Y =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> MODEL_ROT_Z =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> MODEL_SCALE_X =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> MODEL_SCALE_Y =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> MODEL_SCALE_Z =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> TRANSLUCENT =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> OPACITY =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> LOD_ENABLED =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> RENDER_DISTANCE =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> FORCE_VISIBLE =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> WALK_TURN_SPEED =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> IDLE_TURN_SPEED =
+        net.minecraft.network.syncher.SynchedEntityData.defineId(SprauteNpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
 
     private final java.util.List<NpcBoneHitbox> boneHitboxes = new java.util.concurrent.CopyOnWriteArrayList<>();
     private net.minecraft.world.phys.AABB cachedHitboxBounds = null;
@@ -168,6 +223,18 @@ public class SprauteNpcEntity extends PathfinderMob {
     public final java.util.Map<String, Object> customData = new java.util.concurrent.ConcurrentHashMap<>();
 
     public final java.util.List<org.zonarstudio.spraute_engine.registry.CustomDropRegistry.DropRule> customDrops = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /** Experience orbs awarded on death (create npc xp / dropXp). */
+    private int dropXp;
+
+    public void setDropXp(int xp) {
+        this.dropXp = Math.max(0, xp);
+        this.xpReward = this.dropXp;
+    }
+
+    public int getDropXp() {
+        return dropXp;
+    }
 
     public String[] uiRenderBones = null;
 
@@ -179,17 +246,31 @@ public class SprauteNpcEntity extends PathfinderMob {
     private static final double SEPARATION_RADIUS = 1.1;
     private static final double SEPARATION_STRENGTH = 0.12;
 
-    /** Max horizontal leg for one ground path request (avoids pathfinder edge oscillation). */
-    private static final double GROUND_STEP_HORIZONTAL = 12.0;
-    private static final int GROUND_PATH_RECALC_COOLDOWN = 20;
+    /** Fallback arrive radius for non-Spraute mobs using {@link #isCloseToPoint}. */
+    private static final double MOVE_ARRIVE_HORIZ = 0.6;
+    private static final double MOVE_ARRIVE_VERT = 1.5;
     private static final int MAX_FORCED_PATH_CHUNKS = 10;
     private static final int MOVE_STUCK_THRESHOLD = 60;
 
-    private int groundPathRecalcCooldown = 0;
+    private final GroundPathNavigator groundNav = new GroundPathNavigator(new GroundPathSettings());
+    private final AirPathNavigator airNav = new AirPathNavigator(new AirPathSettings());
+    private java.util.UUID flyFollowEntityUuid = null;
     private Vec3 activeMoveGoal = null;
+    private double activeMoveSpeed = 1.0;
+    private java.util.List<Vec3> followRoutePoints = java.util.List.of();
+    private int followRouteIndex;
+    private boolean followRouteLoop;
+    private boolean followRouteFly;
+    private double followRouteSpeed = 1.0;
+    private boolean followRouteActive;
+    private NpcLocomotionSnapshot pendingLocomotion;
+    private boolean issuingRouteMove;
     /** When false during scripted moveTo/alwaysMoveTo, body keeps its yaw instead of turning toward the path. */
     private boolean walkFaceDirection = true;
     private final java.util.Set<ChunkPos> forcedPathChunks = new java.util.HashSet<>();
+    private final java.util.Set<ChunkPos> keepLoadedChunks = new java.util.HashSet<>();
+    private ChunkPos lastKeepLoadedChunk;
+    private boolean loadChunks;
     private boolean pathFailedFlag = false;
     private int moveStuckTicks = 0;
     private int walkLogCooldown = 0;
@@ -199,14 +280,38 @@ public class SprauteNpcEntity extends PathfinderMob {
     public SprauteNpcEntity(EntityType<? extends PathfinderMob> type, Level level) {
         super(type, level);
         this.setCanPickUpLoot(true);
+        this.setPersistenceRequired();
+        var follow = this.getAttribute(Attributes.FOLLOW_RANGE);
+        if (follow != null) {
+            follow.setBaseValue(48.0d);
+        }
+        applyPathStepHeight();
+    }
+
+    /** Scene / script NPCs must never despawn when the player walks away. */
+    @Override
+    public boolean removeWhenFarAway(double distanceToClosestPlayer) {
+        return false;
+    }
+
+    @Override
+    public boolean requiresCustomPersistence() {
+        return !org.zonarstudio.spraute_engine.scene.SceneRuntime.isSceneOwned(this);
+    }
+
+    /** Scene NPCs respawn from the scene document — do not write them into the world save. */
+    @Override
+    public boolean save(net.minecraft.nbt.CompoundTag tag) {
+        if (org.zonarstudio.spraute_engine.scene.SceneRuntime.isSceneOwned(this)) return false;
+        return super.save(tag);
     }
 
     @Override
     protected void defineSynchedData() {
         super.defineSynchedData();
-        this.entityData.define(MODEL_RES, "geo/defender.geo.json");
-        this.entityData.define(TEXTURE_RES, "textures/entity/npc/npc_default.png");
-        this.entityData.define(ANIMATION_RES, "animations/npc_classic.animation.json");
+        this.entityData.define(MODEL_RES, SprauteDefaultNpcAssets.MODEL);
+        this.entityData.define(TEXTURE_RES, SprauteDefaultNpcAssets.TEXTURE);
+        this.entityData.define(ANIMATION_RES, SprauteDefaultNpcAssets.ANIMATION);
         this.entityData.define(PLAYER_SKIN_OVERLAY, "");
         this.entityData.define(HEAD_LOOK_ACTIVE, false);
         this.entityData.define(HEAD_LOOK_YAW, 0f);
@@ -241,6 +346,19 @@ public class SprauteNpcEntity extends PathfinderMob {
         this.entityData.define(BONE_HITBOXES_DATA, "");
         this.entityData.define(SHOW_HITBOX_DEBUG, false);
         this.entityData.define(NAME_Y_OFFSET, 0f);
+        this.entityData.define(MODEL_ROT_X, 0f);
+        this.entityData.define(MODEL_ROT_Y, 0f);
+        this.entityData.define(MODEL_ROT_Z, 0f);
+        this.entityData.define(MODEL_SCALE_X, 1f);
+        this.entityData.define(MODEL_SCALE_Y, 1f);
+        this.entityData.define(MODEL_SCALE_Z, 1f);
+        this.entityData.define(TRANSLUCENT, true);
+        this.entityData.define(OPACITY, 1f);
+        this.entityData.define(LOD_ENABLED, true);
+        this.entityData.define(RENDER_DISTANCE, 0f);
+        this.entityData.define(FORCE_VISIBLE, false);
+        this.entityData.define(WALK_TURN_SPEED, DEFAULT_WALK_TURN_SPEED);
+        this.entityData.define(IDLE_TURN_SPEED, DEFAULT_IDLE_TURN_SPEED);
     }
 
     // ========== Model/Texture/Animation resources ==========
@@ -269,6 +387,47 @@ public class SprauteNpcEntity extends PathfinderMob {
         applyAssetPath(v, org.zonarstudio.spraute_engine.util.SprauteResourcePath.Kind.ANIMATION, ANIMATION_RES);
     }
     public String getAnimation() { return this.entityData.get(ANIMATION_RES); }
+
+    public void setModelRotation(float x, float y, float z) {
+        this.entityData.set(MODEL_ROT_X, x);
+        this.entityData.set(MODEL_ROT_Y, y);
+        this.entityData.set(MODEL_ROT_Z, z);
+    }
+    public void setModelRotationX(float value) { this.entityData.set(MODEL_ROT_X, value); }
+    public void setModelRotationY(float value) { this.entityData.set(MODEL_ROT_Y, value); }
+    public void setModelRotationZ(float value) { this.entityData.set(MODEL_ROT_Z, value); }
+    public float getModelRotationX() { return this.entityData.get(MODEL_ROT_X); }
+    public float getModelRotationY() { return this.entityData.get(MODEL_ROT_Y); }
+    public float getModelRotationZ() { return this.entityData.get(MODEL_ROT_Z); }
+
+    public void setModelScale(float x, float y, float z) {
+        this.entityData.set(MODEL_SCALE_X, Math.max(0.01f, x));
+        this.entityData.set(MODEL_SCALE_Y, Math.max(0.01f, y));
+        this.entityData.set(MODEL_SCALE_Z, Math.max(0.01f, z));
+        invalidateHitboxCache();
+        refreshDimensions();
+    }
+    public void setModelScale(float uniform) { setModelScale(uniform, uniform, uniform); }
+    public void setModelScaleX(float value) { setModelScale(value, getModelScaleY(), getModelScaleZ()); }
+    public void setModelScaleY(float value) { setModelScale(getModelScaleX(), value, getModelScaleZ()); }
+    public void setModelScaleZ(float value) { setModelScale(getModelScaleX(), getModelScaleY(), value); }
+    public float getModelScaleX() { return this.entityData.get(MODEL_SCALE_X); }
+    public float getModelScaleY() { return this.entityData.get(MODEL_SCALE_Y); }
+    public float getModelScaleZ() { return this.entityData.get(MODEL_SCALE_Z); }
+
+    public void setTranslucent(boolean value) { this.entityData.set(TRANSLUCENT, value); }
+    public boolean isTranslucent() { return this.entityData.get(TRANSLUCENT); }
+    public void setOpacity(float value) {
+        this.entityData.set(OPACITY, net.minecraft.util.Mth.clamp(value, 0f, 1f));
+    }
+    public float getOpacity() { return this.entityData.get(OPACITY); }
+    public boolean usesTranslucentGeo() { return isTranslucent() || getOpacity() < 0.999f; }
+    public void setLodEnabled(boolean value) { this.entityData.set(LOD_ENABLED, value); }
+    public boolean isLodEnabled() { return this.entityData.get(LOD_ENABLED); }
+    public void setRenderDistance(float value) { this.entityData.set(RENDER_DISTANCE, Math.max(0f, value)); }
+    public float getRenderDistance() { return this.entityData.get(RENDER_DISTANCE); }
+    public void setForceVisible(boolean value) { this.entityData.set(FORCE_VISIBLE, value); }
+    public boolean isForceVisible() { return this.entityData.get(FORCE_VISIBLE); }
 
     private void applyAssetPath(String v, org.zonarstudio.spraute_engine.util.SprauteResourcePath.Kind kind,
                                 net.minecraft.network.syncher.EntityDataAccessor<String> accessor) {
@@ -514,6 +673,8 @@ public class SprauteNpcEntity extends PathfinderMob {
     public void setFlying(boolean flying) {
         if (!flying) {
             stopMove();
+        } else {
+            groundNav.stop(this);
         }
         this.entityData.set(IS_FLYING, flying);
         this.setNoGravity(flying);
@@ -523,6 +684,15 @@ public class SprauteNpcEntity extends PathfinderMob {
         } else {
             this.moveControl = new net.minecraft.world.entity.ai.control.MoveControl(this);
             this.navigation = new net.minecraft.world.entity.ai.navigation.GroundPathNavigation(this, SprauteEntityCompat.level(this));
+        }
+    }
+
+    public boolean isLoadChunks() { return loadChunks; }
+
+    public void setLoadChunks(boolean loadChunks) {
+        this.loadChunks = loadChunks;
+        if (!loadChunks) {
+            releaseKeepLoadedChunks();
         }
     }
 
@@ -748,11 +918,10 @@ public class SprauteNpcEntity extends PathfinderMob {
         Level level = SprauteEntityCompat.level(this);
         if (!(level instanceof ServerLevel serverLevel) || level.isClientSide) return false;
 
-        String resolved = itemStr.contains(":") ? itemStr : "minecraft:" + itemStr;
-        net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(parseItemResourceId(resolved));
-        if (item == null || item == net.minecraft.world.item.Items.AIR) return false;
+        net.minecraft.world.item.ItemStack stack = org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.createStack(itemStr, count);
+        if (stack.isEmpty()) return false;
 
-        spawnThrownEntity(serverLevel, new net.minecraft.world.item.ItemStack(item, count));
+        spawnThrownEntity(serverLevel, stack);
         return true;
     }
 
@@ -774,11 +943,102 @@ public class SprauteNpcEntity extends PathfinderMob {
     public void clearPickupDropperFilter() { pickupDropperFilter = null; }
     public void setPickupMaxCount(String itemId, int max) { setPickupMaxCount(itemId, null, max); }
     public void setPickupMaxCount(String itemId, String nbtTag, int max) {
-        pickupMaxItemId = max < 0 ? null : itemId;
-        pickupMaxTag = max < 0 ? null : (nbtTag != null && !nbtTag.isEmpty() ? nbtTag : null);
-        pickupMaxCount = max;
+        String key = pickupAllowKey(itemId, nbtTag);
+        if (itemId == null || itemId.isEmpty() || max < 0) {
+            pickupMaxByKey.remove(key);
+            return;
+        }
+        pickupMaxByKey.put(key, max);
     }
-    public void clearPickupMaxCount() { pickupMaxItemId = null; pickupMaxTag = null; pickupMaxCount = -1; }
+    public void clearPickupMaxCount() { pickupMaxByKey.clear(); }
+    public void clearPickupMaxCount(String itemId, String nbtTag) {
+        pickupMaxByKey.remove(pickupAllowKey(itemId, nbtTag));
+    }
+
+    public static String pickupAllowKey(String itemId, String nbtTag) {
+        String id = itemId == null ? "" : itemId;
+        String tag = (nbtTag == null || nbtTag.isEmpty() || "null".equals(nbtTag)) ? "" : nbtTag;
+        return id + "\0" + tag;
+    }
+
+    public void setPickupAllowsFrom(Object source, java.util.Set<String> keys) {
+        if (source == null) return;
+        if (keys == null || keys.isEmpty()) pickupAllowBySource.remove(source);
+        else pickupAllowBySource.put(source, new java.util.HashSet<>(keys));
+    }
+
+    public void setPickupMaxFrom(Object source, java.util.Map<String, Integer> maxes) {
+        if (source == null) return;
+        if (maxes == null || maxes.isEmpty()) pickupMaxBySource.remove(source);
+        else pickupMaxBySource.put(source, new java.util.HashMap<>(maxes));
+    }
+
+    public void clearPickupAllowsFrom(Object source) {
+        if (source != null) {
+            pickupAllowBySource.remove(source);
+            pickupMaxBySource.remove(source);
+        }
+    }
+
+    private static String[] splitAllowKey(String key) {
+        int split = key.indexOf('\0');
+        String id = split < 0 ? key : key.substring(0, split);
+        String tag = split < 0 || split >= key.length() - 1 ? null : key.substring(split + 1);
+        if (tag != null && tag.isEmpty()) tag = null;
+        return new String[]{id, tag};
+    }
+
+    private boolean stackMatchesKey(net.minecraft.world.item.ItemStack stack, String key) {
+        String[] parts = splitAllowKey(key);
+        return org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.matches(stack, parts[0], parts[1]);
+    }
+
+    private boolean matchesAnyPickupAllow(net.minecraft.world.item.ItemStack stack) {
+        for (java.util.Set<String> keys : pickupAllowBySource.values()) {
+            for (String key : keys) {
+                if (stackMatchesKey(stack, key)) return true;
+            }
+        }
+        return false;
+    }
+
+    private Integer effectivePickupMax(net.minecraft.world.item.ItemStack stack) {
+        Integer cap = null;
+        for (var e : pickupMaxByKey.entrySet()) {
+            if (stackMatchesKey(stack, e.getKey())) {
+                cap = cap == null ? e.getValue() : Math.min(cap, e.getValue());
+            }
+        }
+        for (var src : pickupMaxBySource.values()) {
+            for (var e : src.entrySet()) {
+                if (stackMatchesKey(stack, e.getKey())) {
+                    cap = cap == null ? e.getValue() : Math.min(cap, e.getValue());
+                }
+            }
+        }
+        return cap;
+    }
+
+    private String[] firstMatchingFilter(net.minecraft.world.item.ItemStack stack) {
+        for (String key : pickupMaxByKey.keySet()) {
+            if (stackMatchesKey(stack, key)) return splitAllowKey(key);
+        }
+        for (var src : pickupMaxBySource.values()) {
+            for (String key : src.keySet()) {
+                if (stackMatchesKey(stack, key)) return splitAllowKey(key);
+            }
+        }
+        for (java.util.Set<String> keys : pickupAllowBySource.values()) {
+            for (String key : keys) {
+                if (stackMatchesKey(stack, key)) return splitAllowKey(key);
+            }
+        }
+        return null;
+    }
+
+    private boolean hasPickupRequest() {
+        return !pickupMaxByKey.isEmpty() || !pickupMaxBySource.isEmpty() || !pickupAllowBySource.isEmpty();
+    }
 
     public int countItem(String itemId) { return countItem(itemId, null); }
     private static net.minecraft.resources.ResourceLocation parseItemResourceId(String itemId) {
@@ -790,23 +1050,12 @@ public class SprauteNpcEntity extends PathfinderMob {
     }
 
     public int countItem(String itemId, String nbtTag) {
-        net.minecraft.resources.ResourceLocation target = parseItemResourceId(itemId);
         int total = 0;
         for (int i = 0; i < pickupContainer.getContainerSize(); i++) {
             net.minecraft.world.item.ItemStack stack = pickupContainer.getItem(i);
-            if (stack.isEmpty()) continue;
-            if (!net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem()).equals(target)) continue;
-            if (nbtTag != null && !nbtTag.isEmpty()) {
-                if (!stack.hasTag()) continue;
-                try {
-                    net.minecraft.nbt.CompoundTag req = net.minecraft.nbt.TagParser.parseTag(nbtTag);
-                    net.minecraft.nbt.CompoundTag tag = stack.getTag();
-                    for (String k : req.getAllKeys()) {
-                        if (!tag.contains(k) || !java.util.Objects.equals(tag.get(k), req.get(k))) continue;
-                    }
-                } catch (Exception e) { continue; }
+            if (org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.matches(stack, itemId, nbtTag)) {
+                total += stack.getCount();
             }
-            total += stack.getCount();
         }
         return total;
     }
@@ -816,41 +1065,45 @@ public class SprauteNpcEntity extends PathfinderMob {
 
     @Override
     public boolean wantsToPickUp(net.minecraft.world.item.ItemStack stack) {
-        if (!super.wantsToPickUp(stack)) return false;
-        if (pickupMaxItemId == null) return false;
-        if (pickupMaxCount >= 0) {
-            if (!net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem()).equals(parseItemResourceId(pickupMaxItemId))) return false;
-            if (pickupMaxTag != null && !pickupMaxTag.isEmpty()) {
-                if (!stack.hasTag()) return false;
-                try {
-                    net.minecraft.nbt.CompoundTag req = net.minecraft.nbt.TagParser.parseTag(pickupMaxTag);
-                    for (String k : req.getAllKeys()) {
-                        if (!stack.getTag().contains(k) || !java.util.Objects.equals(stack.getTag().get(k), req.get(k))) return false;
-                    }
-                } catch (Exception e) { return false; }
-            }
-            return countItem(pickupMaxItemId, pickupMaxTag) < pickupMaxCount;
+        if (!this.canPickUpLoot() || stack == null || stack.isEmpty()) return false;
+        Integer cap = effectivePickupMax(stack);
+        if (cap != null) {
+            String[] filter = firstMatchingFilter(stack);
+            int have = filter == null ? 0 : countItem(filter[0], filter[1]);
+            return have < cap;
         }
-        return true;
+        return matchesAnyPickupAllow(stack);
     }
 
     @Override
     protected void pickUpItem(ItemEntity itemEntity) {
         java.util.UUID thrower = org.zonarstudio.spraute_engine.compat.SprauteEntityCompat.getItemThrower(itemEntity);
         if (pickupDropperFilter != null && (thrower == null || !thrower.equals(pickupDropperFilter))) return;
-        lastPickupThrower = thrower;
         net.minecraft.world.item.ItemStack stack = itemEntity.getItem();
+        if (!wantsToPickUp(stack)) return;
+        lastPickupThrower = thrower;
         int toTake = stack.getCount();
-        if (pickupMaxItemId != null && pickupMaxCount >= 0) {
-            if (!net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem()).equals(parseItemResourceId(pickupMaxItemId))) return;
-            if (pickupMaxTag != null && !pickupMaxTag.isEmpty() && (!stack.hasTag() || !java.util.Objects.equals(stack.getTag().get("tag"), pickupMaxTag))) return;
-            int have = countItem(pickupMaxItemId, pickupMaxTag);
-            if (have >= pickupMaxCount) return;
-            toTake = Math.min(toTake, pickupMaxCount - have);
+        Integer cap = effectivePickupMax(stack);
+        if (cap != null) {
+            String[] filter = firstMatchingFilter(stack);
+            int have = filter == null ? 0 : countItem(filter[0], filter[1]);
+            if (have >= cap) return;
+            toTake = Math.min(toTake, cap - have);
         }
         net.minecraft.world.item.ItemStack toAdd = stack.copy();
         toAdd.setCount(toTake);
         if (addToPickup(toAdd)) { this.take(itemEntity, toTake); stack.shrink(toTake); if (stack.isEmpty()) itemEntity.discard(); }
+    }
+
+    /** Own loot scan: vanilla Mob.aiStep skips pickup when mobGriefing is false. */
+    private void tickScriptPickup() {
+        net.minecraft.world.level.Level level = SprauteEntityCompat.level(this);
+        if (level.isClientSide || !this.isAlive() || !this.canPickUpLoot() || !hasPickupRequest()) return;
+        net.minecraft.world.phys.AABB box = this.getBoundingBox().inflate(1.25, 0.75, 1.25);
+        for (ItemEntity item : level.getEntitiesOfClass(ItemEntity.class, box)) {
+            if (item.isRemoved() || item.getItem().isEmpty() || item.hasPickUpDelay()) continue;
+            pickUpItem(item);
+        }
     }
 
     private boolean addToPickup(net.minecraft.world.item.ItemStack stack) {
@@ -882,12 +1135,26 @@ public class SprauteNpcEntity extends PathfinderMob {
     }
 
     /** Whether a ground path to the block can be built (loads chunks on the way first). */
+    public GroundPathSettings groundPathSettings() {
+        return groundNav.settings();
+    }
+
+    /** Applies {@link GroundPathSettings#stepHeight} to entity movement (stairs/slabs). */
+    public void applyPathStepHeight() {
+        SprautePlayerCompat.setStepHeight(this, (float) groundNav.settings().stepHeight);
+    }
+
+    public AirPathSettings airPathSettings() {
+        return airNav.settings();
+    }
+
     public boolean canReach(double x, double y, double z) {
         if (SprauteEntityCompat.level(this).isClientSide) return true;
-        if (isFlying()) return true;
         ensureChunksToward(new Vec3(x, y, z));
-        var path = this.getNavigation().createPath(x, y, z, 1);
-        return path != null && path.canReach();
+        if (isFlying()) {
+            return airNav.canReach(this, x, y, z);
+        }
+        return groundNav.canReach(this, x, y, z);
     }
 
     public Vec3 getScriptedMoveGoal() {
@@ -896,6 +1163,17 @@ public class SprauteNpcEntity extends PathfinderMob {
 
     public void clearScriptedMoveGoal() {
         activeMoveGoal = null;
+        flyFollowEntityUuid = null;
+        groundNav.stop(this);
+        airNav.stop(this);
+    }
+
+    /** True when scripted wait should re-issue a move (path idle or failed). */
+    public boolean needsGroundMoveRetry() {
+        if (isFlying()) {
+            return !airNav.isInProgress() || airNav.isFailed();
+        }
+        return !groundNav.isInProgress() || groundNav.isFailed();
     }
 
     /** Snap body yaw toward a scripted move target before pathing starts. */
@@ -921,10 +1199,12 @@ public class SprauteNpcEntity extends PathfinderMob {
     }
 
     public void moveTo(double x, double y, double z, double speed, boolean faceWalkDirection) {
+        if (!issuingRouteMove) clearFollowRoute();
         double gx = scriptedGoalCoord(x);
         double gz = scriptedGoalCoord(z);
         double standY = resolveStandY(gx, y, gz);
         activeMoveGoal = new Vec3(gx, standY, gz);
+        activeMoveSpeed = speed;
         walkFaceDirection = faceWalkDirection;
         clearPathFailed();
         moveStuckTicks = 0;
@@ -934,7 +1214,7 @@ public class SprauteNpcEntity extends PathfinderMob {
         logWalk("moveTo START goal=" + fmtPos(gx, standY, gz) + " speed=" + speed
                 + " faceWalk=" + faceWalkDirection
                 + (Math.abs(standY - y) > 0.01 || gx != x || gz != z ? " (from " + x + "," + y + "," + z + ")" : ""));
-        issueGroundNavigation(gx, standY, gz, speed, true);
+        startGroundMove(gx, standY, gz, speed, true);
     }
 
     /** Re-issue navigation during scripted move_to wait without resetting failure tracking. */
@@ -943,39 +1223,93 @@ public class SprauteNpcEntity extends PathfinderMob {
         double gz = scriptedGoalCoord(z);
         double standY = resolveStandY(gx, y, gz);
         activeMoveGoal = new Vec3(gx, standY, gz);
+        activeMoveSpeed = speed;
         moveStuckTicks = 0;
         clearPathFailed();
         double dx = getX() - gx;
         double dz = getZ() - gz;
         double distH = Math.sqrt(dx * dx + dz * dz);
-        double retrySpeed = (distH > 0.6 && distH < 1.5) ? Math.max(speed, 1.2) : speed;
+        double arrive = groundNav.settings().arriveRadius;
+        double retrySpeed = (distH > arrive && distH < 1.5) ? Math.max(speed, 1.2) : speed;
+        activeMoveSpeed = retrySpeed;
         logWalk("retryMoveTo goal=" + fmtPos(gx, standY, gz) + " speed=" + retrySpeed
-                + " navDone=" + this.getNavigation().isDone()
-                + " stuck=" + this.getNavigation().isStuck()
+                + " navigating=" + groundNav.isInProgress()
                 + " pathFailed=" + pathFailedFlag);
-        issueGroundNavigation(gx, standY, gz, retrySpeed, false);
+        startGroundMove(gx, standY, gz, retrySpeed, false);
+    }
+
+    /**
+     * Distance-based arrival for scripted {@code moveTo}/{@code await moveTo}.
+     * Same on 1.19.2 and 1.20.1 — do not use {@code Navigation#isDone()} as “arrived”
+     * (null/incomplete paths also report done).
+     */
+    public boolean hasReachedMoveGoal() {
+        if (activeMoveGoal == null) return false;
+        return isCloseToPoint(activeMoveGoal.x, activeMoveGoal.y, activeMoveGoal.z);
+    }
+
+    /**
+     * Same goal normalization as {@link #moveTo} — used by {@code await moveTo} after the entity
+     * already cleared {@link #activeMoveGoal} on arrival (one-shot must not resume if pushed).
+     */
+    public boolean isCloseToScriptedCoords(double x, double y, double z) {
+        double gx = scriptedGoalCoord(x);
+        double gz = scriptedGoalCoord(z);
+        if (isFlying()) {
+            return isCloseToPoint(gx, y, gz);
+        }
+        double gy = resolveStandY(gx, y, gz);
+        return isCloseToPoint(gx, gy, gz);
+    }
+
+    public static boolean isCloseToPoint(net.minecraft.world.entity.Entity mob, double tx, double ty, double tz) {
+        double dx = mob.getX() - tx;
+        double dy = mob.getY() - ty;
+        double dz = mob.getZ() - tz;
+        if (mob instanceof SprauteNpcEntity npc && npc.isFlying()) {
+            double r = npc.airNav.settings().arriveRadius;
+            return dx * dx + dy * dy + dz * dz <= r * r;
+        }
+        double horiz = MOVE_ARRIVE_HORIZ;
+        double vert = MOVE_ARRIVE_VERT;
+        if (mob instanceof SprauteNpcEntity npc) {
+            horiz = npc.groundNav.settings().arriveRadius;
+            vert = npc.groundNav.settings().arriveVert;
+        }
+        return dx * dx + dz * dz <= horiz * horiz && Math.abs(dy) <= vert;
+    }
+
+    private boolean isCloseToPoint(double tx, double ty, double tz) {
+        return isCloseToPoint(this, tx, ty, tz);
     }
 
     /** Включить полёт и лететь к точке. */
     public void flyTo(double x, double y, double z, double speed) {
+        if (!issuingRouteMove) clearFollowRoute();
         double gx = scriptedGoalCoord(x);
         double gz = scriptedGoalCoord(z);
         setFlying(true);
         activeFlySpeed = speed;
-        flightPathRecalcCooldown = 0;
+        activeMoveSpeed = speed;
+        flyFollowEntityUuid = null;
         activeMoveGoal = new Vec3(gx, y, gz);
         clearPathFailed();
         moveStuckTicks = 0;
-        this.getNavigation().moveTo(gx, y, gz, speed);
+        startAirMove(gx, y, gz, speed, true);
     }
 
     /** Включить полёт и лететь к сущности. */
     public void flyToEntity(net.minecraft.world.entity.Entity target, double speed) {
         if (target == null) return;
+        if (!issuingRouteMove) clearFollowRoute();
         setFlying(true);
         activeFlySpeed = speed;
-        flightPathRecalcCooldown = 0;
-        this.getNavigation().moveTo(target, speed);
+        activeMoveSpeed = speed;
+        flyFollowEntityUuid = target.getUUID();
+        activeMoveGoal = target.position();
+        clearPathFailed();
+        moveStuckTicks = 0;
+        startAirMove(target.getX(), target.getY(), target.getZ(), speed, true);
     }
 
     /** Включить полёт и постоянно следовать к точке. */
@@ -1001,13 +1335,12 @@ public class SprauteNpcEntity extends PathfinderMob {
     }
 
     public void alwaysMoveTo(double x, double y, double z, double speed, boolean faceWalkDirection) {
+        clearFollowRoute();
         this.alwaysMovePoint = new Vec3(x, y, z);
         this.alwaysMoveEntity = null;
         this.alwaysMoveSpeed = speed;
         this.walkFaceDirection = faceWalkDirection;
         this.activeFlySpeed = speed;
-        this.flightPathRecalcCooldown = 0;
-        this.groundPathRecalcCooldown = 0;
         clearPathFailed();
     }
 
@@ -1016,22 +1349,264 @@ public class SprauteNpcEntity extends PathfinderMob {
     }
 
     public void alwaysMoveToEntity(net.minecraft.world.entity.Entity e, double speed, boolean faceWalkDirection) {
+        clearFollowRoute();
         this.alwaysMoveEntity = e;
         this.alwaysMovePoint = null;
         this.alwaysMoveSpeed = speed;
         this.walkFaceDirection = faceWalkDirection;
         this.activeFlySpeed = speed;
-        this.flightPathRecalcCooldown = 0;
-        this.groundPathRecalcCooldown = 0;
         clearPathFailed();
     }
 
     public void stopMove() {
+        clearFollowRoute();
         this.alwaysMoveEntity = null;
         this.alwaysMovePoint = null;
         this.activeMoveGoal = null;
+        this.flyFollowEntityUuid = null;
+        this.activeMoveSpeed = 1.0;
         releaseForcedPathChunks();
+        groundNav.stop(this);
+        airNav.stop(this);
         this.getNavigation().stop();
+    }
+
+    private double followRouteSavedMaxRange = -1;
+    private int followRouteSavedMaxNodes = -1;
+
+    /**
+     * Walk or fly the authored route: first to point 0, then 0→1→…→last.
+     * Ground: A* pathfinding between points (not along the drawn curve).
+     * Loop mode continues last→first.
+     */
+    public void followRoute(java.util.List<Vec3> points, boolean loop, boolean fly, double speed) {
+        stopMove();
+        if (fly) setFlying(true);
+        else if (isFlying()) setFlying(false);
+        if (points == null || points.isEmpty()) return;
+        followRoutePoints = java.util.List.copyOf(points);
+        followRouteIndex = 0;
+        followRouteLoop = loop;
+        followRouteFly = fly;
+        followRouteSpeed = speed > 0 ? speed : 1.0;
+        followRouteActive = true;
+        if (!fly) {
+            GroundPathSettings gs = groundNav.settings();
+            followRouteSavedMaxRange = gs.maxRange;
+            followRouteSavedMaxNodes = gs.maxNodes;
+            gs.skipDirectWalk = true;
+        }
+        issueFollowRouteMove();
+    }
+
+    public boolean isFollowingRoute() {
+        return followRouteActive;
+    }
+
+    /** Current waypoint index while following a route, or {@code -1} when idle. */
+    public int getRouteIndex() {
+        return followRouteActive ? followRouteIndex : -1;
+    }
+
+    /** Number of waypoints on the active follow-route, or {@code 0} when idle. */
+    public int getRoutePointCount() {
+        return followRouteActive ? followRoutePoints.size() : 0;
+    }
+
+    public NpcLocomotionSnapshot captureLocomotion() {
+        if (!followRouteActive && alwaysMovePoint == null && alwaysMoveEntity == null && activeMoveGoal == null) {
+            return null;
+        }
+        java.util.UUID followUuid = alwaysMoveEntity != null ? alwaysMoveEntity.getUUID() : null;
+        return new NpcLocomotionSnapshot(
+                followRouteActive, followRoutePoints, followRouteIndex,
+                followRouteLoop, followRouteFly, followRouteSpeed,
+                alwaysMovePoint, followUuid, activeMoveGoal,
+                followRouteActive ? followRouteSpeed
+                        : alwaysMovePoint != null || alwaysMoveEntity != null ? alwaysMoveSpeed : activeMoveSpeed,
+                walkFaceDirection, isFlying());
+    }
+
+    public void restoreLocomotion(NpcLocomotionSnapshot snap) {
+        if (snap == null || snap.isIdle()) return;
+        walkFaceDirection = snap.walkFaceDirection;
+        if (snap.flying) setFlying(true);
+        if (snap.followRouteActive && !snap.followRoutePoints.isEmpty()) {
+            followRoutePoints = java.util.List.copyOf(snap.followRoutePoints);
+            followRouteIndex = net.minecraft.util.Mth.clamp(snap.followRouteIndex, 0, followRoutePoints.size() - 1);
+            followRouteLoop = snap.followRouteLoop;
+            followRouteFly = snap.followRouteFly;
+            followRouteSpeed = snap.followRouteSpeed > 0 ? snap.followRouteSpeed : 1.0;
+            followRouteActive = true;
+            if (!followRouteFly) {
+                GroundPathSettings gs = groundNav.settings();
+                followRouteSavedMaxRange = gs.maxRange;
+                followRouteSavedMaxNodes = gs.maxNodes;
+                gs.skipDirectWalk = true;
+            } else {
+                setFlying(true);
+            }
+            issueFollowRouteMove();
+            logWalk("restore followRoute index=" + followRouteIndex + "/" + followRoutePoints.size()
+                    + " loop=" + followRouteLoop);
+            return;
+        }
+        if (snap.alwaysMovePoint != null) {
+            alwaysMoveTo(snap.alwaysMovePoint.x, snap.alwaysMovePoint.y, snap.alwaysMovePoint.z,
+                    snap.moveSpeed, snap.walkFaceDirection);
+            return;
+        }
+        if (snap.alwaysMoveEntityUuid != null) {
+            Level level = SprauteEntityCompat.level(this);
+            net.minecraft.world.entity.Entity target = null;
+            if (level instanceof ServerLevel server) {
+                target = server.getEntity(snap.alwaysMoveEntityUuid);
+            }
+            if (target != null) {
+                alwaysMoveToEntity(target, snap.moveSpeed, snap.walkFaceDirection);
+                return;
+            }
+        }
+        if (snap.activeMoveGoal != null) {
+            if (snap.flying || isFlying()) {
+                flyTo(snap.activeMoveGoal.x, snap.activeMoveGoal.y, snap.activeMoveGoal.z, snap.moveSpeed);
+            } else {
+                moveTo(snap.activeMoveGoal.x, snap.activeMoveGoal.y, snap.activeMoveGoal.z,
+                        snap.moveSpeed, snap.walkFaceDirection);
+            }
+        }
+    }
+
+    public void collectKeepLoadedChunks(java.util.Set<ChunkPos> out) {
+        if (out == null) return;
+        ChunkPos here = new ChunkPos(this.blockPosition());
+        int radius = loadChunks ? 1 : 0;
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                out.add(new ChunkPos(here.x + dx, here.z + dz));
+            }
+        }
+        out.addAll(forcedPathChunks);
+        out.addAll(keepLoadedChunks);
+        NpcLocomotionSnapshot snap = captureLocomotion();
+        if (snap != null) snap.addChunks(out);
+    }
+
+    void publishLocomotion() {
+        if (SprauteEntityCompat.level(this).isClientSide) return;
+        String sceneId = org.zonarstudio.spraute_engine.scene.SceneRuntime.sceneIdFromEntity(this);
+        String nodeId = org.zonarstudio.spraute_engine.scene.SceneRuntime.nodeIdFromEntityTags(this);
+        if (sceneId == null || nodeId == null) return;
+        var state = org.zonarstudio.spraute_engine.scene.SceneRuntime.getActiveState(sceneId);
+        if (state == null) return;
+        state.putNpcLocomotion(nodeId, captureLocomotion());
+    }
+
+    private void clearPublishedLocomotion() {
+        String sceneId = org.zonarstudio.spraute_engine.scene.SceneRuntime.sceneIdFromEntity(this);
+        String nodeId = org.zonarstudio.spraute_engine.scene.SceneRuntime.nodeIdFromEntityTags(this);
+        if (sceneId == null || nodeId == null) return;
+        var state = org.zonarstudio.spraute_engine.scene.SceneRuntime.getActiveState(sceneId);
+        if (state != null) state.clearNpcLocomotion(nodeId);
+    }
+
+    private void restoreFollowRoutePathSettings() {
+        groundNav.setDampLastWaypoint(true);
+        airNav.setDampLastWaypoint(true);
+        if (followRouteSavedMaxRange < 0) return;
+        GroundPathSettings gs = groundNav.settings();
+        gs.maxRange = followRouteSavedMaxRange;
+        gs.maxNodes = followRouteSavedMaxNodes;
+        gs.skipDirectWalk = false;
+        followRouteSavedMaxRange = -1;
+        followRouteSavedMaxNodes = -1;
+    }
+
+    private void clearFollowRoute() {
+        if (issuingRouteMove) return;
+        followRouteActive = false;
+        followRoutePoints = java.util.List.of();
+        followRouteIndex = 0;
+        restoreFollowRoutePathSettings();
+    }
+
+    private void issueFollowRouteMove() {
+        if (followRouteIndex < 0 || followRouteIndex >= followRoutePoints.size()) return;
+        Vec3 point = followRoutePoints.get(followRouteIndex);
+        if (!followRouteFly) {
+            double dist = position().distanceTo(point);
+            GroundPathSettings gs = groundNav.settings();
+            gs.maxRange = Math.min(256.0, Math.max(gs.maxRange, dist + 24.0));
+            gs.maxNodes = Math.max(gs.maxNodes, 16384);
+            gs.skipDirectWalk = true;
+        }
+        issuingRouteMove = true;
+        try {
+            if (followRouteFly) flyTo(point.x, point.y, point.z, followRouteSpeed);
+            else moveTo(point.x, point.y, point.z, followRouteSpeed);
+        } finally {
+            issuingRouteMove = false;
+        }
+        boolean lastStop = !followRouteLoop && followRouteIndex >= followRoutePoints.size() - 1;
+        groundNav.setDampLastWaypoint(lastStop);
+        airNav.setDampLastWaypoint(lastStop);
+    }
+
+    private boolean followRouteHasMore() {
+        if (!followRouteActive || followRoutePoints.isEmpty()) return false;
+        if (followRoutePoints.size() == 1) return followRouteLoop;
+        return followRouteLoop || followRouteIndex + 1 < followRoutePoints.size();
+    }
+
+    /** Intermediate route points: switch before the 0.1 crawl so the NPC does not stall at corners. */
+    private boolean closeEnoughToChainRoute() {
+        if (activeMoveGoal == null) return false;
+        double dx = getX() - activeMoveGoal.x;
+        double dy = getY() - activeMoveGoal.y;
+        double dz = getZ() - activeMoveGoal.z;
+        if (followRouteFly) {
+            double r = Math.max(0.65, airNav.settings().waypointRadius);
+            return dx * dx + dy * dy + dz * dz <= r * r;
+        }
+        double r = Math.max(0.65, groundNav.settings().waypointRadius);
+        double vert = Math.max(1.0, groundNav.settings().arriveVert);
+        return dx * dx + dz * dz <= r * r && Math.abs(dy) <= vert;
+    }
+
+    private boolean tickFollowRouteChain(boolean exactArrive) {
+        if (!followRouteActive) return false;
+        if (!exactArrive && !followRouteHasMore()) return false;
+        if (!exactArrive && !closeEnoughToChainRoute()) return false;
+        if (!advanceFollowRoute()) return false;
+        if (followRouteFly) airNav.tick(this, flySmoothing);
+        else groundNav.tick(this);
+        return true;
+    }
+
+    /** @return true when a next waypoint was issued (caller must not stop). */
+    private boolean advanceFollowRoute() {
+        if (!followRouteActive || followRoutePoints.isEmpty()) return false;
+        if (followRoutePoints.size() == 1 && followRouteLoop) {
+            Vec3 hold = followRoutePoints.get(0);
+            alwaysMovePoint = hold;
+            alwaysMoveEntity = null;
+            alwaysMoveSpeed = followRouteSpeed;
+            activeFlySpeed = followRouteSpeed;
+            return true;
+        }
+        int next = followRouteIndex + 1;
+        if (next >= followRoutePoints.size()) {
+            if (!followRouteLoop) {
+                followRouteActive = false;
+                followRoutePoints = java.util.List.of();
+                restoreFollowRoutePathSettings();
+                return false;
+            }
+            next = 0;
+        }
+        followRouteIndex = next;
+        issueFollowRouteMove();
+        return true;
     }
 
     // ========== Combat ==========
@@ -1050,6 +1625,18 @@ public class SprauteNpcEntity extends PathfinderMob {
     private static final int COMBAT_CHASE_RECALC = 10;
 
     public double getAttackRange() { return attackRange; }
+
+    public int getAttackCooldown() { return attackCooldownTicks; }
+
+    public int getAttackHitDelay() { return attackHitDelayTicks; }
+
+    public String getAttackHand() { return attackHand; }
+
+    /** Comma-separated attack clip names (inspector / scene node field). */
+    public String getAttackAnimsCsv() {
+        if (attackAnims.isEmpty()) return "attack";
+        return String.join(",", attackAnims);
+    }
 
     public void setAttackRange(double range) {
         this.attackRange = Math.max(0.5, range);
@@ -1126,6 +1713,8 @@ public class SprauteNpcEntity extends PathfinderMob {
         attackHitCountdown = -1;
         combatCooldown = 0;
         combatChaseRecalc = 0;
+        groundNav.stop(this);
+        airNav.stop(this);
         this.getNavigation().stop();
     }
 
@@ -1154,6 +1743,8 @@ public class SprauteNpcEntity extends PathfinderMob {
         boolean inRange = horiz <= attackRange && Math.abs(target.getY() - getY()) <= 3.5;
 
         if (inRange) {
+            if (!isFlying()) groundNav.stop(this);
+            else airNav.stop(this);
             getNavigation().stop();
             alwaysLookAtEntity(target);
             if (!combatSwingActive && combatCooldown <= 0) {
@@ -1165,8 +1756,21 @@ public class SprauteNpcEntity extends PathfinderMob {
                 attackHitCountdown = -1;
             }
             if (--combatChaseRecalc <= 0) {
-                getNavigation().moveTo(target, combatChaseSpeed);
+                ensureChunksToward(target.position());
+                if (isFlying()) {
+                    airNav.follow(this, target.getX(), target.getY(), target.getZ(), combatChaseSpeed);
+                } else {
+                    groundNav.follow(this, target.getX(), target.getY(), target.getZ(), combatChaseSpeed);
+                }
                 combatChaseRecalc = COMBAT_CHASE_RECALC;
+            }
+            if (isFlying()) {
+                AirPathNavigator.Status st = airNav.tick(this, flySmoothing);
+                flightSteering = st == AirPathNavigator.Status.MOVING;
+                if (st == AirPathNavigator.Status.FAILED) pathFailedFlag = true;
+            } else {
+                GroundPathNavigator.Status st = groundNav.tick(this);
+                if (st == GroundPathNavigator.Status.FAILED) pathFailedFlag = true;
             }
         }
 
@@ -1225,10 +1829,7 @@ public class SprauteNpcEntity extends PathfinderMob {
 
     /** True while flight steering applied this tick (drives walk/idle anim while flying). */
     private boolean flightSteering = false;
-    private int flightPathRecalcCooldown = 0;
     private double activeFlySpeed = 1.0;
-
-    private static final double FLIGHT_DIRECT_EPS = 0.35;
 
     /**
      * Flight steering smoothness (velocity lerp factor, 0..1). Lower = smoother, softer
@@ -1255,44 +1856,104 @@ public class SprauteNpcEntity extends PathfinderMob {
         }
 
         if (isFlying()) {
-            steerFlightToTarget(target);
+            ensureChunksToward(target);
+            airNav.follow(this, target.x, target.y, target.z, alwaysMoveSpeed);
+            AirPathNavigator.Status st = airNav.tick(this, flySmoothing);
+            flightSteering = st == AirPathNavigator.Status.MOVING;
+            if (st == AirPathNavigator.Status.FAILED) pathFailedFlag = true;
+            trackMoveProgress(target);
         } else {
             flightSteering = false;
             ensureChunksToward(target);
-            Vec3 step = resolveGroundStepTarget(target);
-            var nav = this.getNavigation();
-            boolean needRecalc = groundPathRecalcCooldown <= 0
-                    || nav.isDone()
-                    || nav.isStuck()
-                    || nav.getPath() == null;
-            if (needRecalc) {
-                nav.moveTo(step.x, step.y, step.z, alwaysMoveSpeed);
-                groundPathRecalcCooldown = GROUND_PATH_RECALC_COOLDOWN;
-            } else {
-                groundPathRecalcCooldown--;
-            }
+            groundNav.follow(this, target.x, target.y, target.z, alwaysMoveSpeed);
+            GroundPathNavigator.Status st = groundNav.tick(this);
+            if (st == GroundPathNavigator.Status.FAILED) pathFailedFlag = true;
             trackMoveProgress(target);
         }
     }
 
-    private void issueGroundNavigation(double x, double y, double z, double speed, boolean resetCooldown) {
+    private void startGroundMove(double x, double y, double z, double speed, boolean immediate) {
         if (isFlying()) {
-            this.getNavigation().moveTo(x, y, z, speed);
-            logWalk("fly nav goal=" + fmtPos(x, y, z));
+            startAirMove(x, y, z, speed, immediate);
             return;
         }
-        Vec3 goal = new Vec3(x, y, z);
-        ensureChunksToward(goal);
-        var nav = this.getNavigation();
-        var path = nav.createPath(x, y, z, 1);
-        boolean reachable = path != null && path.canReach();
-        nav.moveTo(x, y, z, speed);
-        logWalk("ground nav goal=" + fmtPos(x, y, z)
-                + " reachable=" + reachable
-                + " pathLen=" + (path != null ? path.getNodeCount() : 0));
-        if (resetCooldown) {
-            groundPathRecalcCooldown = GROUND_PATH_RECALC_COOLDOWN;
+        ensureChunksToward(new Vec3(x, y, z));
+        this.getNavigation().stop();
+        if (immediate) {
+            groundNav.moveTo(this, x, y, z, speed);
+        } else {
+            groundNav.follow(this, x, y, z, speed);
         }
+        logWalk("ground path goal=" + fmtPos(x, y, z)
+                + " arrive=" + groundNav.settings().arriveRadius
+                + " immediate=" + immediate);
+    }
+
+    private void startAirMove(double x, double y, double z, double speed, boolean immediate) {
+        ensureChunksToward(new Vec3(x, y, z));
+        this.getNavigation().stop();
+        if (immediate) {
+            airNav.moveTo(this, x, y, z, speed);
+        } else {
+            airNav.follow(this, x, y, z, speed);
+        }
+        logWalk("air path goal=" + fmtPos(x, y, z)
+                + " arrive=" + airNav.settings().arriveRadius
+                + " immediate=" + immediate);
+    }
+
+    /** Keep issuing custom ground/air moves until {@link #hasReachedMoveGoal()}. */
+    private void tickScriptedMoveTo() {
+        if (activeMoveGoal == null || alwaysMovePoint != null || alwaysMoveEntity != null) return;
+        if (isFlying()) {
+            tickScriptedFlyTo();
+            return;
+        }
+        if (tickFollowRouteChain(false)) return;
+        GroundPathNavigator.Status st = groundNav.tick(this);
+        if (st == GroundPathNavigator.Status.ARRIVED || hasReachedMoveGoal()) {
+            logWalk("ARRIVED goal=" + fmtPos(activeMoveGoal.x, activeMoveGoal.y, activeMoveGoal.z));
+            if (tickFollowRouteChain(true)) return;
+            clearScriptedMoveGoal();
+            releaseForcedPathChunks();
+            return;
+        }
+        if (st == GroundPathNavigator.Status.FAILED) {
+            pathFailedFlag = true;
+            logWalk("PATH FAILED goal=" + fmtPos(activeMoveGoal.x, activeMoveGoal.y, activeMoveGoal.z));
+        }
+        trackMoveProgress(activeMoveGoal);
+    }
+
+    private void tickScriptedFlyTo() {
+        if (flyFollowEntityUuid != null) {
+            Level level = SprauteEntityCompat.level(this);
+            net.minecraft.world.entity.Entity target = null;
+            if (level instanceof ServerLevel server) {
+                target = server.getEntity(flyFollowEntityUuid);
+            }
+            if (target == null || !target.isAlive()) {
+                flyFollowEntityUuid = null;
+            } else {
+                activeMoveGoal = target.position();
+                airNav.follow(this, target.getX(), target.getY(), target.getZ(), activeFlySpeed);
+            }
+        }
+        if (tickFollowRouteChain(false)) return;
+        AirPathNavigator.Status st = airNav.tick(this, flySmoothing);
+        flightSteering = st == AirPathNavigator.Status.MOVING;
+        if (st == AirPathNavigator.Status.ARRIVED || hasReachedMoveGoal()) {
+            logWalk("ARRIVED fly goal=" + fmtPos(activeMoveGoal.x, activeMoveGoal.y, activeMoveGoal.z));
+            if (tickFollowRouteChain(true)) return;
+            clearScriptedMoveGoal();
+            releaseForcedPathChunks();
+            return;
+        }
+        if (st == AirPathNavigator.Status.FAILED) {
+            pathFailedFlag = true;
+            logWalk("AIR PATH FAILED goal=" + fmtPos(activeMoveGoal.x, activeMoveGoal.y, activeMoveGoal.z));
+        }
+        trackMoveProgress(activeMoveGoal);
     }
 
     /** Snap scripted move target to a standable block top near the requested Y. */
@@ -1324,27 +1985,20 @@ public class SprauteNpcEntity extends PathfinderMob {
     }
 
     private static String fmtPos(double x, double y, double z) {
-        return String.format("(%.1f, %.1f, %.1f)", x, y, z);
+        return String.format("(%.2f, %.2f, %.2f)", x, y, z);
     }
 
     private void logWalk(String msg) {
         LOGGER.info("[NPC-WALK] {} pos={} {}", npcLabel(), fmtPos(getX(), getY(), getZ()), msg);
     }
 
-    private Vec3 resolveGroundStepTarget(Vec3 goal) {
-        double dx = goal.x - this.getX();
-        double dz = goal.z - this.getZ();
-        double horiz = Math.sqrt(dx * dx + dz * dz);
-        if (horiz <= GROUND_STEP_HORIZONTAL) {
-            return goal;
-        }
-        double scale = GROUND_STEP_HORIZONTAL / horiz;
-        return new Vec3(this.getX() + dx * scale, goal.y, this.getZ() + dz * scale);
-    }
-
     private void ensureChunksToward(Vec3 target) {
         Level level = SprauteEntityCompat.level(this);
         if (!(level instanceof ServerLevel server)) return;
+        if (!loadChunks) {
+            releaseForcedPathChunks();
+            return;
+        }
 
         ChunkPos from = new ChunkPos(this.blockPosition());
         ChunkPos to = new ChunkPos(new BlockPos(
@@ -1352,42 +2006,68 @@ public class SprauteNpcEntity extends PathfinderMob {
                 net.minecraft.util.Mth.floor(target.y),
                 net.minecraft.util.Mth.floor(target.z)));
         int steps = Math.max(Math.abs(to.x - from.x), Math.abs(to.z - from.z));
+        java.util.Set<ChunkPos> next = new java.util.HashSet<>();
         if (steps == 0) {
-            forcePathChunk(server, from.x, from.z);
-            return;
+            next.add(from);
+        } else {
+            int limit = Math.min(steps, MAX_FORCED_PATH_CHUNKS);
+            for (int i = 0; i <= limit; i++) {
+                double t = (double) i / limit;
+                int cx = from.x + (int) Math.round((to.x - from.x) * t);
+                int cz = from.z + (int) Math.round((to.z - from.z) * t);
+                next.add(new ChunkPos(cx, cz));
+            }
         }
-        int limit = Math.min(steps, MAX_FORCED_PATH_CHUNKS);
-        for (int i = 0; i <= limit; i++) {
-            double t = (double) i / limit;
-            int cx = from.x + (int) Math.round((to.x - from.x) * t);
-            int cz = from.z + (int) Math.round((to.z - from.z) * t);
-            forcePathChunk(server, cx, cz);
-        }
-    }
-
-    private void forcePathChunk(ServerLevel server, int chunkX, int chunkZ) {
-        ChunkPos pos = new ChunkPos(chunkX, chunkZ);
-        if (forcedPathChunks.add(pos)) {
-            server.setChunkForced(chunkX, chunkZ, true);
-        }
+        org.zonarstudio.spraute_engine.scene.ChunkForceTickets.replace(server, forcedPathChunks, next);
+        forcedPathChunks.clear();
+        forcedPathChunks.addAll(next);
     }
 
     private void releaseForcedPathChunks() {
         if (forcedPathChunks.isEmpty()) return;
         Level level = SprauteEntityCompat.level(this);
         if (level instanceof ServerLevel server) {
-            for (ChunkPos pos : forcedPathChunks) {
-                server.setChunkForced(pos.x, pos.z, false);
-            }
+            org.zonarstudio.spraute_engine.scene.ChunkForceTickets.releaseAll(server, forcedPathChunks);
         }
         forcedPathChunks.clear();
+    }
+
+    private void tickKeepLoadedChunks() {
+        Level level = SprauteEntityCompat.level(this);
+        if (!(level instanceof ServerLevel server)) return;
+        if (!loadChunks) {
+            releaseKeepLoadedChunks();
+            return;
+        }
+        ChunkPos here = new ChunkPos(this.blockPosition());
+        if (here.equals(lastKeepLoadedChunk) && !keepLoadedChunks.isEmpty()) return;
+        lastKeepLoadedChunk = here;
+        java.util.Set<ChunkPos> next = new java.util.HashSet<>();
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                next.add(new ChunkPos(here.x + dx, here.z + dz));
+            }
+        }
+        org.zonarstudio.spraute_engine.scene.ChunkForceTickets.replace(server, keepLoadedChunks, next);
+        keepLoadedChunks.clear();
+        keepLoadedChunks.addAll(next);
+    }
+
+    private void releaseKeepLoadedChunks() {
+        lastKeepLoadedChunk = null;
+        if (keepLoadedChunks.isEmpty()) return;
+        Level level = SprauteEntityCompat.level(this);
+        if (level instanceof ServerLevel server) {
+            org.zonarstudio.spraute_engine.scene.ChunkForceTickets.releaseAll(server, keepLoadedChunks);
+        }
+        keepLoadedChunks.clear();
     }
 
     private void tickPathChunkTickets() {
         boolean longMove = activeMoveGoal != null
                 && !isFlying()
                 && this.position().distanceToSqr(activeMoveGoal) > 4.0;
-        boolean following = alwaysMovePoint != null || alwaysMoveEntity != null;
+        boolean following = alwaysMovePoint != null || alwaysMoveEntity != null || followRouteActive;
         if (!longMove && !following) {
             releaseForcedPathChunks();
         }
@@ -1405,130 +2085,15 @@ public class SprauteNpcEntity extends PathfinderMob {
             moveStuckTicks = 0;
             moveProgressAnchorX = this.getX();
             moveProgressAnchorZ = this.getZ();
-        } else if (!this.getNavigation().isDone()) {
+        } else if (groundNav.isInProgress() || (isFlying() && !this.getNavigation().isDone())) {
             moveStuckTicks++;
             if (moveStuckTicks >= MOVE_STUCK_THRESHOLD) {
                 pathFailedFlag = true;
                 logWalk("STUCK goal=" + fmtPos(goal.x, goal.y, goal.z)
                         + " stuckTicks=" + moveStuckTicks
-                        + " navDone=" + this.getNavigation().isDone());
+                        + " navigating=" + groundNav.isInProgress());
             }
         }
-    }
-
-    /**
-     * Hybrid flight: fly straight when the line to the target is clear; otherwise follow
-     * {@link net.minecraft.world.entity.ai.navigation.FlyingPathNavigation} waypoints (still steering
-     * with velocity lerp so mid-air targets work once the path is built).
-     */
-    private void steerFlightToTarget(Vec3 finalTarget) {
-        Vec3 steer = resolveFlightSteerTarget(finalTarget);
-        applyFlightVelocity(steer);
-    }
-
-    /** One-shot {@link #flyTo} / {@link #flyToEntity} — same hybrid rules when not on always-move. */
-    private void tickPassiveFlightSteering() {
-        if (!isFlying() || alwaysMovePoint != null || alwaysMoveEntity != null) return;
-        var nav = this.getNavigation();
-        if (nav.isDone()) return;
-        var path = nav.getPath();
-        if (path == null || path.isDone()) return;
-        BlockPos end = path.getTarget();
-        if (end == null) return;
-        Vec3 finalTarget = Vec3.atCenterOf(end);
-        steerFlightToTarget(finalTarget);
-    }
-
-    private Vec3 resolveFlightSteerTarget(Vec3 finalTarget) {
-        if (canFlyDirectTo(finalTarget)) {
-            flightPathRecalcCooldown = 0;
-            return finalTarget;
-        }
-
-        var nav = this.getNavigation();
-        if (flightPathRecalcCooldown <= 0 || nav.isDone()) {
-            nav.moveTo(finalTarget.x, finalTarget.y, finalTarget.z, getFlightMoveSpeed());
-            flightPathRecalcCooldown = 20;
-        } else {
-            flightPathRecalcCooldown--;
-        }
-
-        var path = nav.getPath();
-        if (path != null && !path.isDone() && path.getNodeCount() > 0) {
-            int idx = Math.min(path.getNextNodeIndex(), path.getNodeCount() - 1);
-            Vec3 waypoint = Vec3.atCenterOf(path.getNodePos(idx));
-            if (this.position().distanceToSqr(waypoint) < 0.64) {
-                path.advance();
-                if (!path.isDone() && path.getNodeCount() > 0) {
-                    idx = Math.min(path.getNextNodeIndex(), path.getNodeCount() - 1);
-                    waypoint = Vec3.atCenterOf(path.getNodePos(idx));
-                }
-            }
-            if (canFlyDirectTo(waypoint)) {
-                return waypoint;
-            }
-            return waypoint;
-        }
-
-        return finalTarget;
-    }
-
-    /** True when no solid blocks block a straight segment to {@code target}. */
-    private boolean canFlyDirectTo(Vec3 target) {
-        Level level = SprauteEntityCompat.level(this);
-        Vec3 from = new Vec3(this.getX(), this.getY() + this.getBbHeight() * 0.5, this.getZ());
-        double targetDist = from.distanceTo(target);
-        if (targetDist < 1.0e-4) {
-            return true;
-        }
-
-        BlockHitResult hit = level.clip(new ClipContext(
-                from, target,
-                ClipContext.Block.COLLIDER,
-                ClipContext.Fluid.NONE,
-                this));
-
-        if (hit.getType() != HitResult.Type.BLOCK) {
-            return true;
-        }
-        return hit.getLocation().distanceTo(from) >= targetDist - FLIGHT_DIRECT_EPS;
-    }
-
-    /**
-     * Velocity steering toward {@code target}. Speed uses {@link Attributes#FLYING_SPEED} × move speed scale.
-     */
-    private void applyFlightVelocity(Vec3 target) {
-        double dx = target.x - this.getX();
-        double dy = target.y - this.getY();
-        double dz = target.z - this.getZ();
-        double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-        double flySpeed = 0.5;
-        var attr = this.getAttribute(Attributes.FLYING_SPEED);
-        if (attr != null) flySpeed = attr.getValue();
-        double maxStep = flySpeed * Math.max(0.1, getFlightMoveSpeed()) * 0.5; // blocks per tick
-
-        this.setNoGravity(true);
-
-        // Desired velocity shrinks as we approach the target; lerp gives smooth accel/decel.
-        double step = Math.min(maxStep, dist);
-        Vec3 desired = dist < 1.0e-8 ? Vec3.ZERO : new Vec3(dx, dy, dz).normalize().scale(step);
-        Vec3 cur = this.getDeltaMovement();
-        Vec3 next = cur.add(desired.subtract(cur).scale(flySmoothing));
-        double cap = dist < 1.0e-8 ? 0.0 : Math.min(maxStep, dist);
-        if (cap > 0 && next.length() > cap) {
-            next = next.normalize().scale(cap);
-        }
-        this.setDeltaMovement(next);
-        this.hasImpulse = true;
-        flightSteering = next.lengthSqr() > 1.0e-8 || dist > 0.02;
-    }
-
-    private double getFlightMoveSpeed() {
-        if (alwaysMovePoint != null || alwaysMoveEntity != null) {
-            return alwaysMoveSpeed;
-        }
-        return activeFlySpeed;
     }
 
     /** Separation steering — мягко расталкивает НПС друг от друга при сближении. */
@@ -1537,7 +2102,8 @@ public class SprauteNpcEntity extends PathfinderMob {
         // Scripted move_to: no lateral push — it causes left/right wobble and path failures
         if (activeMoveGoal != null && alwaysMovePoint == null && alwaysMoveEntity == null) return;
         // Применяем только если НПС активно движется
-        boolean isMoving = !this.getNavigation().isDone() || alwaysMovePoint != null || alwaysMoveEntity != null;
+        boolean isMoving = groundNav.isInProgress() || airNav.isInProgress()
+                || alwaysMovePoint != null || alwaysMoveEntity != null;
         if (!isMoving) return;
         if (this.tickCount % 3 != 0) return; // проверяем каждые 3 тика
 
@@ -1564,11 +2130,14 @@ public class SprauteNpcEntity extends PathfinderMob {
 
     @Override
     public void tick() {
+        if (!SprauteEntityCompat.level(this).isClientSide) {
+            applyPathStepHeight();
+        }
         float bodyStart = this.sprauteBodyYawHasEndOfTick ? this.sprauteBodyYawEndOfTick : this.yBodyRot;
         super.tick();
         if (SprauteEntityCompat.level(this).isClientSide) {
             float targetBody = this.entityData.get(SYNCED_BODY_YAW);
-            this.yBodyRot = net.minecraft.util.Mth.approachDegrees(bodyStart, targetBody, BODY_TURN_SPEED);
+            this.yBodyRot = net.minecraft.util.Mth.approachDegrees(bodyStart, targetBody, clientBodyTurnSpeed());
             this.yHeadRot = this.yBodyRot;
             this.setYRot(this.yBodyRot);
             this.sprauteBodyYawEndOfTick = this.yBodyRot;
@@ -1578,26 +2147,32 @@ public class SprauteNpcEntity extends PathfinderMob {
         this.yBodyRot = bodyStart;
         this.yHeadRot = bodyStart;
         this.setYRot(bodyStart);
+        if (pendingLocomotion != null) {
+            NpcLocomotionSnapshot snap = pendingLocomotion;
+            pendingLocomotion = null;
+            restoreLocomotion(snap);
+        }
         tickAlwaysMove();
+        tickScriptedMoveTo();
         tickCombat();
-        tickPassiveFlightSteering();
         tickSeparation();
         if (activeMoveGoal != null && alwaysMovePoint == null && alwaysMoveEntity == null) {
-            trackMoveProgress(activeMoveGoal);
             if (--walkLogCooldown <= 0) {
                 walkLogCooldown = 40;
                 double dx = getX() - activeMoveGoal.x;
                 double dz = getZ() - activeMoveGoal.z;
                 logWalk("tick goal=" + fmtPos(activeMoveGoal.x, activeMoveGoal.y, activeMoveGoal.z)
-                        + " distH=" + String.format("%.1f", Math.sqrt(dx * dx + dz * dz))
-                        + " navDone=" + this.getNavigation().isDone()
-                        + " stuck=" + this.getNavigation().isStuck()
+                        + " distH=" + String.format("%.2f", Math.sqrt(dx * dx + dz * dz))
+                        + " navigating=" + (isFlying() ? airNav.isInProgress() : groundNav.isInProgress())
                         + " pathFailed=" + pathFailedFlag);
             }
         }
         tickPathChunkTickets();
+        tickKeepLoadedChunks();
+        publishLocomotion();
         isMoving();
         tickLookSystem();
+        tickScriptPickup();
         fixBodyYawSamplingContinuity();
         tickHitboxBounds();
         this.sprauteBodyYawEndOfTick = this.yBodyRot;
@@ -1618,7 +2193,8 @@ public class SprauteNpcEntity extends PathfinderMob {
             boolean scriptedMove = activeMoveGoal != null && alwaysMovePoint == null && alwaysMoveEntity == null;
             boolean alwaysMove = alwaysMovePoint != null || alwaysMoveEntity != null;
             if ((!scriptedMove && !alwaysMove) || walkFaceDirection) {
-                float turnSpeed = scriptedMove ? BODY_TURN_SPEED * 4f : BODY_TURN_SPEED;
+                // Scripted moveTo turns faster so the body keeps up with sharp path corners.
+                float turnSpeed = scriptedMove ? getWalkTurnSpeed() * 4f : getWalkTurnSpeed();
                 tickBodyWalking(turnSpeed);
             }
         }
@@ -1653,19 +2229,21 @@ public class SprauteNpcEntity extends PathfinderMob {
     }
 
     private void tickBodyWalking() {
-        tickBodyWalking(BODY_TURN_SPEED);
+        tickBodyWalking(getWalkTurnSpeed());
     }
 
     private void tickBodyWalking(float turnSpeed) {
         Vec3 faceTarget = null;
-        var path = this.getNavigation().getPath();
-        if (path != null && !path.isDone()) {
-            BlockPos next = path.getNextNodePos();
-            faceTarget = new Vec3(next.getX() + 0.5, next.getY(), next.getZ() + 0.5);
-        } else if (alwaysMovePoint != null) {
-            faceTarget = resolveGroundStepTarget(alwaysMovePoint);
-        } else if (activeMoveGoal != null) {
-            faceTarget = activeMoveGoal;
+        if (!isFlying()) {
+            Vec3 steer = groundNav.currentSteerTarget();
+            if (steer != null) faceTarget = steer;
+            else if (alwaysMovePoint != null) faceTarget = alwaysMovePoint;
+            else if (activeMoveGoal != null) faceTarget = activeMoveGoal;
+        } else {
+            Vec3 steer = airNav.currentSteerTarget();
+            if (steer != null) faceTarget = steer;
+            else if (alwaysMovePoint != null) faceTarget = alwaysMovePoint;
+            else if (activeMoveGoal != null) faceTarget = activeMoveGoal;
         }
         if (faceTarget != null) {
             float walkYaw = calcTargetYaw(faceTarget.x, faceTarget.z);
@@ -1682,8 +2260,7 @@ public class SprauteNpcEntity extends PathfinderMob {
             syncBodyYaw(this.yBodyRot);
             return;
         }
-        float turnSpeed = (lookEntity != null) ? BODY_TURN_SPEED * 2.5f : BODY_TURN_SPEED;
-        float nextBody = net.minecraft.util.Mth.approachDegrees(this.yBodyRot, targetYaw, turnSpeed);
+        float nextBody = net.minecraft.util.Mth.approachDegrees(this.yBodyRot, targetYaw, getIdleTurnSpeed());
         setBodyYaw(nextBody);
         syncBodyYaw(nextBody);
     }
@@ -1728,11 +2305,45 @@ public class SprauteNpcEntity extends PathfinderMob {
         c.putString("SwimIdleAnim", getSwimIdleAnim());
         c.putString("SwimWalkAnim", getSwimWalkAnim());
         c.putString("DeathAnim", getDeathAnim());
+        c.putFloat("WalkTurnSpeed", getWalkTurnSpeed());
+        c.putFloat("IdleTurnSpeed", getIdleTurnSpeed());
+        var path = groundNav.settings();
+        c.putDouble("PathArriveRadius", path.arriveRadius);
+        c.putDouble("PathArriveVert", path.arriveVert);
+        c.putDouble("PathStepHeight", path.stepHeight);
+        c.putInt("PathMaxJump", path.maxJump);
+        c.putInt("PathMaxDrop", path.maxDrop);
+        c.putDouble("PathMaxRange", path.maxRange);
+        c.putBoolean("PathDiagonal", path.allowDiagonal);
+        c.putBoolean("PathAvoidWater", path.avoidWater);
+        c.putBoolean("PathAvoidLava", path.avoidLava);
+        c.putInt("PathMaxNodes", path.maxNodes);
+        c.putBoolean("PathSnapOnArrive", path.snapOnArrive);
+        var air = airNav.settings();
+        c.putDouble("FlyArriveRadius", air.arriveRadius);
+        c.putDouble("FlyMaxRange", air.maxRange);
+        c.putBoolean("FlyDiagonal", air.allowDiagonal);
+        c.putBoolean("FlyAvoidWater", air.avoidWater);
+        c.putBoolean("FlyAvoidLava", air.avoidLava);
+        c.putInt("FlyMaxNodes", air.maxNodes);
+        c.putBoolean("FlySnapOnArrive", air.snapOnArrive);
         c.putFloat("HitboxWidth", getHitboxWidth());
         c.putFloat("HitboxHeight", getHitboxHeight());
         c.putFloat("HitboxOffsetX", getHitboxOffsetX());
         c.putFloat("HitboxOffsetY", getHitboxOffsetY());
         c.putFloat("HitboxOffsetZ", getHitboxOffsetZ());
+        c.putFloat("ModelRotationX", getModelRotationX());
+        c.putFloat("ModelRotationY", getModelRotationY());
+        c.putFloat("ModelRotationZ", getModelRotationZ());
+        c.putFloat("ModelScaleX", getModelScaleX());
+        c.putFloat("ModelScaleY", getModelScaleY());
+        c.putFloat("ModelScaleZ", getModelScaleZ());
+        c.putBoolean("Translucent", isTranslucent());
+        c.putFloat("Opacity", getOpacity());
+        c.putBoolean("LodEnabled", isLodEnabled());
+        c.putFloat("RenderDistance", getRenderDistance());
+        c.putBoolean("ForceVisible", isForceVisible());
+        c.putBoolean("LoadChunks", loadChunks);
 
         if (!customDrops.isEmpty()) {
             net.minecraft.nbt.ListTag dropsList = new net.minecraft.nbt.ListTag();
@@ -1747,6 +2358,9 @@ public class SprauteNpcEntity extends PathfinderMob {
             }
             c.put("CustomDrops", dropsList);
         }
+        if (dropXp > 0) c.putInt("DropXp", dropXp);
+        NpcLocomotionSnapshot live = captureLocomotion();
+        if (live != null) live.writeNbt(c);
 
         if (!boneHitboxes.isEmpty()) {
             net.minecraft.nbt.ListTag hbList = new net.minecraft.nbt.ListTag();
@@ -1773,6 +2387,45 @@ public class SprauteNpcEntity extends PathfinderMob {
         if (c.contains("SwimIdleAnim")) setSwimIdleAnim(c.getString("SwimIdleAnim"));
         if (c.contains("SwimWalkAnim")) setSwimWalkAnim(c.getString("SwimWalkAnim"));
         if (c.contains("DeathAnim")) setDeathAnim(c.getString("DeathAnim"));
+        if (c.contains("WalkTurnSpeed")) setWalkTurnSpeed(c.getFloat("WalkTurnSpeed"));
+        if (c.contains("IdleTurnSpeed")) setIdleTurnSpeed(c.getFloat("IdleTurnSpeed"));
+        var path = groundNav.settings();
+        if (c.contains("PathArriveRadius")) path.arriveRadius = c.getDouble("PathArriveRadius");
+        if (c.contains("PathArriveVert")) path.arriveVert = c.getDouble("PathArriveVert");
+        if (c.contains("PathStepHeight")) path.stepHeight = c.getDouble("PathStepHeight");
+        if (c.contains("PathMaxJump")) path.maxJump = c.getInt("PathMaxJump");
+        if (c.contains("PathMaxDrop")) path.maxDrop = c.getInt("PathMaxDrop");
+        if (c.contains("PathMaxRange")) path.maxRange = c.getDouble("PathMaxRange");
+        if (c.contains("PathDiagonal")) path.allowDiagonal = c.getBoolean("PathDiagonal");
+        if (c.contains("PathAvoidWater")) path.avoidWater = c.getBoolean("PathAvoidWater");
+        if (c.contains("PathAvoidLava")) path.avoidLava = c.getBoolean("PathAvoidLava");
+        if (c.contains("PathMaxNodes")) path.maxNodes = c.getInt("PathMaxNodes");
+        if (c.contains("PathSnapOnArrive")) path.snapOnArrive = c.getBoolean("PathSnapOnArrive");
+        path.clamp();
+        applyPathStepHeight();
+        var air = airNav.settings();
+        if (c.contains("FlyArriveRadius")) air.arriveRadius = c.getDouble("FlyArriveRadius");
+        if (c.contains("FlyMaxRange")) air.maxRange = c.getDouble("FlyMaxRange");
+        if (c.contains("FlyDiagonal")) air.allowDiagonal = c.getBoolean("FlyDiagonal");
+        if (c.contains("FlyAvoidWater")) air.avoidWater = c.getBoolean("FlyAvoidWater");
+        if (c.contains("FlyAvoidLava")) air.avoidLava = c.getBoolean("FlyAvoidLava");
+        if (c.contains("FlyMaxNodes")) air.maxNodes = c.getInt("FlyMaxNodes");
+        if (c.contains("FlySnapOnArrive")) air.snapOnArrive = c.getBoolean("FlySnapOnArrive");
+        air.clamp();
+        setModelRotation(
+                c.contains("ModelRotationX") ? c.getFloat("ModelRotationX") : 0f,
+                c.contains("ModelRotationY") ? c.getFloat("ModelRotationY") : 0f,
+                c.contains("ModelRotationZ") ? c.getFloat("ModelRotationZ") : 0f);
+        setModelScale(
+                c.contains("ModelScaleX") ? c.getFloat("ModelScaleX") : 1f,
+                c.contains("ModelScaleY") ? c.getFloat("ModelScaleY") : 1f,
+                c.contains("ModelScaleZ") ? c.getFloat("ModelScaleZ") : 1f);
+        if (c.contains("Translucent")) setTranslucent(c.getBoolean("Translucent"));
+        if (c.contains("Opacity")) setOpacity(c.getFloat("Opacity"));
+        if (c.contains("LodEnabled")) setLodEnabled(c.getBoolean("LodEnabled"));
+        if (c.contains("RenderDistance")) setRenderDistance(c.getFloat("RenderDistance"));
+        if (c.contains("ForceVisible")) setForceVisible(c.getBoolean("ForceVisible"));
+        if (c.contains("LoadChunks")) setLoadChunks(c.getBoolean("LoadChunks"));
 
         if (c.contains("HitboxWidth") && c.contains("HitboxHeight")) {
             float ox = c.contains("HitboxOffsetX") ? c.getFloat("HitboxOffsetX") : 0f;
@@ -1814,6 +2467,9 @@ public class SprauteNpcEntity extends PathfinderMob {
                 customDrops.add(new org.zonarstudio.spraute_engine.registry.CustomDropRegistry.DropRule(dropItem, dropMin, dropMax, dropChance, false, null));
             }
         }
+        if (c.contains("DropXp")) setDropXp(c.getInt("DropXp"));
+        this.setCanPickUpLoot(true);
+        pendingLocomotion = NpcLocomotionSnapshot.readNbt(c);
     }
 
     @Override
@@ -1822,24 +2478,17 @@ public class SprauteNpcEntity extends PathfinderMob {
         for (var rule : customDrops) {
             if (this.random.nextInt(100) < rule.chance) {
                 int amount = rule.min + this.random.nextInt(Math.max(1, rule.max - rule.min + 1));
-                String resolvedDropId = rule.itemId.contains(":") ? rule.itemId : "spraute_engine:" + rule.itemId;
-                net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(
-                    new net.minecraft.resources.ResourceLocation(resolvedDropId)
-                );
-                if (item == null || item == net.minecraft.world.item.Items.AIR) {
-                    item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(
-                        new net.minecraft.resources.ResourceLocation("minecraft:" + rule.itemId)
-                    );
-                }
-                if (item != null && item != net.minecraft.world.item.Items.AIR) {
-                    net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item, amount);
-                    if (rule.nbt != null && !rule.nbt.isEmpty()) {
-                        try {
-                            stack.setTag(net.minecraft.nbt.TagParser.parseTag(rule.nbt));
-                        } catch (Exception e) {}
+                net.minecraft.world.item.ItemStack stack = org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.createStack(rule.itemId, amount, rule.nbt);
+                if (stack.isEmpty()) {
+                    var spec = org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.parseSpec(rule.itemId);
+                    if (!spec.id().contains(":")) {
+                        stack = org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.createStack(
+                                org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.formatSpec(
+                                        "spraute_engine:" + spec.id(), spec.nbt()),
+                                amount, rule.nbt);
                     }
-                    this.spawnAtLocation(stack);
                 }
+                if (!stack.isEmpty()) this.spawnAtLocation(stack);
             }
         }
     }
@@ -1848,7 +2497,9 @@ public class SprauteNpcEntity extends PathfinderMob {
         return PathfinderMob.createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 20d)
                 .add(Attributes.MOVEMENT_SPEED, 0.3d)
-                .add(Attributes.FLYING_SPEED, 0.4d);
+                .add(Attributes.FLYING_SPEED, 0.4d)
+                // Path search radius; default 16 truncates long moveTo (~4 blocks short on ~20-block walks).
+                .add(Attributes.FOLLOW_RANGE, 48d);
     }
 
     @Override
@@ -1868,7 +2519,8 @@ public class SprauteNpcEntity extends PathfinderMob {
     public void onSyncedDataUpdated(net.minecraft.network.syncher.EntityDataAccessor<?> pKey) {
         super.onSyncedDataUpdated(pKey);
         if (HITBOX_WIDTH.equals(pKey) || HITBOX_HEIGHT.equals(pKey)
-                || HITBOX_OFFSET_X.equals(pKey) || HITBOX_OFFSET_Y.equals(pKey) || HITBOX_OFFSET_Z.equals(pKey)) {
+                || HITBOX_OFFSET_X.equals(pKey) || HITBOX_OFFSET_Y.equals(pKey) || HITBOX_OFFSET_Z.equals(pKey)
+                || MODEL_SCALE_X.equals(pKey) || MODEL_SCALE_Y.equals(pKey) || MODEL_SCALE_Z.equals(pKey)) {
             invalidateHitboxCache();
             refreshDimensions();
         }
@@ -1885,21 +2537,33 @@ public class SprauteNpcEntity extends PathfinderMob {
             return cachedHitboxBounds;
         }
         return NpcHitboxUtil.mainHitbox(
-                this, getHitboxWidth(), getHitboxHeight(),
-                getHitboxOffsetX(), getHitboxOffsetY(), getHitboxOffsetZ());
+                this,
+                getHitboxWidth() * Math.max(getModelScaleX(), getModelScaleZ()),
+                getHitboxHeight() * getModelScaleY(),
+                getHitboxOffsetX() * getModelScaleX(),
+                getHitboxOffsetY() * getModelScaleY(),
+                getHitboxOffsetZ() * getModelScaleZ());
     }
 
     @Override
     public void remove(net.minecraft.world.entity.Entity.RemovalReason reason) {
+        if (!SprauteEntityCompat.level(this).isClientSide) {
+            if (reason == RemovalReason.KILLED || reason == RemovalReason.DISCARDED) {
+                clearPublishedLocomotion();
+            } else {
+                publishLocomotion();
+            }
+        }
         releaseForcedPathChunks();
+        releaseKeepLoadedChunks();
         NpcBonePoseSolver.remove(this.getUUID());
         super.remove(reason);
     }
 
     @Override
     public net.minecraft.world.entity.EntityDimensions getDimensions(net.minecraft.world.entity.Pose pPose) {
-        float w = this.entityData.get(HITBOX_WIDTH);
-        float h = this.entityData.get(HITBOX_HEIGHT);
+        float w = this.entityData.get(HITBOX_WIDTH) * Math.max(getModelScaleX(), getModelScaleZ());
+        float h = this.entityData.get(HITBOX_HEIGHT) * getModelScaleY();
         return net.minecraft.world.entity.EntityDimensions.scalable(w, h);
     }
 
@@ -1908,7 +2572,13 @@ public class SprauteNpcEntity extends PathfinderMob {
         if (SprauteEntityCompat.level(this).isClientSide) {
             return this.entityData.get(IS_MOVING_SYNCED);
         }
-        boolean rawMoving = flightSteering || this.getNavigation().isInProgress();
+        boolean scriptedWalking = activeMoveGoal != null
+                && alwaysMovePoint == null
+                && alwaysMoveEntity == null
+                && !hasReachedMoveGoal();
+        boolean groundWalking = !isFlying() && groundNav.isInProgress();
+        boolean airFlying = isFlying() && airNav.isInProgress();
+        boolean rawMoving = flightSteering || groundWalking || airFlying || scriptedWalking;
         if (rawMoving) movingStateTicks = Math.min(movingStateTicks + 1, MOVING_DEBOUNCE);
         else movingStateTicks = Math.max(movingStateTicks - 1, -MOVING_DEBOUNCE);
         boolean moving = movingStateTicks > 0;

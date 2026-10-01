@@ -1,0 +1,67 @@
+#\ block: set_player_health_enabled
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "здоровье (механика)" input: player (type: value) [mode: dropdown(выключить: off, включить: on)]
+#\ if mode == "off":
+#\   template: setPlayerHealthEnabled({player}, false)
+#\ if mode == "on":
+#\   template: setPlayerHealthEnabled({player}, true)
+
+#\ block: set_player_hunger_enabled
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "голод (механика)" input: player (type: value) [mode: dropdown(выключить: off, включить: on)]
+#\ if mode == "off":
+#\   template: setPlayerHungerEnabled({player}, false)
+#\ if mode == "on":
+#\   template: setPlayerHungerEnabled({player}, true)
+
+#\ block: set_player_xp_visible
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "полоска опыта" input: player (type: value) [mode: dropdown(скрыть: off, показать: on)]
+#\ if mode == "off":
+#\   template: setPlayerXpVisible({player}, false)
+#\ if mode == "on":
+#\   template: setPlayerXpVisible({player}, true)
+
+#\ block: set_player_vitals_enabled
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "HP, голод и опыт" input: player (type: value) [mode: dropdown(выключить: off, включить: on)]
+#\ if mode == "off":
+#\   template: setPlayerVitalsEnabled({player}, false)
+#\ if mode == "on":
+#\   template: setPlayerVitalsEnabled({player}, true)
+
+#\ block: is_player_health_enabled
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "здоровье работает у" input: player (type: value) "?"
+#\ template: isPlayerHealthEnabled({player})
+
+#\ block: is_player_hunger_enabled
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "голод работает у" input: player (type: value) "?"
+#\ template: isPlayerHungerEnabled({player})
+
+#\ block: is_player_xp_visible
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "полоска опыта видна у" input: player (type: value) "?"
+#\ template: isPlayerXpVisible({player})

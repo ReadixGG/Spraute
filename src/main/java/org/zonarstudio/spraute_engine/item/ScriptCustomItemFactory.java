@@ -42,6 +42,10 @@ public final class ScriptCustomItemFactory {
 
     public static Item create(CustomItemDef def, Item.Properties props, String displayName) {
         boolean geo = def.geo != null && !def.geo.isBlank();
+        if (def.armorType != null && !def.armorType.isBlank()) {
+            Item.Properties armorProps = props.stacksTo(1);
+            return ScriptCustomArmorItem.create(def, armorProps, displayName);
+        }
         ToolType type = ToolType.fromDef(def);
         if (type != ToolType.NONE) {
             return createTool(type, def, applyToolDurability(def, props), displayName, geo);

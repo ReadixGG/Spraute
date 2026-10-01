@@ -1,0 +1,9 @@
+#\ block: structure_save
+#\ category: Структуры
+#\ color: #10b981
+#\ shape: statement
+#\
+#\ row: "сохранить структуру" (name: text: my_house)
+#\ row: "угол 1 —" "X" (x1: number: 0) "Y" (y1: number: 64) "Z" (z1: number: 0)
+#\ row: "угол 2 —" "X" (x2: number: 10) "Y" (y2: number: 70) "Z" (z2: number: 10)
+#\ template: saveStructure("{name}", {x1}, {y1}, {z1}, {x2}, {y2}, {z2})

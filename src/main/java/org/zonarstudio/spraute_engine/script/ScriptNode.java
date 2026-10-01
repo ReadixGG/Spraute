@@ -144,6 +144,232 @@ package org.zonarstudio.spraute_engine.script;
     }
 
     /**
+     * A geo-model block: model_id { model = "...", texture = "...", animation = "..." }
+     */
+    class ModelBlockNode implements ScriptNode {
+        private int line = -1;
+        private int column = -1;
+        @Override public int getLine() { return line; }
+        @Override public void setLine(int line) { this.line = line; }
+        @Override public int getColumn() { return column; }
+        @Override public void setColumn(int col) { this.column = col; }
+        private final String entityId;
+        private final java.util.Map<String, java.util.List<ScriptNode>> properties;
+
+        public ModelBlockNode(String entityId, java.util.Map<String, java.util.List<ScriptNode>> properties) {
+            this.entityId = entityId;
+            this.properties = properties;
+        }
+
+        public String getEntityId() { return entityId; }
+        public java.util.Map<String, java.util.List<ScriptNode>> getProperties() { return properties; }
+    }
+
+    /** create hitbox id { width = 1, height = 1, depth = 1, parent = ... } */
+    class HitboxBlockNode implements ScriptNode {
+        private int line = -1;
+        private int column = -1;
+        @Override public int getLine() { return line; }
+        @Override public void setLine(int line) { this.line = line; }
+        @Override public int getColumn() { return column; }
+        @Override public void setColumn(int col) { this.column = col; }
+        private final String entityId;
+        private final java.util.Map<String, java.util.List<ScriptNode>> properties;
+
+        public HitboxBlockNode(String entityId, java.util.Map<String, java.util.List<ScriptNode>> properties) {
+            this.entityId = entityId;
+            this.properties = properties;
+        }
+
+        public String getEntityId() { return entityId; }
+        public java.util.Map<String, java.util.List<ScriptNode>> getProperties() { return properties; }
+    }
+
+    /** create empty id { x = 0, parent = ... } — transform-only parent node */
+    class EmptyBlockNode implements ScriptNode {
+        private int line = -1;
+        private int column = -1;
+        @Override public int getLine() { return line; }
+        @Override public void setLine(int line) { this.line = line; }
+        @Override public int getColumn() { return column; }
+        @Override public void setColumn(int col) { this.column = col; }
+        private final String entityId;
+        private final java.util.Map<String, java.util.List<ScriptNode>> properties;
+
+        public EmptyBlockNode(String entityId, java.util.Map<String, java.util.List<ScriptNode>> properties) {
+            this.entityId = entityId;
+            this.properties = properties;
+        }
+
+        public String getEntityId() { return entityId; }
+        public java.util.Map<String, java.util.List<ScriptNode>> getProperties() { return properties; }
+    }
+
+    /** create skin_overlay id { parent = player, texture = "textures/skins/hat.png" } */
+    class SkinOverlayBlockNode implements ScriptNode {
+        private int line = -1;
+        private int column = -1;
+        @Override public int getLine() { return line; }
+        @Override public void setLine(int line) { this.line = line; }
+        @Override public int getColumn() { return column; }
+        @Override public void setColumn(int col) { this.column = col; }
+        private final String entityId;
+        private final java.util.Map<String, java.util.List<ScriptNode>> properties;
+
+        public SkinOverlayBlockNode(String entityId, java.util.Map<String, java.util.List<ScriptNode>> properties) {
+            this.entityId = entityId;
+            this.properties = properties;
+        }
+
+        public String getEntityId() { return entityId; }
+        public java.util.Map<String, java.util.List<ScriptNode>> getProperties() { return properties; }
+    }
+
+    /** create particleEmitter id { type = "minecraft:flame", shape = "point", ... } */
+    class ParticleEmitterBlockNode implements ScriptNode {
+        private int line = -1;
+        private int column = -1;
+        @Override public int getLine() { return line; }
+        @Override public void setLine(int line) { this.line = line; }
+        @Override public int getColumn() { return column; }
+        @Override public void setColumn(int col) { this.column = col; }
+        private final String entityId;
+        private final java.util.Map<String, java.util.List<ScriptNode>> properties;
+
+        public ParticleEmitterBlockNode(String entityId, java.util.Map<String, java.util.List<ScriptNode>> properties) {
+            this.entityId = entityId;
+            this.properties = properties;
+        }
+
+        public String getEntityId() { return entityId; }
+        public java.util.Map<String, java.util.List<ScriptNode>> getProperties() { return properties; }
+    }
+
+    /** create particle id { texture = "…" } — RES_PARTICLE in hierarchy + CustomParticleRegistry */
+    class ParticleDefBlockNode implements ScriptNode {
+        private int line = -1;
+        private int column = -1;
+        @Override public int getLine() { return line; }
+        @Override public void setLine(int line) { this.line = line; }
+        @Override public int getColumn() { return column; }
+        @Override public void setColumn(int col) { this.column = col; }
+        private final String entityId;
+        private final java.util.Map<String, java.util.List<ScriptNode>> properties;
+
+        public ParticleDefBlockNode(String entityId, java.util.Map<String, java.util.List<ScriptNode>> properties) {
+            this.entityId = entityId;
+            this.properties = properties;
+        }
+
+        public String getEntityId() { return entityId; }
+        public java.util.Map<String, java.util.List<ScriptNode>> getProperties() { return properties; }
+    }
+
+    /** create projectile id { … } — RES_PROJECTILE in hierarchy + CustomProjectileRegistry */
+    class ProjectileDefBlockNode implements ScriptNode {
+        private int line = -1;
+        private int column = -1;
+        @Override public int getLine() { return line; }
+        @Override public void setLine(int line) { this.line = line; }
+        @Override public int getColumn() { return column; }
+        @Override public void setColumn(int col) { this.column = col; }
+        private final String entityId;
+        private final java.util.Map<String, java.util.List<ScriptNode>> properties;
+
+        public ProjectileDefBlockNode(String entityId, java.util.Map<String, java.util.List<ScriptNode>> properties) {
+            this.entityId = entityId;
+            this.properties = properties;
+        }
+
+        public String getEntityId() { return entityId; }
+        public java.util.Map<String, java.util.List<ScriptNode>> getProperties() { return properties; }
+    }
+
+    /** create light id { level = 15, enabled = true, parent = ... } — vanilla white block light 0–15 */
+    class LightBlockNode implements ScriptNode {
+        private int line = -1;
+        private int column = -1;
+        @Override public int getLine() { return line; }
+        @Override public void setLine(int line) { this.line = line; }
+        @Override public int getColumn() { return column; }
+        @Override public void setColumn(int col) { this.column = col; }
+        private final String entityId;
+        private final java.util.Map<String, java.util.List<ScriptNode>> properties;
+
+        public LightBlockNode(String entityId, java.util.Map<String, java.util.List<ScriptNode>> properties) {
+            this.entityId = entityId;
+            this.properties = properties;
+        }
+
+        public String getEntityId() { return entityId; }
+        public java.util.Map<String, java.util.List<ScriptNode>> getProperties() { return properties; }
+    }
+
+    /** create audioSource id { sound = “…\", shape = \"sphere\", fullRadius = 4, maxDistance = 16, … } */
+    class AudioSourceBlockNode implements ScriptNode {
+        private int line = -1;
+        private int column = -1;
+        @Override public int getLine() { return line; }
+        @Override public void setLine(int line) { this.line = line; }
+        @Override public int getColumn() { return column; }
+        @Override public void setColumn(int col) { this.column = col; }
+        private final String entityId;
+        private final java.util.Map<String, java.util.List<ScriptNode>> properties;
+
+        public AudioSourceBlockNode(String entityId, java.util.Map<String, java.util.List<ScriptNode>> properties) {
+            this.entityId = entityId;
+            this.properties = properties;
+        }
+
+        public String getEntityId() { return entityId; }
+        public java.util.Map<String, java.util.List<ScriptNode>> getProperties() { return properties; }
+    }
+
+    /** create postProcess id { global = true, bloom = 0.35, … } */
+    class PostProcessBlockNode implements ScriptNode {
+        private int line = -1;
+        private int column = -1;
+        @Override public int getLine() { return line; }
+        @Override public void setLine(int line) { this.line = line; }
+        @Override public int getColumn() { return column; }
+        @Override public void setColumn(int col) { this.column = col; }
+        private final String entityId;
+        private final java.util.Map<String, java.util.List<ScriptNode>> properties;
+
+        public PostProcessBlockNode(String entityId, java.util.Map<String, java.util.List<ScriptNode>> properties) {
+            this.entityId = entityId;
+            this.properties = properties;
+        }
+
+        public String getEntityId() { return entityId; }
+        public java.util.Map<String, java.util.List<ScriptNode>> getProperties() { return properties; }
+    }
+
+    /** create <customTypeId> id { … } — instance of declare node type */
+    class CustomNodeBlockNode implements ScriptNode {
+        private int line = -1;
+        private int column = -1;
+        @Override public int getLine() { return line; }
+        @Override public void setLine(int line) { this.line = line; }
+        @Override public int getColumn() { return column; }
+        @Override public void setColumn(int col) { this.column = col; }
+        private final String typeId;
+        private final String entityId;
+        private final java.util.Map<String, java.util.List<ScriptNode>> properties;
+
+        public CustomNodeBlockNode(String typeId, String entityId,
+                                   java.util.Map<String, java.util.List<ScriptNode>> properties) {
+            this.typeId = typeId;
+            this.entityId = entityId;
+            this.properties = properties;
+        }
+
+        public String getTypeId() { return typeId; }
+        public String getEntityId() { return entityId; }
+        public java.util.Map<String, java.util.List<ScriptNode>> getProperties() { return properties; }
+    }
+
+    /**
      * NPC prefab template: create npc_prefab id { ... } — регистрирует шаблон без спавна.
      */
     class NpcPrefabBlockNode implements ScriptNode {
@@ -213,7 +439,7 @@ package org.zonarstudio.spraute_engine.script;
     }
 
     /**
-     * An await statement: await function_call
+     * An await statement: {@code await function(...)} or {@code await obj.method(...)}.
      */
     class AwaitNode implements ScriptNode {
         private int line = -1;
@@ -222,13 +448,27 @@ package org.zonarstudio.spraute_engine.script;
         @Override public void setLine(int line) { this.line = line; }
         @Override public int getColumn() { return column; }
         @Override public void setColumn(int col) { this.column = col; }
-        private final ScriptNode.FunctionCallNode call;
+        private final ScriptNode target;
 
         public AwaitNode(ScriptNode.FunctionCallNode call) {
-            this.call = call;
+            this.target = call;
         }
 
-        public ScriptNode.FunctionCallNode getCall() { return call; }
+        public AwaitNode(ScriptNode target) {
+            this.target = target;
+        }
+
+        public ScriptNode getTarget() { return target; }
+
+        /** @deprecated prefer {@link #getTarget()}; returns null for method awaits */
+        @Deprecated
+        public ScriptNode.FunctionCallNode getCall() {
+            return target instanceof ScriptNode.FunctionCallNode call ? call : null;
+        }
+
+        public ScriptNode.MethodCallNode getMethodCall() {
+            return target instanceof ScriptNode.MethodCallNode method ? method : null;
+        }
     }
 
     /**
@@ -587,6 +827,27 @@ package org.zonarstudio.spraute_engine.script;
 
         public java.util.List<ScriptNode> getElements() {
             return elements;
+        }
+    }
+
+    /**
+     * Map / object literal: { key = expr, key2 = expr, ... }
+     */
+    class MapLiteralNode implements ScriptNode {
+        private int line = -1;
+        private int column = -1;
+        @Override public int getLine() { return line; }
+        @Override public void setLine(int line) { this.line = line; }
+        @Override public int getColumn() { return column; }
+        @Override public void setColumn(int col) { this.column = col; }
+        private final java.util.Map<String, ScriptNode> entries;
+
+        public MapLiteralNode(java.util.Map<String, ScriptNode> entries) {
+            this.entries = entries;
+        }
+
+        public java.util.Map<String, ScriptNode> getEntries() {
+            return entries;
         }
     }
 

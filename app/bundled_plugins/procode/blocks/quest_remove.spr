@@ -1,0 +1,8 @@
+#\ block: quest_remove
+#\ category: Квесты
+#\ color: #9333ea
+#\ shape: statement
+#\ write_start: import("spraute_quests")
+#\
+#\ row: "удалить квест" (questId: text: my_quest)
+#\ template: remove_quest("{questId}")

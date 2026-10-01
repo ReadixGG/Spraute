@@ -1,0 +1,10 @@
+#\ block: economy_configure
+#\ category: Экономика
+#\ color: #eab308
+#\ shape: statement
+#\ write_start: import("economy")
+#\
+#\ row: "настроить экономику"
+#\ row: "текстура монет" (texture: texture: minecraft:textures/item/gold_nugget.png)
+#\ row: "поле в savedData" (coinKey: text: coins)
+#\ template: ecoConfigure("{texture}", "{coinKey}")

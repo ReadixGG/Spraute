@@ -1,0 +1,14 @@
+#\ block: await_tradebuy
+#\ category: Экономика
+#\ color: #eab308
+#\ shape: statement
+#\ write_start: import("economy")
+#\
+#\ row: "ждать покупку в трейде"
+#\ input: player (type: value)
+#\ row: [save: dropdown(не сохранять: no, id в перем.: yes)]
+#\ if save == "no":
+#\   template: await tradeBuy({player})
+#\ if save == "yes":
+#\   row: "имя перем." (out: text: item)
+#\   template: val {out} = await tradeBuy({player})

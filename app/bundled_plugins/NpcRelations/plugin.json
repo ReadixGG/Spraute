@@ -3,6 +3,6 @@
   "author": "Any",
   "version": "1.0.0",
   "mc_version": "1.20.1",
-  "description": "Система отношений с НПС: репутация, подарки, меню ПКМ+Shift. Библиотека npc_relations.spr.",
+  "description": "Отношения с НПС: раздел и нода на NPC (как экономика), репутация, подарки, меню ПКМ+Shift.",
   "enabled": true
 }

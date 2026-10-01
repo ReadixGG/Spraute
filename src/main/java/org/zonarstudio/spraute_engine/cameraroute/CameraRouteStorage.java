@@ -38,7 +38,7 @@ public final class CameraRouteStorage {
             Path scripts = sm.getScriptsDir();
             return scripts.getParent().getParent();
         }
-        return net.minecraftforge.fml.loading.FMLPaths.GAMEDIR.get();
+        return org.zonarstudio.spraute_engine.resource.SprautePaths.gameDir();
     }
 
     public static CameraRoute load(String name) throws IOException {
@@ -100,7 +100,8 @@ public final class CameraRouteStorage {
         if (!Files.isDirectory(dir)) return List.of();
         try (var stream = Files.list(dir)) {
             return stream
-                    .filter(p -> p.toString().endsWith(".json"))
+                    .filter(p -> p.toString().endsWith(".json")
+                            && !p.toString().endsWith(org.zonarstudio.spraute_engine.scene.SceneRouteStorage.EXTENSION))
                     .map(p -> {
                         String fn = p.getFileName().toString();
                         return fn.substring(0, fn.length() - 5);

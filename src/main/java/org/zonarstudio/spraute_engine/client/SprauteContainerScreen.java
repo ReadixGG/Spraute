@@ -22,15 +22,9 @@ public class SprauteContainerScreen extends AbstractContainerScreen<SprauteConta
         this.bgScreen = new SprauteScriptScreen(root);
         this.dimBackground = readDimBackground(root);
 
-        if (root.has("size")) {
-            if (root.get("size").isJsonArray()) {
-                this.imageWidth = root.getAsJsonArray("size").get(0).getAsInt();
-                this.imageHeight = root.getAsJsonArray("size").get(1).getAsInt();
-            } else if (root.get("size").isJsonPrimitive()) {
-                this.imageWidth = root.get("size").getAsInt();
-                this.imageHeight = root.get("size").getAsInt();
-            }
-        }
+        // Initial guess — overwritten in init() to match bgScreen exactly.
+        this.imageWidth = bgScreen.getPanelW();
+        this.imageHeight = bgScreen.getPanelH();
     }
 
     private static boolean readDimBackground(JsonObject root) {
@@ -45,6 +39,12 @@ public class SprauteContainerScreen extends AbstractContainerScreen<SprauteConta
         if (Minecraft.getInstance() != null) {
             bgScreen.init(Minecraft.getInstance(), this.width, this.height);
         }
+        // Vanilla slots use leftPos/topPos + slot.x/y; the drawn UI uses
+        // bgScreen.left/top. Keep them identical or items drift from the cells.
+        this.imageWidth = bgScreen.getPanelW();
+        this.imageHeight = bgScreen.getPanelH();
+        this.leftPos = bgScreen.getPanelLeft();
+        this.topPos = bgScreen.getPanelTop();
     }
 
     @Override

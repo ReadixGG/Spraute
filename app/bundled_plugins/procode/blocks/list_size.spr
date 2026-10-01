@@ -1,0 +1,8 @@
+#\ block: list_size
+#\ category: Списки
+#\ color: #3b82f6
+#\ shape: value
+#\
+#\ row: "размер списка"
+#\ input: list (type: value)
+#\ code: return "listSize(" + _getVal("list").trim() + ")";

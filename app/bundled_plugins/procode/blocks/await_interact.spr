@@ -1,0 +1,11 @@
+#\ block: await_interact
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать ПКМ по НИП" [npc: dropdown_npc] [save: dropdown(не сохранять: no, в переменную: yes)]
+#\ if save == "no":
+#\   template: await interact({npc})
+#\ if save == "yes":
+#\   row: "имя перем." (out: text: result)
+#\   template: val {out} = await interact({npc})

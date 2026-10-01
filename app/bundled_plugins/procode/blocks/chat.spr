@@ -3,5 +3,5 @@
 #\ color: #d946ef
 #\ shape: statement
 #\
-#\ row: "в чат" (message: text: Привет!)
+#\ row: "в чат" (message: textmultiline: Привет!)
 #\ template: chat("{message}")

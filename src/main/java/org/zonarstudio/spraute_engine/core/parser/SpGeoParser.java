@@ -60,15 +60,18 @@ public final class SpGeoParser {
 
             SpVec3 pivot = parseVec3(boneObj, "pivot", new SpVec3());
             SpVec3 rotation = parseVec3(boneObj, "rotation", new SpVec3());
+            float boneInflate = boneObj.has("inflate") ? boneObj.get("inflate").getAsFloat() : 0f;
+            boolean boneMirror = boneObj.has("mirror") && boneObj.get("mirror").getAsBoolean();
+            Map<String, SpLocator> locators = parseLocators(boneObj);
 
             List<SpCube> cubes = new ArrayList<>();
             if (boneObj.has("cubes")) {
                 for (JsonElement cubeEl : boneObj.getAsJsonArray("cubes")) {
-                    cubes.add(parseCube(cubeEl.getAsJsonObject()));
+                    cubes.add(parseCube(cubeEl.getAsJsonObject(), boneInflate, boneMirror));
                 }
             }
 
-            SpBone bone = new SpBone(name, pivot, rotation, cubes);
+            SpBone bone = new SpBone(name, pivot, rotation, boneInflate, boneMirror, cubes, locators);
             boneMap.put(name, bone);
 
             if (boneObj.has("parent")) {
@@ -96,17 +99,55 @@ public final class SpGeoParser {
         return new SpGeoModel(identifier, texW, texH, rootBones, boneMap);
     }
 
-    private static SpCube parseCube(JsonObject obj) {
+    /**
+     * Bedrock locators:
+     * <pre>
+     * "locators": { "lead": [0, 12, 0] }
+     * "locators": { "held": { "offset": [...], "rotation": [...], "ignore_inherited_scale": false } }
+     * </pre>
+     */
+    private static Map<String, SpLocator> parseLocators(JsonObject boneObj) {
+        if (!boneObj.has("locators") || !boneObj.get("locators").isJsonObject()) {
+            return Collections.emptyMap();
+        }
+        Map<String, SpLocator> out = new LinkedHashMap<>();
+        JsonObject locs = boneObj.getAsJsonObject("locators");
+        for (Map.Entry<String, JsonElement> e : locs.entrySet()) {
+            String locName = e.getKey();
+            JsonElement val = e.getValue();
+            if (val == null || val.isJsonNull()) continue;
+            if (val.isJsonArray()) {
+                JsonArray arr = val.getAsJsonArray();
+                if (arr.size() < 3) continue;
+                out.put(locName, new SpLocator(locName, new SpVec3(
+                        arr.get(0).getAsFloat(), arr.get(1).getAsFloat(), arr.get(2).getAsFloat())));
+            } else if (val.isJsonObject()) {
+                JsonObject obj = val.getAsJsonObject();
+                SpVec3 offset = parseVec3(obj, "offset", new SpVec3());
+                SpVec3 rot = parseVec3(obj, "rotation", new SpVec3());
+                boolean ignoreScale = obj.has("ignore_inherited_scale")
+                        && obj.get("ignore_inherited_scale").getAsBoolean();
+                out.put(locName, new SpLocator(locName, offset, rot, ignoreScale));
+            }
+        }
+        return out;
+    }
+
+    private static SpCube parseCube(JsonObject obj, float boneInflate, boolean boneMirror) {
         SpVec3 origin = parseVec3(obj, "origin", new SpVec3());
         SpVec3 size = parseVec3(obj, "size", new SpVec3());
-        float inflate = obj.has("inflate") ? obj.get("inflate").getAsFloat() : 0f;
+        // Cube inflate/mirror override bone defaults when present (Bedrock / GeckoLib).
+        float inflate = obj.has("inflate") ? obj.get("inflate").getAsFloat() : boneInflate;
+        SpVec3 pivot = parseVec3(obj, "pivot", new SpVec3());
+        SpVec3 rotation = parseVec3(obj, "rotation", new SpVec3());
+        boolean mirror = obj.has("mirror") ? obj.get("mirror").getAsBoolean() : boneMirror;
 
         Map<SpCube.SpFace, SpFaceUV> faceUVs = new EnumMap<>(SpCube.SpFace.class);
+        boolean boxUv = false;
 
         if (obj.has("uv")) {
             JsonElement uvEl = obj.get("uv");
             if (uvEl.isJsonObject()) {
-                // Per-face UV (Bedrock format)
                 JsonObject uvObj = uvEl.getAsJsonObject();
                 for (Map.Entry<String, JsonElement> faceEntry : uvObj.entrySet()) {
                     SpCube.SpFace face = SpCube.SpFace.fromString(faceEntry.getKey());
@@ -115,21 +156,23 @@ public final class SpGeoParser {
                     JsonArray uvArr = faceObj.getAsJsonArray("uv");
                     JsonArray uvSizeArr = faceObj.getAsJsonArray("uv_size");
                     if (uvArr != null && uvSizeArr != null) {
+                        int uvRot = faceObj.has("uv_rotation")
+                                ? faceObj.get("uv_rotation").getAsInt() : 0;
                         faceUVs.put(face, new SpFaceUV(
                             uvArr.get(0).getAsFloat(),
                             uvArr.get(1).getAsFloat(),
                             uvSizeArr.get(0).getAsFloat(),
-                            uvSizeArr.get(1).getAsFloat()
+                            uvSizeArr.get(1).getAsFloat(),
+                            uvRot
                         ));
                     }
                 }
             } else if (uvEl.isJsonArray()) {
-                // Legacy box UV [u, v] — auto-map all faces
+                boxUv = true;
                 JsonArray uvArr = uvEl.getAsJsonArray();
                 float u = uvArr.get(0).getAsFloat();
                 float v = uvArr.get(1).getAsFloat();
                 float w = size.x, h = size.y, d = size.z;
-                // Standard Minecraft/Bedrock box UV layout
                 faceUVs.put(SpCube.SpFace.SOUTH, new SpFaceUV(u + d + w + d, v + d, w, h));
                 faceUVs.put(SpCube.SpFace.NORTH, new SpFaceUV(u + d, v + d, w, h));
                 faceUVs.put(SpCube.SpFace.EAST,  new SpFaceUV(u, v + d, d, h));
@@ -139,7 +182,7 @@ public final class SpGeoParser {
             }
         }
 
-        return new SpCube(origin, size, inflate, faceUVs);
+        return new SpCube(origin, size, inflate, pivot, rotation, mirror, boxUv, faceUVs);
     }
 
     private static SpVec3 parseVec3(JsonObject obj, String key, SpVec3 fallback) {

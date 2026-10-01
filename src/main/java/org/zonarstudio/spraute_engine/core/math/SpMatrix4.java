@@ -29,14 +29,17 @@ public final class SpMatrix4 {
 
     /** Set from translation + quaternion rotation + uniform scale. */
     public SpMatrix4 compose(SpVec3 translate, SpQuaternion rot, float scale) {
-        return compose(translate, rot, new SpVec3(scale, scale, scale));
+        return compose(translate.x, translate.y, translate.z, rot, scale, scale, scale);
     }
 
     /** Set from translation + quaternion rotation + non-uniform scale (bone stretch). */
     public SpMatrix4 compose(SpVec3 translate, SpQuaternion rot, SpVec3 scale) {
-        float sx = scale.x;
-        float sy = scale.y;
-        float sz = scale.z;
+        return compose(translate.x, translate.y, translate.z, rot, scale.x, scale.y, scale.z);
+    }
+
+    /** Allocation-free compose used by the per-frame skeleton solver. */
+    public SpMatrix4 compose(float tx, float ty, float tz, SpQuaternion rot,
+                             float sx, float sy, float sz) {
 
         float xx = rot.x * rot.x, xy = rot.x * rot.y, xz = rot.x * rot.z, xw = rot.x * rot.w;
         float yy = rot.y * rot.y, yz = rot.y * rot.z, yw = rot.y * rot.w;
@@ -57,26 +60,36 @@ public final class SpMatrix4 {
         m[10] = (1f - 2f * (xx + yy)) * sz;
         m[11] = 0f;
 
-        m[12] = translate.x;
-        m[13] = translate.y;
-        m[14] = translate.z;
+        m[12] = tx;
+        m[13] = ty;
+        m[14] = tz;
         m[15] = 1f;
         return this;
     }
 
     /** this = this * other */
     public SpMatrix4 mul(SpMatrix4 o) {
-        float[] r = new float[16];
-        for (int col = 0; col < 4; col++) {
-            for (int row = 0; row < 4; row++) {
-                r[col * 4 + row] =
-                    m[0 * 4 + row] * o.m[col * 4 + 0] +
-                    m[1 * 4 + row] * o.m[col * 4 + 1] +
-                    m[2 * 4 + row] * o.m[col * 4 + 2] +
-                    m[3 * 4 + row] * o.m[col * 4 + 3];
-            }
-        }
-        System.arraycopy(r, 0, m, 0, 16);
+        float[] b = o.m;
+        float a0=m[0], a1=m[1], a2=m[2], a3=m[3];
+        float a4=m[4], a5=m[5], a6=m[6], a7=m[7];
+        float a8=m[8], a9=m[9], a10=m[10], a11=m[11];
+        float a12=m[12], a13=m[13], a14=m[14], a15=m[15];
+        m[0]=a0*b[0]+a4*b[1]+a8*b[2]+a12*b[3];
+        m[1]=a1*b[0]+a5*b[1]+a9*b[2]+a13*b[3];
+        m[2]=a2*b[0]+a6*b[1]+a10*b[2]+a14*b[3];
+        m[3]=a3*b[0]+a7*b[1]+a11*b[2]+a15*b[3];
+        m[4]=a0*b[4]+a4*b[5]+a8*b[6]+a12*b[7];
+        m[5]=a1*b[4]+a5*b[5]+a9*b[6]+a13*b[7];
+        m[6]=a2*b[4]+a6*b[5]+a10*b[6]+a14*b[7];
+        m[7]=a3*b[4]+a7*b[5]+a11*b[6]+a15*b[7];
+        m[8]=a0*b[8]+a4*b[9]+a8*b[10]+a12*b[11];
+        m[9]=a1*b[8]+a5*b[9]+a9*b[10]+a13*b[11];
+        m[10]=a2*b[8]+a6*b[9]+a10*b[10]+a14*b[11];
+        m[11]=a3*b[8]+a7*b[9]+a11*b[10]+a15*b[11];
+        m[12]=a0*b[12]+a4*b[13]+a8*b[14]+a12*b[15];
+        m[13]=a1*b[12]+a5*b[13]+a9*b[14]+a13*b[15];
+        m[14]=a2*b[12]+a6*b[13]+a10*b[14]+a14*b[15];
+        m[15]=a3*b[12]+a7*b[13]+a11*b[14]+a15*b[15];
         return this;
     }
 

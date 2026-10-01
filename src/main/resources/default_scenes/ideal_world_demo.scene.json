@@ -1,0 +1,24 @@
+{
+  "format": 2,
+  "id": "ideal_world_demo",
+  "dimension": "minecraft:overworld",
+  "root": {
+    "id": "imw-demo-root",
+    "type": "SCENE",
+    "name": "ideal_world_demo",
+    "transform": { "px": 0.0, "py": 0.0, "pz": 0.0, "rx": 0.0, "ry": 0.0, "rz": 0.0, "sx": 1.0, "sy": 1.0, "sz": 1.0 },
+    "children": [
+      {
+        "id": "imw-demo-script",
+        "type": "SCRIPT",
+        "name": "main",
+        "transform": { "px": 0.0, "py": 0.0, "pz": 0.0, "rx": 0.0, "ry": 0.0, "rz": 0.0, "sx": 1.0, "sy": 1.0, "sz": 1.0 },
+        "children": [],
+        "script": "ideal_world_demo",
+        "runOnSceneStart": true,
+        "tags": []
+      }
+    ],
+    "tags": []
+  }
+}

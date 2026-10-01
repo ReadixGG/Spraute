@@ -1,10 +1,9 @@
 package org.zonarstudio.spraute_engine.client.cameraroute;
 
-import org.zonarstudio.spraute_engine.Spraute_engine;
 import org.zonarstudio.spraute_engine.cameraroute.CameraRouteEndMode;
 import org.zonarstudio.spraute_engine.cameraroute.CameraRoutePath;
 import org.zonarstudio.spraute_engine.client.CameraHandler;
-import org.zonarstudio.spraute_engine.network.CameraPacket;
+import org.zonarstudio.spraute_engine.script.CameraControls;
 
 import java.util.List;
 
@@ -27,14 +26,16 @@ public final class CameraRoutePlayback {
     public static void start(List<CameraRoutePath.Sample> samples, float totalDuration, float returnSmooth,
                              boolean lockMovement, byte hideGui) {
         start(samples, null, totalDuration, returnSmooth, lockMovement, hideGui,
-                false, 0, 0, 0, CameraRouteEndMode.RETURN_TO_PLAYER);
+                CameraControls.DEFAULT_LOCK_BLOCKS,
+                false, 0, 0, 0, CameraRouteEndMode.RETURN_TO_PLAYER, 0f);
     }
 
     public static void start(List<CameraRoutePath.Sample> samples, float totalDuration, float returnSmooth,
                              boolean lockMovement, byte hideGui,
                              boolean lookOverride, double lx, double ly, double lz) {
         start(samples, null, totalDuration, returnSmooth, lockMovement, hideGui,
-                lookOverride, lx, ly, lz, CameraRouteEndMode.RETURN_TO_PLAYER);
+                CameraControls.DEFAULT_LOCK_BLOCKS,
+                lookOverride, lx, ly, lz, CameraRouteEndMode.RETURN_TO_PLAYER, 0f);
     }
 
     public static void start(List<CameraRoutePath.Sample> samples, float totalDuration, float returnSmooth,
@@ -42,7 +43,8 @@ public final class CameraRoutePlayback {
                              boolean lookOverride, double lx, double ly, double lz,
                              CameraRouteEndMode endMode) {
         start(samples, null, totalDuration, returnSmooth, lockMovement, hideGui,
-                lookOverride, lx, ly, lz, endMode);
+                CameraControls.DEFAULT_LOCK_BLOCKS,
+                lookOverride, lx, ly, lz, endMode, 0f);
     }
 
     /**
@@ -52,12 +54,23 @@ public final class CameraRoutePlayback {
      */
     public static void start(List<CameraRoutePath.Sample> samples, float[] timeline,
                              float totalDuration, float returnSmooth,
-                             boolean lockMovement, byte hideGui,
+                             boolean lockMovement, byte hideGui, boolean lockBlocks,
                              boolean lookOverride, double lx, double ly, double lz,
                              CameraRouteEndMode endMode, float transitionSec) {
         if (samples == null || samples.size() < 2) return;
         CameraHandler.startRoute(samples, timeline, totalDuration, returnSmooth,
-                lockMovement, hideGui, lookOverride, lx, ly, lz, endMode, transitionSec);
+                lockMovement, hideGui, lockBlocks, lookOverride, lx, ly, lz, endMode, transitionSec);
+    }
+
+    /** Backward-compat overload — default lockBlocks. */
+    public static void start(List<CameraRoutePath.Sample> samples, float[] timeline,
+                             float totalDuration, float returnSmooth,
+                             boolean lockMovement, byte hideGui,
+                             boolean lookOverride, double lx, double ly, double lz,
+                             CameraRouteEndMode endMode, float transitionSec) {
+        start(samples, timeline, totalDuration, returnSmooth, lockMovement, hideGui,
+                CameraControls.DEFAULT_LOCK_BLOCKS,
+                lookOverride, lx, ly, lz, endMode, transitionSec);
     }
 
     /** Backward-compat overload — no transition. */
@@ -67,6 +80,7 @@ public final class CameraRoutePlayback {
                              boolean lookOverride, double lx, double ly, double lz,
                              CameraRouteEndMode endMode) {
         start(samples, timeline, totalDuration, returnSmooth, lockMovement, hideGui,
+                CameraControls.DEFAULT_LOCK_BLOCKS,
                 lookOverride, lx, ly, lz, endMode, 0f);
     }
 

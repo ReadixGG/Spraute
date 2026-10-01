@@ -1,0 +1,7 @@
+#\ block: random_float
+#\ category: Математика
+#\ color: #ef4444
+#\ shape: value
+#\
+#\ row: "случайное 0..1"
+#\ code: return "random()";

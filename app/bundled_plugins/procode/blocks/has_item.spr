@@ -1,0 +1,9 @@
+#\ block: has_item
+#\ category: Инвентарь
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "есть ▶" (item: item: minecraft:diamond) "у" [who: dropdown(из слота: custom, кликнувший: event, первый: first)]
+#\ if who == "custom":
+#\   input: player (type: value)
+#\ code: return (function(){ var w=_getVal("who"); var p=w==="event"?"_eventPlayer":w==="first"?"getFirstPlayer()":_getVal("player").trim(); return "hasItem("+p+", "+_str("item")+")"; })();

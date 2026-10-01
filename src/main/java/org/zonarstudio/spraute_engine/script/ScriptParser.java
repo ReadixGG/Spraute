@@ -69,10 +69,10 @@ public class ScriptParser {
                 return withPos(new ScriptNode.AwaitNode(new ScriptNode.FunctionCallNode("task", parseArguments())), previous());
             }
             ScriptNode node = parseStatement();
-            if (node instanceof ScriptNode.FunctionCallNode callNode) {
-                return withPos(new ScriptNode.AwaitNode(callNode), previous());
+            if (node instanceof ScriptNode.FunctionCallNode || node instanceof ScriptNode.MethodCallNode) {
+                return withPos(new ScriptNode.AwaitNode(node), previous());
             }
-            throw new ScriptException("Expected function call after 'await'", previous().getLine());
+            throw new ScriptException("Expected function or method call after 'await'", previous().getLine());
         }
 
         if (match(ScriptToken.TokenType.WHILE)) {
@@ -124,6 +124,11 @@ public class ScriptParser {
             return parseAutorun();
         }
 
+        // Schema-only: declare section / declare node type / declare inspector { ... }
+        if (check(ScriptToken.TokenType.IDENTIFIER) && "declare".equals(tokens.get(pos).getValue())) {
+            return skipDeclareStatement();
+        }
+
         if (check(ScriptToken.TokenType.LBRACE)) {
             return parseBlock();
         }
@@ -131,16 +136,103 @@ public class ScriptParser {
         return parseStatement();
     }
 
-    /** После точки: имя свойства/метода может быть IDENTIFIER или ключевое слово stop (npc.stop). */
+    /** Skip declare section / declare node type / declare inspector (handled by CustomNodeRegistry). */
+    private ScriptNode skipDeclareStatement() {
+        advance(); // declare
+        if (check(ScriptToken.TokenType.IDENTIFIER) && "section".equals(tokens.get(pos).getValue())) {
+            advance();
+            while (!isAtEnd() && !check(ScriptToken.TokenType.NEWLINE) && !check(ScriptToken.TokenType.EOF)) {
+                advance();
+            }
+            match(ScriptToken.TokenType.NEWLINE);
+            return withPos(new ScriptNode.BlockNode(java.util.Collections.emptyList()), previous());
+        }
+        if (check(ScriptToken.TokenType.IDENTIFIER) && "node".equals(tokens.get(pos).getValue())) {
+            advance();
+            if (check(ScriptToken.TokenType.IDENTIFIER) && "type".equals(tokens.get(pos).getValue())) advance();
+            if (check(ScriptToken.TokenType.IDENTIFIER)) advance(); // type id
+            skipDeclareBraceBlock();
+            return withPos(new ScriptNode.BlockNode(java.util.Collections.emptyList()), previous());
+        }
+        if (check(ScriptToken.TokenType.IDENTIFIER) && "inspector".equals(tokens.get(pos).getValue())) {
+            advance();
+            if (check(ScriptToken.TokenType.IDENTIFIER) || check(ScriptToken.TokenType.STRING)) advance();
+            skipDeclareBraceBlock();
+            return withPos(new ScriptNode.BlockNode(java.util.Collections.emptyList()), previous());
+        }
+        // Unknown declare form — consume to end of line
+        while (!isAtEnd() && !check(ScriptToken.TokenType.NEWLINE) && !check(ScriptToken.TokenType.EOF)) {
+            advance();
+        }
+        return withPos(new ScriptNode.BlockNode(java.util.Collections.emptyList()), previous());
+    }
+
+    private void skipDeclareBraceBlock() {
+        skipNewlines();
+        if (!check(ScriptToken.TokenType.LBRACE)) return;
+        advance();
+        int depth = 1;
+        while (!isAtEnd() && depth > 0) {
+            ScriptToken t = advance();
+            if (t.getType() == ScriptToken.TokenType.LBRACE) depth++;
+            else if (t.getType() == ScriptToken.TokenType.RBRACE) depth--;
+        }
+    }
+
+    /**
+     * После точки / в create-блоках: имя свойства/метода может быть IDENTIFIER
+     * или ключевым словом ({@code model}, {@code stop}, {@code npc}, …).
+     */
     private String parsePropertyOrMethodName() {
         if (isAtEnd()) {
             throw new ScriptException("Expected property name after '.' (got EOF)", tokens.isEmpty() ? 1 : tokens.get(tokens.size() - 1).getLine());
         }
         ScriptToken tok = advance();
-        if (tok.getType() == ScriptToken.TokenType.IDENTIFIER || tok.getType() == ScriptToken.TokenType.STOP) {
+        if (isPropertyNameToken(tok.getType())) {
             return tok.getValue();
         }
         throw new ScriptException("Expected property name after '.' (got " + tok + ")", tok.getLine());
+    }
+
+    /** Ключевые слова, допустимые как имена свойств в create-блоках и после точки. */
+    private static boolean isPropertyNameToken(ScriptToken.TokenType type) {
+        return type == ScriptToken.TokenType.IDENTIFIER
+                || type == ScriptToken.TokenType.STOP
+                || type == ScriptToken.TokenType.MODEL
+                || type == ScriptToken.TokenType.NPC
+                || type == ScriptToken.TokenType.UI
+                || type == ScriptToken.TokenType.COMMAND
+                || type == ScriptToken.TokenType.CAMERA
+                || type == ScriptToken.TokenType.WORLD
+                || type == ScriptToken.TokenType.GLOBAL
+                || type == ScriptToken.TokenType.TASK
+                || type == ScriptToken.TokenType.TRUE
+                || type == ScriptToken.TokenType.FALSE
+                || type == ScriptToken.TokenType.NULL
+                || type == ScriptToken.TokenType.ON
+                || type == ScriptToken.TokenType.EVERY
+                || type == ScriptToken.TokenType.IN;
+    }
+
+    /** Static registry creates (skipped by executor); not custom scene nodes. */
+    private static boolean isStaticCreateKind(String kind) {
+        if (kind == null) return false;
+        return switch (kind.toLowerCase()) {
+            case "block", "item", "craft", "world", "drop", "tab",
+                 "armor", "plugin", "sound", "particles" -> true;
+            default -> false;
+        };
+    }
+
+    private ScriptToken expectPropertyName(String message) {
+        if (isAtEnd()) {
+            throw new ScriptException(message + " (got EOF)", tokens.isEmpty() ? 1 : tokens.get(tokens.size() - 1).getLine());
+        }
+        ScriptToken tok = tokens.get(pos);
+        if (!isPropertyNameToken(tok.getType())) {
+            throw new ScriptException(message + " (got " + tok + ")", tok.getLine());
+        }
+        return advance();
     }
 
     private ScriptNode parseVariableDeclaration(String scope) {
@@ -167,6 +259,79 @@ public class ScriptParser {
                 expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start NPC block");
                 return parseNpcBlock(identifier.getValue());
             }
+            if (match(ScriptToken.TokenType.MODEL)) {
+                ScriptToken identifier = expect(ScriptToken.TokenType.IDENTIFIER, "Expected model identifier after 'create model'");
+                expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start model block");
+                return parseModelBlock(identifier.getValue());
+            }
+            if (check(ScriptToken.TokenType.IDENTIFIER) && pos < tokens.size() && "hitbox".equals(tokens.get(pos).getValue())) {
+                advance();
+                ScriptToken identifier = expect(ScriptToken.TokenType.IDENTIFIER, "Expected identifier after 'create hitbox'");
+                expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start hitbox block");
+                return parseHitboxBlock(identifier.getValue());
+            }
+            if (check(ScriptToken.TokenType.IDENTIFIER) && pos < tokens.size() && "empty".equals(tokens.get(pos).getValue())) {
+                advance();
+                ScriptToken identifier = expect(ScriptToken.TokenType.IDENTIFIER, "Expected identifier after 'create empty'");
+                expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start empty block");
+                return parseEmptyBlock(identifier.getValue());
+            }
+            if (check(ScriptToken.TokenType.IDENTIFIER) && pos < tokens.size()
+                    && ("skin_overlay".equals(tokens.get(pos).getValue())
+                    || "skinOverlay".equals(tokens.get(pos).getValue()))) {
+                advance();
+                ScriptToken identifier = expect(ScriptToken.TokenType.IDENTIFIER, "Expected identifier after 'create skin_overlay'");
+                expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start skin_overlay block");
+                return parseSkinOverlayBlock(identifier.getValue());
+            }
+            if (check(ScriptToken.TokenType.IDENTIFIER) && pos < tokens.size()
+                    && ("particleEmitter".equals(tokens.get(pos).getValue())
+                    || "particle_emitter".equals(tokens.get(pos).getValue())
+                    || "particleSystem".equals(tokens.get(pos).getValue())
+                    || "particle_system".equals(tokens.get(pos).getValue()))) {
+                advance();
+                ScriptToken identifier = expect(ScriptToken.TokenType.IDENTIFIER, "Expected identifier after 'create particleEmitter'");
+                expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start particleEmitter block");
+                return parseParticleEmitterBlock(identifier.getValue());
+            }
+            if (check(ScriptToken.TokenType.IDENTIFIER) && pos < tokens.size() && "particle".equals(tokens.get(pos).getValue())) {
+                advance();
+                ScriptToken identifier = expect(ScriptToken.TokenType.IDENTIFIER, "Expected identifier after 'create particle'");
+                expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start particle block");
+                return parseParticleDefBlock(identifier.getValue());
+            }
+            if (check(ScriptToken.TokenType.IDENTIFIER) && pos < tokens.size() && "projectile".equals(tokens.get(pos).getValue())) {
+                advance();
+                ScriptToken identifier = expect(ScriptToken.TokenType.IDENTIFIER, "Expected identifier after 'create projectile'");
+                expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start projectile block");
+                return parseProjectileDefBlock(identifier.getValue());
+            }
+            if (check(ScriptToken.TokenType.IDENTIFIER) && pos < tokens.size() && "light".equals(tokens.get(pos).getValue())) {
+                advance();
+                ScriptToken identifier = expect(ScriptToken.TokenType.IDENTIFIER, "Expected identifier after 'create light'");
+                expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start light block");
+                return parseLightBlock(identifier.getValue());
+            }
+            if (check(ScriptToken.TokenType.IDENTIFIER) && pos < tokens.size()
+                    && ("audioSource".equals(tokens.get(pos).getValue())
+                    || "audio_source".equals(tokens.get(pos).getValue())
+                    || "audio".equals(tokens.get(pos).getValue()))) {
+                advance();
+                ScriptToken identifier = expect(ScriptToken.TokenType.IDENTIFIER, "Expected identifier after 'create audioSource'");
+                expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start audioSource block");
+                return parseAudioSourceBlock(identifier.getValue());
+            }
+            if (check(ScriptToken.TokenType.IDENTIFIER) && pos < tokens.size()
+                    && ("postProcess".equals(tokens.get(pos).getValue())
+                    || "postprocess".equals(tokens.get(pos).getValue())
+                    || "post_process".equals(tokens.get(pos).getValue())
+                    || "postVolume".equals(tokens.get(pos).getValue())
+                    || "post_volume".equals(tokens.get(pos).getValue()))) {
+                advance();
+                ScriptToken identifier = expect(ScriptToken.TokenType.IDENTIFIER, "Expected identifier after 'create postProcess'");
+                expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start postProcess block");
+                return parsePostProcessBlock(identifier.getValue());
+            }
             if (check(ScriptToken.TokenType.IDENTIFIER) && pos < tokens.size() && "npc_prefab".equals(tokens.get(pos).getValue())) {
                 advance();
                 ScriptToken identifier = expect(ScriptToken.TokenType.IDENTIFIER, "Expected prefab id after 'create npc_prefab'");
@@ -176,23 +341,35 @@ public class ScriptParser {
 
             // Skip static data blocks (create block/item/craft/world/..., plugins)
             if (check(ScriptToken.TokenType.IDENTIFIER) || check(ScriptToken.TokenType.WORLD)) {
-                advance(); // kind: block, item, craft, world, ...
-                if (check(ScriptToken.TokenType.IDENTIFIER)) {
-                    advance(); // skip identifier
-                    if (check(ScriptToken.TokenType.LBRACE)) {
-                        advance();
-                        int braceCount = 1;
-                        while (!isAtEnd() && braceCount > 0) {
-                            ScriptToken t = advance();
-                            if (t.getType() == ScriptToken.TokenType.LBRACE) braceCount++;
-                            if (t.getType() == ScriptToken.TokenType.RBRACE) braceCount--;
+                String kind = tokens.get(pos).getValue();
+                if (isStaticCreateKind(kind) || check(ScriptToken.TokenType.WORLD)) {
+                    advance(); // kind: block, item, craft, world, ...
+                    if (check(ScriptToken.TokenType.IDENTIFIER)) {
+                        advance(); // skip identifier
+                        if (check(ScriptToken.TokenType.LBRACE)) {
+                            advance();
+                            int braceCount = 1;
+                            while (!isAtEnd() && braceCount > 0) {
+                                ScriptToken t = advance();
+                                if (t.getType() == ScriptToken.TokenType.LBRACE) braceCount++;
+                                if (t.getType() == ScriptToken.TokenType.RBRACE) braceCount--;
+                            }
+                            return withPos(new ScriptNode.BlockNode(java.util.Collections.emptyList()), previous());
                         }
-                        return withPos(new ScriptNode.BlockNode(java.util.Collections.emptyList()), previous());
                     }
+                } else {
+                    // Custom scene node: create <typeId> id { … } — type must be declared
+                    // in a SCRIPT node of the active scene (validated at spawn).
+                    String typeId = kind;
+                    advance();
+                    ScriptToken identifier = expect(ScriptToken.TokenType.IDENTIFIER,
+                            "Expected identifier after 'create " + typeId + "'");
+                    expect(ScriptToken.TokenType.LBRACE, "Expected '{' to start " + typeId + " block");
+                    return parseCustomNodeBlock(typeId, identifier.getValue());
                 }
             }
 
-            throw new ScriptException("Expected 'npc', 'ui', 'command', or a static data block after 'create'", previous().getLine());
+            throw new ScriptException("Expected 'npc', 'model', 'hitbox', 'empty', 'particleEmitter', 'light', 'audioSource', 'postProcess', 'ui', 'command', custom type, or a static data block after 'create'", previous().getLine());
         }
 
         if (match(ScriptToken.TokenType.CAMERA)) {
@@ -338,37 +515,63 @@ public class ScriptParser {
     }
 
     private ScriptNode parseNpcBlock(String identifier) {
-        java.util.Map<String, List<ScriptNode>> props = new java.util.HashMap<>();
-        
-        while (!check(ScriptToken.TokenType.RBRACE) && !isAtEnd()) {
-            if (match(ScriptToken.TokenType.NEWLINE)) continue;
-            
-            ScriptToken propName = expect(ScriptToken.TokenType.IDENTIFIER, "Expected property name");
-            expect(ScriptToken.TokenType.ASSIGN, "Expected '='");
-            
-            List<ScriptNode> values = new ArrayList<>();
-            do {
-                values.add(parseExpression());
-            } while (match(ScriptToken.TokenType.COMMA));
-            
-            props.put(propName.getValue(), values);
-            
-            if (!match(ScriptToken.TokenType.NEWLINE) && !check(ScriptToken.TokenType.RBRACE)) {
-                // optionally expect statement terminator
-            }
-        }
-        
-        expect(ScriptToken.TokenType.RBRACE, "Expected '}'");
-        return withPos(new ScriptNode.NpcBlockNode(identifier, props), previous());
+        return withPos(new ScriptNode.NpcBlockNode(identifier, parseCreateBlockProps()), previous());
+    }
+
+    private ScriptNode parseModelBlock(String identifier) {
+        return withPos(new ScriptNode.ModelBlockNode(identifier, parseCreateBlockProps()), previous());
+    }
+
+    private ScriptNode parseHitboxBlock(String identifier) {
+        return withPos(new ScriptNode.HitboxBlockNode(identifier, parseCreateBlockProps()), previous());
+    }
+
+    private ScriptNode parseEmptyBlock(String identifier) {
+        return withPos(new ScriptNode.EmptyBlockNode(identifier, parseCreateBlockProps()), previous());
+    }
+
+    private ScriptNode parseSkinOverlayBlock(String identifier) {
+        return withPos(new ScriptNode.SkinOverlayBlockNode(identifier, parseCreateBlockProps()), previous());
+    }
+
+    private ScriptNode parseParticleEmitterBlock(String identifier) {
+        return withPos(new ScriptNode.ParticleEmitterBlockNode(identifier, parseCreateBlockProps()), previous());
+    }
+
+    private ScriptNode parseParticleDefBlock(String identifier) {
+        return withPos(new ScriptNode.ParticleDefBlockNode(identifier, parseCreateBlockProps()), previous());
+    }
+
+    private ScriptNode parseProjectileDefBlock(String identifier) {
+        return withPos(new ScriptNode.ProjectileDefBlockNode(identifier, parseCreateBlockProps()), previous());
+    }
+
+    private ScriptNode parseLightBlock(String identifier) {
+        return withPos(new ScriptNode.LightBlockNode(identifier, parseCreateBlockProps()), previous());
+    }
+
+    private ScriptNode parseAudioSourceBlock(String identifier) {
+        return withPos(new ScriptNode.AudioSourceBlockNode(identifier, parseCreateBlockProps()), previous());
+    }
+
+    private ScriptNode parsePostProcessBlock(String identifier) {
+        return withPos(new ScriptNode.PostProcessBlockNode(identifier, parseCreateBlockProps()), previous());
+    }
+
+    private ScriptNode parseCustomNodeBlock(String typeId, String identifier) {
+        return withPos(new ScriptNode.CustomNodeBlockNode(typeId, identifier, parseCreateBlockProps()), previous());
     }
 
     private ScriptNode parseNpcPrefabBlock(String identifier) {
-        java.util.Map<String, List<ScriptNode>> props = new java.util.HashMap<>();
+        return withPos(new ScriptNode.NpcPrefabBlockNode(identifier, parseCreateBlockProps()), previous());
+    }
 
+    private java.util.Map<String, List<ScriptNode>> parseCreateBlockProps() {
+        java.util.Map<String, List<ScriptNode>> props = new java.util.HashMap<>();
         while (!check(ScriptToken.TokenType.RBRACE) && !isAtEnd()) {
             if (match(ScriptToken.TokenType.NEWLINE)) continue;
 
-            ScriptToken propName = expect(ScriptToken.TokenType.IDENTIFIER, "Expected property name");
+            ScriptToken propName = expectPropertyName("Expected property name");
             expect(ScriptToken.TokenType.ASSIGN, "Expected '='");
 
             List<ScriptNode> values = new ArrayList<>();
@@ -377,14 +580,10 @@ public class ScriptParser {
             } while (match(ScriptToken.TokenType.COMMA));
 
             props.put(propName.getValue(), values);
-
-            if (!match(ScriptToken.TokenType.NEWLINE) && !check(ScriptToken.TokenType.RBRACE)) {
-                // optionally expect statement terminator
-            }
+            match(ScriptToken.TokenType.NEWLINE);
         }
-
         expect(ScriptToken.TokenType.RBRACE, "Expected '}'");
-        return withPos(new ScriptNode.NpcPrefabBlockNode(identifier, props), previous());
+        return props;
     }
 
     private ScriptNode parseCameraBlock(String identifier) {
@@ -694,6 +893,10 @@ public class ScriptParser {
     private ScriptNode parsePrimary() {
         if (match(ScriptToken.TokenType.NUMBER)) {
             String val = previous().getValue();
+            if (val.startsWith("0x") || val.startsWith("0X")) {
+                return withPos(new ScriptNode.LiteralNode(
+                        (int) (Long.parseLong(val.substring(2), 16) & 0xFFFFFFL)), previous());
+            }
             if (val.contains(".")) return withPos(new ScriptNode.LiteralNode(Double.parseDouble(val)), previous());
             return withPos(new ScriptNode.LiteralNode(Integer.parseInt(val)), previous());
         }
@@ -757,6 +960,21 @@ public class ScriptParser {
             return withPos(new ScriptNode.ListLiteralNode(elements), previous());
         }
 
+        if (match(ScriptToken.TokenType.LBRACE)) {
+            java.util.Map<String, ScriptNode> entries = new java.util.LinkedHashMap<>();
+            skipNewlines();
+            while (!check(ScriptToken.TokenType.RBRACE) && !isAtEnd()) {
+                if (match(ScriptToken.TokenType.NEWLINE)) continue;
+                ScriptToken key = expect(ScriptToken.TokenType.IDENTIFIER, "Expected key in map literal");
+                expect(ScriptToken.TokenType.ASSIGN, "Expected '=' after map key");
+                entries.put(key.getValue(), parseExpression());
+                match(ScriptToken.TokenType.COMMA);
+                skipNewlines();
+            }
+            expect(ScriptToken.TokenType.RBRACE, "Expected '}' to close map literal");
+            return withPos(new ScriptNode.MapLiteralNode(entries), previous());
+        }
+
         throw new ScriptException("Expected expression, found " + (pos < tokens.size() ? tokens.get(pos).getType() : "EOF"), pos < tokens.size() ? tokens.get(pos).getLine() : -1);
     }
 
@@ -797,7 +1015,14 @@ public class ScriptParser {
                 ScriptNode value = parseExpression();
                 if (name.equals("size") || name.equals("background") || name.equals("bg") || name.equals("id") ||
                     name.equals("canClose") || name.equals("can_close") || name.equals("pos") ||
-                    name.equals("dimBackground") || name.equals("dim_background")) {
+                    name.equals("dimBackground") || name.equals("dim_background") ||
+                    name.equals("radius") || name.equals("gradient") || name.equals("gradientDir") || name.equals("gradient_dir") ||
+                    name.equals("border") || name.equals("borderColor") || name.equals("border_color") ||
+                    name.equals("borderGradient") || name.equals("borderGradientDir") ||
+                    name.equals("outerBorder") || name.equals("outer_border") ||
+                    name.equals("outerBorderColor") || name.equals("outer_border_color") ||
+                    name.equals("outerBorderGradient") || name.equals("outerBorderGradientDir") ||
+                    name.equals("shadow")) {
                     rootProps.put(name, value);
                 } else {
                     bodyStatements.add(new ScriptNode.VariableAssignmentNode(name, value));
@@ -822,13 +1047,49 @@ public class ScriptParser {
     /** Property names valid inside widget { } blocks (anything else with `name = expr` is a variable assignment). */
     private static final Set<String> WIDGET_PROPERTY_NAMES = Set.of(
             "pos", "size", "x", "y", "w", "h", "color", "alpha", "scale", "wrap", "align", "layer",
-            "contentH", "content_h", "scrollbar", "autoScrollbar", "hover", "texture", "id",
+            "autoWrap", "auto_wrap", "wrapMode", "wrap_mode",
+            "mode", "flow", "hug", "hugContent", "hug_content", "stretch", "stretchCells", "stretch_cells",
+            "columns", "gridColumns", "cellW", "cellw", "cellH", "cellh", "gapX", "gapx", "gapY", "gapy",
+            "gridAlign", "grid_align", "childAlign", "child_align", "alignChildren", "align_children",
+            "contentH", "content_h", "scrollbar", "autoScrollbar", "hover", "texture", "source", "svg", "id",
+            "playerEnabled", "player_enabled", "enabled", "playing", "autoplay", "loop",
+            "stroke", "strokeWidth", "stroke_width", "recolor",
             "slice_borders", "slice_scale", "sliceBorders", "sliceScale",
+            "srcU", "srcV", "srcW", "srcH", "src_u", "src_v", "src_w", "src_h",
+            "fill", "fillMode", "fill_mode", "fillAmount", "fill_amount",
+            "fillOrigin", "fill_origin",
+            "cropShape", "crop_shape", "srcShape", "src_shape",
+            "feather", "cropFeather", "crop_feather", "edgeBlur", "edge_blur",
+            "featherL", "featherLeft", "feather_l", "feather_left",
+            "featherT", "featherTop", "feather_t", "feather_top",
+            "featherR", "featherRight", "feather_r", "feather_right",
+            "featherB", "featherBottom", "feather_b", "feather_bottom",
+            "featherSmooth", "feather_smooth",
+            "group", "payload", "axis", "constrain", "revert", "threshold",
             "feetCrop", "feet_crop", "crop", "anchor", "anchorX", "anchor_x", "anchorY", "anchor_y", "viewport", "tooltip", "block", "item",
             "labelWrap", "labelScale", "subLabel", "subScale", "bgColor", "outlineColor", "maxLines", "max_lines", "maxChars", "max_chars", "inputType", "placeholder", "text", "gridType", "cellSize", "thickness", "src",
+            "effects", "textEffects", "text_effects", "textGradient", "text_gradient",
+            "textOutlineColor", "text_outline_color", "textGlowColor", "text_glow_color",
+            "effectSpeed", "effect_speed", "effectAmount", "effect_amount",
+            "textGlowSize", "text_glow_size", "glowSize", "glow_size",
+            "textOutlineWidth", "text_outline_width", "outlineWidth", "outline_width",
+            "textUnderlineColor", "text_underline_color", "underlineColor", "underline_color",
+            "textUnderlineThickness", "text_underline_thickness", "underlineThickness", "underline_thickness",
+            "textUnderlineOffset", "text_underline_offset", "underlineOffset", "underline_offset",
+            "textShadowColor", "text_shadow_color", "shadowColor", "shadow_color",
+            "textShadowOffsetX", "text_shadow_offset_x", "shadowOffsetX", "shadow_offset_x",
+            "textShadowOffsetY", "text_shadow_offset_y", "shadowOffsetY", "shadow_offset_y",
+            "textShadowSize", "text_shadow_size",
+            "bold", "italic", "underline", "strikethrough", "code", "textShadow",
+            "outline", "glow", "rainbow", "pulse", "wave", "shake", "wiggle",
+            "glow_pixel", "glow_soft", "outline_pixel", "outline_soft", "shadow_pixel", "shadow_soft",
             "nameTag", "name_tag", "noLookAt", "no_look_at", "noFollowCursor", "no_follow_cursor", "noHurtAnim", "no_hurt_anim", "animation", "renderBones", "render_bones", "skinPlayer", "skin_player",
             "modelGeo", "model_geo", "modelTexture", "model_texture", "modelAnim", "model_anim", "modelIdle", "model_idle",
             "clip", "clipEntity",
+            "radius", "gradient", "gradientDir", "gradient_dir", "border", "borderColor", "border_color", "shadow",
+            "borderGradient", "borderGradientDir",
+            "outerBorder", "outer_border", "outerBorderColor", "outer_border_color",
+            "outerBorderGradient", "outerBorderGradientDir",
             "rotation", "pivot", "pivotX", "pivot_x", "pivotY", "pivot_y",
             "yaw", "pitch", "time"
     );

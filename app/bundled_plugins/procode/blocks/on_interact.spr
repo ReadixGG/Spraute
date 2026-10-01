@@ -1,0 +1,7 @@
+#\ block: on_interact
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда игрок жмёт ПКМ по НИП" [npc: dropdown_npc] "→" (handler: text: h_interact)
+#\ template: on interact({npc}) -> {handler} {\n{DO}}

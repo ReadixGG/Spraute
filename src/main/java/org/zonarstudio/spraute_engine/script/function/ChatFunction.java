@@ -110,7 +110,9 @@ public class ChatFunction implements ScriptFunction {
 
         Component component = Component.literal(message);
 
-
+        String scriptName = context != null && context.getScriptName() != null
+                ? context.getScriptName() : "chat";
+        org.zonarstudio.spraute_engine.script.ScriptConsole.script(scriptName, message);
 
         if (target != null) {
 

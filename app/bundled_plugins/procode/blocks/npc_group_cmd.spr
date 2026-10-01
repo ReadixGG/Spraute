@@ -1,0 +1,34 @@
+#\ block: npc_group_cmd
+#\ category: НПС Группы
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "группа"
+#\ input: group (type: value)
+#\ row: [cmd: dropdown(дать предмет в руку: setitem, убрать предмет: removeitem, телепортировать: teleport, удалить НПС: remove, смотреть на: lookat, стоп смотреть: stoplookat, летит: setflying)]
+#\ if cmd == "setitem":
+#\   row: "рука" [hand: dropdown(правая: right, левая: left)] "предмет" (item: item: minecraft:diamond_sword)
+#\ if cmd == "removeitem":
+#\   row: "рука" [hand: dropdown(обе: all, правая: right, левая: left)]
+#\ if cmd == "teleport":
+#\   row: "X" (tx: number: 0) "Y" (ty: number: 64) "Z" (tz: number: 0)
+#\ if cmd == "lookat":
+#\   input: target (type: value)
+#\ if cmd == "setflying":
+#\   row: [flying: dropdown(летит: true, не летит: false)]
+#\ if cmd == "setitem":
+#\   template: {group}.setItem("{hand}", "{item}")
+#\ if cmd == "removeitem" and hand == "all":
+#\   template: {group}.removeItem()
+#\ if cmd == "removeitem" and hand != "all":
+#\   template: {group}.removeItem("{hand}")
+#\ if cmd == "teleport":
+#\   template: {group}.teleport({tx}, {ty}, {tz})
+#\ if cmd == "remove":
+#\   template: {group}.remove()
+#\ if cmd == "lookat":
+#\   template: {group}.lookAt({target})
+#\ if cmd == "stoplookat":
+#\   template: {group}.stopLookAt()
+#\ if cmd == "setflying":
+#\   template: {group}.setFlying({flying})

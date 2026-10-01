@@ -1,0 +1,9 @@
+{
+  "name": "ProCode",
+  "author": "Spraute",
+  "version": "1.0.0",
+  "mc_version": "any",
+  "description": "Большой набор блоков для программирования: переменные, логика, циклы, математика, текст, списки, словари и функции.",
+  "enabled": true,
+  "global_scripts": ""
+}

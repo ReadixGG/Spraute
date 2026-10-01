@@ -3,11 +3,18 @@
 #\ color: #f97316
 #\ shape: statement
 #\
-#\ row: "ждать сообщение в чат" [filter: dropdown(любое: any, конкретное: msg)]
+#\ row: "ждать сообщение в чат" [filter: dropdown(любое: any, конкретное: msg)] [save: dropdown(не сохранять: no, в переменную: yes)]
 #\ input: player (type: value)
-#\ if filter == "any":
-#\   template: await chat({player}, list())
 #\ if filter == "msg":
 #\   row: "текст" (message: text: привет)
 #\   row: "игнорировать регистр" [ignoreCase: checkbox(true)]
+#\ if save == "yes":
+#\   row: "имя перем." (out: text: msg)
+#\ if filter == "any" and save == "no":
+#\   template: await chat({player}, list())
+#\ if filter == "any" and save == "yes":
+#\   template: val {out} = await chat({player}, list())
+#\ if filter == "msg" and save == "no":
 #\   template: await chat({player}, "{message}", {ignoreCase})
+#\ if filter == "msg" and save == "yes":
+#\   template: val {out} = await chat({player}, "{message}", {ignoreCase})

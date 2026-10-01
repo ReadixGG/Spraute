@@ -1,0 +1,4 @@
+﻿create npc_prefab goblin {
+    name = "Goblin"
+    model = "geo/defolt.geo.json"
+}

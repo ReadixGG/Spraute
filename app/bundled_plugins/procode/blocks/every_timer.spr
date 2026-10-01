@@ -1,0 +1,7 @@
+#\ block: every_timer
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "каждые" (seconds: number: 1) "сек. →" (handler: text: h_timer)
+#\ template: every({seconds}) -> {handler} {\n{DO}}

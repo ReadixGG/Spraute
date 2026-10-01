@@ -12,6 +12,7 @@ public class ScriptToken {
         AWAIT,        // await keyword
         CREATE,       // create keyword
         NPC,          // npc keyword
+        MODEL,        // model keyword
         UI,           // ui keyword (create ui)
         COMMAND,      // command keyword (create command)
         TRUE,         // true keyword

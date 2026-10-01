@@ -3,7 +3,6 @@ package org.zonarstudio.spraute_engine.registry;
 import com.mojang.logging.LogUtils;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.loading.FMLPaths;
 import net.minecraftforge.registries.RegisterEvent;
 import org.slf4j.Logger;
 import org.zonarstudio.spraute_engine.Spraute_engine;
@@ -33,6 +32,8 @@ public final class CustomProjectileRegistry {
         public boolean seeThrough = false;
         public boolean glow = false;
         public boolean billboard = true;
+        /** Second quad perpendicular to the first (X-shaped / fireball look). */
+        public boolean cross = false;
         public float gravity = 0.0f;
         public float drag = 1.0f;
         public int lifetime = 200;
@@ -50,7 +51,7 @@ public final class CustomProjectileRegistry {
         parseScripts();
     }
 
-    /** Re-read {@code create projectile} blocks after /spraute reload. */
+    /** Re-read {@code create projectile} blocks after scripts refresh from disk. */
     public static void invalidateAndReparse() {
         parsed = false;
         PROJECTILES.clear();
@@ -64,12 +65,38 @@ public final class CustomProjectileRegistry {
         return PROJECTILES.get(key);
     }
 
+    public static void register(String id, ProjectileDef def) {
+        if (id == null || id.isBlank() || def == null) return;
+        String key = id.contains(":") ? id.substring(id.indexOf(':') + 1) : id.trim();
+        def.id = key;
+        PROJECTILES.put(key, def);
+    }
+
+    /** billboard (к камере) | velocity / arrow (плоскость по скорости) | cross / x (две плоскости). */
+    public static void applyRenderStyle(ProjectileDef def, String renderStyle) {
+        if (def == null) return;
+        String s = renderStyle == null ? "" : renderStyle.trim().toLowerCase();
+        switch (s) {
+            case "velocity", "arrow", "flat", "aligned" -> {
+                def.billboard = false;
+                def.cross = false;
+            }
+            case "cross", "x", "fireball" -> {
+                def.billboard = false;
+                def.cross = true;
+            }
+            default -> {
+                def.billboard = true;
+                def.cross = false;
+            }
+        }
+    }
+
     public static void parseScripts() {
         if (parsed) return;
         parsed = true;
 
-        Path scriptsDir = FMLPaths.GAMEDIR.get().resolve("spraute_engine").resolve("scripts");
-        if (!Files.exists(scriptsDir)) return;
+        Path scriptsDir = org.zonarstudio.spraute_engine.resource.SprautePaths.scriptsDir();
 
         Pattern blockPattern = Pattern.compile("create\\s+projectile\\s+([a-zA-Z0-9_]+)\\s*\\{");
         Pattern texturePattern = Pattern.compile("texture\\s*=\\s*\"([^\"]+)\"");
@@ -83,9 +110,10 @@ public final class CustomProjectileRegistry {
         Pattern piercePattern = Pattern.compile("pierce\\s*=\\s*(\\d+)");
         Pattern knockbackPattern = Pattern.compile("knockback\\s*=\\s*([0-9.]+)");
         Pattern rotationPattern = Pattern.compile("rotation\\s*=\\s*(-?[0-9.]+)");
+        Pattern renderStylePattern = Pattern.compile(
+                "(?:renderStyle|render_style|style|type)\\s*=\\s*\"([^\"]+)\"");
 
-        try {
-            Files.walk(scriptsDir).filter(p -> p.toString().endsWith(".spr")).forEach(file -> {
+        org.zonarstudio.spraute_engine.resource.WorkspaceContent.allSprFiles().forEach(file -> {
                 try {
                     String content = Files.readString(file);
                     Matcher m = blockPattern.matcher(content);
@@ -109,8 +137,20 @@ public final class CustomProjectileRegistry {
                         def.seeThrough = parseBool(body, "see_through", false);
                         def.glow = parseBool(body, "glow", false);
                         def.billboard = parseBool(body, "billboard", true);
+                        def.cross = parseBool(body, "cross", false);
                         def.collideBlocks = parseBool(body, "collide_blocks", true);
                         def.collideEntities = parseBool(body, "collide_entities", true);
+
+                        Matcher rsM = renderStylePattern.matcher(body);
+                        if (rsM.find()) {
+                            applyRenderStyle(def, rsM.group(1));
+                        } else if (def.cross) {
+                            applyRenderStyle(def, "cross");
+                        } else if (!def.billboard) {
+                            applyRenderStyle(def, "velocity");
+                        } else {
+                            applyRenderStyle(def, "billboard");
+                        }
 
                         Matcher gM = gravityPattern.matcher(body);
                         if (gM.find()) def.gravity = Float.parseFloat(gM.group(1));
@@ -140,9 +180,6 @@ public final class CustomProjectileRegistry {
                     LOGGER.error("Failed to read script for projectile parsing: {}", file, e);
                 }
             });
-        } catch (IOException e) {
-            LOGGER.error("Failed to walk scripts for projectile parsing", e);
-        }
     }
 
     @SubscribeEvent

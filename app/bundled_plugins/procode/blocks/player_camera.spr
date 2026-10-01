@@ -1,0 +1,313 @@
+#\ block: player_camera
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: value
+#\
+#\ row: "камера игрока" input: player (type: value)
+#\ template: {player}.camera
+
+#\ block: camera_post
+#\ category: Камера
+#\ color: #c084fc
+#\ shape: value
+#\
+#\ row: "пост-эффекты камеры" input: player (type: value)
+#\ template: {player}.camera.post
+
+#\ block: camera_rest
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "rest-поза камеры" input: player (type: value)
+#\ row: "смещение от глаз" (x: number: 0) (y: number: 0) (z: number: 0)
+#\ row: "дистанция" (distance: number: 4) "FOV" (fov: number: 0)
+#\ template: {player}.camera.setRest({x}, {y}, {z}, 0, 0, {distance}, {fov})
+
+#\ block: camera_follow_player
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "следовать за игроком" input: player (type: value)
+#\ row: [follow: dropdown(да — от глаз: true, нет — мир: false)]
+#\ template: {player}.camera.followPlayer = {follow}
+
+#\ block: camera_lock_axis
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "не следить по осям" input: player (type: value)
+#\ row: "X" [lockX: dropdown(следует за игроком: false, держать в мире: true)] (worldX: number: 0)
+#\ row: "Y" [lockY: dropdown(следует за игроком: false, держать в мире: true)] (worldY: number: 64)
+#\ row: "Z" [lockZ: dropdown(следует за игроком: false, держать в мире: true)] (worldZ: number: 0)
+#\ template: {player}.camera.lockX = {lockX}\n{player}.camera.lockY = {lockY}\n{player}.camera.lockZ = {lockZ}\n{player}.camera.worldX = {worldX}\n{player}.camera.worldY = {worldY}\n{player}.camera.worldZ = {worldZ}
+
+#\ block: camera_world_pose
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "камера в мире" input: player (type: value)
+#\ row: "позиция" (x: number: 0) (y: number: 70) (z: number: 0)
+#\ row: "рысканье" (yaw: number: 0) "тангаж" (pitch: number: 0)
+#\ template: {player}.camera.followPlayer = false\n{player}.camera.x = {x}\n{player}.camera.y = {y}\n{player}.camera.z = {z}\n{player}.camera.yaw = {yaw}\n{player}.camera.pitch = {pitch}
+
+#\ block: camera_orbit
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "орбита камеры" input: player (type: value)
+#\ row: [state: dropdown(включить: true, выключить: false)]
+#\ if state == "true":
+#\   row: "объезд" (orbitYaw: number: 0) "подъём" (orbitPitch: number: 20)
+#\   row: "радиус" (distance: number: 5)
+#\   row: "точка вращения от глаз" (pivotX: number: 0) (pivotY: number: 0) (pivotZ: number: 0)
+#\
+#\ if state == "false":
+#\   template: {player}.camera.orbit = false
+#\ if state == "true":
+#\   template: {player}.camera.setOrbit({orbitYaw}, {orbitPitch}, {distance}, {pivotX}, {pivotY}, {pivotZ})
+
+#\ block: camera_lock_rotation
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "блокировка вращения камеры" input: player (type: value)
+#\ row: "поворот" [lockYaw: dropdown(следует за игроком: false, заморозить: true)]
+#\ row: "наклон" [lockPitch: dropdown(следует за игроком: false, заморозить: true)]
+#\ template: {player}.camera.lockRotation({lockYaw}, {lockPitch})
+
+#\ block: camera_collide
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "камера сквозь блоки" input: player (type: value)
+#\ row: [collide: dropdown(не проходит: true, проходит: false)]
+#\ template: {player}.camera.collide = {collide}
+
+#\ block: camera_show_hand
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "рука при смещении камеры" input: player (type: value)
+#\ row: [showHand: dropdown(показывать: true, скрывать: false)]
+#\ template: {player}.camera.showHand = {showHand}
+
+#\ block: camera_hide_gui
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "скрыть GUI камеры" input: player (type: value)
+#\ row: [mode: dropdown(не скрывать: none, майнкрафт: minecraft, всё: all)]
+#\ template: {player}.camera.hideGui = "{mode}"
+
+#\ block: camera_move_relative
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "игрок идёт относительно камеры" input: player (type: value)
+#\ row: [enabled: dropdown(да: true, нет: false)]
+#\ template: {player}.camera.moveRelative = {enabled}
+
+#\ block: camera_clear_occlusion
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "скрывать блоки перед целью" input: player (type: value)
+#\ row: [enabled: dropdown(да: true, нет: false)]
+#\ if enabled == "true":
+#\   row: "прозрачность 0…1" (alpha: number: 0)
+#\   row: "толщина скрытия" (radius: number: 1.5)
+#\ if enabled == "false":
+#\   template: {player}.camera.clearOcclusion = false
+#\ if enabled == "true":
+#\   template: {player}.camera.clearOcclusion = true\n{player}.camera.occlusionAlpha = {alpha}\n{player}.camera.occlusionRadius = {radius}
+
+#\ block: camera_look_target
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "камера смотрит" input: player (type: value)
+#\ row: [mode: dropdown(на точку: coords, на цель: entity, сбросить: stop)]
+#\ if mode == "coords":
+#\   row: "точка" (x: number: 0) (y: number: 64) (z: number: 0)
+#\   row: "следить" [track: checkbox(true)]
+#\ if mode == "entity":
+#\   row: "цель" input: target (type: value)
+#\   row: "следить" [track: checkbox(true)]
+#\ if mode != "stop":
+#\   row: [ease: dropdown(резко: snap, плавно: smooth)]
+#\   if ease == "smooth":
+#\     row: "подлёт за" (smooth: number: 0.8) "сек"
+#\   row: [afterEnd: dropdown(оставить: stay, вернуть к игроку: return, удержать и вернуть: hold)]
+#\   if afterEnd == "return":
+#\     row: "возврат за" (returnSmooth: number: 0.8) "сек"
+#\   if afterEnd == "hold":
+#\     row: "удержать" (hold: number: 3) "сек" "возврат за" (returnSmooth: number: 0.8) "сек"
+#\   row: "блокировать ходьбу" [lockMovement: checkbox(true)]
+#\   row: "блокировать блоки" [lockBlocks: checkbox(true)]
+#\   row: "скрыть GUI" [hideGui: dropdown(майнкрафт: minecraft, не скрывать: none, всё: all)]
+#\
+#\ if mode == "stop":
+#\   template: {player}.camera.stopLook()
+#\
+#\ code: var player = String(_getVal('player') || '_eventPlayer').trim() || '_eventPlayer';
+#\ code: var mode = String(_getVal('mode') || 'coords');
+#\ code: if (mode === 'stop') return player + '.camera.stopLook()\n';
+#\ code: var track = String(_getVal('track') || 'TRUE').toUpperCase() === 'TRUE' ? 'true' : 'false';
+#\ code: var lock = String(_getVal('lockMovement') || 'TRUE').toUpperCase() === 'TRUE' ? 'true' : 'false';
+#\ code: var lockBlocks = String(_getVal('lockBlocks') || 'TRUE').toUpperCase() === 'TRUE' ? 'true' : 'false';
+#\ code: var hide = String(_getVal('hideGui') || 'minecraft').trim() || 'minecraft';
+#\ code: var after = String(_getVal('afterEnd') || 'stay');
+#\ code: var ease = String(_getVal('ease') || 'smooth');
+#\ code: var smooth = (ease === 'snap') ? '0' : (String(_getVal('smooth') || '0.8').trim() || '0.8');
+#\ code: var tail = lock + ', "' + hide + '", ' + lockBlocks + ', "' + after + '"';
+#\ code: if (after === 'return') tail += ', ' + (String(_getVal('returnSmooth') || '0.8').trim() || '0.8');
+#\ code: if (after === 'hold') tail += ', ' + (String(_getVal('hold') || '3').trim() || '3') + ', ' + (String(_getVal('returnSmooth') || '0.8').trim() || '0.8');
+#\ code: var look = (mode === 'entity')
+#\ code:   ? (String(_getVal('target') || '""').trim() || '""')
+#\ code:   : ((_getVal('x')||'0') + ', ' + (_getVal('y')||'64') + ', ' + (_getVal('z')||'0'));
+#\ code: return player + '.camera.lookAt(' + look + ', ' + track + ', ' + smooth + ', ' + tail + ')\n';
+
+#\ block: camera_move_to
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "камера едет к точке" input: player (type: value)
+#\ row: [runMode: dropdown(запустить: play, ждать конца: await)]
+#\ row: "точка" (x: number: 0) (y: number: 70) (z: number: 0)
+#\ row: "рысканье" (yaw: number: 0) "тангаж" (pitch: number: 0)
+#\ row: [ease: dropdown(плавно: smooth, резко: snap)]
+#\ if ease == "smooth":
+#\   row: "подлёт за" (smooth: number: 0.8) "сек"
+#\ row: [afterEnd: dropdown(оставить: stay, вернуть к игроку: return, удержать и вернуть: hold)]
+#\ if afterEnd == "return":
+#\   row: "возврат за" (returnSmooth: number: 0.8) "сек"
+#\ if afterEnd == "hold":
+#\   row: "удержать" (hold: number: 3) "сек" "возврат за" (returnSmooth: number: 0.8) "сек"
+#\ row: "блокировать ходьбу" [lockMovement: checkbox(true)]
+#\ row: "блокировать блоки" [lockBlocks: checkbox(true)]
+#\ row: "скрыть GUI" [hideGui: dropdown(майнкрафт: minecraft, не скрывать: none, всё: all)]
+#\
+#\ code: var player = String(_getVal('player') || '_eventPlayer').trim() || '_eventPlayer';
+#\ code: var runMode = String(_getVal('runMode') || 'play');
+#\ code: var lock = String(_getVal('lockMovement') || 'TRUE').toUpperCase() === 'TRUE' ? 'true' : 'false';
+#\ code: var lockBlocks = String(_getVal('lockBlocks') || 'TRUE').toUpperCase() === 'TRUE' ? 'true' : 'false';
+#\ code: var hide = String(_getVal('hideGui') || 'minecraft').trim() || 'minecraft';
+#\ code: var after = String(_getVal('afterEnd') || 'stay');
+#\ code: var ease = String(_getVal('ease') || 'smooth');
+#\ code: var smooth = (ease === 'snap') ? '0' : (String(_getVal('smooth')||'0.8').trim()||'0.8');
+#\ code: var tail = lock + ', "' + hide + '", ' + lockBlocks + ', "' + after + '"';
+#\ code: if (after === 'return') tail += ', ' + (String(_getVal('returnSmooth') || '0.8').trim() || '0.8');
+#\ code: if (after === 'hold') tail += ', ' + (String(_getVal('hold') || '3').trim() || '3') + ', ' + (String(_getVal('returnSmooth') || '0.8').trim() || '0.8');
+#\ code: var call = player + '.camera.moveTo(' + (_getVal('x')||'0') + ', ' + (_getVal('y')||'70') + ', ' + (_getVal('z')||'0') + ', ' + (_getVal('yaw')||'0') + ', ' + (_getVal('pitch')||'0') + ', ' + smooth + ', ' + tail + ')';
+#\ code: return (runMode === 'await' ? ('await time(' + call + ')') : call) + '\n';
+
+#\ block: camera_follow_route
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "камера по пути" input: player (type: value)
+#\ row: [runMode: dropdown(запустить: play, ждать конца: await)]
+#\ row: "путь" input: route (type: value)
+#\ row: "пролёт за" (duration: number: 0) "сек" "0 = авто"
+#\ row: "смотреть по точкам" [lookAlong: checkbox(true)]
+#\ row: "интерполяция" [interp: dropdown(из пути: route, по линиям: linear, плавная кривая: smooth, плавная камера: smooth_camera)]
+#\ row: [afterEnd: dropdown(вернуть к игроку: return, оставить: stay, удержать и вернуть: hold)]
+#\ if afterEnd == "return":
+#\   row: "возврат за" (returnSmooth: number: 0.8) "сек"
+#\ if afterEnd == "hold":
+#\   row: "удержать" (hold: number: 3) "сек" "возврат за" (returnSmooth: number: 0.8) "сек"
+#\ row: "блокировать ходьбу" [lockMovement: checkbox(true)]
+#\ row: "блокировать блоки" [lockBlocks: checkbox(true)]
+#\ row: "скрыть GUI" [hideGui: dropdown(майнкрафт: minecraft, не скрывать: none, всё: all)]
+#\
+#\ code: var player = String(_getVal('player') || '_eventPlayer').trim() || '_eventPlayer';
+#\ code: var runMode = String(_getVal('runMode') || 'play');
+#\ code: var route = String(_getVal('route') || '""').trim() || '""';
+#\ code: var lookAlong = String(_getVal('lookAlong') || 'TRUE').toUpperCase() === 'TRUE' ? 'true' : 'false';
+#\ code: var lock = String(_getVal('lockMovement') || 'TRUE').toUpperCase() === 'TRUE' ? 'true' : 'false';
+#\ code: var lockBlocks = String(_getVal('lockBlocks') || 'TRUE').toUpperCase() === 'TRUE' ? 'true' : 'false';
+#\ code: var hide = String(_getVal('hideGui') || 'minecraft').trim() || 'minecraft';
+#\ code: var after = String(_getVal('afterEnd') || 'return');
+#\ code: var tail = lock + ', "' + hide + '", ' + lockBlocks + ', "' + after + '"';
+#\ code: if (after === 'return') tail += ', ' + (String(_getVal('returnSmooth') || '0.8').trim() || '0.8');
+#\ code: if (after === 'hold') tail += ', ' + (String(_getVal('hold') || '3').trim() || '3') + ', ' + (String(_getVal('returnSmooth') || '0.8').trim() || '0.8');
+#\ code: var interp = String(_getVal('interp') || 'route').trim() || 'route';
+#\ code: if (interp !== 'route') tail += ', "interp", "' + interp + '"';
+#\ code: var call = player + '.camera.followRoute(' + route + ', ' + (String(_getVal('duration')||'0').trim()||'0') + ', ' + lookAlong + ', ' + tail + ')';
+#\ code: return (runMode === 'await' ? ('await time(' + call + ')') : call) + '\n';
+
+#\ block: camera_return
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "вернуть камеру игроку" input: player (type: value)
+#\ row: [how: dropdown(плавно: smooth, мгновенно: reset)]
+#\ if how == "smooth":
+#\   row: [runMode: dropdown(запустить: play, ждать конца: await)]
+#\   row: "плавно за" (smooth: number: 0.5) "сек"
+#\
+#\ if how == "reset":
+#\   template: {player}.camera.reset()
+#\ if how == "smooth" and runMode == "play":
+#\   template: {player}.camera.returnToPlayer({smooth})
+#\ if how == "smooth" and runMode == "await":
+#\   template: await time({player}.camera.returnToPlayer({smooth}))
+
+#\ block: camera_post_set
+#\ category: Камера
+#\ color: #c084fc
+#\ shape: statement
+#\
+#\ row: "пост-эффект камеры" input: player (type: value)
+#\ row: [fx: dropdown(bloom: bloom, vignette: vignette, экспозиция: exposure, контраст: contrast, насыщенность: saturation, хроматика: chromatic, зерно: grain, резкость: sharpen, включено: enabled)]
+#\ if fx == "enabled":
+#\   row: [enabled: dropdown(вкл: true, выкл: false)]
+#\ if fx != "enabled":
+#\   row: "значение" (value: number: 0.35)
+#\
+#\ if fx == "enabled":
+#\   template: {player}.camera.post.enabled = {enabled}
+#\ if fx == "bloom":
+#\   template: {player}.camera.post.bloom = {value}
+#\ if fx == "vignette":
+#\   template: {player}.camera.post.vignette = {value}
+#\ if fx == "exposure":
+#\   template: {player}.camera.post.exposure = {value}
+#\ if fx == "contrast":
+#\   template: {player}.camera.post.contrast = {value}
+#\ if fx == "saturation":
+#\   template: {player}.camera.post.saturation = {value}
+#\ if fx == "chromatic":
+#\   template: {player}.camera.post.chromatic = {value}
+#\ if fx == "grain":
+#\   template: {player}.camera.post.grain = {value}
+#\ if fx == "sharpen":
+#\   template: {player}.camera.post.sharpen = {value}
+
+#\ block: camera_post_bundle
+#\ category: Камера
+#\ color: #c084fc
+#\ shape: statement
+#\
+#\ row: "настроить пост-эффекты" input: player (type: value)
+#\ row: "включён" [enabled: dropdown(да: true, нет: false)]
+#\ row: "bloom" (bloom: number: 0.35) "порог" (bloomThreshold: number: 0.75)
+#\ row: "vignette" (vignette: number: 0.4)
+#\ row: "экспозиция" (exposure: number: 0) "контраст" (contrast: number: 0) "насыщ." (saturation: number: 0)
+#\ row: "хроматика" (chromatic: number: 0) "зерно" (grain: number: 0) "резкость" (sharpen: number: 0)
+#\ template: {player}.camera.post.enabled = {enabled}\n{player}.camera.post.bloom = {bloom}\n{player}.camera.post.bloomThreshold = {bloomThreshold}\n{player}.camera.post.vignette = {vignette}\n{player}.camera.post.exposure = {exposure}\n{player}.camera.post.contrast = {contrast}\n{player}.camera.post.saturation = {saturation}\n{player}.camera.post.chromatic = {chromatic}\n{player}.camera.post.grain = {grain}\n{player}.camera.post.sharpen = {sharpen}

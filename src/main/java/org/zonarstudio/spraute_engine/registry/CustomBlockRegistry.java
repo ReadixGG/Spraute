@@ -19,7 +19,6 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.loading.FMLPaths;
 import net.minecraftforge.registries.RegisterEvent;
 import org.slf4j.Logger;
 import org.zonarstudio.spraute_engine.Spraute_engine;
@@ -30,10 +29,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.zonarstudio.spraute_engine.scene.custom.CustomNodeItemBridge;
+import org.zonarstudio.spraute_engine.scene.custom.CustomNodeSprParser;
 
 @Mod.EventBusSubscriber(modid = Spraute_engine.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class CustomBlockRegistry {
@@ -61,12 +64,20 @@ public class CustomBlockRegistry {
         public boolean hasCollision = true;
         public int lightEmission = 0;
         public float hardness = 1.5f;
+        /** Preferred dig tool: pickaxe / axe / shovel / hoe, or null/blank. */
+        public String requiredTool;
+        /** Min tool tier level (0 wood … 4 netherite). */
+        public int requiredMiningLevel;
+        /** Wrong tool → slow dig + no drops. */
+        public boolean requiresCorrectTool;
         public String displayName;
         public String dropItem;
         public int dropCount = 1;
         /** When true, the block itself does not drop (only custom drop(s)). */
         public boolean dropReplace = false;
         public final List<BlockDropRule> dropRules = new ArrayList<>();
+        /** XP orbs on break (0 = none). Silk touch suppresses. */
+        public int dropXp;
         public String tab;
         public boolean directional = true;
         public float[] hitbox;
@@ -104,6 +115,22 @@ public class CustomBlockRegistry {
         public boolean axe;
         public boolean shovel;
         public boolean hoe;
+        /** {@code helmet} / {@code chestplate} / {@code leggings} / {@code boots} */
+        public String armorType;
+        /** Base path for worn armor layers, e.g. {@code textures/models/armor/crystal}. */
+        public String armorTexture;
+        /**
+         * When {@code true}, {@link net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer} is skipped.
+         * {@code null} = hide if {@code armorTexture} is empty (clothing overlay).
+         */
+        public Boolean hideArmor;
+        /** Full-skin overlay (64×64) while this armor is worn. */
+        public String skinOverlay;
+        /** Second-layer mask: auto / none / hat / torso / jacket / sleeves / pants. */
+        public String skinHideLayer;
+        public Integer armorDefense;
+        public Float armorToughness;
+        public Float armorKnockback;
         /** Bonus attack damage (tooltip value, like iron sword +5). */
         public Float damage;
         public Float attackSpeed;
@@ -146,17 +173,18 @@ public class CustomBlockRegistry {
         if (parsed) return;
         parsed = true;
 
+        SyncedRegistrySnapshot.clearCraftSnippets();
         org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.ensureParsed();
-        
-        Path scriptsDir = FMLPaths.GAMEDIR.get().resolve("spraute_engine").resolve("scripts");
-        if (!Files.exists(scriptsDir)) return;
 
-        parseScriptDirectory(scriptsDir);
+        parseScriptDirectory(org.zonarstudio.spraute_engine.resource.SprautePaths.scriptsDir());
+        // Scene RES_* and custom creates=item nodes override / add after .spr.
+        org.zonarstudio.spraute_engine.scene.resource.SceneResourceLoader.loadAll(
+                org.zonarstudio.spraute_engine.resource.SprautePaths.gameDir());
+        SyncedRegistrySnapshot.write();
     }
 
     private static void parseScriptDirectory(Path scriptsDir) {
-        if (!Files.exists(scriptsDir)) return;
-
+        Set<String> itemCreatingTypes = collectItemCreatingTypes();
         Pattern tabPattern = Pattern.compile("create\\s+tab\\s+([a-zA-Z0-9_]+)\\s*\\{");
         Pattern craftPattern = Pattern.compile("create\\s+craft\\s+([a-zA-Z0-9_]+)\\s*\\{");
         Pattern craftTypePattern = Pattern.compile("type\\s*=\\s*\"([^\"]+)\"");
@@ -190,17 +218,27 @@ public class CustomBlockRegistry {
         Pattern maxStackPattern = Pattern.compile("maxStackSize\\s*=\\s*(\\d+)");
         Pattern itemNamePattern = Pattern.compile("name\\s*=\\s*\"([^\"]+)\"");
         Pattern toolTypePattern = Pattern.compile("tool_type\\s*=\\s*\"([^\"]+)\"");
+        Pattern armorTypePattern = Pattern.compile("armor_type\\s*=\\s*\"([^\"]+)\"");
+        Pattern armorTexturePattern = Pattern.compile("armor_texture\\s*=\\s*\"([^\"]+)\"");
+        Pattern skinOverlayPattern = Pattern.compile("(?:skin_overlay|overlay)\\s*=\\s*\"([^\"]+)\"");
+        Pattern skinHideLayerPattern = Pattern.compile("hide_layer\\s*=\\s*\"([^\"]+)\"");
+        Pattern armorDefensePattern = Pattern.compile("(?:armor_defense|defense)\\s*=\\s*(\\d+)");
+        Pattern armorToughnessPattern = Pattern.compile("(?:armor_toughness|toughness)\\s*=\\s*([0-9.]+)");
+        Pattern armorKnockbackPattern = Pattern.compile("(?:armor_knockback|knockback_resistance)\\s*=\\s*([0-9.]+)");
         Pattern damagePattern = Pattern.compile("damage\\s*=\\s*([0-9.]+)");
         Pattern attackSpeedPattern = Pattern.compile("attack_speed\\s*=\\s*(-?[0-9.]+)");
         Pattern durabilityPattern = Pattern.compile("durability\\s*=\\s*(\\d+)");
         Pattern miningSpeedPattern = Pattern.compile("mining_speed\\s*=\\s*([0-9.]+)");
-        Pattern miningLevelPattern = Pattern.compile("mining_level\\s*=\\s*(\\d+)");
+        Pattern miningLevelPattern = Pattern.compile("(?:mining_level|harvest_level|required_level)\\s*=\\s*(\\d+)");
+        Pattern requiredToolPattern = Pattern.compile("(?:required_tool|harvest_tool|tool)\\s*=\\s*\"([^\"]+)\"");
         Pattern lightPattern = Pattern.compile("light\\s*=\\s*(\\d+)");
-        Pattern hardnessPattern = Pattern.compile("hardness\\s*=\\s*([0-9.]+)");
+        Pattern hardnessPattern = Pattern.compile("hardness\\s*=\\s*(-?[0-9.]+)");
         Pattern dropPattern = Pattern.compile("drop\\s*=\\s*\"([^\"]+)\"");
         Pattern dropCountPattern = Pattern.compile("drop_count\\s*=\\s*(\\d+)");
+        Pattern dropXpPattern = Pattern.compile("(?:drop_xp|dropXp|experience|xp)\\s*=\\s*(\\d+)");
         Pattern blockDropRowPattern = Pattern.compile("\\[\\s*\"([^\"]+)\"\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\]");
         Pattern dropBlockPattern = Pattern.compile("block\\s*=\\s*\"([^\"]+)\"");
+        Pattern dropMobPattern = Pattern.compile("(?:mob|entity)\\s*=\\s*\"([^\"]+)\"");
         Pattern dropItemPattern = Pattern.compile("item\\s*=\\s*\"([^\"]+)\"");
         Pattern dropMinPattern = Pattern.compile("min\\s*=\\s*(\\d+)");
         Pattern dropMaxPattern = Pattern.compile("max\\s*=\\s*(\\d+)");
@@ -212,8 +250,7 @@ public class CustomBlockRegistry {
         Pattern oreChancesPattern = Pattern.compile("ore_chances\\s*=\\s*(\\d+)");
         Pattern oreDimensionPattern = Pattern.compile("ore_dimension\\s*=\\s*\"([^\"]+)\"");
 
-        try {
-            Files.walk(scriptsDir).filter(p -> p.toString().endsWith(".spr")).forEach(file -> {
+        org.zonarstudio.spraute_engine.resource.WorkspaceContent.allSprFiles().forEach(file -> {
                 try {
                     String content = Files.readString(file);
                     
@@ -319,7 +356,7 @@ public class CustomBlockRegistry {
                                 firstKey = false;
                                 String k = keyM.group(1);
                                 String spec = keyM.group(2);
-                                json.append("\"").append(k).append("\": ").append(ingredientToJson(spec, id, "key_" + k));
+                                json.append("\"").append(k).append("\": ").append(CraftJsonBuilder.ingredientToJson(spec, id, "key_" + k));
                             }
                             json.append("}, \"result\": {\"item\": \"").append(result).append("\", \"count\": ").append(count).append("}}");
                             recipeValid = true;
@@ -335,7 +372,7 @@ public class CustomBlockRegistry {
                                 for (int ti = 0; ti < tokens.size(); ti++) {
                                     if (!firstItem) json.append(",");
                                     firstItem = false;
-                                    json.append(ingredientToJson(tokens.get(ti), id, "ing_" + ti));
+                                    json.append(CraftJsonBuilder.ingredientToJson(tokens.get(ti), id, "ing_" + ti));
                                 }
                             json.append("], \"result\": {\"item\": \"").append(result).append("\", \"count\": ").append(count).append("}}");
                             recipeValid = true;
@@ -345,7 +382,7 @@ public class CustomBlockRegistry {
                             json.append("{\"type\": \"minecraft:").append(type).append("\", \"ingredient\": ");
                             Matcher ingM = craftIngPattern.matcher(body);
                             String ingSpec = ingM.find() ? "\"" + ingM.group(1) + "\"" : "\"minecraft:cobblestone\"";
-                            json.append(ingredientToJson(ingSpec, id, "ingredient"));
+                            json.append(CraftJsonBuilder.ingredientToJson(ingSpec, id, "ingredient"));
                             
                             Matcher xpM = craftXpPattern.matcher(body);
                             float xp = xpM.find() ? Float.parseFloat(xpM.group(1)) : 0.1f;
@@ -359,6 +396,8 @@ public class CustomBlockRegistry {
                         
                         if (recipeValid && json.length() > 0) {
                             CUSTOM_RECIPES_JSON.put(id, json.toString());
+                            SyncedRegistrySnapshot.putCraftSnippet(id,
+                                    "create craft " + id + " {\n" + body.trim() + "\n}");
                         }
                     }
 
@@ -366,9 +405,13 @@ public class CustomBlockRegistry {
                     while (createDropM.find()) {
                         String body = extractCreateBody(content, createDropM);
                         Matcher blockM = dropBlockPattern.matcher(body);
+                        Matcher mobM = dropMobPattern.matcher(body);
                         Matcher itemM = dropItemPattern.matcher(body);
-                        if (!blockM.find() || !itemM.find()) continue;
-                        String blockId = blockM.group(1);
+                        if (!itemM.find()) continue;
+                        boolean isMob = mobM.find();
+                        boolean isBlock = blockM.find();
+                        if (!isMob && !isBlock) continue;
+                        String targetId = isMob ? mobM.group(1) : blockM.group(1);
                         String itemId = itemM.group(1);
                         int min = 1, max = 1, chance = 100;
                         boolean replace = false;
@@ -382,9 +425,17 @@ public class CustomBlockRegistry {
                         replace = parseBoolField(body, "replace", false);
                         Matcher nbtM = dropNbtPattern.matcher(body);
                         if (nbtM.find()) nbt = nbtM.group(1);
-                        if (!blockId.contains(":")) blockId = Spraute_engine.MODID + ":" + blockId;
-                        CustomDropRegistry.addBlockDrop(blockId, itemId, min, max, chance, replace, nbt);
-                        LOGGER.info("[Spraute Engine] Found custom block drop: {} -> {}", blockId, itemId);
+                        int xp = 0;
+                        Matcher xpM = dropXpPattern.matcher(body);
+                        if (xpM.find()) xp = Integer.parseInt(xpM.group(1));
+                        if (!targetId.contains(":")) targetId = Spraute_engine.MODID + ":" + targetId;
+                        if (isMob) {
+                            CustomDropRegistry.addMobDrop(targetId, itemId, min, max, chance, replace, nbt, xp);
+                            LOGGER.info("[Spraute Engine] Found custom mob drop: {} -> {} (xp={})", targetId, itemId, xp);
+                        } else {
+                            CustomDropRegistry.addBlockDrop(targetId, itemId, min, max, chance, replace, nbt, xp);
+                            LOGGER.info("[Spraute Engine] Found custom block drop: {} -> {} (xp={})", targetId, itemId, xp);
+                        }
                     }
                     
                     Matcher m = blockPattern.matcher(content);
@@ -415,12 +466,27 @@ public class CustomBlockRegistry {
                         if (tEastM.find()) def.textureEast = tEastM.group(1);
 
                         def.hasCollision = parseBoolField(body, "collision", true);
+                        // solid = alias for collision (твёрдый блок / можно ли через него пройти)
+                        if (hasBoolField(body, "solid")) {
+                            def.hasCollision = parseBoolField(body, "solid", true);
+                        }
 
                         Matcher lightM = lightPattern.matcher(body);
                         if (lightM.find()) def.lightEmission = Integer.parseInt(lightM.group(1));
 
                         Matcher hardM = hardnessPattern.matcher(body);
                         if (hardM.find()) def.hardness = Float.parseFloat(hardM.group(1));
+
+                        Matcher reqToolM = requiredToolPattern.matcher(body);
+                        if (reqToolM.find()) def.requiredTool = normalizeBlockTool(reqToolM.group(1));
+                        Matcher reqLevelM = miningLevelPattern.matcher(body);
+                        if (reqLevelM.find()) def.requiredMiningLevel = Integer.parseInt(reqLevelM.group(1));
+                        if (hasBoolField(body, "requires_tool") || hasBoolField(body, "requiresCorrectTool")) {
+                            def.requiresCorrectTool = parseBoolField(body, "requires_tool",
+                                    parseBoolField(body, "requiresCorrectTool", true));
+                        } else {
+                            def.requiresCorrectTool = def.requiredTool != null && !def.requiredTool.isBlank();
+                        }
                         
                         def.directional = parseBoolField(body, "directional", true);
 
@@ -461,6 +527,9 @@ public class CustomBlockRegistry {
 
                         Matcher dropCountM = dropCountPattern.matcher(body);
                         if (dropCountM.find()) def.dropCount = Integer.parseInt(dropCountM.group(1));
+
+                        Matcher dropXpM = dropXpPattern.matcher(body);
+                        if (dropXpM.find()) def.dropXp = Integer.parseInt(dropXpM.group(1));
 
                         def.dropReplace = parseBoolField(body, "drop_replace", def.dropReplace);
 
@@ -532,6 +601,26 @@ public class CustomBlockRegistry {
                         def.shovel = parseBoolField(body, "shovel", false);
                         def.hoe = parseBoolField(body, "hoe", false);
 
+                        Matcher armorTypeM = armorTypePattern.matcher(body);
+                        if (armorTypeM.find()) def.armorType = armorTypeM.group(1);
+                        Matcher armorTexM = armorTexturePattern.matcher(body);
+                        if (armorTexM.find()) def.armorTexture = armorTexM.group(1);
+                        if (hasBoolField(body, "hide_armor")) {
+                            def.hideArmor = parseBoolField(body, "hide_armor", true);
+                        } else if (hasBoolField(body, "armor_model")) {
+                            def.hideArmor = !parseBoolField(body, "armor_model", true);
+                        }
+                        Matcher skinOvM = skinOverlayPattern.matcher(body);
+                        if (skinOvM.find()) def.skinOverlay = skinOvM.group(1);
+                        Matcher hideLayerM = skinHideLayerPattern.matcher(body);
+                        if (hideLayerM.find()) def.skinHideLayer = hideLayerM.group(1);
+                        Matcher armorDefM = armorDefensePattern.matcher(body);
+                        if (armorDefM.find()) def.armorDefense = Integer.parseInt(armorDefM.group(1));
+                        Matcher armorToughM = armorToughnessPattern.matcher(body);
+                        if (armorToughM.find()) def.armorToughness = Float.parseFloat(armorToughM.group(1));
+                        Matcher armorKbM = armorKnockbackPattern.matcher(body);
+                        if (armorKbM.find()) def.armorKnockback = Float.parseFloat(armorKbM.group(1));
+
                         Matcher damageM = damagePattern.matcher(body);
                         if (damageM.find()) def.damage = Float.parseFloat(damageM.group(1));
 
@@ -559,28 +648,72 @@ public class CustomBlockRegistry {
                         LOGGER.info("[Spraute Engine] Found custom item declaration: {}", def.id);
                     }
 
+                    parseCustomItemCreates(content, itemCreatingTypes);
+
                 } catch (IOException e) {
                     LOGGER.error("Failed to read script for parsing: {}", file, e);
                 }
             });
-        } catch (IOException e) {
-            LOGGER.error("Failed to walk scripts directory", e);
-        }
         org.zonarstudio.spraute_engine.item.GeoItemVisualRegistry.rebuild();
     }
 
+    private static final Set<String> RESERVED_CREATE = Set.of(
+            "item", "block", "tab", "craft", "drop", "npc", "ui", "particle",
+            "world", "camera", "light", "audio", "postprocess", "npc_prefab");
+
+    private static Set<String> collectItemCreatingTypes() {
+        Set<String> out = new HashSet<>();
+        org.zonarstudio.spraute_engine.resource.WorkspaceContent.allSprFiles().forEach(file -> {
+            try {
+                String content = Files.readString(file);
+                for (var type : CustomNodeSprParser.parse(content).types) {
+                    if (type == null || type.id == null || type.id.isBlank()) continue;
+                    if (!type.createsItem()) continue;
+                    if (RESERVED_CREATE.contains(type.id.toLowerCase())) continue;
+                    out.add(type.id);
+                }
+            } catch (Exception ignored) {}
+        });
+        return out;
+    }
+
+    private static void parseCustomItemCreates(String content, Set<String> typeIds) {
+        if (content == null || typeIds == null || typeIds.isEmpty()) return;
+        for (String typeId : typeIds) {
+            Pattern p = Pattern.compile("create\\s+" + Pattern.quote(typeId) + "\\s+([a-zA-Z0-9_]+)\\s*\\{");
+            Matcher m = p.matcher(content);
+            while (m.find()) {
+                if (isInLineComment(content, m.start())) continue;
+                CustomItemDef def = CustomNodeItemBridge.fromCreateBody(m.group(1), extractCreateBody(content, m));
+                if (def == null) continue;
+                ITEMS.put(def.id, def);
+                LOGGER.info("[Spraute Engine] Found custom item from create {}: {}", typeId, def.id);
+            }
+        }
+    }
+
+    private static boolean isInLineComment(String content, int index) {
+        int lineStart = content.lastIndexOf('\n', index - 1) + 1;
+        int hash = content.indexOf('#', lineStart);
+        return hash >= 0 && hash < index;
+    }
+
     private static ItemStack makeTabIcon(String iconStr) {
-        ResourceLocation rl = new ResourceLocation(iconStr.contains(":") ? iconStr : "minecraft:" + iconStr);
-        Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(rl);
-        return new ItemStack(item != null ? item : Items.STONE);
+        ItemStack stack = org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.createStack(iconStr, 1);
+        return stack.isEmpty() ? new ItemStack(Items.STONE) : stack;
     }
 
     private static ItemStack resolveTabItemStack(String spec) {
         if (spec == null || spec.isBlank()) return ItemStack.EMPTY;
-        String itemId = spec.trim();
-        if (!itemId.contains(":")) itemId = Spraute_engine.MODID + ":" + itemId;
-        Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(new ResourceLocation(itemId));
-        return item != null ? new ItemStack(item) : ItemStack.EMPTY;
+        ItemStack stack = org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.createStack(spec, 1);
+        if (!stack.isEmpty()) return stack;
+        var parsed = org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.parseSpec(spec);
+        if (!parsed.id().contains(":")) {
+            return org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.createStack(
+                    org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.formatSpec(
+                            Spraute_engine.MODID + ":" + parsed.id(), parsed.nbt()), 1);
+        }
+        return ItemStack.EMPTY;
     }
 
     private static Component creativeTabTitle(String tabId) {
@@ -679,8 +812,13 @@ public class CustomBlockRegistry {
                     .lightLevel(state -> def.lightEmission);
                 
                 if (!def.hasCollision) props.noCollission();
+                if (def.requiresCorrectTool) props.requiresCorrectToolForDrops();
                 
-                Block block = new CustomGeoBlock(props, def.model, def.texture, def.dropItem, def.dropCount, def.dropReplace, def.dropRules, def.directional, def.sizeW, def.sizeD, def.sizeH, def.hitbox);
+                Block block = new CustomGeoBlock(props, def.model, def.texture, def.dropItem, def.dropCount,
+                        def.dropReplace, def.dropRules, def.directional, def.sizeW, def.sizeD, def.sizeH,
+                        def.hitbox, def.hardness, def.hasCollision,
+                        def.requiredTool, def.requiredMiningLevel, def.requiresCorrectTool);
+                if (block instanceof CustomGeoBlock geo) geo.setDropXp(def.dropXp);
                 REGISTERED_BLOCKS.add(block);
                 event.register(
                         //? if >=1.20.1 {
@@ -846,104 +984,25 @@ public class CustomBlockRegistry {
 
     /** {@code any}/{@code shapeless} — порядок не важен; {@code slots}/{@code shaped} — схема в слотах. */
     private static String normalizeCraftType(String type) {
-        if (type == null) return "shaped";
-        return switch (type.toLowerCase()) {
-            case "any", "shapeless" -> "shapeless";
-            case "slots", "shaped", "grid" -> "shaped";
-            default -> type.toLowerCase();
-        };
+        return CraftJsonBuilder.normalizeType(type);
     }
 
     /** Builds shaped recipe JSON from {@code slot_1}…{@code slot_9} (3×3 grid, empty slots skipped). */
     private static void appendShapedCraftFromSlots(StringBuilder json, String body, String recipeId, String result, int count) {
-        String[] grid = new String[9];
-        Matcher slotM = Pattern.compile("slot_(\\d+)\\s*=\\s*\"([^\"]*)\"").matcher(body);
-        while (slotM.find()) {
-            int idx = Integer.parseInt(slotM.group(1));
-            if (idx >= 1 && idx <= 9) {
-                grid[idx - 1] = slotM.group(2).trim();
-            }
-        }
-
-        Map<String, Character> itemToLetter = new HashMap<>();
-        char next = 'A';
-        char[] letters = new char[9];
-        for (int i = 0; i < 9; i++) {
-            String item = grid[i];
-            if (item == null || item.isEmpty()) {
-                letters[i] = ' ';
-                continue;
-            }
-            if (!itemToLetter.containsKey(item)) {
-                if (next > 'Z') return;
-                itemToLetter.put(item, next++);
-            }
-            letters[i] = itemToLetter.get(item);
-        }
-
-        String[] rows = new String[3];
-        for (int r = 0; r < 3; r++) {
-            rows[r] = "" + letters[r * 3] + letters[r * 3 + 1] + letters[r * 3 + 2];
-        }
-
-        int startRow = 0, endRow = 2;
-        while (startRow <= endRow && rows[startRow].trim().isEmpty()) startRow++;
-        while (endRow >= startRow && rows[endRow].trim().isEmpty()) endRow--;
-        if (startRow > endRow) return;
-
-        int startCol = 0, endCol = 2;
-        outer:
-        while (startCol <= endCol) {
-            for (int r = startRow; r <= endRow; r++) {
-                if (rows[r].charAt(startCol) != ' ') break outer;
-            }
-            startCol++;
-        }
-        outer2:
-        while (endCol >= startCol) {
-            for (int r = startRow; r <= endRow; r++) {
-                if (rows[r].charAt(endCol) != ' ') break outer2;
-            }
-            endCol--;
-        }
-
-        json.append("{\"type\": \"minecraft:crafting_shaped\", \"pattern\": [");
-        for (int r = startRow; r <= endRow; r++) {
-            if (r > startRow) json.append(",");
-            json.append("\"").append(rows[r].substring(startCol, endCol + 1)).append("\"");
-        }
-        json.append("], \"key\": {");
-
-        Map<Character, String> letterToItem = new HashMap<>();
-        for (Map.Entry<String, Character> e : itemToLetter.entrySet()) {
-            letterToItem.put(e.getValue(), e.getKey());
-        }
-        boolean firstKey = true;
-        for (char c = 'A'; c < next; c++) {
-            String itemSpec = letterToItem.get(c);
-            if (itemSpec == null) continue;
-            if (!firstKey) json.append(",");
-            firstKey = false;
-            json.append("\"").append(c).append("\": ").append(ingredientToJson("\"" + itemSpec + "\"", recipeId, "slot_" + c));
-        }
-        json.append("}, \"result\": {\"item\": \"").append(result).append("\", \"count\": ").append(count).append("}}");
+        CraftJsonBuilder.appendShapedCraftFromSlots(json, body, recipeId, result, count);
     }
 
     private static String resolveItemId(String item) {
-        if (item == null || item.isEmpty()) return "minecraft:barrier";
-        if (!item.contains(":")) return Spraute_engine.MODID + ":" + item;
-        return item;
+        return CraftJsonBuilder.resolveItemId(item);
     }
 
     private static String resolveTagId(String tag) {
-        String t = tag.startsWith("#") ? tag.substring(1) : tag;
-        if (!t.contains(":")) return "minecraft:" + t;
-        return t;
+        return CraftJsonBuilder.resolveTagId(tag);
     }
 
     private static List<String> parseQuotedStrings(String listContent) {
         List<String> out = new ArrayList<>();
-        Matcher m = Pattern.compile("\"([^\"]+)\"").matcher(listContent);
+        java.util.regex.Matcher m = Pattern.compile("\"([^\"]+)\"").matcher(listContent);
         while (m.find()) out.add(m.group(1));
         return out;
     }
@@ -973,6 +1032,76 @@ public class CustomBlockRegistry {
         if (!m.find()) return defaultValue;
         String v = m.group(1) != null ? m.group(1) : m.group(2);
         return Boolean.parseBoolean(v);
+    }
+
+    private static boolean hasBoolField(String body, String field) {
+        Pattern p = Pattern.compile(Pattern.quote(field) + "\\s*=\\s*(?:\"(?:true|false)\"|(?:true|false))");
+        return p.matcher(body).find();
+    }
+
+    public static String normalizeBlockTool(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        return switch (raw.trim().toLowerCase(java.util.Locale.ROOT)) {
+            case "pickaxe", "кирка", "pick" -> "pickaxe";
+            case "axe", "топор" -> "axe";
+            case "shovel", "лопата" -> "shovel";
+            case "hoe", "мотыга" -> "hoe";
+            case "none", "any", "hand", "" -> null;
+            default -> raw.trim().toLowerCase(java.util.Locale.ROOT);
+        };
+    }
+
+    /** Resolve a custom Spraute block by id ({@code my_block} or {@code spraute_engine:my_block}). */
+    public static CustomGeoBlock resolveCustomGeoBlock(String blockId) {
+        if (blockId == null || blockId.isEmpty()) return null;
+        String id = blockId;
+        if (id.contains(":")) {
+            ResourceLocation rl = new ResourceLocation(id);
+            if (!Spraute_engine.MODID.equals(rl.getNamespace())) {
+                Block b = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getValue(rl);
+                return b instanceof CustomGeoBlock cgb ? cgb : null;
+            }
+            id = rl.getPath();
+        }
+        Block b = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getValue(
+                new ResourceLocation(Spraute_engine.MODID, id));
+        return b instanceof CustomGeoBlock cgb ? cgb : null;
+    }
+
+    private static String defKey(String blockId) {
+        if (blockId == null || blockId.isEmpty()) return null;
+        if (blockId.contains(":")) return new ResourceLocation(blockId).getPath();
+        return blockId;
+    }
+
+    public static boolean setBlockHardness(String blockId, float hardness) {
+        CustomGeoBlock block = resolveCustomGeoBlock(blockId);
+        if (block == null) return false;
+        block.setRuntimeHardness(hardness);
+        CustomBlockDef def = BLOCKS.get(defKey(blockId));
+        if (def != null) def.hardness = hardness;
+        org.zonarstudio.spraute_engine.network.SyncCustomBlockPropsPacket.broadcast(block);
+        return true;
+    }
+
+    public static Float getBlockHardness(String blockId) {
+        CustomGeoBlock block = resolveCustomGeoBlock(blockId);
+        return block != null ? block.getRuntimeHardness() : null;
+    }
+
+    public static boolean setBlockSolid(String blockId, boolean solid) {
+        CustomGeoBlock block = resolveCustomGeoBlock(blockId);
+        if (block == null) return false;
+        block.setRuntimeSolid(solid);
+        CustomBlockDef def = BLOCKS.get(defKey(blockId));
+        if (def != null) def.hasCollision = solid;
+        org.zonarstudio.spraute_engine.network.SyncCustomBlockPropsPacket.broadcast(block);
+        return true;
+    }
+
+    public static Boolean getBlockSolid(String blockId) {
+        CustomGeoBlock block = resolveCustomGeoBlock(blockId);
+        return block != null ? block.isRuntimeSolid() : null;
     }
 
     private static org.zonarstudio.spraute_engine.item.GeoItemTransform parseGeoItemTransform(String body, String field) {
@@ -1034,32 +1163,7 @@ public class CustomBlockRegistry {
      * Ingredient spec: {@code "item"}, {@code "#tag"}, or {@code ["item_a", "item_b"]} (any of).
      */
     private static String ingredientToJson(String spec, String recipeId, String slotKey) {
-        String raw = spec.trim();
-        if (raw.startsWith("\"") && raw.endsWith("\"")) {
-            raw = raw.substring(1, raw.length() - 1);
-        }
-        if (raw.startsWith("#")) {
-            return "{\"tag\": \"" + resolveTagId(raw) + "\"}";
-        }
-        if (raw.startsWith("[")) {
-            List<String> items = parseQuotedStrings(raw);
-            if (items.isEmpty()) return "{\"item\": \"minecraft:barrier\"}";
-            if (items.size() == 1) {
-                return "{\"item\": \"" + resolveItemId(items.get(0)) + "\"}";
-            }
-            String tagId = "craft_" + recipeId + "_" + slotKey;
-            StringBuilder tagJson = new StringBuilder("{\"replace\": false, \"values\": [");
-            boolean first = true;
-            for (String item : items) {
-                if (!first) tagJson.append(",");
-                first = false;
-                tagJson.append("\"").append(resolveItemId(item)).append("\"");
-            }
-            tagJson.append("]}");
-            CUSTOM_CRAFT_TAGS_JSON.put(tagId, tagJson.toString());
-            return "{\"tag\": \"spraute_engine:" + tagId + "\"}";
-        }
-        return "{\"item\": \"" + resolveItemId(raw) + "\"}";
+        return CraftJsonBuilder.ingredientToJson(spec, recipeId, slotKey);
     }
 }
 

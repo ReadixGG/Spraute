@@ -1,0 +1,26 @@
+#\ block: npc_group_move
+#\ category: НПС Группы
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "группа"
+#\ input: group (type: value)
+#\ row: [mode: dropdown(идти к: moveTo, всегда идти к: alwaysMoveTo, остановиться: stopMove)]
+#\ if mode == "moveTo":
+#\   row: "X" (x: number: 0) "Y" (y: number: 64) "Z" (z: number: 0)
+#\   row: "скорость" (speed: number: 1.0)
+#\ if mode == "alwaysMoveTo":
+#\   row: "цель" [target: dropdown(координаты: coords, игрок или НПС: entity)]
+#\   if target == "coords":
+#\     row: "X" (x: number: 0) "Y" (y: number: 64) "Z" (z: number: 0)
+#\   if target == "entity":
+#\     input: entity (type: value)
+#\   row: "скорость" (speed: number: 1.0)
+#\ if mode == "moveTo":
+#\   template: {group}.moveTo({x}, {y}, {z}, {speed})
+#\ if mode == "alwaysMoveTo" and target == "coords":
+#\   template: {group}.alwaysMoveTo({x}, {y}, {z}, {speed})
+#\ if mode == "alwaysMoveTo" and target == "entity":
+#\   template: {group}.alwaysMoveTo({entity}, {speed})
+#\ if mode == "stopMove":
+#\   template: {group}.stopMove()

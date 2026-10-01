@@ -37,7 +37,11 @@ public class LogFunction implements ScriptFunction {
         for (Object arg : args) {
             joiner.add(String.valueOf(arg));
         }
-        LOGGER.info("[Script] {}", joiner);
+        String msg = joiner.toString();
+        LOGGER.info("[Script] {}", msg);
+        String scriptName = context != null && context.getScriptName() != null
+                ? context.getScriptName() : "log";
+        org.zonarstudio.spraute_engine.script.ScriptConsole.script(scriptName, msg);
         return null;
     }
 }

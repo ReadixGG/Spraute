@@ -1,0 +1,8 @@
+#\ block: scene_node_child
+#\ category: Иерархия
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "дочерняя нода" (node: text: _node) (path: text: child_name)
+#\
+#\ code: return String(_getVal('node') || '_node') + '.child("' + String(_getVal('path') || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '")';

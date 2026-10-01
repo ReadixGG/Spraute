@@ -1,0 +1,7 @@
+#\ block: num_lit
+#\ category: Математика
+#\ color: #ef4444
+#\ shape: value
+#\
+#\ row: (n: number: 0)
+#\ code: var v = _getVal("n").trim(); return v === "" ? "0" : v;

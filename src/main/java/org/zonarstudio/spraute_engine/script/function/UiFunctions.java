@@ -6,7 +6,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
 import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.registries.ForgeRegistries;
 import org.zonarstudio.spraute_engine.network.ModNetwork;
@@ -58,17 +57,7 @@ public final class UiFunctions {
     }
 
     static Item parseItem(String itemId) {
-        if (itemId == null || itemId.isEmpty()) return net.minecraft.world.item.Items.AIR;
-        ResourceLocation rl = itemId.contains(":")
-                ? new ResourceLocation(itemId)
-                : new ResourceLocation("minecraft", itemId);
-        Item item = ForgeRegistries.ITEMS.getValue(rl);
-        if (item == null || item == net.minecraft.world.item.Items.AIR) {
-            Block block = ForgeRegistries.BLOCKS.getValue(rl);
-            if (block != null && block != net.minecraft.world.level.block.Blocks.AIR) {
-                item = block.asItem();
-            }
-        }
+        Item item = ItemStackScriptUtil.resolveItem(itemId);
         return item != null ? item : net.minecraft.world.item.Items.AIR;
     }
 
@@ -178,12 +167,73 @@ public final class UiFunctions {
             if (idx < 0) return false;
             ItemStack stack = menu.getCustomContainer().getItem(idx);
             if (stack.isEmpty()) return false;
-            String want = String.valueOf(args.get(2)).trim();
-            if (want.isEmpty()) return false;
-            String have = itemIdOf(stack);
-            return have.equalsIgnoreCase(want)
-                    || have.equalsIgnoreCase(want.contains(":") ? want : "minecraft:" + want);
+            return ItemStackScriptUtil.matches(stack, String.valueOf(args.get(2)));
         }
+    }
+
+    /** True if the stack in the slot is a custom (script-defined) item of this mod. */
+    public static class UiSlotIsCustom implements ScriptFunction {
+        @Override public String getName() { return "uiSlotIsCustom"; }
+        @Override public int getArgCount() { return 2; }
+        @Override public Class<?>[] getArgTypes() { return new Class[]{Object.class, Object.class}; }
+
+        @Override
+        public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
+            if (args.size() < 2) return false;
+            Player player = resolvePlayer(args.get(0), source);
+            SprauteContainerMenu menu = containerOf(player);
+            int idx = resolveSlotIndex(menu, args.get(1));
+            if (idx < 0) return false;
+            return customIdOf(menu.getCustomContainer().getItem(idx)) != null;
+        }
+    }
+
+    /** Custom item id (without namespace) of the stack in the slot, "" if empty or not custom. */
+    public static class UiSlotCustomId implements ScriptFunction {
+        @Override public String getName() { return "uiSlotCustomId"; }
+        @Override public int getArgCount() { return 2; }
+        @Override public Class<?>[] getArgTypes() { return new Class[]{Object.class, Object.class}; }
+
+        @Override
+        public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
+            if (args.size() < 2) return "";
+            Player player = resolvePlayer(args.get(0), source);
+            SprauteContainerMenu menu = containerOf(player);
+            int idx = resolveSlotIndex(menu, args.get(1));
+            if (idx < 0) return "";
+            String id = customIdOf(menu.getCustomContainer().getItem(idx));
+            return id != null ? id : "";
+        }
+    }
+
+    /** True if the slot holds the given custom item (id with or without the mod namespace). */
+    public static class UiSlotHasCustom implements ScriptFunction {
+        @Override public String getName() { return "uiSlotHasCustom"; }
+        @Override public int getArgCount() { return 3; }
+        @Override public Class<?>[] getArgTypes() { return new Class[]{Object.class, Object.class, Object.class}; }
+
+        @Override
+        public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
+            if (args.size() < 3) return false;
+            Player player = resolvePlayer(args.get(0), source);
+            SprauteContainerMenu menu = containerOf(player);
+            int idx = resolveSlotIndex(menu, args.get(1));
+            if (idx < 0) return false;
+            String have = customIdOf(menu.getCustomContainer().getItem(idx));
+            if (have == null) return false;
+            String want = String.valueOf(args.get(2)).trim();
+            int sep = want.indexOf(':');
+            if (sep >= 0) want = want.substring(sep + 1);
+            return have.equalsIgnoreCase(want);
+        }
+    }
+
+    /** Custom item id without namespace, or null when the stack is not one of the mod's custom items. */
+    static String customIdOf(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return null;
+        ResourceLocation key = ForgeRegistries.ITEMS.getKey(stack.getItem());
+        if (key == null || !org.zonarstudio.spraute_engine.Spraute_engine.MODID.equals(key.getNamespace())) return null;
+        return key.getPath();
     }
 
     public static class UiSetSlot implements ScriptFunction {
@@ -204,7 +254,8 @@ public final class UiFunctions {
             if (item == net.minecraft.world.item.Items.AIR) {
                 menu.getCustomContainer().setItem(idx, ItemStack.EMPTY);
             } else {
-                menu.getCustomContainer().setItem(idx, new ItemStack(item, count));
+                ItemStack stack = ItemStackScriptUtil.createStack(String.valueOf(args.get(2)), count);
+                menu.getCustomContainer().setItem(idx, stack.isEmpty() ? new ItemStack(item, count) : stack);
             }
             menu.getCustomContainer().setChanged();
             return null;
@@ -234,26 +285,26 @@ public final class UiFunctions {
     public static class UiGetInput implements ScriptFunction {
         @Override public String getName() { return "uiGetInput"; }
         @Override public int getArgCount() { return 2; }
-        @Override public Class<?>[] getArgTypes() { return new Class[]{Object.class, String.class}; }
+        @Override public Class<?>[] getArgTypes() { return new Class[]{Object.class, Object.class}; }
 
         @Override
         public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
             if (args.size() < 2) return "";
             Player player = resolvePlayer(args.get(0), source);
             if (player == null) return "";
-            return UiTracker.getInput(player.getUUID(), String.valueOf(args.get(1)));
+            return UiTracker.getInput(player.getUUID(), UiUpdateFunction.widgetIdOf(args.get(1)));
         }
     }
 
     public static class UiSetInput implements ScriptFunction {
         @Override public String getName() { return "uiSetInput"; }
         @Override public int getArgCount() { return 3; }
-        @Override public Class<?>[] getArgTypes() { return new Class[]{Object.class, String.class, String.class}; }
+        @Override public Class<?>[] getArgTypes() { return new Class[]{Object.class, Object.class, String.class}; }
 
         @Override
         public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
             if (args.size() < 3 || !(resolvePlayer(args.get(0), source) instanceof ServerPlayer sp)) return null;
-            String widgetId = String.valueOf(args.get(1));
+            String widgetId = UiUpdateFunction.widgetIdOf(args.get(1));
             String text = String.valueOf(args.get(2));
             if (widgetId.isEmpty()) return null;
             UiTracker.setInput(sp.getUUID(), widgetId, text);
@@ -268,26 +319,26 @@ public final class UiFunctions {
     public static class UiScrollGet implements ScriptFunction {
         @Override public String getName() { return "uiScrollGet"; }
         @Override public int getArgCount() { return 2; }
-        @Override public Class<?>[] getArgTypes() { return new Class[]{Object.class, String.class}; }
+        @Override public Class<?>[] getArgTypes() { return new Class[]{Object.class, Object.class}; }
 
         @Override
         public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
             if (args.size() < 2) return 0;
             Player player = resolvePlayer(args.get(0), source);
             if (player == null) return 0;
-            return (double) UiTracker.getScroll(player.getUUID(), String.valueOf(args.get(1)));
+            return (double) UiTracker.getScroll(player.getUUID(), UiUpdateFunction.widgetIdOf(args.get(1)));
         }
     }
 
     public static class UiScrollSet implements ScriptFunction {
         @Override public String getName() { return "uiScrollSet"; }
         @Override public int getArgCount() { return 3; }
-        @Override public Class<?>[] getArgTypes() { return new Class[]{Object.class, String.class, Number.class}; }
+        @Override public Class<?>[] getArgTypes() { return new Class[]{Object.class, Object.class, Number.class}; }
 
         @Override
         public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
             if (args.size() < 3 || !(resolvePlayer(args.get(0), source) instanceof ServerPlayer sp)) return null;
-            String widgetId = String.valueOf(args.get(1));
+            String widgetId = UiUpdateFunction.widgetIdOf(args.get(1));
             float offset = ((Number) args.get(2)).floatValue();
             if (widgetId.isEmpty()) return null;
             UiTracker.setScroll(sp.getUUID(), widgetId, offset);

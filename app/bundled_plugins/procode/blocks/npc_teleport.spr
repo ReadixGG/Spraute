@@ -1,0 +1,7 @@
+#\ block: npc_teleport
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "телепорт НИП" [npc: dropdown_npc] "в" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ template: {npc}.teleport({x}, {y}, {z})

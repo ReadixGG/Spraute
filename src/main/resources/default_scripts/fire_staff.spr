@@ -1,0 +1,181 @@
+# Огненная магическая палочка
+# Текстура: spraute_engine/textures/item/fire_staff.png
+# Запуск: autorun при старте мира (или startScript("fire_staff"))
+
+autorun
+
+val FS_ITEM = "fire_staff"
+val FS_PROJECTILE = "fire_bolt"
+val FS_COOLDOWN = 3
+val FS_DATA_CD = "fire_staff_cd"
+val FS_BAR_X = "44%"
+val FS_BAR_Y = "54%"
+val FS_BAR_W = "12%"
+val FS_BAR_H = "1.0%"
+val FS_CD_TICKS = 60
+
+# ──── Ресурсы ────
+
+create item fire_staff {
+    name = "§6Огненная палочка"
+    texture = "textures/item/fire_staff.png"
+    maxStackSize = 1
+}
+
+create projectile fire_bolt {
+    alpha = 0
+    width = 0.01
+    height = 0.01
+    gravity = 0
+    drag = 1.0
+    damage = 0
+    collide_blocks = true
+    collide_entities = true
+    lifetime = 200
+}
+
+# Железо — левый нижний угол, палка — центр, огненный шар — правый верхний
+create craft fire_staff_recipe {
+    type = "slots"
+    pattern_1 = "  F"
+    pattern_2 = " S "
+    pattern_3 = "I  "
+    key_I = "minecraft:iron_ingot"
+    key_S = "minecraft:stick"
+    key_F = "minecraft:fire_charge"
+    result = "spraute_engine:fire_staff"
+    count = 1
+}
+
+# ──── HUD перезарядки (чуть ниже центра, проценты) ────
+
+create ui fire_staff_hud {
+    id = "fire_staff_hud"
+    size = ["100%", "100%"]
+    background = "#00000000"
+    can_close = false
+
+    rect("fs_cd_bg") {
+        pos = [FS_BAR_X, FS_BAR_Y]
+        size = ["0%", FS_BAR_H]
+        color = "#66442200"
+        layer = 0
+    }
+    rect("fs_cd_fill") {
+        pos = [FS_BAR_X, FS_BAR_Y]
+        size = ["0%", FS_BAR_H]
+        color = "#CCFF6622"
+        layer = 1
+    }
+    text("fs_cd_text", "") {
+        pos = ["50%", "51%"]
+        anchor = ["0.5", "0.5"]
+        color = "#FFAA44"
+        scale = 1.0
+        layer = 2
+    }
+}
+
+# ──── Функции ────
+
+fun fsInit(p) {
+    if (p == null) { return }
+    val d = p.savedData
+    if (d == null) { return }
+    if (d[FS_DATA_CD] == null) {
+        d[FS_DATA_CD] = false
+    }
+}
+
+fun fsIsOnCooldown(p) {
+    fsInit(p)
+    if (p.savedData[FS_DATA_CD] == true) { return true }
+    return false
+}
+
+fun fsSetCooldown(p, value) {
+    fsInit(p)
+    p.savedData[FS_DATA_CD] = value
+}
+
+fun fsShowCdHud(p, show) {
+    if (p == null) { return }
+    if (show) {
+        uiUpdate(p, "fs_cd_bg", "w", FS_BAR_W)
+        uiUpdate(p, "fs_cd_fill", "w", FS_BAR_W)
+    } else {
+        uiUpdate(p, "fs_cd_bg", "w", "0%")
+        uiUpdate(p, "fs_cd_fill", "w", "0%")
+        uiUpdate(p, "fs_cd_text", "text", "")
+    }
+}
+
+fun fsRunCooldown(p) {
+    if (p == null) { return }
+    overlayOpen(p, fire_staff_hud)
+    fsSetCooldown(p, true)
+    fsShowCdHud(p, true)
+    var i = FS_CD_TICKS
+    while (i >= 0) {
+        var fillW = i * 12 // FS_CD_TICKS
+        uiUpdate(p, "fs_cd_fill", "w", fillW + "%")
+        var sec = (i * FS_COOLDOWN + FS_CD_TICKS - 1) // FS_CD_TICKS
+        if (sec > 0) {
+            uiUpdate(p, "fs_cd_text", "text", "§6" + intStr(sec))
+        } else {
+            uiUpdate(p, "fs_cd_text", "text", "")
+        }
+        await time(FS_COOLDOWN * 1.0 / FS_CD_TICKS)
+        i = i - 1
+    }
+    fsShowCdHud(p, false)
+    fsSetCooldown(p, false)
+}
+
+fun fsTrail(bolt) {
+    while (true) {
+        val pos = getProjectilePos(bolt)
+        if (pos == null) { return }
+        val x = listGet(pos, 0)
+        val y = listGet(pos, 1)
+        val z = listGet(pos, 2)
+        particleSpawn("flame", x, y, z, 4, 0.04, 0.04, 0.04, 0.02)
+        particleSpawn("smoke", x, y, z, 1, 0.02, 0.02, 0.02, 0.01)
+        particleSpawn("lava", x, y, z, 1, 0.01, 0.01, 0.01, 0.0)
+        await time(0.05)
+    }
+}
+
+# ──── События ────
+
+on join() -> fs_join {
+    overlayOpen(_eventPlayer, fire_staff_hud)
+}
+
+on action("use", "fire_staff") -> fs_shoot {
+    val p = _eventPlayer
+    if (p == null) { return }
+    if (fsIsOnCooldown(p)) {
+        playSound(p, "minecraft:block.note_block.bass", 0.7, 0.5)
+        return
+    }
+
+    val bolt = shootProjectile(FS_PROJECTILE, p, 2.2)
+    playSound(p, "minecraft:item.firecharge.use", 0.9, 1.1)
+
+    async {
+        fsTrail(bolt)
+    }
+
+    async {
+        fsRunCooldown(p)
+    }
+}
+
+on projectileHit("fire_bolt") -> fs_explode {
+    createExplosion(_eventHitX, _eventHitY, _eventHitZ, 2, 3, true)
+    particleSpawn("flame", _eventHitX, _eventHitY, _eventHitZ, 25, 0.35, 0.35, 0.35, 0.12)
+    particleSpawn("lava", _eventHitX, _eventHitY, _eventHitZ, 8, 0.2, 0.2, 0.2, 0.05)
+    particleSpawn("smoke", _eventHitX, _eventHitY, _eventHitZ, 12, 0.25, 0.25, 0.25, 0.08)
+    playSound(_eventOwner, "minecraft:entity.generic.explode", 0.85, 1.0)
+}

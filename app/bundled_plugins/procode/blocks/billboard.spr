@@ -4,7 +4,7 @@
 #\ shape: statement
 #\
 #\ row: "билборд" (id: text: my_billboard)
-#\ row: "текстура" (texture: text: spraute_engine:textures/item/camera.png)
+#\ row: "текстура" (texture: texture: spraute_engine:textures/item/camera.png)
 #\ row: "x" (x: number: 0) "y" (y: number: 64) "z" (z: number: 0)
 #\ row: "ширина" (w: number: 2) "высота" (h: number: 2)
 #\ row: "сквозь блоки" [seeThrough: dropdown(да: true, нет: false)]
@@ -19,7 +19,7 @@
 #\ row: "билборд" (id: text: my_billboard)
 #\ row: "действие" [action: dropdown(удалить: remove, сменить текстуру: texture, телепорт: teleport, размер: size, сквозь блоки: seethrough)]
 #\ if action == "texture":
-#\   row: "текстура" (texture: text: spraute_engine:textures/item/camera.png)
+#\   row: "текстура" (texture: texture: spraute_engine:textures/item/camera.png)
 #\ if action == "teleport":
 #\   row: "x" (x: number: 0) "y" (y: number: 64) "z" (z: number: 0)
 #\ if action == "size":

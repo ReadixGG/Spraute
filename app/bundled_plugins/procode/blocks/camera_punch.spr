@@ -1,0 +1,8 @@
+#\ block: camera_punch
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "удар камеры" input: player (type: value)
+#\ row: "yaw" (yaw: number: 2) "pitch" (pitch: number: -4) "roll" (roll: number: 0)
+#\ template: punchCamera({player}, {yaw}, {pitch}, {roll})

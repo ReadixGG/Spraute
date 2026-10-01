@@ -1,0 +1,10 @@
+#\ block: ui_update
+#\ category: Интерфейс
+#\ color: #14b8a6
+#\ shape: statement
+#\
+#\ row: "обновить UI игрока"
+#\ input: player (type: value)
+#\ row: "виджет" (widget: text: my_btn) "поле" (field: text: label) "="
+#\ input: value (type: value)
+#\ template: uiUpdate({player}, "{widget}", "{field}", {value})

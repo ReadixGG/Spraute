@@ -1,0 +1,9 @@
+#\ block: for_count
+#\ category: Циклы
+#\ color: #06b6d4
+#\ shape: wrapper
+#\
+#\ row: "повторить"
+#\ input: times (type: value)
+#\ row: "раз (счётчик" (var: text: i) ")"
+#\ template: for ({var} in range({times})) {\n{DO}}

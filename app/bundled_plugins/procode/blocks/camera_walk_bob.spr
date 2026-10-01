@@ -1,0 +1,9 @@
+#\ block: camera_walk_bob
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "ход головы при ходьбе" input: player (type: value)
+#\ row: [enabled: dropdown(да: true, нет: false)]
+#\ row: "сила" (amount: number: 1)
+#\ template: {player}.camera.walkBob = {enabled}\n{player}.camera.walkBobAmount = {amount}

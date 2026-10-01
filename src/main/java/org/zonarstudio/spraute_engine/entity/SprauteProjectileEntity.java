@@ -37,6 +37,7 @@ public class SprauteProjectileEntity extends Entity {
     private static final EntityDataAccessor<Boolean> DATA_SEE_THROUGH = SynchedEntityData.defineId(SprauteProjectileEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_GLOW = SynchedEntityData.defineId(SprauteProjectileEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_BILLBOARD = SynchedEntityData.defineId(SprauteProjectileEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_CROSS = SynchedEntityData.defineId(SprauteProjectileEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Float> DATA_VISUAL_ROTATION = SynchedEntityData.defineId(SprauteProjectileEntity.class, EntityDataSerializers.FLOAT);
 
     public int age;
@@ -74,6 +75,7 @@ public class SprauteProjectileEntity extends Entity {
         setSeeThrough(def.seeThrough);
         setGlow(def.glow);
         setBillboard(def.billboard);
+        setCross(def.cross);
         gravity = def.gravity;
         drag = def.drag;
         lifetime = def.lifetime;
@@ -95,6 +97,7 @@ public class SprauteProjectileEntity extends Entity {
         entityData.define(DATA_SEE_THROUGH, false);
         entityData.define(DATA_GLOW, false);
         entityData.define(DATA_BILLBOARD, true);
+        entityData.define(DATA_CROSS, false);
         entityData.define(DATA_VISUAL_ROTATION, 0f);
     }
 
@@ -127,6 +130,9 @@ public class SprauteProjectileEntity extends Entity {
 
     public boolean isBillboard() { return entityData.get(DATA_BILLBOARD); }
     public void setBillboard(boolean v) { entityData.set(DATA_BILLBOARD, v); }
+
+    public boolean isCross() { return entityData.get(DATA_CROSS); }
+    public void setCross(boolean v) { entityData.set(DATA_CROSS, v); }
 
     public float getVisualRotation() { return entityData.get(DATA_VISUAL_ROTATION); }
 

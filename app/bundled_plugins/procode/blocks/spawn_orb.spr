@@ -1,0 +1,12 @@
+#\ block: spawn_orb
+#\ category: Мир
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "заспавнить орб" (texture: texture: minecraft:textures/item/diamond.png) "x" (amount: number: 1)
+#\ row: "в" (x: number: 0) (y: number: 64) (z: number: 0)
+#\ row: "мир" [dim: dropdown(текущий: current, обычный: overworld, ад: nether, край: the_end)]
+#\ if dim == "current":
+#\   template: spawnOrb("{texture}", {amount}, {x}, {y}, {z})
+#\ if dim != "current":
+#\   template: spawnOrb("{texture}", {amount}, {x}, {y}, {z}, "{dim}")

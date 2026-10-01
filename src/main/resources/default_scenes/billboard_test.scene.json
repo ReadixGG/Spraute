@@ -1,0 +1,24 @@
+﻿{
+  "format": 2,
+  "id": "billboard_test",
+  "dimension": "minecraft:overworld",
+  "root": {
+    "id": "d5a9f781-da25-4c1c-90bd-a1062ad85b42",
+    "type": "SCENE",
+    "name": "billboard_test",
+    "transform": { "px": 0.0, "py": 0.0, "pz": 0.0, "rx": 0.0, "ry": 0.0, "rz": 0.0, "sx": 1.0, "sy": 1.0, "sz": 1.0 },
+    "children": [
+      {
+        "id": "ff90babd-dc30-4a66-8ce5-6c67b19db74a",
+        "type": "SCRIPT",
+        "name": "main",
+        "transform": { "px": 0.0, "py": 0.0, "pz": 0.0, "rx": 0.0, "ry": 0.0, "rz": 0.0, "sx": 1.0, "sy": 1.0, "sz": 1.0 },
+        "children": [],
+        "script": "billboard_test",
+        "runOnSceneStart": true,
+        "tags": []
+      }
+    ],
+    "tags": []
+  }
+}

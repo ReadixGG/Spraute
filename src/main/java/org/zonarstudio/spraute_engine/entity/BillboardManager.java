@@ -21,6 +21,15 @@ public final class BillboardManager {
         return BILLBOARDS.get(id.toLowerCase());
     }
 
+    /** Tracking id used by {@code create billboard} / scene spawn, or null. */
+    public static String findId(UUID uuid) {
+        if (uuid == null) return null;
+        for (var e : BILLBOARDS.entrySet()) {
+            if (uuid.equals(e.getValue())) return e.getKey();
+        }
+        return null;
+    }
+
     public static net.minecraft.world.entity.Entity getEntity(String id, net.minecraft.world.level.Level level) {
         UUID uuid = get(id);
         if (uuid == null || !(level instanceof net.minecraft.server.level.ServerLevel serverLevel)) return null;

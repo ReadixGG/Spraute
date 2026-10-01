@@ -1,0 +1,30 @@
+#\ block: economy_define_trade
+#\ category: Экономика
+#\ color: #eab308
+#\ shape: statement
+#\
+#\ row: "создать трейд ID" (tradeId: text: shop) "название" (title: text: Лавка)
+#\ row: "товар 1"
+#\ input: item1 (type: value)
+#\ if_filled item1:
+#\   row: "товар 2"
+#\   input: item2 (type: value)
+#\ if_filled item2:
+#\   row: "товар 3"
+#\   input: item3 (type: value)
+#\ if_filled item3:
+#\   row: "товар 4"
+#\   input: item4 (type: value)
+#\ if_filled item4:
+#\   row: "товар 5"
+#\   input: item5 (type: value)
+#\ if_filled item5:
+#\   row: "товар 6"
+#\   input: item6 (type: value)
+#\ if_filled item6:
+#\   row: "товар 7"
+#\   input: item7 (type: value)
+#\ if_filled item7:
+#\   row: "товар 8"
+#\   input: item8 (type: value)
+#\ code: return (function(){ var id=String(_getVal("tradeId")||"shop").trim(); var title=String(_getVal("title")||"Торговля").replace(/\\/g,"\\\\").replace(/"/g,'\\"'); var p=[], vs=["item1","item2","item3","item4","item5","item6","item7","item8"]; for(var i=0;i<8;i++){ var v=_getVal(vs[i]).trim(); if(v) p.push(v); } if(p.length===0) p.push('dict("id","minecraft:bread","name","Хлеб","buy",3,"sell",1)'); return "val "+id+"_ITEMS = list("+p.join(", ")+")\nval "+id+"_TITLE = \""+title+"\"\n"; })();

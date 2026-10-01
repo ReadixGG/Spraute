@@ -1,0 +1,7 @@
+#\ block: stop_handler
+#\ category: События
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "остановить обработчик" (handler: text: h_interact)
+#\ template: stop({handler})

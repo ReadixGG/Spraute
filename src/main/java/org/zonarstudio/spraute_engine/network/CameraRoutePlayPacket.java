@@ -18,6 +18,7 @@ public class CameraRoutePlayPacket {
     public final float returnSmoothTime;
     public final boolean lockMovement;
     public final byte hideGui;
+    public final boolean lockBlocks;
     public final boolean overrideLook;
     public final double lookAtX, lookAtY, lookAtZ;
     public final byte endMode;
@@ -29,7 +30,7 @@ public class CameraRoutePlayPacket {
     public final float transitionSec;
 
     public CameraRoutePlayPacket(float totalDuration, float returnSmoothTime,
-                                 boolean lockMovement, byte hideGui,
+                                 boolean lockMovement, byte hideGui, boolean lockBlocks,
                                  boolean overrideLook, double lookAtX, double lookAtY, double lookAtZ,
                                  byte endMode,
                                  double[] xs, double[] ys, double[] zs,
@@ -40,6 +41,7 @@ public class CameraRoutePlayPacket {
         this.returnSmoothTime = returnSmoothTime;
         this.lockMovement = lockMovement;
         this.hideGui = hideGui;
+        this.lockBlocks = lockBlocks;
         this.overrideLook = overrideLook;
         this.lookAtX = lookAtX;
         this.lookAtY = lookAtY;
@@ -54,35 +56,47 @@ public class CameraRoutePlayPacket {
         this.transitionSec = Math.max(0f, transitionSec);
     }
 
+    /** Backward-compat ctor without lockBlocks. */
+    public CameraRoutePlayPacket(float totalDuration, float returnSmoothTime,
+                                 boolean lockMovement, byte hideGui,
+                                 boolean overrideLook, double lookAtX, double lookAtY, double lookAtZ,
+                                 byte endMode,
+                                 double[] xs, double[] ys, double[] zs,
+                                 float[] yaws, float[] pitches,
+                                 float[] timeline,
+                                 float transitionSec) {
+        this(totalDuration, returnSmoothTime, lockMovement, hideGui,
+                org.zonarstudio.spraute_engine.script.CameraControls.DEFAULT_LOCK_BLOCKS,
+                overrideLook, lookAtX, lookAtY, lookAtZ, endMode, xs, ys, zs, yaws, pitches, timeline, transitionSec);
+    }
+
     public static CameraRoutePlayPacket from(List<CameraRoutePath.Sample> samples,
                                              float totalDuration, float returnSmoothTime,
                                              boolean lockMovement, byte hideGui,
                                              CameraRouteScriptUtil.LookAtOverride lookAt,
                                              CameraRouteEndMode endMode,
                                              float[] timeline) {
-        int n = samples.size();
-        double[] xs = new double[n];
-        double[] ys = new double[n];
-        double[] zs = new double[n];
-        float[] yaws = new float[n];
-        float[] pitches = new float[n];
-        for (int i = 0; i < n; i++) {
-            CameraRoutePath.Sample s = samples.get(i);
-            xs[i] = s.x(); ys[i] = s.y(); zs[i] = s.z();
-            yaws[i] = s.yaw(); pitches[i] = s.pitch();
-        }
-        boolean override = lookAt != null;
-        CameraRouteEndMode mode = endMode != null ? endMode : CameraRouteEndMode.RETURN_TO_PLAYER;
-        return new CameraRoutePlayPacket(totalDuration, returnSmoothTime, lockMovement, hideGui,
-                override, override ? lookAt.x() : 0, override ? lookAt.y() : 0, override ? lookAt.z() : 0,
-                (byte) mode.ordinal(), xs, ys, zs, yaws, pitches,
-                timeline != null ? timeline : new float[0], 0f);
+        return from(samples, totalDuration, returnSmoothTime, lockMovement, hideGui,
+                org.zonarstudio.spraute_engine.script.CameraControls.DEFAULT_LOCK_BLOCKS,
+                lookAt, endMode, timeline, 0f);
     }
 
     /** Factory with transition (smooth cross-fade from active camera to route start). */
     public static CameraRoutePlayPacket from(List<CameraRoutePath.Sample> samples,
                                              float totalDuration, float returnSmoothTime,
                                              boolean lockMovement, byte hideGui,
+                                             CameraRouteScriptUtil.LookAtOverride lookAt,
+                                             CameraRouteEndMode endMode,
+                                             float[] timeline,
+                                             float transitionSec) {
+        return from(samples, totalDuration, returnSmoothTime, lockMovement, hideGui,
+                org.zonarstudio.spraute_engine.script.CameraControls.DEFAULT_LOCK_BLOCKS,
+                lookAt, endMode, timeline, transitionSec);
+    }
+
+    public static CameraRoutePlayPacket from(List<CameraRoutePath.Sample> samples,
+                                             float totalDuration, float returnSmoothTime,
+                                             boolean lockMovement, byte hideGui, boolean lockBlocks,
                                              CameraRouteScriptUtil.LookAtOverride lookAt,
                                              CameraRouteEndMode endMode,
                                              float[] timeline,
@@ -97,7 +111,7 @@ public class CameraRoutePlayPacket {
         }
         boolean override = lookAt != null;
         CameraRouteEndMode mode = endMode != null ? endMode : CameraRouteEndMode.RETURN_TO_PLAYER;
-        return new CameraRoutePlayPacket(totalDuration, returnSmoothTime, lockMovement, hideGui,
+        return new CameraRoutePlayPacket(totalDuration, returnSmoothTime, lockMovement, hideGui, lockBlocks,
                 override, override ? lookAt.x() : 0, override ? lookAt.y() : 0, override ? lookAt.z() : 0,
                 (byte) mode.ordinal(), xs, ys, zs, yaws, pitches,
                 timeline != null ? timeline : new float[0], transitionSec);
@@ -151,6 +165,7 @@ public class CameraRoutePlayPacket {
             for (float t : msg.timeline) buf.writeFloat(t);
         }
         buf.writeFloat(msg.transitionSec);
+        buf.writeBoolean(msg.lockBlocks);
     }
 
     public static CameraRoutePlayPacket decode(FriendlyByteBuf buf) {
@@ -182,7 +197,10 @@ public class CameraRoutePlayPacket {
             }
         }
         float transitionSec = buf.isReadable() ? buf.readFloat() : 0f;
-        return new CameraRoutePlayPacket(totalDuration, returnSmoothTime, lockMovement, hideGui,
+        boolean lockBlocks = buf.isReadable()
+                ? buf.readBoolean()
+                : org.zonarstudio.spraute_engine.script.CameraControls.DEFAULT_LOCK_BLOCKS;
+        return new CameraRoutePlayPacket(totalDuration, returnSmoothTime, lockMovement, hideGui, lockBlocks,
                 overrideLook, lookAtX, lookAtY, lookAtZ, endMode, xs, ys, zs, yaws, pitches, timeline, transitionSec);
     }
 
@@ -198,7 +216,7 @@ public class CameraRoutePlayPacket {
                         org.zonarstudio.spraute_engine.client.cameraroute.CameraRoutePlayback.start(
                                 msg.toSamples(), msg.getTimeline(),
                                 msg.totalDuration, msg.returnSmoothTime,
-                                msg.lockMovement, msg.hideGui,
+                                msg.lockMovement, msg.hideGui, msg.lockBlocks,
                                 msg.overrideLook, msg.lookAtX, msg.lookAtY, msg.lookAtZ,
                                 decodeEndMode(msg.endMode), msg.transitionSec)));
         ctx.get().setPacketHandled(true);

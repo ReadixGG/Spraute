@@ -1,0 +1,7 @@
+#\ block: npc_ref
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: value
+#\
+#\ row: "НИП" [npc: dropdown_npc]
+#\ code: return _getVal("npc");

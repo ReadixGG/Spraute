@@ -1,0 +1,8 @@
+#\ block: var_set
+#\ category: Переменные
+#\ color: #f59e0b
+#\ shape: statement
+#\
+#\ row: "присвоить" (name: text: x) "="
+#\ input: value (type: value)
+#\ template: {name} = {value}

@@ -47,6 +47,25 @@ public final class SprauteDeathCompat {
         return killer;
     }
 
+    /** {@code /kill} and similar sources that should ignore scripted god-mode. */
+    public static boolean bypassesInvulnerability(DamageSource source) {
+        if (source == null) return false;
+        //? if >=1.20.1 {
+        return source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY);
+        //?} else {
+        /*return source.isBypassInvul();
+        *///?}
+    }
+
+    public static boolean isStarve(DamageSource source) {
+        if (source == null) return false;
+        //? if >=1.20.1 {
+        return source.is(net.minecraft.world.damagesource.DamageTypes.STARVE);
+        //?} else {
+        /*return "starve".equals(source.getMsgId());
+        *///?}
+    }
+
     private static Entity ownerIfProjectile(Entity entity) {
         if (entity instanceof Projectile projectile) {
             Entity owner = projectile.getOwner();

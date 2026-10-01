@@ -1,10 +1,8 @@
 package org.zonarstudio.spraute_engine.script;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.EnumSet;
 import java.util.Map;
@@ -50,9 +48,11 @@ public final class ItemUsageRestrictions {
 
     public static String normalizeItemId(String itemId) {
         if (itemId == null || itemId.isBlank()) return "";
-        String s = itemId.trim();
-        if (!s.contains(":")) s = "minecraft:" + s;
-        return s;
+        ItemStackScriptUtil.ItemSpec spec = ItemStackScriptUtil.parseSpec(itemId);
+        String id = spec.id();
+        if (id.isBlank()) return "";
+        if (!id.contains(":")) id = "minecraft:" + id;
+        return ItemStackScriptUtil.formatSpec(id, spec.nbt());
     }
 
     public static void forbid(ServerPlayer player, String itemId, String actionStr) {
@@ -97,14 +97,21 @@ public final class ItemUsageRestrictions {
     }
 
     public static boolean isForbidden(ServerPlayer player, ItemStack stack, Action action) {
-        if (player == null || stack == null || stack.isEmpty()) return false;
-        ResourceLocation key = ForgeRegistries.ITEMS.getKey(stack.getItem());
-        if (key == null) return false;
-        return isForbidden(player, key.toString(), action);
+        if (player == null || stack == null || stack.isEmpty() || action == null) return false;
+        Map<String, EnumSet<Action>> perPlayer = RESTRICTIONS.get(player.getUUID());
+        if (perPlayer == null) return false;
+        for (var e : perPlayer.entrySet()) {
+            if (e.getValue() == null || e.getValue().isEmpty()) continue;
+            if (!ItemStackScriptUtil.matches(stack, e.getKey())) continue;
+            if (e.getValue().contains(Action.ALL) || e.getValue().contains(action)) return true;
+        }
+        return false;
     }
 
     public static boolean isForbidden(ServerPlayer player, String itemId, Action action) {
         if (player == null || action == null) return false;
+        ItemStack probe = ItemStackScriptUtil.createStack(itemId, 1);
+        if (!probe.isEmpty()) return isForbidden(player, probe, action);
         Map<String, EnumSet<Action>> perPlayer = RESTRICTIONS.get(player.getUUID());
         if (perPlayer == null) return false;
         String id = normalizeItemId(itemId);

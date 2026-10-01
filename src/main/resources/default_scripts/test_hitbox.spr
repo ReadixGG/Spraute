@@ -1,5 +1,6 @@
 # Тест хитбоксов НИП
 # Запуск: /spraute run test_hitbox
+# (нужна сцена spraute_engine/scenes/test_hitbox.scene.json — ставится автоматически)
 # Жми [F] — переключение пресетов. Включена отладочная подсветка хитбоксов.
 
 val spawn = findSafeBlock("player", 20, 4)
@@ -12,14 +13,15 @@ if (spawn == null) {
 
     create npc hitbox_dummy {
         name = "§eТест хитбокса"
-        model = "geo/defolt.geo.json"
-        texture = "textures/entity/defolt.png"
-        animation = "animations/npc_classic.animation.json"
+        model = "geo/spraute_classic_by_bendy659_.geo.json"
+        texture = "textures/entity/npc_texture.png"
+        animation = "animations/npc.animation.json"
         pos = bx, by, bz
         showName = true
         hp = 200
         hitboxPreset = "player"
     }
+    hitbox_dummy.setHitboxPreset("player")
 
     var tester = getFirstPlayer()
     if (tester == null) {
@@ -34,7 +36,7 @@ if (spawn == null) {
         chat("§6[test_hitbox] §fНИП с подсветкой хитбоксов. Бей или жми §e[F]§f для смены режима.")
         chat("§7Шаги: player → small → large → кастом → кость Head → сброс")
 
-        # 1 — пресет player (уже при создании)
+        # 1 — пресет player
         say(hitbox_dummy, "Пресет: player (стандарт игрока)")
         await keybind("f")
 

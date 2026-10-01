@@ -1,0 +1,8 @@
+#\ block: scene_get_node
+#\ category: Иерархия
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "нода сцены" (path: text: area.guard)
+#\
+#\ code: return 'sceneGetNode("' + String(_getVal('path') || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '")';

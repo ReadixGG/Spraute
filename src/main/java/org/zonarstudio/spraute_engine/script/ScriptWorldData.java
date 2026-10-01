@@ -126,6 +126,21 @@ public class ScriptWorldData extends SavedData {
         return keys;
     }
 
+    /** {@code player.savedData} snapshot for one UUID ({@code p_<uuid>_} prefix stripped). */
+    public Map<String, Object> playerSavedSnapshot(UUID playerUuid, MinecraftServer server, ServerLevel level) {
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        if (playerUuid == null) return out;
+        String prefix = "p_" + playerUuid + "_";
+        java.util.List<String> keys = new ArrayList<>(allKeys());
+        keys.sort(String.CASE_INSENSITIVE_ORDER);
+        for (String key : keys) {
+            if (key != null && key.startsWith(prefix)) {
+                out.put(key.substring(prefix.length()), get(key, server, level));
+            }
+        }
+        return out;
+    }
+
     private static String serialize(Object value) {
         if (value == null) return "n:";
         if (value instanceof Boolean b) return "b:" + b;

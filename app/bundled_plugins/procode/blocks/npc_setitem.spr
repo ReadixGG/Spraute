@@ -1,0 +1,7 @@
+#\ block: npc_setitem
+#\ category: НПС
+#\ color: #0ea5e9
+#\ shape: statement
+#\
+#\ row: "НИП" [npc: dropdown_npc] "взять в" [hand: dropdown(правую руку: right, левую руку: left)] "предмет" (item: item: minecraft:diamond_sword)
+#\ template: {npc}.setItem("{hand}", "{item}")

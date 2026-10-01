@@ -3,6 +3,8 @@ package org.zonarstudio.spraute_engine.script;
 import com.mojang.logging.LogUtils;
 import net.minecraft.commands.CommandSourceStack;
 import org.slf4j.Logger;
+import org.zonarstudio.spraute_engine.scene.SceneActiveState;
+import org.zonarstudio.spraute_engine.scene.SceneRuntime;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,11 +27,21 @@ public class ScriptManager {
             "economy.spr",
             "spraute_quests.spr",
             "dialog_classic.spr",
+            "dialog_cinematic.spr",
             "story_dialog_test.spr",
             "test_camera.spr",
             "test_hitbox.spr",
             "billboard_test.spr",
             "test_combat.spr"
+    );
+    /** Engine libraries: always refresh from the jar so updates reach existing workspaces. */
+    private static final Set<String> ENGINE_LIBRARY_SCRIPTS = Set.of(
+            "notification.spr",
+            "spraute_chat.spr",
+            "economy.spr",
+            "spraute_quests.spr",
+            "dialog_classic.spr",
+            "dialog_cinematic.spr"
     );
 
     private static ScriptManager INSTANCE;
@@ -85,25 +97,21 @@ public class ScriptManager {
         failedScripts.clear();
         org.zonarstudio.spraute_engine.script.ScriptTriggerRegistry.reset();
         int count = 0;
-
-        try {
-            if (!Files.exists(scriptsDir)) {
-                LOGGER.warn("Scripts directory not found: {}", scriptsDir);
-                return;
+        List<Path> scriptFiles = new ArrayList<>(
+                org.zonarstudio.spraute_engine.resource.WorkspaceContent.allSprFiles());
+        for (Path file : scriptFiles) {
+            if (org.zonarstudio.spraute_engine.registry.SyncedRegistrySnapshot.isSyncedRegistryFile(file)) {
+                continue;
             }
+            if (loadScriptFile(file)) count++;
+        }
 
-            List<Path> scriptFiles = new ArrayList<>();
-            try (var walk = Files.walk(scriptsDir)) {
-                walk.filter(p -> Files.isRegularFile(p) && p.toString().endsWith(SCRIPT_EXTENSION))
-                        .forEach(scriptFiles::add);
-            }
-            for (Path file : scriptFiles) {
-                if (loadScriptFile(file)) count++;
-            }
-
-            LOGGER.info("Loaded {} script(s) from {} ({} with errors)", count, scriptsDir, failedScripts.size());
-        } catch (IOException e) {
-            LOGGER.error("Failed to scan scripts directory: {}", e.getMessage());
+        LOGGER.info("Loaded {} script(s) ({} with errors)", count, failedScripts.size());
+        if (!failedScripts.isEmpty()) {
+            ScriptConsole.warn("compile",
+                    "Загружено скриптов: " + count + ", с ошибками компиляции: " + failedScripts.size());
+        } else {
+            ScriptConsole.info("compile", "Загружено скриптов: " + count);
         }
 
         applyCompiledTriggers();
@@ -119,25 +127,81 @@ public class ScriptManager {
         }
     }
 
-    /** Запуск скриптов с директивой {@code autorun} и зарегистрированных через {@code autorun("...")}. */
+    /**
+     * Legacy compatibility hook. Autorun declarations still parse and compile,
+     * but standalone scripts no longer start with the server; startup ownership
+     * now belongs to scene documents.
+     */
     public void runAutorunScripts(net.minecraft.server.MinecraftServer server) {
-        if (server == null) return;
-        net.minecraft.commands.CommandSourceStack source = server.createCommandSourceStack()
-                .withPermission(4);
-        for (String name : org.zonarstudio.spraute_engine.script.ScriptTriggerRegistry.get().getAutorunScripts()) {
-            run(name, source);
-            LOGGER.info("[Spraute] autorun: started script '{}'", name);
-        }
+        // Intentionally no-op so old `autorun` code remains source-compatible.
     }
 
     /**
-     * Reload all scripts (clear cache and re-load).
+     * Recompile all scripts from disk without stopping running instances.
+     * Saved files are picked up on the next {@link #run}/{@link #runInstance}.
      */
-    public void reload() {
-        LOGGER.info("Reloading scripts...");
+    public void refreshFromDisk() {
+        LOGGER.info("Refreshing scripts from disk...");
         org.zonarstudio.spraute_engine.registry.CustomProjectileRegistry.invalidateAndReparse();
-        executor.stopAll();
+        org.zonarstudio.spraute_engine.scene.custom.CustomNodeRegistry.invalidateAll();
+        org.zonarstudio.spraute_engine.scene.custom.CustomNodeRegistry.reload();
         loadAll();
+    }
+
+    /** @deprecated Prefer {@link #refreshFromDisk()}; kept for debug overlay compatibility. */
+    public void reload() {
+        refreshFromDisk();
+    }
+
+    /**
+     * Recompile one script from disk (by logical name, with or without {@code plugins/} prefix).
+     */
+    public void refreshScript(String name) {
+        if (name == null || name.isBlank()) return;
+        Path file = resolveScriptFile(name.trim());
+        if (file != null) refreshScriptFile(file);
+    }
+
+    /** Recompile a {@code .spr} file under the scripts directory after editor save. */
+    public void refreshScriptFile(Path file) {
+        if (file == null) return;
+        try {
+            Path abs = file.toAbsolutePath().normalize();
+            Path root = scriptsDir.toAbsolutePath().normalize();
+            if (!abs.startsWith(root) || !Files.isRegularFile(abs)
+                    || !abs.getFileName().toString().endsWith(SCRIPT_EXTENSION)) {
+                return;
+            }
+            String relative = root.relativize(abs).toString().replace('\\', '/');
+            String fullName = relative.substring(0, relative.length() - SCRIPT_EXTENSION.length());
+            String primaryName = fullName;
+            if (fullName.startsWith("plugins/")) {
+                int slash = fullName.lastIndexOf('/');
+                if (slash >= 0 && slash < fullName.length() - 1) {
+                    primaryName = fullName.substring(slash + 1);
+                }
+            }
+            compiledScripts.remove(primaryName);
+            compiledScripts.remove(fullName);
+            failedScripts.remove(primaryName);
+            failedScripts.remove(fullName);
+            loadScriptFile(abs);
+            org.zonarstudio.spraute_engine.registry.CustomProjectileRegistry.invalidateAndReparse();
+        } catch (Exception e) {
+            LOGGER.warn("Failed to refresh script {}: {}", file, e.getMessage());
+        }
+    }
+
+    private Path resolveScriptFile(String name) {
+        Path overlay = org.zonarstudio.spraute_engine.resource.WorkspaceContent.resolve("scripts/" + name + SCRIPT_EXTENSION);
+        if (overlay != null) return overlay;
+        String want = name.contains("/")
+                ? name.substring(name.lastIndexOf('/') + 1) + SCRIPT_EXTENSION
+                : name + SCRIPT_EXTENSION;
+        for (Path p : org.zonarstudio.spraute_engine.resource.WorkspaceContent.allSprFiles()) {
+            if (p.getFileName().toString().equals(want)) return p;
+        }
+        return null;
     }
 
     /**
@@ -160,23 +224,42 @@ public class ScriptManager {
      * @return true if the script was found and executed
      */
     public boolean run(String name, CommandSourceStack source, Map<String, Object> initialVariables) {
+        refreshScript(name);
+
         String compileError = failedScripts.get(name);
         if (compileError != null) {
-            source.sendFailure(net.minecraft.network.chat.Component.literal("§c[Spraute] §fОшибка компиляции '" + name + "': §e" + compileError));
+            ScriptConsole.compileError(name, compileError);
+            if (source != null) {
+                source.sendFailure(net.minecraft.network.chat.Component.literal(
+                        SprauteMessages.chatCompileError(name, compileError, SprauteMessages.isEnglish(source))));
+            }
             return false;
         }
 
         CompiledScript script = compiledScripts.get(name);
         if (script == null) {
             LOGGER.warn("Script not found: '{}'", name);
+            ScriptConsole.error("run", "Скрипт не найден: '" + name + "'");
+            if (source != null) {
+                source.sendFailure(net.minecraft.network.chat.Component.literal(
+                        SprauteMessages.chatScriptNotFound(name, SprauteMessages.isEnglish(source))));
+            }
             return false;
         }
 
         try {
-            executor.start(script, source, initialVariables);
+            Map<String, Object> vars = new HashMap<>();
+            if (initialVariables != null) vars.putAll(initialVariables);
+            seedInheritedSceneContext(vars);
+            executor.start(script, source, vars);
             return true;
         } catch (Exception e) {
             LOGGER.error("Error executing script '{}': {}", name, e.getMessage());
+            ScriptConsole.error(name, "Не удалось запустить: " + e.getMessage());
+            if (source != null) {
+                source.sendFailure(net.minecraft.network.chat.Component.literal(
+                        SprauteMessages.chatRunFailed(e.getMessage(), SprauteMessages.isEnglish(source))));
+            }
             return false;
         }
     }
@@ -212,6 +295,43 @@ public class ScriptManager {
     /** Stop a specific script by name. Returns true if found and stopped. */
     public boolean stopScript(String name) {
         return executor.stopScript(name);
+    }
+
+    /** Runs a separate script instance, identified independently from its source file. */
+    public boolean runInstance(String name, String instanceId, CommandSourceStack source,
+                               Map<String, Object> initialVariables) {
+        refreshScript(name);
+
+        String compileError = failedScripts.get(name);
+        if (compileError != null) {
+            // Always mirror to the editor console before any attempt to start.
+            ScriptConsole.compileError(name, compileError);
+            if (source != null) {
+                source.sendFailure(net.minecraft.network.chat.Component.literal(
+                        SprauteMessages.chatCompileError(name, compileError, SprauteMessages.isEnglish(source))));
+            }
+            LOGGER.warn("Script '{}' has compile error (instance '{}'): {}", name, instanceId, compileError);
+            return false;
+        }
+        CompiledScript script = compiledScripts.get(name);
+        if (script == null) {
+            ScriptConsole.error("run", "Скрипт не найден: '" + name + "'");
+            if (source != null) {
+                source.sendFailure(net.minecraft.network.chat.Component.literal(
+                        SprauteMessages.chatScriptNotFound(name, SprauteMessages.isEnglish(source))));
+            }
+            LOGGER.warn("Script not found for instance '{}': '{}'", instanceId, name);
+            return false;
+        }
+        return executor.startInstance(script, source, initialVariables, instanceId);
+    }
+
+    public boolean isInstanceRunning(String instanceId) {
+        return executor.isInstanceRunning(instanceId);
+    }
+
+    public boolean stopInstance(String instanceId) {
+        return executor.stopInstance(instanceId);
     }
 
     public void clearGlobalVariables() {
@@ -261,12 +381,34 @@ public class ScriptManager {
         executor.cancelUiWaitsForPlayer(player);
     }
 
+    /** Stop player-owned scripts and release session-only data on logout. */
+    public void onPlayerLoggedOut(net.minecraft.server.level.ServerPlayer player) {
+        if (player == null) return;
+        executor.onPlayerLoggedOut(player);
+        UUID playerId = player.getUUID();
+        playerSessionData.remove(playerId);
+        debugPlayers.remove(playerId);
+    }
+
+    /** Legacy UUID-only cleanup entry point. */
+    public void onPlayerLoggedOut(UUID playerId) {
+        if (playerId == null) return;
+        executor.onPlayerLoggedOut(playerId);
+        playerSessionData.remove(playerId);
+        debugPlayers.remove(playerId);
+    }
+
     public void onUiOverlapAction(net.minecraft.server.level.ServerPlayer player, String id1, String id2, boolean overlapping) {
         executor.onUiOverlapAction(player, id1, id2, overlapping);
     }
 
-    public void onClickBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, boolean isLeft) {
-        executor.onClickBlock(player, pos, block, isLeft);
+    public void onSceneHitboxTouch(net.minecraft.server.level.ServerPlayer player, String sceneId,
+                                   String nodeId, String nodeName, String triggerId, boolean entering) {
+        executor.onSceneHitboxTouch(player, sceneId, nodeId, nodeName, triggerId, entering);
+    }
+
+    public boolean onClickBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, boolean isLeft) {
+        return executor.onClickBlock(player, pos, block, isLeft);
     }
 
     public boolean onBreakBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block) {
@@ -285,12 +427,24 @@ public class ScriptManager {
         return executor.onOpenDoor(player, pos, block, level);
     }
 
+    public boolean onUseBlock(net.minecraft.world.entity.player.Player player, net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.Block block, net.minecraft.world.level.Level level) {
+        return executor.onUseBlock(player, pos, block, level);
+    }
+
     public void onChat(net.minecraft.server.level.ServerPlayer player, String message) {
         executor.onChat(player, message);
     }
 
-    public void onPlayerAction(net.minecraft.world.entity.player.Player player, String actionType, Object target) {
-        executor.onPlayerAction(player, actionType, target);
+    public boolean onPlayerAction(net.minecraft.world.entity.player.Player player, String actionType, Object target) {
+        return executor.onPlayerAction(player, actionType, target);
+    }
+
+    public boolean onPlayerAttack(net.minecraft.world.entity.player.Player player, net.minecraft.world.entity.Entity target) {
+        return executor.onPlayerAttack(player, target);
+    }
+
+    public boolean onPlayerSprint(net.minecraft.world.entity.player.Player player) {
+        return executor.onPlayerSprint(player);
     }
 
     public void onPlayerDimensionChange(net.minecraft.server.level.ServerPlayer player, String fromDimension, String toDimension) {
@@ -307,11 +461,16 @@ public class ScriptManager {
     }
 
     public void onTradeBuy(net.minecraft.server.level.ServerPlayer player, String itemId, int price) {
-        executor.onTradeBuy(player, itemId, price);
+        onCustomEvent("tradeBuy", java.util.List.of(player, itemId, price));
     }
 
     public void onTradeSell(net.minecraft.server.level.ServerPlayer player, String itemId, int price) {
-        executor.onTradeSell(player, itemId, price);
+        onCustomEvent("tradeSell", java.util.List.of(player, itemId, price));
+    }
+
+    /** Fan-out a script-registered custom event to every running script. */
+    public void onCustomEvent(String eventName, java.util.List<Object> payload) {
+        executor.onCustomEvent(eventName, payload);
     }
 
     public void onRelGift(net.minecraft.server.level.ServerPlayer player, String npcId, String itemId, int repDelta) {
@@ -344,6 +503,42 @@ public class ScriptManager {
         return failedScripts.containsKey(name);
     }
 
+    private final Map<String, Object> consoleLocals = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Compile and run ephemeral Spraute source (editor console).
+     * Locals persist across console runs (same map); {@code global}/{@code world} are shared with all scripts.
+     */
+    public boolean eval(String source, CommandSourceStack commandSource) {
+        if (source == null || source.isBlank()) {
+            ScriptConsole.warn("console", "Пустой код");
+            return false;
+        }
+        String trimmed = source.strip();
+        String preview = trimmed.length() > 120 ? trimmed.substring(0, 117) + "..." : trimmed;
+        preview = preview.replace('\n', ' ').replace('\r', ' ');
+        ScriptConsole.info("console", ">> " + preview);
+        try {
+            CompiledScript compiled = compileSource("__console__", trimmed);
+            String instanceId = "console:" + System.nanoTime();
+            seedConsoleSceneContext(consoleLocals);
+            boolean ok = executor.startInstance(compiled, commandSource, consoleLocals, instanceId, true);
+            if (!ok) {
+                ScriptConsole.error("console", "Не удалось запустить (конфликт instance?)");
+            }
+            return ok;
+        } catch (Exception e) {
+            String errorMsg = formatCompileError(e);
+            ScriptConsole.compileError("console", errorMsg);
+            if (commandSource != null) {
+                commandSource.sendFailure(net.minecraft.network.chat.Component.literal(
+                        SprauteMessages.chatCompileError("console", errorMsg,
+                                SprauteMessages.isEnglish(commandSource))));
+            }
+            return false;
+        }
+    }
+
     public Path getScriptsDir() {
         return scriptsDir;
     }
@@ -353,6 +548,36 @@ public class ScriptManager {
     }
 
     // --- Internal methods ---
+
+    /** When one scene is live, console {@code create npc/...} attaches under its root. */
+    private static void seedConsoleSceneContext(Map<String, Object> locals) {
+        if (locals == null) return;
+        if (locals.containsKey("_scene")) return;
+        SceneActiveState state = SceneRuntime.getSingletonActiveState();
+        if (state == null) return;
+        locals.put("_scene", state.sceneView());
+        // Root itself only accepts PLAYERS/GLOBAL_WORLD/LOCAL_WORLD since the worlds split —
+        // console `create` with no scene-node context attaches into the shared Global World.
+        locals.putIfAbsent("_node", state.nodeView(state.document.ensureGlobalWorldNode()));
+    }
+
+    /**
+     * New scripts started via {@code startScript} / {@code run} inherit {@code _scene}
+     * from the caller when parent left parent empty in visual blocks.
+     */
+    public static void seedInheritedSceneContext(Map<String, Object> locals) {
+        if (locals == null || locals.containsKey("_scene")) return;
+        Map<String, Object> caller = ScriptExecutor.currentVariables();
+        if (caller != null && caller.containsKey("_scene")) {
+            locals.put("_scene", caller.get("_scene"));
+            Object node = caller.get("_node");
+            if (node != null) locals.putIfAbsent("_node", node);
+            Object scriptNode = caller.get("_scriptNode");
+            if (scriptNode != null) locals.putIfAbsent("_scriptNode", scriptNode);
+            return;
+        }
+        seedConsoleSceneContext(locals);
+    }
 
     private CompiledScript compileSource(String name, String source) {
         ScriptLexer lexer = new ScriptLexer(source);
@@ -369,12 +594,29 @@ public class ScriptManager {
         return fileName.substring(0, fileName.length() - SCRIPT_EXTENSION.length());
     }
 
+    private String scriptRelative(Path file) {
+        try {
+            Path abs = file.toAbsolutePath().normalize();
+            Path root = scriptsDir.toAbsolutePath().normalize();
+            if (abs.startsWith(root)) {
+                return root.relativize(abs).toString().replace('\\', '/');
+            }
+        } catch (RuntimeException ignored) {
+        }
+        String packRel = org.zonarstudio.spraute_engine.resource.StoryPackRegistry.relativize(file);
+        if (packRel != null) {
+            if (packRel.startsWith("scripts/")) packRel = packRel.substring("scripts/".length());
+            return packRel;
+        }
+        return file.getFileName().toString();
+    }
+
     /**
      * Load one .spr file. Scripts under {@code plugins/...} are registered by short name (filename only)
      * so {@code import("npc_relations")} works from any script.
      */
     private boolean loadScriptFile(Path file) {
-        String relative = scriptsDir.relativize(file).toString().replace('\\', '/');
+        String relative = scriptRelative(file);
         String fullName = relative.endsWith(SCRIPT_EXTENSION)
                 ? relative.substring(0, relative.length() - SCRIPT_EXTENSION.length())
                 : relative;
@@ -398,13 +640,17 @@ public class ScriptManager {
             String errorMsg = formatCompileError(e);
             failedScripts.put(primaryName, errorMsg);
             LOGGER.error("Failed to compile script '{}': {}", file.getFileName(), e.getMessage());
+            ScriptConsole.compileError(primaryName, errorMsg);
             return false;
         }
     }
 
     private String formatCompileError(Throwable e) {
         if (e instanceof ScriptException se && se.getScriptLine() >= 0) {
-            return "строка " + se.getScriptLine() + ": " + se.getMessage().replaceFirst("^Line \\d+: ", "");
+            String detail = se.getMessage() != null
+                    ? se.getMessage().replaceFirst("^Line \\d+: ", "")
+                    : e.getClass().getSimpleName();
+            return "Line " + se.getScriptLine() + ": " + detail;
         }
         String msg = e.getMessage();
         return msg != null ? msg : e.getClass().getSimpleName();
@@ -421,36 +667,49 @@ public class ScriptManager {
     private void copyDefaultScripts() {
         try {
             int installed = 0;
+            int updated = 0;
             for (String fileName : BUNDLED_DEFAULT_SCRIPTS) {
-                if (copyBundledScriptIfMissing(fileName)) {
-                    installed++;
-                }
+                boolean overwrite = ENGINE_LIBRARY_SCRIPTS.contains(fileName);
+                int result = copyBundledScript(fileName, overwrite);
+                if (result == 1) installed++;
+                else if (result == 2) updated++;
             }
             if (copyExampleScriptIfMissing()) {
                 installed++;
             }
-            if (installed > 0) {
-                LOGGER.info("Installed {} default script(s) into {}", installed, scriptsDir);
+            if (installed > 0 || updated > 0) {
+                LOGGER.info("Default scripts: {} installed, {} updated in {}", installed, updated, scriptsDir);
             }
         } catch (IOException e) {
             LOGGER.error("Failed to copy default scripts: {}", e.getMessage());
         }
     }
 
-    private boolean copyBundledScriptIfMissing(String fileName) throws IOException {
+    /** @return 0 unchanged, 1 installed, 2 updated */
+    private int copyBundledScript(String fileName, boolean overwrite) throws IOException {
         Path dest = scriptsDir.resolve(fileName);
-        if (Files.exists(dest)) {
-            return false;
+        boolean existed = Files.exists(dest);
+        if (existed && !overwrite) {
+            return 0;
         }
         String resourcePath = DEFAULT_SCRIPTS_PREFIX + fileName;
         try (InputStream in = ScriptManager.class.getResourceAsStream(resourcePath)) {
             if (in == null) {
                 LOGGER.warn("Bundled default script not found in mod jar: {}", resourcePath);
-                return false;
+                return 0;
             }
-            Files.copy(in, dest, StandardCopyOption.REPLACE_EXISTING);
+            byte[] bundled = in.readAllBytes();
+            if (existed && Arrays.equals(bundled, Files.readAllBytes(dest))) {
+                return 0;
+            }
+            Files.createDirectories(dest.getParent());
+            Files.write(dest, bundled);
+            if (existed) {
+                LOGGER.info("Updated engine script: {}", fileName);
+                return 2;
+            }
             LOGGER.info("Installed default script: {}", fileName);
-            return true;
+            return 1;
         }
     }
 
@@ -461,7 +720,7 @@ public class ScriptManager {
         }
         String exampleContent = """
                 # Пример скрипта Spraute Engine
-                # Запусти: /spraute run example
+                # Запусти: startScript("example")  или  /spraute run <scene> с SCRIPT-нодой
 
                 chat("§6[Spraute Engine] §fДвижок запущен!")
                 chat("§7Это пример сюжетного скрипта.")

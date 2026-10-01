@@ -22,12 +22,18 @@ import java.util.List;
 public final class CameraFunctions {
     private CameraFunctions() {}
 
+    /** Transition time belongs to this camera command; omitted means an instant move. */
+    private static float flyTimeArg(List<Object> args, int index) {
+        if (args.size() > index && args.get(index) instanceof Number n) return n.floatValue();
+        return 0f;
+    }
+
     /**
      * setCamera(player, x, y, z)
      * setCamera(player, x, y, z, yaw, pitch)
      * setCamera(player, x, y, z, yaw, pitch, holdTime)
      * setCamera(player, x, y, z, yaw, pitch, holdTime, smoothTime)
-     * setCamera(..., lockMovement, hideGui) — smoothTime=0 → мгновенно
+     * setCamera(..., lockMovement, hideGui, [lockBlocks]) — smoothTime=0 → мгновенно
      */
     public static class SetCamera implements ScriptFunction {
         @Override public String getName() { return "setCamera"; }
@@ -46,7 +52,7 @@ public final class CameraFunctions {
             float yaw = args.size() > 4 ? ((Number) args.get(4)).floatValue() : player.getYRot();
             float pitch = args.size() > 5 ? ((Number) args.get(5)).floatValue() : player.getXRot();
             float holdTime = CameraScriptUtil.optionalFloat(args, 6, 0f);
-            float smoothTime = CameraScriptUtil.optionalFloat(args, 7, 0f);
+            float smoothTime = flyTimeArg(args, 7);
             boolean smooth = smoothTime > 0f;
             CameraControls.Settings controls = CameraControls.parseTrailing(args, 8, 9);
 
@@ -58,8 +64,8 @@ public final class CameraFunctions {
     }
 
     /**
-     * setCameraLookAt(player, camX, camY, camZ, lookX, lookY, lookZ, [holdTime, smoothTime, track, lockMovement, hideGui])
-     * setCameraLookAt(player, camX, camY, camZ, entityOrNpc, [holdTime, smoothTime, track, lockMovement, hideGui])
+     * setCameraLookAt(player, camX, camY, camZ, lookX, lookY, lookZ, [holdTime, smoothTime, track, lockMovement, hideGui, lockBlocks])
+     * setCameraLookAt(player, camX, camY, camZ, entityOrNpc, [holdTime, smoothTime, track, lockMovement, hideGui, lockBlocks])
      */
     public static class SetCameraLookAt implements ScriptFunction {
         @Override public String getName() { return "setCameraLookAt"; }
@@ -90,14 +96,14 @@ public final class CameraFunctions {
                 track = CameraScriptUtil.optionalBool(args, 9, false);
                 lookAt = CameraScriptUtil.parseLookAtCoords(args, 4, track);
                 holdTime = CameraScriptUtil.optionalFloat(args, 7, 0f);
-                smoothTime = CameraScriptUtil.optionalFloat(args, 8, 0.5f);
+                smoothTime = flyTimeArg(args, 8);
                 lockIndex = 10;
                 hideIndex = 11;
             } else {
                 track = CameraScriptUtil.optionalBool(args, 7, false);
                 lookAt = CameraScriptUtil.parseLookAt(args.get(4), track, source);
                 holdTime = CameraScriptUtil.optionalFloat(args, 5, 0f);
-                smoothTime = CameraScriptUtil.optionalFloat(args, 6, 0.5f);
+                smoothTime = flyTimeArg(args, 6);
                 lockIndex = 8;
                 hideIndex = 9;
             }
@@ -113,7 +119,7 @@ public final class CameraFunctions {
     }
 
     /**
-     * animateCamera(player, x, y, z, yaw, pitch, smoothTime, [lockMovement, hideGui])
+     * animateCamera(player, x, y, z, yaw, pitch, smoothTime, [lockMovement, hideGui, lockBlocks])
      */
     public static class AnimateCamera implements ScriptFunction {
         @Override public String getName() { return "animateCamera"; }
@@ -131,7 +137,7 @@ public final class CameraFunctions {
             double z = ((Number) args.get(3)).doubleValue();
             float yaw = ((Number) args.get(4)).floatValue();
             float pitch = ((Number) args.get(5)).floatValue();
-            float smoothTime = CameraScriptUtil.optionalFloat(args, 6, 0.5f);
+            float smoothTime = flyTimeArg(args, 6);
             CameraControls.Settings controls = CameraControls.parseTrailing(args, 7, 8);
 
             CameraScriptUtil.sendMove(player, x, y, z, yaw, pitch, smoothTime,
@@ -143,8 +149,10 @@ public final class CameraFunctions {
     /**
      * cameraLookAt(player, x, y, z)                      — точечный взгляд (coords)
      * cameraLookAt(player, x, y, z, track)               — coords + следить
+     * cameraLookAt(player, x, y, z, track, smoothTime)   — плавный доворот, 0 = резко
      * cameraLookAt(player, npcOrTarget)                   — сущность, одноразово
      * cameraLookAt(player, npcOrTarget, track)            — сущность, следить
+     * cameraLookAt(player, npcOrTarget, track, smoothTime)
      */
     public static class CameraLookAt implements ScriptFunction {
         @Override public String getName() { return "cameraLookAt"; }
@@ -158,23 +166,28 @@ public final class CameraFunctions {
             if (player == null) return null;
 
             CameraScriptUtil.LookAt lookAt;
+            int i;
             if (args.size() >= 4
                     && args.get(1) instanceof Number
                     && args.get(2) instanceof Number
                     && args.get(3) instanceof Number) {
-                boolean track = CameraScriptUtil.optionalBool(args, 4, false);
-                lookAt = CameraScriptUtil.parseLookAtCoords(args, 1, track);
+                lookAt = CameraScriptUtil.parseLookAtCoords(args, 1, false);
+                i = 4;
             } else {
-                boolean track = CameraScriptUtil.optionalBool(args, 2, false);
-                lookAt = CameraScriptUtil.parseLookAt(args.get(1), track, source);
+                lookAt = CameraScriptUtil.parseLookAt(args.get(1), false, source);
+                i = 2;
             }
-
+            boolean track = false;
+            if (args.size() > i && CameraScriptUtil.isExplicitBool(args.get(i))) {
+                track = CameraScriptUtil.optionalBool(args, i, false);
+                i++;
+            }
+            lookAt = new CameraScriptUtil.LookAt(
+                    track ? CameraPacket.LOOK_TRACK : CameraPacket.LOOK_ONCE,
+                    lookAt.entityId(), lookAt.x(), lookAt.y(), lookAt.z());
+            float smoothTime = flyTimeArg(args, i);
             if (lookAt.mode() == CameraPacket.LOOK_NONE) return null;
-
-            CameraPacket pkt = CameraPacket.look(lookAt.mode(), lookAt.entityId(),
-                    lookAt.x(), lookAt.y(), lookAt.z());
-            ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), pkt);
-            return null;
+            return (double) CameraScriptUtil.sendLook(player, lookAt, smoothTime, CameraControls.Settings.defaults());
         }
     }
 
@@ -267,6 +280,7 @@ public final class CameraFunctions {
                             if (finalSmooth > 0f) {
                                 CameraScriptUtil.sendStop(fp, finalSmooth);
                             } else {
+                                org.zonarstudio.spraute_engine.script.CinematicViewTracker.clear(fp);
                                 ModNetwork.CHANNEL.send(
                                         PacketDistributor.PLAYER.with(() -> fp),
                                         org.zonarstudio.spraute_engine.network.CameraPacket.reset());
@@ -278,7 +292,7 @@ public final class CameraFunctions {
     }
 
     /**
-     * animateCameraLookAt(player, x, y, z, lookTarget, smoothTime, [track, lockMovement, hideGui])
+     * animateCameraLookAt(player, x, y, z, lookTarget, smoothTime, [track, lockMovement, hideGui, lockBlocks])
      */
     public static class AnimateCameraLookAt implements ScriptFunction {
         @Override public String getName() { return "animateCameraLookAt"; }
@@ -307,13 +321,13 @@ public final class CameraFunctions {
                     && args.get(6) instanceof Number) {
                 track = CameraScriptUtil.optionalBool(args, 8, false);
                 lookAt = CameraScriptUtil.parseLookAtCoords(args, 4, track);
-                smoothTime = CameraScriptUtil.optionalFloat(args, 7, 0.5f);
+                smoothTime = flyTimeArg(args, 7);
                 lockIndex = 9;
                 hideIndex = 10;
             } else {
                 track = CameraScriptUtil.optionalBool(args, 6, false);
                 lookAt = CameraScriptUtil.parseLookAt(args.get(4), track, source);
-                smoothTime = CameraScriptUtil.optionalFloat(args, 5, 0.5f);
+                smoothTime = flyTimeArg(args, 5);
                 lockIndex = 7;
                 hideIndex = 8;
             }

@@ -5,7 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.logging.LogUtils;
 import org.zonarstudio.spraute_engine.compat.SprauteRenderCompat;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
@@ -116,6 +116,28 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
     }
 
     @Override
+    public boolean shouldRender(SprauteNpcEntity entity, Frustum frustum,
+                                double cameraX, double cameraY, double cameraZ) {
+        String path=entity.getModel();
+        if (path == null || path.isEmpty()) return super.shouldRender(entity,frustum,cameraX,cameraY,cameraZ);
+        SpGeoModel model=SpModelCache.getOrLoad(path);
+        float radius=GeoEntityBounds.radiusBlocks(model.baked.bounds,
+                entity.getModelScaleX(),entity.getModelScaleY(),entity.getModelScaleZ());
+        double dx=entity.getX()-cameraX,dy=entity.getY()-cameraY,dz=entity.getZ()-cameraZ;
+        float cap=entity.getRenderDistance() > 0 ? entity.getRenderDistance()
+                : org.zonarstudio.spraute_engine.config.SprauteConfig.get().geoMaxRenderDistance;
+        if (!entity.isForceVisible() && cap > 0 && dx*dx+dy*dy+dz*dz > (cap+radius)*(cap+radius)) {
+            GeoRenderStats.culled();
+            return false;
+        }
+        boolean visible=frustum.isVisible(GeoEntityBounds.world(entity,model.baked.bounds,
+                entity.getModelScaleX(),entity.getModelScaleY(),entity.getModelScaleZ(),
+                org.zonarstudio.spraute_engine.config.SprauteConfig.get().geoCullingMargin));
+        if (!visible) GeoRenderStats.culled();
+        return visible;
+    }
+
+    @Override
     public void render(SprauteNpcEntity entity, float entityYaw, float partialTick,
                        PoseStack poseStack, MultiBufferSource bufferSource, int packedLight) {
         try {
@@ -133,12 +155,43 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
 
             InstanceEntry entry = getOrCreateInstance(entity.getUUID(), modelPath, model);
             SpModelInstance instance = entry.instance;
-
-            instance.resetAnims();
-            applyOverlayAnimations(entity, partialTick, instance, entry);
-            applyHeadBoneLook(entity, partialTick, instance, entry);
-            applyPlayerSkinHeadFacing(entity, instance);
-            instance.computeTransforms();
+            net.minecraft.world.phys.Vec3 camera=net.minecraft.client.Minecraft.getInstance()
+                    .gameRenderer.getMainCamera().getPosition();
+            double distance=Math.sqrt(entity.distanceToSqr(camera));
+            float radius=GeoEntityBounds.radiusBlocks(model.baked.bounds,
+                    entity.getModelScaleX(),entity.getModelScaleY(),entity.getModelScaleZ());
+            GeoRenderPolicy.Decision policy=GeoRenderPolicy.decide(distance,radius,!entity.isLodEnabled());
+            if (!entity.isForceVisible() && policy.hidden()) {
+                GeoRenderStats.culled();
+                super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight);
+                return;
+            }
+            int interval=entity.isForceVisible() ? 1 : policy.animationInterval();
+            boolean sampleDue=entry.lastPoseTick==Integer.MIN_VALUE || interval<=1
+                    || (entity.tickCount-entry.lastPoseTick>=interval
+                    && Math.floorMod(entity.getUUID().hashCode(),interval)==Math.floorMod(entity.tickCount,interval));
+            if (sampleDue) {
+                long transformStart=GeoRenderStats.begin();
+                boolean interpolate=entry.lastPoseTick != Integer.MIN_VALUE && interval > 1;
+                if (interpolate) instance.captureInterpolationFrom();
+                instance.resetAnims();
+                applyOverlayAnimations(entity, partialTick, instance, entry);
+                applyHeadBoneLook(entity, partialTick, instance, entry);
+                applyPlayerSkinHeadFacing(entity, instance);
+                instance.computeTransforms();
+                if (interpolate) {
+                    instance.captureInterpolationTarget();
+                } else if (interval > 1) {
+                    instance.captureInterpolationFrom();
+                    instance.captureInterpolationTarget();
+                }
+                entry.lastPoseTick=entity.tickCount;
+                entry.poseInterval=interval;
+                GeoRenderStats.transformed(transformStart);
+            }
+            if (entry.poseInterval > 1) {
+                instance.applyInterpolation((entity.tickCount+partialTick-entry.lastPoseTick)/entry.poseInterval);
+            }
 
             poseStack.pushPose();
 
@@ -158,6 +211,10 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
             // so PoseStack stays clean — no scale(-1,1,1) that would break normals/winding.
             float bodyYaw = Mth.rotLerp(partialTick, entity.yBodyRotO, entity.yBodyRot);
             SprauteRenderCompat.rotateY(poseStack, 180.0F - bodyYaw);
+            SprauteRenderCompat.rotateX(poseStack, entity.getModelRotationX());
+            SprauteRenderCompat.rotateY(poseStack, entity.getModelRotationY());
+            SprauteRenderCompat.rotateZ(poseStack, entity.getModelRotationZ());
+            poseStack.scale(entity.getModelScaleX(), entity.getModelScaleY(), entity.getModelScaleZ());
 
             if (entity.deathTime > 0 && !hasCustomDeathAnim) {
                 float f = ((float)entity.deathTime + partialTick - 1.0F) / 20.0F * 1.6F;
@@ -167,22 +224,37 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
             }
 
             ResourceLocation textureLoc = getTextureLocation(entity);
-            RenderType renderType = RenderType.entityTranslucent(textureLoc);
-            VertexConsumer consumer = bufferSource.getBuffer(renderType);
 
             int overlay = OverlayTexture.pack(
                 OverlayTexture.u(0f),
                 OverlayTexture.v(entity.hurtTime > 0 || !entity.isAlive())
             );
 
-            SpGeoRenderer.render(instance, poseStack, consumer, packedLight, overlay,
-                                 1f, 1f, 1f, 1f, entity.uiRenderBones);
+            float opacity = entity.getOpacity();
+            long drawStart=GeoRenderStats.begin();
+            boolean gpu=false;
+            boolean translucent = entity.usesTranslucentGeo();
+            String backend=org.zonarstudio.spraute_engine.config.SprauteConfig.get().geoRenderBackend;
+            if (opacity > .001f && !"compat".equals(backend) && !entity.isCurrentlyGlowing()) {
+                gpu=SpGeoGpuRenderer.render(instance,poseStack,textureLoc,packedLight,overlay,
+                        1f,1f,1f,opacity,translucent,entity.uiRenderBones,
+                        policy.lod());
+            }
+            if (opacity > .001f && !gpu) {
+                VertexConsumer consumer = bufferSource.getBuffer(
+                        SprauteRenderCompat.geoEntity(textureLoc, translucent));
+                SpGeoRenderer.render(instance, poseStack, consumer, packedLight, overlay,
+                                     1f, 1f, 1f, opacity, entity.uiRenderBones, policy.lod());
+            }
+            GeoRenderStats.drawn(drawStart);
 
             SprauteNpcItemLayer.render(instance, entity, poseStack, bufferSource, packedLight);
 
             poseStack.popPose();
 
             super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight);
+            GeoRenderStats.rendered(model.baked.vertexCount,model.baked.faceCount,
+                    model.baked.pages.size(),!gpu,policy.lod());
 
             WARNED_ENTITIES.remove(entity.getUUID());
         } catch (Exception e) {
@@ -290,7 +362,8 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
                 -MAX_HEAD_PITCH_UP, MAX_HEAD_PITCH_DOWN);
 
         if (Math.abs(renderLocalYaw) > 0.01f || Math.abs(renderPitch) > 0.01f) {
-            rot.y -= renderLocalYaw;
+            // SpModelInstance applies bone Y as +(rest+anim); add so look yaw stays correct.
+            rot.y += renderLocalYaw;
             rot.x += renderPitch;
         }
     }
@@ -300,12 +373,18 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
 
     /** If preferred clip is missing (e.g. default fly_idle), fall back to ground idle/walk. */
     private static String resolveAutoClipName(SprauteNpcEntity entity, String preferred, String fallback) {
-        if (preferred == null || preferred.isEmpty()) return preferred;
-        org.zonarstudio.spraute_engine.core.parser.SpAnimationParser.AnimationSet set =
-                SpAnimationCache.getOrLoad(entity.getAnimation());
-        if (set != null && set.get(preferred) != null) return preferred;
-        if (fallback != null && !fallback.isEmpty() && set != null && set.get(fallback) != null) return fallback;
-        return preferred;
+        SpAnimationParser.AnimationSet set = SpAnimationCache.getOrLoad(entity.getAnimation());
+        if (set == null) return preferred;
+        if (usableClip(set, preferred)) return preferred;
+        if (usableClip(set, fallback)) return fallback;
+        String playable = set.firstPlayableName(preferred);
+        return playable == null || playable.isEmpty() ? preferred : playable;
+    }
+
+    private static boolean usableClip(SpAnimationParser.AnimationSet set, String name) {
+        return name != null && !name.isEmpty()
+                && !SpAnimationParser.isMetaClipName(name)
+                && set.get(name) != null;
     }
 
     private void applyOverlayAnimations(SprauteNpcEntity entity, float partialTick, SpModelInstance instance, InstanceEntry entry) {
@@ -318,14 +397,26 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
         float now = entity.tickCount + partialTick;
         float weight = entity.getOverlayWeight();
 
+        // Two passes so auto base (idle/walk) always blends under manual overlays,
+        // regardless of LinkedHashMap insertion order.
+        applyLayerPass(entry, set, instance, now, weight, true);
+        applyLayerPass(entry, set, instance, now, weight, false);
+    }
+
+    private void applyLayerPass(InstanceEntry entry, SpAnimationParser.AnimationSet set,
+                                SpModelInstance instance, float now, float weight, boolean autoPass) {
         Iterator<Map.Entry<String, OverlayLayerState>> it = entry.layers.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, OverlayLayerState> mapEntry = it.next();
+            boolean auto = isAutoLayerKey(mapEntry.getKey());
+            if (auto != autoPass) continue;
+
             OverlayLayerState layer = mapEntry.getValue();
             SpAnimationParser.AnimationClip clip = set.get(layer.clipName);
             if (clip == null) continue;
 
-            float elapsedSec = org.zonarstudio.spraute_engine.client.SprauteScriptScreen.disableEntityAnimations ? 0f : Math.max(0f, (now - layer.startTick) / 20f);
+            float elapsedSec = org.zonarstudio.spraute_engine.client.SprauteScriptScreen.disableEntityAnimations
+                    ? 0f : Math.max(0f, (now - layer.startTick) / 20f);
             if (layer.mode == SprauteNpcEntity.OVERLAY_ONCE) {
                 float lengthSec = clip.getLengthSec();
                 if (lengthSec > 0f && elapsedSec >= lengthSec && layer.fadeOutStartTick < 0f) {
@@ -335,16 +426,15 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
 
             float layerBlend = getLayerBlend(now, layer);
             if (layerBlend <= 0f && layer.fadeOutStartTick >= 0f) {
+                if (auto) continue;
                 it.remove();
                 continue;
             }
 
-            // Auto-anim layers always use full weight 1.0 (they are the base pose)
-            float effectiveWeight = (mapEntry.getKey().startsWith("__auto_")) ? layerBlend : weight * layerBlend;
-
+            float effectiveWeight = auto ? layerBlend : weight * layerBlend;
             if (layer.mode == SprauteNpcEntity.OVERLAY_LOOP
-                || layer.mode == SprauteNpcEntity.OVERLAY_ONCE
-                || layer.mode == SprauteNpcEntity.OVERLAY_FREEZE) {
+                    || layer.mode == SprauteNpcEntity.OVERLAY_ONCE
+                    || layer.mode == SprauteNpcEntity.OVERLAY_FREEZE) {
                 boolean playbackLoop = layer.mode == SprauteNpcEntity.OVERLAY_LOOP;
                 clip.apply(instance, elapsedSec, effectiveWeight, playbackLoop, layer.additive);
             }
@@ -380,6 +470,7 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
                     deathLayer.startTick = now;
                     deathLayer.fadeInStartTick = now;
                     deathLayer.fadeOutStartTick = -1f;
+                    deathLayer.additive = false;
                     entry.layers.put("__auto_death__", deathLayer);
                 } else if (deathLayer.fadeOutStartTick >= 0f) {
                     deathLayer.fadeOutStartTick = -1f;
@@ -425,13 +516,10 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
                 idleLayer.startTick = now;
                 idleLayer.fadeInStartTick = now;
                 idleLayer.fadeOutStartTick = -1f;
+                idleLayer.additive = false;
                 entry.layers.put(AUTO_IDLE_KEY, idleLayer);
             } else if (idleLayer.fadeOutStartTick >= 0f) {
-                idleLayer.clipName = idleAnimName;
-                idleLayer.mode = SprauteNpcEntity.OVERLAY_LOOP;
-                idleLayer.startTick = now;
-                idleLayer.fadeInStartTick = now;
-                idleLayer.fadeOutStartTick = -1f;
+                resumeAutoLayer(idleLayer, idleAnimName, now);
             }
             return;
         }
@@ -449,11 +537,13 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
                     idleLayer.startTick = now;
                     idleLayer.fadeInStartTick = now;
                     idleLayer.fadeOutStartTick = -1f;
+                    idleLayer.additive = false;
                     entry.layers.put(AUTO_IDLE_KEY, idleLayer);
                 } else if (idleLayer.fadeOutStartTick >= 0f) {
-                    // Fading out — restart it
+                    // Resume same timeline — ease back under remaining overlays.
+                    resumeAutoLayer(idleLayer, idleAnimName, now);
+                } else if (!idleAnimName.equals(idleLayer.clipName)) {
                     idleLayer.clipName = idleAnimName;
-                    idleLayer.mode = SprauteNpcEntity.OVERLAY_LOOP;
                     idleLayer.startTick = now;
                     idleLayer.fadeInStartTick = now;
                     idleLayer.fadeOutStartTick = -1f;
@@ -476,10 +566,12 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
                     walkLayer.startTick = now;
                     walkLayer.fadeInStartTick = now;
                     walkLayer.fadeOutStartTick = -1f;
+                    walkLayer.additive = false;
                     entry.layers.put(AUTO_WALK_KEY, walkLayer);
                 } else if (walkLayer.fadeOutStartTick >= 0f) {
+                    resumeAutoLayer(walkLayer, walkAnimName, now);
+                } else if (!walkAnimName.equals(walkLayer.clipName)) {
                     walkLayer.clipName = walkAnimName;
-                    walkLayer.mode = SprauteNpcEntity.OVERLAY_LOOP;
                     walkLayer.startTick = now;
                     walkLayer.fadeInStartTick = now;
                     walkLayer.fadeOutStartTick = -1f;
@@ -489,6 +581,25 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
                     walkLayer.fadeOutStartTick = now;
                 }
             }
+        }
+    }
+
+    private static boolean isAutoLayerKey(String key) {
+        return key != null && key.startsWith("__auto_");
+    }
+
+    /** Cancel fade-out without resetting clip time; continue fade-in from current weight. */
+    private void resumeAutoLayer(OverlayLayerState layer, String animName, float now) {
+        float blend = getLayerBlend(now, layer);
+        layer.clipName = animName;
+        layer.mode = SprauteNpcEntity.OVERLAY_LOOP;
+        layer.fadeOutStartTick = -1f;
+        layer.additive = false;
+        // Keep startTick so the clip phase continues (no body pop to frame 0).
+        if (blend < 0.999f) {
+            layer.fadeInStartTick = now - blend * BLEND_TICKS;
+        } else {
+            layer.fadeInStartTick = now - BLEND_TICKS;
         }
     }
 
@@ -511,26 +622,25 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
         byte mode = entity.getOverlayMode();
 
         if (mode == SprauteNpcEntity.OVERLAY_NONE) {
+            // Never fade auto idle/walk here — they keep playing and remaining
+            // overlays blend out toward their continuing pose.
             if (clipName == null || clipName.isEmpty()) {
-                for (OverlayLayerState layer : entry.layers.values()) {
-                    if (layer.fadeOutStartTick < 0f) layer.fadeOutStartTick = now;
+                for (Map.Entry<String, OverlayLayerState> e : entry.layers.entrySet()) {
+                    if (isAutoLayerKey(e.getKey())) continue;
+                    if (e.getValue().fadeOutStartTick < 0f) e.getValue().fadeOutStartTick = now;
                 }
             } else {
-                OverlayLayerState layer = entry.layers.get(clipName.toLowerCase(Locale.ROOT));
-                if (layer != null && layer.fadeOutStartTick < 0f) layer.fadeOutStartTick = now;
+                String stopKey = clipName.toLowerCase(Locale.ROOT);
+                if (!isAutoLayerKey(stopKey)) {
+                    OverlayLayerState layer = entry.layers.get(stopKey);
+                    if (layer != null && layer.fadeOutStartTick < 0f) layer.fadeOutStartTick = now;
+                }
             }
             return;
         }
 
         if (clipName == null || clipName.isEmpty()) return;
         String key = clipName.toLowerCase(Locale.ROOT);
-        if (!entity.isOverlayAdditive()) {
-            for (Map.Entry<String, OverlayLayerState> e : entry.layers.entrySet()) {
-                if (!e.getKey().equals(key) && e.getValue().fadeOutStartTick < 0f) {
-                    e.getValue().fadeOutStartTick = now;
-                }
-            }
-        }
 
         OverlayLayerState layer = entry.layers.get(key);
         if (layer == null) {
@@ -545,9 +655,18 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
         layer.additive = entity.isOverlayAdditive();
     }
 
+    public static void clearInstances() {
+        INSTANCES.clear();
+    }
+
+    public static void removeInstance(UUID entityId) {
+        if (entityId != null) INSTANCES.remove(entityId);
+    }
+
     private InstanceEntry getOrCreateInstance(UUID entityId, String modelPath, SpGeoModel model) {
         InstanceEntry entry = INSTANCES.get(entityId);
-        if (entry != null && entry.modelPath.equals(modelPath)) {
+        if (entry != null && entry.modelPath.equals(modelPath)
+                && entry.instance.getModel().boneMap.size() == model.boneMap.size()) {
             return entry;
         }
         SpModelInstance instance = new SpModelInstance(model);
@@ -564,33 +683,38 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
         org.zonarstudio.spraute_engine.core.math.SpMatrix4 matrix = entry.instance.getBoneMatrix(boneName);
         if (matrix == null) return null;
 
-        // Model space translation
-        float mx = matrix.m[12];
-        float my = matrix.m[13];
-        float mz = matrix.m[14];
+        return modelPointToWorld(entity, matrix.m[12], matrix.m[13], matrix.m[14], partialTick);
+    }
 
-        // Convert Bedrock/Blockbench model space (scale 16) to Minecraft world space.
-        mx /= 16.0f;
-        my /= 16.0f;
-        mz /= 16.0f;
+    /** World position of a Bedrock locator (e.g. {@code lead_hold}) after bone animation. */
+    public SpVec3 getLocatorWorldPosition(SprauteNpcEntity entity, String locatorName, float partialTick) {
+        InstanceEntry entry = INSTANCES.get(entity.getUUID());
+        if (entry == null || entry.instance == null) return null;
+        SpVec3 model = entry.instance.getLocatorModelPosition(locatorName);
+        if (model == null) return null;
+        // Same conversion path as getBoneWorldPosition (bone matrix translation space).
+        return modelPointToWorld(entity, model.x, model.y, model.z, partialTick);
+    }
 
-        // Entity rotation
+    private static SpVec3 modelPointToWorld(SprauteNpcEntity entity,
+                                            float mxPx, float myPx, float mzPx, float partialTick) {
+        float mx = mxPx / 16.0f;
+        float my = myPx / 16.0f;
+        float mz = mzPx / 16.0f;
+
         float bodyYaw = net.minecraft.util.Mth.rotLerp(partialTick, entity.yBodyRotO, entity.yBodyRot);
-        // Rotation around Y (180 - yaw)
         float rad = (float) Math.toRadians(180.0 - bodyYaw);
         float cos = (float) Math.cos(rad);
         float sin = (float) Math.sin(rad);
 
-        // Standard 2D rotation for X and Z
         float rotX = mx * cos + mz * sin;
         float rotZ = -mx * sin + mz * cos;
 
-        // Add entity world position
         double x = net.minecraft.util.Mth.lerp(partialTick, entity.xo, entity.getX()) + rotX;
         double y = net.minecraft.util.Mth.lerp(partialTick, entity.yo, entity.getY()) + my;
         double z = net.minecraft.util.Mth.lerp(partialTick, entity.zo, entity.getZ()) + rotZ;
 
-        return new SpVec3((float)x, (float)y, (float)z);
+        return new SpVec3((float) x, (float) y, (float) z);
     }
 
     private static final class InstanceEntry {
@@ -600,6 +724,8 @@ public class SprauteNpcRenderer extends EntityRenderer<SprauteNpcEntity> {
         int lastOverlayCommandId = Integer.MIN_VALUE;
         int lastHeadLookTargetGen = Integer.MIN_VALUE;
         int lastHeadSmoothTick = Integer.MIN_VALUE;
+        int lastPoseTick = Integer.MIN_VALUE;
+        int poseInterval = 1;
 
         float smoothHeadLocalYaw = 0f;
         float smoothHeadLocalYawO = 0f;

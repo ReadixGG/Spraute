@@ -1,0 +1,9 @@
+#\ block: else_if_block
+#\ category: Логика
+#\ color: #8b5cf6
+#\ shape: wrapper
+#\
+#\ row: "иначе если"
+#\ input: cond (type: value)
+#\ row: "то"
+#\ template: else if ({cond}) {\n{DO}}

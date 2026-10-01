@@ -1,0 +1,8 @@
+#\ block: camera_disable_effects
+#\ category: Камера
+#\ color: #8b5cf6
+#\ shape: statement
+#\
+#\ row: "отключить эффекты камеры" input: player (type: value)
+#\ row: [enabled: dropdown(да: true, нет: false)]
+#\ template: {player}.camera.disableEffects = {enabled}

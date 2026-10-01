@@ -1,0 +1,25 @@
+#\ block: get_player_stmt
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "получить игрока" [mode: dropdown(кликнувший: event, первый: first, последний: last, по индексу: idx, по нику: name, из слота: custom)]
+#\ if mode == "idx":
+#\   row: "номер"
+#\   input: index (type: value)
+#\ if mode == "name":
+#\   row: "ник" (nick: text: Steve)
+#\ if mode == "custom":
+#\   input: player (type: value)
+#\ if mode == "event":
+#\   code: return "_eventPlayer"
+#\ if mode == "first":
+#\   template: getFirstPlayer()
+#\ if mode == "last":
+#\   template: getLastPlayer()
+#\ if mode == "idx":
+#\   template: getPlayerAt({index})
+#\ if mode == "name":
+#\   template: getPlayer("{nick}")
+#\ if mode == "custom":
+#\   code: return _getVal("player").trim()

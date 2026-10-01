@@ -1,0 +1,11 @@
+#\ block: logic_op
+#\ category: Логика
+#\ color: #8b5cf6
+#\ shape: value
+#\
+#\ row: "("
+#\ input: a (type: value)
+#\ row: [op: dropdown(И: &&, ИЛИ: ||)]
+#\ input: b (type: value)
+#\ row: ")"
+#\ code: return _getVal("a").trim() + " " + _getVal("op") + " " + _getVal("b").trim();

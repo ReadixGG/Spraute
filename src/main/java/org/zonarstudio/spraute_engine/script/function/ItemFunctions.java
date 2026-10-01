@@ -1,20 +1,12 @@
 package org.zonarstudio.spraute_engine.script.function;
 
 import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
-import net.minecraftforge.registries.ForgeRegistries;
+import org.zonarstudio.spraute_engine.script.ItemStackScriptUtil;
 import org.zonarstudio.spraute_engine.script.ScriptContext;
-import org.zonarstudio.spraute_engine.script.ScriptExecutor;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -45,55 +37,27 @@ public class ItemFunctions {
             if (!(player instanceof ServerPlayer sp)) return null;
 
             String itemId = String.valueOf(args.get(1));
-            ResourceLocation rl = itemId.contains(":") ? new ResourceLocation(itemId) : new ResourceLocation("minecraft", itemId);
-            net.minecraft.world.item.Item item = ForgeRegistries.ITEMS.getValue(rl);
-            
-            if (item == null || item == net.minecraft.world.item.Items.AIR) {
-                Block block = ForgeRegistries.BLOCKS.getValue(rl);
-                if (block != null && block != net.minecraft.world.level.block.Blocks.AIR) {
-                    item = block.asItem();
-                }
-            }
-            if (item == null || item == net.minecraft.world.item.Items.AIR) return null;
-
             int count = 1;
             if (args.size() > 2 && args.get(2) instanceof Number n) {
                 count = n.intValue();
             }
 
-            ItemStack stack = new ItemStack(item, count);
+            String name = null;
+            if (args.size() > 3 && args.get(3) instanceof String n && !n.isEmpty()) name = n;
 
-            if (args.size() > 3 && args.get(3) instanceof String name && !name.isEmpty()) {
-                stack.setHoverName(Component.literal(name.replace("&", "§")));
+            List<?> lore = null;
+            if (args.size() > 4 && args.get(4) instanceof List<?> loreList) lore = loreList;
+
+            Map<?, ?> nbtMap = null;
+            String extraSnbt = null;
+            if (args.size() > 5) {
+                if (args.get(5) instanceof Map<?, ?> m) nbtMap = m;
+                else if (args.get(5) instanceof String s) extraSnbt = s;
             }
 
-            if (args.size() > 4 && args.get(4) instanceof List<?> loreList) {
-                CompoundTag display = stack.getOrCreateTagElement("display");
-                ListTag lore = new ListTag();
-                for (Object o : loreList) {
-                    lore.add(StringTag.valueOf(Component.Serializer.toJson(Component.literal(String.valueOf(o).replace("&", "§")))));
-                }
-                display.put("Lore", lore);
-            }
-
-            if (args.size() > 5 && args.get(5) instanceof Map<?, ?> nbtMap) {
-                CompoundTag tag = stack.getOrCreateTag();
-                for (Map.Entry<?, ?> entry : nbtMap.entrySet()) {
-                    String key = String.valueOf(entry.getKey());
-                    Object val = entry.getValue();
-                    if (val instanceof Boolean b) {
-                        tag.putBoolean(key, b);
-                    } else if (val instanceof Number n) {
-                        if (val instanceof Double || val instanceof Float) {
-                            tag.putDouble(key, n.doubleValue());
-                        } else {
-                            tag.putInt(key, n.intValue());
-                        }
-                    } else if (val instanceof String s) {
-                        tag.putString(key, s);
-                    }
-                }
-            }
+            ItemStack stack = ItemStackScriptUtil.createStack(itemId, count, name, lore, nbtMap);
+            if (stack.isEmpty()) return null;
+            if (extraSnbt != null) ItemStackScriptUtil.applySnbt(stack, extraSnbt);
 
             sp.getInventory().add(stack);
             sp.containerMenu.broadcastChanges();
@@ -121,6 +85,22 @@ public class ItemFunctions {
 
             return org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.stackToMap(
                     stack, player.getInventory().selected);
+        }
+    }
+
+    /** {@code itemDisplayName("minecraft:diamond")} → localized item name for chat/UI. */
+    public static class GetItemDisplayName implements ScriptFunction {
+        @Override public String getName() { return "itemDisplayName"; }
+
+        @Override public int getArgCount() { return 1; }
+
+        @Override
+        public Class<?>[] getArgTypes() { return new Class<?>[]{Object.class}; }
+
+        @Override
+        public Object execute(List<Object> args, CommandSourceStack source, ScriptContext context) {
+            if (args.isEmpty()) return "";
+            return org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.displayNameForItemId(String.valueOf(args.get(0)));
         }
     }
 }

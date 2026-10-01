@@ -17,16 +17,38 @@ public final class CameraClientEvents {
 
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onMovementInput(MovementInputUpdateEvent event) {
-        if (!CameraHandler.isLockMovement()) return;
-        event.getInput().forwardImpulse = 0f;
-        event.getInput().leftImpulse = 0f;
-        event.getInput().jumping = false;
-        event.getInput().shiftKeyDown = false;
+        if (CameraHandler.isLockMovement() || PlayerControlHandler.isMoveLocked()) {
+            event.getInput().forwardImpulse = 0f;
+            event.getInput().leftImpulse = 0f;
+            event.getInput().jumping = false;
+            event.getInput().shiftKeyDown = false;
+            return;
+        }
+        CameraHandler.applyRelativeMove(event.getEntity(), event.getInput());
+        PlayerControlHandler.applyMoveDirLocks(event.getEntity(), event.getInput());
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    public static void onLeftClickBlock(net.minecraftforge.event.entity.player.PlayerInteractEvent.LeftClickBlock event) {
+        if (CameraHandler.isLockBlocks()) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    public static void onRightClickBlock(net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock event) {
+        if (CameraHandler.isLockBlocks()) {
+            event.setCanceled(true);
+            event.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
+        }
     }
 
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onRenderGuiOverlayPre(RenderGuiOverlayEvent.Pre event) {
-        if (!CameraHandler.isActive()) return;
+        if (HudHideClient.isHidden(event.getOverlay())) {
+            event.setCanceled(true);
+            return;
+        }
 
         byte mode = CameraHandler.getHideGui();
         if (mode == CameraPacket.HIDE_NONE) return;
@@ -44,7 +66,7 @@ public final class CameraClientEvents {
 
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onRenderHand(RenderHandEvent event) {
-        if (CameraHandler.shouldHideVanillaHud()) {
+        if (HudHideClient.hideHand() || CameraHandler.shouldHideVanillaHud() || CameraHandler.shouldHideHand()) {
             event.setCanceled(true);
         }
     }

@@ -189,7 +189,7 @@ function lookupAnimsInFile(animFile) {
   return null;
 }
 
-/** Id НИПа → путь к файлу анимации из блоков «создать НИП». */
+/** Id НИПа / имя / префаб → путь к .animation.json из create npc + привязок переменных. */
 export function buildNpcAnimFileMap(workspace) {
   const map = {};
   if (!workspace) return map;
@@ -199,7 +199,81 @@ export function buildNpcAnimFileMap(workspace) {
     const anim = readBlockFieldVal(block, 'animation');
     if (id && anim) map[id] = normAnimFilePath(anim);
   }
+  // Переменные: readix = sceneFindNode / prefabSpawn / npc_ref → файл анимации цели
+  for (const block of workspace.getAllBlocks(false)) {
+    if (!block.type?.endsWith('var_declare') && !block.type?.endsWith('var_set')) continue;
+    const name = readBlockFieldVal(block, 'name');
+    if (!name) continue;
+    const value = block.getInputTargetBlock?.('value') || block.getInputTargetBlock?.('VALUE');
+    const anim = resolveAnimFileFromValueBlock(value, workspace, new Set(), map);
+    if (anim) map[name] = normAnimFilePath(anim);
+  }
   return map;
+}
+
+function resolveAnimFileFromValueBlock(block, workspace, visiting, baseMap) {
+  if (!block?.type) return '';
+  const id = block.id || block.type;
+  if (visiting.has(id)) return '';
+  visiting.add(id);
+  const t = block.type;
+  const map = baseMap || {};
+
+  if (t.endsWith('npc_create')) {
+    return normAnimFilePath(readBlockFieldVal(block, 'animation'))
+      || map[readBlockFieldVal(block, 'id')]
+      || '';
+  }
+  if (t.endsWith('npc_ref')) {
+    const nested = block.getInputTargetBlock?.('npc');
+    if (nested) {
+      const fromNested = resolveAnimFileFromValueBlock(nested, workspace, visiting, map);
+      if (fromNested) return fromNested;
+    }
+    const npcId = readBlockFieldVal(block, 'npc');
+    return map[npcId] || '';
+  }
+  if (t.endsWith('var_get')) {
+    const name = readBlockFieldVal(block, 'name');
+    return map[name] || '';
+  }
+  if (t.endsWith('scene_get_node')) {
+    const path = readBlockFieldVal(block, 'path');
+    return (typeof window !== 'undefined' && window.__sprauteSceneAnimFile)
+      ? (window.__sprauteSceneAnimFile(path) || '')
+      : '';
+  }
+  if (t.endsWith('scene_find_node')) {
+    const name = readBlockFieldVal(block, 'name');
+    return (typeof window !== 'undefined' && window.__sprauteSceneAnimFile)
+      ? (window.__sprauteSceneAnimFile(name) || '')
+      : '';
+  }
+  if (t.endsWith('scene_find_node_by_id')) {
+    const id = readBlockFieldVal(block, 'id');
+    return (typeof window !== 'undefined' && window.__sprauteSceneAnimFile)
+      ? (window.__sprauteSceneAnimFile(id) || '')
+      : '';
+  }
+  if (t.endsWith('prefab_spawn') || t.endsWith('prefab_spawn_stmt')) {
+    const prefab = readBlockFieldVal(block, 'prefab');
+    return (typeof window !== 'undefined' && window.__sprautePrefabAnimFile)
+      ? (window.__sprautePrefabAnimFile(prefab) || '')
+      : '';
+  }
+  for (const sock of ['value', 'npc', 'entity', 'target', 'object']) {
+    const nested = block.getInputTargetBlock?.(sock);
+    if (nested) {
+      const hit = resolveAnimFileFromValueBlock(nested, workspace, visiting, map);
+      if (hit) return hit;
+    }
+  }
+  for (const key of ['value', 'text', 'str', 'id', 'name', 'npc']) {
+    const lit = readBlockFieldVal(block, key);
+    if (!lit) continue;
+    if (map[lit]) return map[lit];
+  }
+  return '';
 }
 
 function resolveAnimFileForBlock(self) {
@@ -207,9 +281,23 @@ function resolveAnimFileForBlock(self) {
   if (self.type?.endsWith('npc_create')) {
     return normAnimFilePath(readBlockFieldVal(self, 'animation'));
   }
+  const map = buildNpcAnimFileMap(self.workspace);
+  const npcInput = self.getInputTargetBlock?.('npc');
+  if (npcInput) {
+    const fromSocket = resolveAnimFileFromValueBlock(npcInput, self.workspace, new Set(), map);
+    if (fromSocket) return normAnimFilePath(fromSocket);
+  }
   const npcId = readBlockFieldVal(self, 'npc');
   if (npcId) {
-    return buildNpcAnimFileMap(self.workspace)[npcId] || '';
+    if (map[npcId]) return map[npcId];
+    if (typeof window !== 'undefined' && window.__sprauteSceneAnimFile) {
+      const fromScene = window.__sprauteSceneAnimFile(npcId);
+      if (fromScene) return normAnimFilePath(fromScene);
+    }
+    if (typeof window !== 'undefined' && window.__sprautePrefabAnimFile) {
+      const fromPrefab = window.__sprautePrefabAnimFile(npcId);
+      if (fromPrefab) return normAnimFilePath(fromPrefab);
+    }
   }
   return '';
 }
@@ -609,9 +697,23 @@ export function registerPluginCategoryOrder(categories) {
 
 export function applyPluginCategoryColors(colors) {
   if (!colors || typeof colors !== 'object') return;
-  for (const [name, color] of Object.entries(colors)) {
-    if (customCategories[name]) customCategories[name].color = color;
+  for (const [name, raw] of Object.entries(colors)) {
+    if (!customCategories[name]) continue;
+    const meta = normalizeCategoryMeta(raw);
+    customCategories[name].color = meta.color;
+    if (meta.note) customCategories[name].note = meta.note;
   }
+}
+
+/** categories.json value: "#hex" or { color, note }. */
+function normalizeCategoryMeta(raw) {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    return {
+      color: typeof raw.color === 'string' && raw.color ? raw.color : '#555555',
+      note: typeof raw.note === 'string' && raw.note.trim() ? raw.note.trim() : null,
+    };
+  }
+  return { color: typeof raw === 'string' && raw ? raw : '#555555', note: null };
 }
 
 export function sortPluginBlocks(namespace, orderByCategory) {
@@ -1092,15 +1194,18 @@ function _registerBlockFromChunk(chunk, namespace, isPreview) {
   if (self._sprautePendingChildIds_ && self._sprautePendingChildIds_[n]) return true;
   try {
     var inp = self.getInput(n);
-    if (inp && inp.type === 1 && inp.connection && inp.connection.targetBlock()) return true;
+    if (inp && inp.type === 1) {
+      // Value-слот: только реально подключённый блок (без устаревшего val_*)
+      return !!(inp.connection && inp.connection.targetBlock());
+    }
   } catch (e) {}
-  if (self.filledWatchFields_ && self.filledWatchFields_.indexOf(n) >= 0) return false;
-  var cached = self["val_"+n];
-  if (cached != null && String(cached).trim().length > 0) return true;
+  // Текстовое/числовое поле (или поле ещё не создано — смотрим кэш)
   try {
     var fv = self.getFieldValue(n);
     if (fv != null && String(fv).trim().length > 0) return true;
   } catch (e) {}
+  var cached = self["val_"+n];
+  if (cached != null && String(cached).trim().length > 0) return true;
   return false;
 };\n` + dynUiJs;
   }
@@ -1821,14 +1926,19 @@ function showBlocklyCtxMenu(block, x, y) {
   }, 0);
 }
 
-/** Проверка, заполнен ли value-слот (подключённый блок; без устаревшего val_* для if_filled). */
+/** Проверка цели if_filled: value-слот с блоком ИЛИ непустое текстовое/числовое поле. */
 function isValueSlotFilled(block, inputName) {
   if (block._sprautePendingChildIds_?.[inputName]) return true;
   try {
     const inp = block.getInput(inputName);
-    if (inp && inp.type === 1 && inp.connection && inp.connection.targetBlock()) return true;
+    if (inp && inp.type === 1) {
+      return !!(inp.connection && inp.connection.targetBlock());
+    }
   } catch (e) {}
-  if (block.filledWatchFields_?.includes(inputName)) return false;
+  try {
+    const fv = block.getFieldValue(inputName);
+    if (fv != null && String(fv).trim().length > 0) return true;
+  } catch (e) {}
   const cached = block['val_' + inputName];
   if (cached != null && String(cached).trim().length > 0) return true;
   return false;
@@ -1845,11 +1955,19 @@ export function attachDynamicBlockReshapeListener(workspace) {
     if (workspace._sprauteRestoringBlocks) return;
 
     if (e.type === Blockly.Events.BLOCK_CHANGE && e.element === 'field') {
-      if (e.name === 'animation' || e.name === 'npc' || e.name === 'prop') {
-        const block = workspace.getBlockById(e.blockId);
-        if (block && !block.isDisposed()) {
+      const block = workspace.getBlockById(e.blockId);
+      if (block && !block.isDisposed()) {
+        if (e.name === 'animation' || e.name === 'npc' || e.name === 'prop') {
           setTimeout(() => {
             if (!workspace._sprauteRestoringBlocks) onSprauteAnimContextChanged(workspace, block);
+          }, 0);
+        }
+        // if_filled по текстовым/числовым полям — пересобрать форму
+        if (e.name && block.filledWatchFields_?.includes(e.name) && typeof block.updateShape_ === 'function') {
+          clearTimeout(block._sprauteReshapeDebounce);
+          block._sprauteReshapeDebounce = setTimeout(() => {
+            if (block.isDisposed() || !block.workspace || block._sprauteReshaping) return;
+            block.updateShape_();
           }, 0);
         }
       }
@@ -2110,11 +2228,20 @@ export function getDynamicToolbox() {
     ? [...pluginCategoryOrder, ...Object.keys(customCategories).filter(c => !pluginCategoryOrder.includes(c))]
     : Object.keys(customCategories))) {
     if (!customCategories[catName]) continue;
+    const cat = customCategories[catName];
+    const contents = [];
+    // Optional category banner from categories.json "note".
+    if (cat.note) {
+      contents.push({ kind: 'label', text: cat.note });
+    }
+    for (const id of cat.blocks) {
+      contents.push({ kind: 'block', type: id });
+    }
     tb.contents.push({
-      "kind": "category",
-      "name": catName,
-      "colour": customCategories[catName].color,
-      "contents": customCategories[catName].blocks.map(id => ({ "kind": "block", "type": id }))
+      kind: 'category',
+      name: catName,
+      colour: cat.color,
+      contents,
     });
   }
   return tb;

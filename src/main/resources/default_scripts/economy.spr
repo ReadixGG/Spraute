@@ -1,9 +1,46 @@
 # Библиотека экономики (монеты, HUD, трейд, орбы)
-# Запуск: startScript("economy") — регистрирует on orbPickup / on uiClick
+# Запуск: startScript("economy") или SCRIPT-нода «economy» в сцене (runOnSceneStart).
+# Регистрирует: declare ноды «Торговля», on interact → UI трейда, on uiClick, on orbPickup,
+# события tradeBuy / tradeSell (registerEvent + fireEvent).
 # Функции: import("economy")
 # Опционально: startScript("economy", dict("ECO_COIN_TEXTURE", "...", "ECO_COIN_KEY", "coins"))
+#
+# Редактор: в сцене добавь SCRIPT-ноду с script = economy → в Hierarchy появится
+# раздел «Экономика» → на NPC дочерняя нода «Торговля» (canTrade, title, items).
 
 import("spraute_chat")
+
+registerEvent("tradeBuy")
+registerEvent("tradeSell")
+
+declare section Экономика
+
+declare node type economy {
+    section = "Экономика"
+    label = "Торговля"
+    icon = "item"
+
+    field canTrade bool {
+        label = "Можно трейдить"
+        default = true
+    }
+
+    field title text {
+        label = "Название"
+        default = "Торговля"
+    }
+
+    list items {
+        label = "Товары"
+        addLabel = "Добавить предмет"
+        field item item { label = "Предмет" }
+        field name text { label = "Имя" default = "" }
+        field buyPrice number { label = "Купить за" default = 10 }
+        field sellPrice number { label = "Продать за" default = 5 }
+        field canBuy bool { label = "Покупка" default = true }
+        field canSell bool { label = "Продажа" default = true }
+    }
+}
 
 var ECO_COIN_TEXTURE = "minecraft:textures/item/gold_nugget.png"
 var ECO_COIN_KEY = "coins"
@@ -72,6 +109,11 @@ fun ecoShowCoinsHud(p, texOverride) {
     ecoUpdateCoinsHud(p)
 }
 
+fun ecoHideCoinsHud(p) {
+    if (p == null) { return }
+    overlayClose(p, eco_coins_hud)
+}
+
 fun ecoAddCoins(p, amount) {
     if (p == null) { return }
     ecoInit(p)
@@ -79,6 +121,14 @@ fun ecoAddCoins(p, amount) {
     if (c == null) { c = 0 }
     p.savedData[ECO_COIN_KEY] = c + amount
     ecoUpdateCoinsHud(p)
+}
+
+fun ecoGetCoins(p) {
+    if (p == null) { return 0 }
+    ecoInit(p)
+    var c = p.savedData[ECO_COIN_KEY]
+    if (c == null) { return 0 }
+    return c
 }
 
 fun ecoRemoveCoins(p, amount) {
@@ -92,17 +142,9 @@ fun ecoRemoveCoins(p, amount) {
     ecoUpdateCoinsHud(p)
 }
 
-fun ecoGetCoins(p) {
-    if (p == null) { return 0 }
-    ecoInit(p)
-    var c = p.savedData[ECO_COIN_KEY]
-    if (c == null) { return 0 }
-    return c
-}
-
 fun ecoSetCoinTexture(tex) {
     if (tex != null) {
-        if (tex != "") { ECO_COIN_TEXTURE = tex }
+        if (tex != "") { ECO_COIN_TEXTURE = normalizeOrbTexture(tex) }
     }
 }
 
@@ -124,6 +166,144 @@ fun ecoItemCanSell(item) {
     var v = item["canSell"]
     if (v == null) { return true }
     if (v == false) { return false }
+    return true
+}
+
+fun ecoTradeItemsFromShop(shop) {
+    if (shop == null) { return null }
+    var raw = shop.items
+    if (raw == null) {
+        var data = shop.data
+        if (data != null) { raw = data["items"] }
+    }
+    if (raw == null) { return null }
+    var count = listSize(raw)
+    if (count < 1) { return null }
+    var out = listCreate()
+    var i = 0
+    while (i < count) {
+        var row = raw[i]
+        if (row != null) {
+            var entry = dictCreate()
+            var itemId = row.item
+            if (itemId == null) { itemId = row["item"] }
+            if (itemId != null) {
+                entry["id"] = itemId
+                var nm = row.name
+                if (nm == null) { nm = row["name"] }
+                if (nm == null) { nm = "" }
+                if (nm == "") { nm = itemId }
+                entry["name"] = nm
+                var buy = row.buyPrice
+                if (buy == null) { buy = row["buyPrice"] }
+                if (buy == null) { buy = 10 }
+                entry["buy"] = buy
+                var sell = row.sellPrice
+                if (sell == null) { sell = row["sellPrice"] }
+                if (sell == null) { sell = 5 }
+                entry["sell"] = sell
+                var cb = row.canBuy
+                if (cb == null) { cb = row["canBuy"] }
+                if (cb == null) { cb = true }
+                entry["canBuy"] = cb
+                var cs = row.canSell
+                if (cs == null) { cs = row["canSell"] }
+                if (cs == null) { cs = true }
+                entry["canSell"] = cs
+                listAdd(out, entry)
+            }
+        }
+        i = i + 1
+    }
+    if (listSize(out) < 1) { return null }
+    return out
+}
+
+fun ecoIsEconomyNode(node) {
+    if (node == null) { return false }
+    var t = node.typeId
+    if (t == null) { t = node.customType }
+    if (t == null) { t = node.custom_type }
+    if (t == "economy") { return true }
+    return false
+}
+
+fun ecoFindShopNodeInSubtree(node) {
+    if (node == null) { return null }
+    if (ecoIsEconomyNode(node)) { return node }
+    return sceneFindCustomUnder(node, "economy")
+}
+
+fun ecoShopCanTrade(shop) {
+    if (shop == null) { return false }
+    var can = shop.canTrade
+    if (can == null) {
+        var data = shop.data
+        if (data != null) { can = data["canTrade"] }
+    }
+    if (can == null) { can = true }
+    if (can == false) { return false }
+    return true
+}
+
+fun ecoFindShopInSubtree(node) {
+    var shop = ecoFindShopNodeInSubtree(node)
+    if (shop == null) { return null }
+    if (ecoShopCanTrade(shop)) { return shop }
+    return null
+}
+
+fun ecoResolveNpcView(npcRef) {
+    if (npcRef == null) { return null }
+    return sceneResolveNode(npcRef)
+}
+
+fun ecoSetNpcTradeAllowed(npcRef, allowed) {
+    var npcView = ecoResolveNpcView(npcRef)
+    if (npcView == null) { return false }
+    var shop = sceneFindCustomUnder(npcView, "economy")
+    if (shop == null && ecoIsEconomyNode(npcView)) { shop = npcView }
+    if (shop == null) { return false }
+    var flag = true
+    if (allowed == false) { flag = false }
+    shop.canTrade = flag
+    var data = shop.data
+    if (data != null) { data["canTrade"] = flag }
+    return true
+}
+
+fun ecoAllowNpcTrade(npcRef) {
+    return ecoSetNpcTradeAllowed(npcRef, true)
+}
+
+fun ecoDenyNpcTrade(npcRef) {
+    return ecoSetNpcTradeAllowed(npcRef, false)
+}
+
+fun ecoOpenShopNode(p, shop, npcId) {
+    if (p == null) { return }
+    if (shop == null) { return }
+    if (!ecoShopCanTrade(shop)) { return }
+    var items = ecoTradeItemsFromShop(shop)
+    if (items == null) { return }
+    var title = shop.title
+    if (title == null) { title = "Торговля" }
+    if (title == "") { title = "Торговля" }
+    if (npcId == null) { npcId = "" }
+    ecoOpenTrade(p, items, title, npcId)
+}
+
+fun ecoTryOpenTradeOnNpc(p, npcEntity) {
+    if (p == null) { return false }
+    if (npcEntity == null) { return false }
+    var npcView = sceneResolveNode(npcEntity)
+    if (npcView == null) { npcView = sceneNodeForEntity(npcEntity) }
+    if (npcView == null) { return false }
+    var shop = ecoFindShopInSubtree(npcView)
+    if (shop == null) { return false }
+    var npcId = npcView.id
+    if (npcId == null) { npcId = "" }
+    ecoOpenShopNode(p, shop, npcId)
     return true
 }
 
@@ -277,6 +457,14 @@ fun ecoBuildTradeUi(p) {
     uiOpen(p, eco_trade_ui)
 }
 
+on interact(any) -> ecoNpcTradeInteract {
+    val p = _eventPlayer
+    val targetNpc = _eventNpc
+    if (p == null) { return null }
+    if (targetNpc == null) { return null }
+    ecoTryOpenTradeOnNpc(p, targetNpc)
+}
+
 on uiClick() -> ecoTradeClick {
     val p = _eventPlayer
     val btn = _eventWidget
@@ -308,17 +496,11 @@ on uiClick() -> ecoTradeClick {
                 d[ECO_COIN_KEY] = coins - cost
                 giveItem(p, sel["id"], 1)
                 playSound(p, "minecraft:entity.experience_orb.pickup", 1.0, 1.5)
-                fireTradeBuy(p, sel["id"], cost)
-                if (eco_active_npc != "") {
-                    npcChat(p, eco_active_npc, "Держи, пригодится в пути!", "#FFD700")
-                }
+                fireEvent("tradeBuy", p, sel["id"], cost)
                 ecoBuildTradeUi(p)
                 ecoUpdateCoinsHud(p)
             } else {
                 playSound(p, "minecraft:block.note_block.bass", 1.0, 0.5)
-                if (eco_active_npc != "") {
-                    npcChat(p, eco_active_npc, "Монет не хватает!", "#FF5555")
-                }
             }
         }
     }
@@ -333,17 +515,11 @@ on uiClick() -> ecoTradeClick {
                 if (coins == null) { coins = 0 }
                 d[ECO_COIN_KEY] = coins + price
                 playSound(p, "minecraft:entity.experience_orb.pickup", 1.0, 1.2)
-                fireTradeSell(p, sel["id"], price)
-                if (eco_active_npc != "") {
-                    npcChat(p, eco_active_npc, "Добро, возьму!", "#FFD700")
-                }
+                fireEvent("tradeSell", p, sel["id"], price)
                 ecoBuildTradeUi(p)
                 ecoUpdateCoinsHud(p)
             } else {
                 playSound(p, "minecraft:block.note_block.bass", 1.0, 0.5)
-                if (eco_active_npc != "") {
-                    npcChat(p, eco_active_npc, "У тебя нет этого предмета.", "#FF5555")
-                }
             }
         }
     }
@@ -352,7 +528,7 @@ on uiClick() -> ecoTradeClick {
 on orbPickup() -> ecoOrbPickup {
     val p = _eventPlayer
     val tex = _eventTexture
-    if (tex == ECO_COIN_TEXTURE) {
+    if (normalizeOrbTexture(tex) == normalizeOrbTexture(ECO_COIN_TEXTURE)) {
         ecoInit(p)
         ecoAddCoins(p, _eventAmount)
         ecoShowCoinsHud(p, "")

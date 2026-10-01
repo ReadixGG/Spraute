@@ -38,9 +38,6 @@ fun dialogClassic(player, target, question, answers) {
     if (count < 1) { return "__close__" }
     if (count > 3) { count = 3 }
 
-    if (target != null) {
-        target.alwaysLookAt(player)
-    }
 
     val panel_w = 420
     val btn_h = 34

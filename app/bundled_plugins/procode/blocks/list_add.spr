@@ -1,0 +1,10 @@
+#\ block: list_add
+#\ category: Списки
+#\ color: #3b82f6
+#\ shape: statement
+#\
+#\ row: "в список"
+#\ input: list (type: value)
+#\ row: "добавить"
+#\ input: value (type: value)
+#\ template: listAdd({list}, {value})

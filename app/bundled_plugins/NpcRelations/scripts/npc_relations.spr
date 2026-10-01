@@ -1,34 +1,124 @@
 # ================================================================
-#  NpcRelations — плагин Spraute Studio (автор: Any)
+#  NpcRelations — платный плагин (не входит в ядро / ProCode)
 #  import("npc_relations") — API в других скриптах
-#  Автозапуск при старте сервера (см. autorun ниже)
 #
-#  Открытие: ПКМ + Shift по зарегистрированному НПС
+#  Как экономика: в сцену добавь SCRIPT-ноду script = npc_relations
+#  → в Hierarchy раздел «Отношения» → на NPC дочерняя нода «Отношения».
+#  ПКМ (+ Shift, если включено) по NPC открывает меню.
 #
-#  События (как в economy / trade):
-#    on relGift() / on relRepChange() / on relTalk() / on relButton()
-#    on relGift(any, "minecraft:diamond")
-#    on relGift(any, "boris", "minecraft:diamond")
-#    on relRepChange(any, "boris")
-#    on relButton(any, "quest")
+#  Код = нода:
+#    create relations {
+#        parent = myNpc
+#        name = "Борис"
+#        title = "Кузнец"
+#        show_relations = true
+#        show_gift = true
+#        show_talk = true
+#        gifts = [
+#            { item = "minecraft:diamond", rep = 10, consume = true, message = "Спасибо!" }
+#        ]
+#        buttons = [
+#            { id = "quest", label = "Квест", visible = true }
+#        ]
+#    }
 #
-#    await relGift(player)
-#    await relRepChange(player, "boris")
-#    await relTalk(player)
+#  Старый API relRegisterNpc / relAddGift тоже работает (без ноды).
 #
+#  События: on / await relGift, relRepChange, relTalk, relButton
 #  Репутация: player.savedData["rel_rep"] — словарь npc_id → число.
-#  Уровни (по умолчанию): враждебный -30, недружелюбный -10, нейтральный 10,
-#  дружелюбный 30, союзник 60. Настройка: relConfigureRepTiers / relConfigureRepTierNames.
-#  relGetTierName(p, npc) — русское название; relGetTierId(p, npc) — id уровня.
-#
-#  Переменные события:
-#    _eventPlayer, _eventTarget (npc_id или btn_id)
-#    rel_event_npc, rel_event_item, rel_event_rep
-#    rel_event_old_rep, rel_event_new_rep, rel_event_button
 # ================================================================
 
 import("spraute_chat")
 import("dialog_classic")
+
+declare section Отношения
+
+declare node type relations {
+    section = "Отношения"
+    label = "Отношения"
+    icon = "item"
+
+    field enabled bool {
+        label = "Включено"
+        default = true
+    }
+
+    field require_sneak bool {
+        label = "Нужен Shift"
+        default = true
+    }
+
+    field name text {
+        label = "Имя"
+        default = ""
+    }
+
+    field title text {
+        label = "Подзаголовок"
+        default = ""
+    }
+
+    field show_relations bool {
+        label = "Кнопка «Отношения»"
+        default = true
+    }
+
+    field show_gift bool {
+        label = "Кнопка «Подарок»"
+        default = true
+    }
+
+    field show_talk bool {
+        label = "Кнопка «Поговорить»"
+        default = true
+    }
+
+    field min_rep number {
+        label = "Мин. репутация"
+        default = -100
+    }
+
+    field max_rep number {
+        label = "Макс. репутация"
+        default = 100
+    }
+
+    field talk_question text {
+        label = "Вопрос разговора"
+        default = "§fО чём поговорим?"
+    }
+
+    list gifts {
+        label = "Подарки"
+        addLabel = "Добавить подарок"
+        field item item { label = "Предмет" }
+        field rep number { label = "Репутация" default = 10 }
+        field consume bool { label = "Забрать предмет" default = true }
+        field message text { label = "Сообщение" default = "" }
+    }
+
+    list buttons {
+        label = "Кнопки"
+        addLabel = "Добавить кнопку"
+        field id text { label = "id" default = "" }
+        field label text { label = "Текст" default = "" }
+        field color color { label = "Цвет" default = "#33446688" }
+        field hover color { label = "Hover" default = "#5566AACC" }
+        field visible bool { label = "Видно" default = true }
+    }
+
+    list talk_answers {
+        label = "Ответы в разговоре"
+        addLabel = "Добавить ответ"
+        field text text { label = "Текст" default = "" }
+    }
+
+    list talk_lines {
+        label = "Реплики вместо диалога"
+        addLabel = "Добавить реплику"
+        field text text { label = "Текст" default = "" }
+    }
+}
 
 # ──── Константы событий ────
 val REL_ACT_GIFT = "relGift"
@@ -108,7 +198,148 @@ fun relBlankProfile(name) {
     )
 }
 
+fun relIsRelationsNode(node) {
+    if (node == null) { return false }
+    var t = node.typeId
+    if (t == null) { t = node.customType }
+    if (t == null) { t = node.custom_type }
+    if (t == "relations") { return true }
+    return false
+}
+
+fun relFindNode(npcRef) {
+    if (npcRef == null) { return null }
+    var npcView = sceneResolveNode(npcRef)
+    if (npcView == null) { npcView = sceneNodeForEntity(npcRef) }
+    if (npcView == null) { return null }
+    if (relIsRelationsNode(npcView)) { return npcView }
+    return sceneFindCustomUnder(npcView, "relations")
+}
+
+fun relNodeGet(node, key) {
+    if (node == null) { return null }
+    var data = node.data
+    if (data != null) {
+        var v = data[key]
+        if (v != null) { return v }
+    }
+    return null
+}
+
+fun relNodeSet(node, key, value) {
+    if (node == null) { return }
+    var data = node.data
+    if (data != null) { data[key] = value }
+}
+
+fun relNodeEnabled(node) {
+    var v = relNodeGet(node, "enabled")
+    if (v == null) { return true }
+    if (v == false) { return false }
+    return true
+}
+
+fun relRowText(row) {
+    if (row == null) { return "" }
+    var t = dictGet(row, "text")
+    if (t != null) { return t }
+    return row
+}
+
+fun relTextList(raw) {
+    var out = list()
+    if (raw == null) { return out }
+    var i = 0
+    while (i < listSize(raw)) {
+        var row = listGet(raw, i)
+        if (row != null) {
+            var t = relRowText(row)
+            if (t != null) {
+                if (t != "") { listAdd(out, t) }
+            }
+        }
+        i = i + 1
+    }
+    return out
+}
+
+fun relProfileFromNode(node) {
+    var name = relNodeGet(node, "name")
+    if (name == null) { name = "" }
+    if (name == "") {
+        name = node.name
+        if (name == null) { name = "" }
+    }
+    var title = relNodeGet(node, "title")
+    if (title == null) { title = "" }
+    var gifts = relNodeGet(node, "gifts")
+    if (gifts == null) {
+        gifts = list()
+        relNodeSet(node, "gifts", gifts)
+    }
+    var buttons = relNodeGet(node, "buttons")
+    if (buttons == null) {
+        buttons = list()
+        relNodeSet(node, "buttons", buttons)
+    }
+    var showRel = relNodeGet(node, "show_relations")
+    if (showRel == null) { showRel = true }
+    var showGift = relNodeGet(node, "show_gift")
+    if (showGift == null) { showGift = true }
+    var showTalk = relNodeGet(node, "show_talk")
+    if (showTalk == null) { showTalk = true }
+    var minR = relNodeGet(node, "min_rep")
+    if (minR == null) { minR = REL_DEFAULT_MIN }
+    var maxR = relNodeGet(node, "max_rep")
+    if (maxR == null) { maxR = REL_DEFAULT_MAX }
+    var q = relNodeGet(node, "talk_question")
+    if (q == null) { q = "§fО чём поговорим?" }
+    if (q == "") { q = "§fО чём поговорим?" }
+    var answers = relTextList(relNodeGet(node, "talk_answers"))
+    if (listSize(answers) < 1) {
+        answers = list("Просто поболтать", "До встречи")
+    }
+    var lines = relTextList(relNodeGet(node, "talk_lines"))
+    var lineVal = null
+    if (listSize(lines) > 0) { lineVal = lines }
+    var tiers = relNodeGet(node, "tiers")
+    return dict(
+        "name", name,
+        "title", title,
+        "gifts", gifts,
+        "buttons", buttons,
+        "show_relations", showRel,
+        "show_gift", showGift,
+        "show_talk", showTalk,
+        "min_rep", minR,
+        "max_rep", maxR,
+        "tiers", tiers,
+        "talk_question", q,
+        "talk_answers", answers,
+        "talk_lines", lineVal
+    )
+}
+
+fun relNpcIdFromView(npcView) {
+    if (npcView == null) { return "" }
+    if (relIsRelationsNode(npcView)) {
+        var parent = npcView.parent
+        if (parent != null) {
+            var pid = parent.id
+            if (pid != null) { return pid }
+        }
+    }
+    var nid = npcView.id
+    if (nid == null) { return "" }
+    return nid
+}
+
 fun relProfile(npc_id) {
+    var node = relFindNode(npc_id)
+    if (node != null) {
+        if (relNodeEnabled(node)) { return relProfileFromNode(node) }
+        return null
+    }
     if (npc_id == null) { return null }
     if (npc_id == "") { return null }
     return dictGet(rel_npc_profiles, npc_id)
@@ -247,7 +478,9 @@ fun relGetTiers(npc_id) {
     val prof = relProfile(npc_id)
     if (prof != null) {
         val custom = dictGet(prof, "tiers")
-        if (custom != null) { return custom }
+        if (custom != null) {
+            if (listSize(custom) > 0) { return custom }
+        }
     }
     return rel_default_tiers
 }
@@ -377,9 +610,30 @@ fun relConfigure(require_sneak, min_rep, max_rep) {
 
 # ──── Регистрация НПС ────
 
+fun relMergeIntoNode(node, src) {
+    if (node == null) { return }
+    if (src == null) { return }
+    var keys = list("name", "title", "gifts", "buttons", "show_relations", "show_gift", "show_talk", "min_rep", "max_rep", "tiers", "talk_question", "talk_answers", "talk_lines", "require_sneak", "enabled")
+    var i = 0
+    while (i < listSize(keys)) {
+        var k = listGet(keys, i)
+        var v = dictGet(src, k)
+        if (v != null) { relNodeSet(node, k, v) }
+        i = i + 1
+    }
+}
+
 fun relRegisterNpc(npc_id, profile) {
     if (npc_id == null) { return }
     if (npc_id == "") { return }
+
+    var node = relFindNode(npc_id)
+    if (node != null) {
+        relMergeIntoNode(node, profile)
+        relTrackUuid(npc_id)
+        return
+    }
+
     if (relHasNpc(npc_id)) { return }
 
     var name = npc_id
@@ -427,6 +681,12 @@ fun relMergeProfile(dst, src) {
 }
 
 fun relUpdateNpc(npc_id, profile) {
+    var node = relFindNode(npc_id)
+    if (node != null) {
+        relMergeIntoNode(node, profile)
+        relTrackUuid(npc_id)
+        return
+    }
     if (!relHasNpc(npc_id)) {
         relRegisterNpc(npc_id, profile)
         return
@@ -437,6 +697,11 @@ fun relUpdateNpc(npc_id, profile) {
 }
 
 fun relSetNpcField(npc_id, field, value) {
+    var node = relFindNode(npc_id)
+    if (node != null) {
+        relNodeSet(node, field, value)
+        return
+    }
     if (!relHasNpc(npc_id)) { return }
     val prof = relProfile(npc_id)
     dictSet(prof, field, value)
@@ -1056,6 +1321,30 @@ fun relHandleUiClick(p, btn) {
 fun relHandleInteract(p, npc_ent) {
     if (p == null) { return }
     if (npc_ent == null) { return }
+
+    var npcView = sceneResolveNode(npc_ent)
+    if (npcView == null) { npcView = sceneNodeForEntity(npc_ent) }
+    var relNode = null
+    if (npcView != null) {
+        if (relIsRelationsNode(npcView)) { relNode = npcView }
+        else { relNode = sceneFindCustomUnder(npcView, "relations") }
+    }
+
+    if (relNode != null) {
+        if (!relNodeEnabled(relNode)) { return }
+        var sneak = relNodeGet(relNode, "require_sneak")
+        var need = REL_REQUIRE_SNEAK
+        if (sneak != null) { need = sneak }
+        if (need) {
+            if (!p.isSneaking) { return }
+        }
+        var npc_id = relNpcIdFromView(npcView)
+        if (npc_id == "") { npc_id = relResolveNpcId(npc_ent) }
+        if (npc_id == "") { return }
+        relOpenMainMenu(p, npc_id)
+        return
+    }
+
     if (REL_REQUIRE_SNEAK) {
         if (!p.isSneaking) { return }
     }

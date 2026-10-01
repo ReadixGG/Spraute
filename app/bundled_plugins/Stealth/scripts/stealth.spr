@@ -1,0 +1,401 @@
+# ================================================================
+#  Stealth — система зон видимости NPC
+#
+#  1. Добавь SCRIPT-ноду с script = stealth и запуском со сценой.
+#  2. Добавь в сцену одну ноду «Настройки стелса».
+#  3. На нужного NPC повесь дочернюю ноду «Зона зрения».
+#
+#  Зона — треугольный веер перед ногами NPC. Визуальные частицы
+#  строятся по той же формуле, которой проверяется игрок.
+# ================================================================
+
+declare section Стелс
+
+declare node type stealth_settings {
+    section = "Стелс"
+    label = "Настройки стелса"
+    icon = "plugin"
+
+    field enabled bool {
+        label = "Стелс включён"
+        default = true
+    }
+
+    field show_zones bool {
+        label = "Показывать зоны частицами"
+        default = true
+    }
+
+    field teleport_dimension text {
+        label = "Мир телепорта"
+        default = "minecraft:overworld"
+    }
+
+    field teleport_x number {
+        label = "Телепорт X"
+        default = 0
+    }
+
+    field teleport_y number {
+        label = "Телепорт Y"
+        default = 64
+    }
+
+    field teleport_z number {
+        label = "Телепорт Z"
+        default = 0
+    }
+
+    field fade_in number {
+        label = "Затемнение, сек"
+        default = 0.35
+        min = 0
+    }
+
+    field black_hold number {
+        label = "Пауза в темноте, сек"
+        default = 0.15
+        min = 0
+    }
+
+    field cooldown number {
+        label = "Защита после телепорта, сек"
+        default = 1.0
+        min = 0
+    }
+}
+
+declare node type stealth_guard {
+    section = "Стелс"
+    label = "Зона зрения"
+    icon = "particle"
+
+    field enabled bool {
+        label = "Включено"
+        default = true
+    }
+
+    field range number {
+        label = "Дальность"
+        default = 6
+        min = 0.2
+    }
+
+    field half_width number {
+        label = "Полуширина в конце"
+        default = 3
+        min = 0.1
+    }
+
+    field sneak_range number {
+        label = "Дальность на Shift"
+        default = 2.5
+        min = 0.1
+    }
+
+    field sneak_half_width number {
+        label = "Полуширина на Shift"
+        default = 1.1
+        min = 0.05
+    }
+
+    field vertical_range number {
+        label = "Допуск по высоте"
+        default = 2
+        min = 0.2
+    }
+
+    field show_zone bool {
+        label = "Показывать веер"
+        default = true
+    }
+}
+
+var STEALTH_ENABLED_OVERRIDE = null
+val STEALTH_BUSY_KEY = "stealth_caught_busy"
+val STEALTH_EVENT = "stealthCaught"
+
+registerEvent(STEALTH_EVENT)
+
+fun stealthNodeGet(node, key) {
+    if (node == null) { return null }
+    var data = node.data
+    if (data == null) { return null }
+    return data[key]
+}
+
+fun stealthIsType(node, type_id) {
+    if (node == null) { return false }
+    var t = node.typeId
+    if (t == null) { t = node.customType }
+    if (t == null) { t = node.custom_type }
+    return t == type_id
+}
+
+fun stealthBool(node, key, fallback) {
+    var value = stealthNodeGet(node, key)
+    if (value == null) { return fallback }
+    return value != false
+}
+
+fun stealthNumber(node, key, fallback) {
+    var value = stealthNodeGet(node, key)
+    if (value == null) { return fallback }
+    return value
+}
+
+fun stealthCollect(type_id) {
+    var result = list()
+    var scenes = sceneListLoaded()
+    var si = 0
+    while (si < listSize(scenes)) {
+        var nodes = sceneListNodes(scenes[si])
+        var ni = 0
+        while (ni < listSize(nodes)) {
+            var node = nodes[ni]
+            if (stealthIsType(node, type_id)) { listAdd(result, node) }
+            ni = ni + 1
+        }
+        si = si + 1
+    }
+    if (listSize(result) == 0) {
+        var local = sceneListNodes()
+        var li = 0
+        while (li < listSize(local)) {
+            if (stealthIsType(local[li], type_id)) { listAdd(result, local[li]) }
+            li = li + 1
+        }
+    }
+    return result
+}
+
+fun stealthConfigFor(guard) {
+    var configs = stealthCollect("stealth_settings")
+    if (listSize(configs) == 0) { return null }
+    var scene_id = guard.sceneId
+    var i = 0
+    while (i < listSize(configs)) {
+        var cfg = configs[i]
+        if (cfg.sceneId == scene_id) { return cfg }
+        i = i + 1
+    }
+    return configs[0]
+}
+
+fun stealthSetEnabled(enabled) {
+    STEALTH_ENABLED_OVERRIDE = enabled
+}
+
+fun stealthClearEnabledOverride() {
+    STEALTH_ENABLED_OVERRIDE = null
+}
+
+fun stealthIsEnabled() {
+    if (STEALTH_ENABLED_OVERRIDE != null) {
+        return STEALTH_ENABLED_OVERRIDE != false
+    }
+    var configs = stealthCollect("stealth_settings")
+    var i = 0
+    while (i < listSize(configs)) {
+        if (stealthBool(configs[i], "enabled", true)) { return true }
+        i = i + 1
+    }
+    return false
+}
+
+fun stealthGuardNpc(guard) {
+    if (guard == null) { return null }
+    var parent = guard.parent
+    if (parent == null) { return null }
+    return parent.object
+}
+
+fun stealthHorizontalFacing(unit) {
+    if (unit == null) { return null }
+    var facing = unit.facing()
+    if (facing == null) { return null }
+    var fx = dictGet(facing, "dx")
+    var fz = dictGet(facing, "dz")
+    if (fx == null) { return null }
+    if (fz == null) { return null }
+    var length = (fx * fx + fz * fz) ** 0.5
+    if (length < 0.001) { return null }
+    return dict("x", fx / length, "z", fz / length)
+}
+
+fun stealthInside(guard, player) {
+    if (guard == null) { return false }
+    if (player == null) { return false }
+    if (!stealthBool(guard, "enabled", true)) { return false }
+    var unit = stealthGuardNpc(guard)
+    if (unit == null) { return false }
+    var forward_dir = stealthHorizontalFacing(unit)
+    if (forward_dir == null) { return false }
+
+    var range = stealthNumber(guard, "range", 6)
+    var half_width = stealthNumber(guard, "half_width", 3)
+    if (player.isSneaking) {
+        range = stealthNumber(guard, "sneak_range", 2.5)
+        half_width = stealthNumber(guard, "sneak_half_width", 1.1)
+    }
+    if (range < 0.2) { range = 0.2 }
+    if (half_width < 0.05) { half_width = 0.05 }
+
+    var dy = player.y - unit.y
+    if (dy < 0) { dy = -dy }
+    if (dy > stealthNumber(guard, "vertical_range", 2)) { return false }
+
+    var dx = player.x - unit.x
+    var dz = player.z - unit.z
+    var fx = dictGet(forward_dir, "x")
+    var fz = dictGet(forward_dir, "z")
+    var forward = dx * fx + dz * fz
+    if (forward < 0.2) { return false }
+    if (forward > range) { return false }
+
+    var side = dx * (0 - fz) + dz * fx
+    if (side < 0) { side = 0 - side }
+    var allowed = half_width * forward / range + 0.35
+    return side <= allowed
+}
+
+fun stealthGuardFanCross(tex, cx, y, cz, px, pz, half_w, count, life, size, color) {
+    particleLine(tex,
+        cx - px * half_w, y, cz - pz * half_w,
+        cx + px * half_w, y, cz + pz * half_w,
+        count, 0, 0, 0, 0, life, size, color)
+}
+
+fun stealthDrawGuard(guard, config) {
+    if (guard == null) { return }
+    if (config == null) { return }
+    if (!stealthBool(guard, "enabled", true)) { return }
+    if (!stealthBool(guard, "show_zone", true)) { return }
+    if (!stealthBool(config, "show_zones", true)) { return }
+    var unit = stealthGuardNpc(guard)
+    if (unit == null) { return }
+    var forward_dir = stealthHorizontalFacing(unit)
+    if (forward_dir == null) { return }
+
+    var range = stealthNumber(guard, "range", 6)
+    var half_width = stealthNumber(guard, "half_width", 3)
+    if (range < 0.2) { range = 0.2 }
+    if (half_width < 0.05) { half_width = 0.05 }
+    var fx = dictGet(forward_dir, "x")
+    var fz = dictGet(forward_dir, "z")
+    var px = 0 - fz
+    var pz = fx
+    var y = unit.y + 0.2
+    var tex = "minecraft:textures/particle/generic_0.png"
+    var pt_life = 0.25
+    var pt_size = 0.35
+    var pt_color = "#FF2020FF"
+
+    var end_x = unit.x + fx * range
+    var end_z = unit.z + fz * range
+
+    var dist_q1 = range * 0.25
+    var dist_q2 = range * 0.5
+    var dist_q3 = range * 0.75
+    stealthGuardFanCross(tex, unit.x + fx * dist_q1, y, unit.z + fz * dist_q1, px, pz, half_width * 0.25, 20, pt_life, pt_size, pt_color)
+    stealthGuardFanCross(tex, unit.x + fx * dist_q2, y, unit.z + fz * dist_q2, px, pz, half_width * 0.5, 24, pt_life, pt_size, pt_color)
+    stealthGuardFanCross(tex, unit.x + fx * dist_q3, y, unit.z + fz * dist_q3, px, pz, half_width * 0.75, 28, pt_life, pt_size, pt_color)
+    stealthGuardFanCross(tex, end_x, y, end_z, px, pz, half_width, 32, pt_life, pt_size, pt_color)
+
+    particleLine(tex, unit.x, y, unit.z,
+        end_x + px * half_width, y, end_z + pz * half_width, 28, 0, 0, 0, 0, pt_life, pt_size, pt_color)
+    particleLine(tex, unit.x, y, unit.z,
+        end_x - px * half_width, y, end_z - pz * half_width, 28, 0, 0, 0, 0, pt_life, pt_size, pt_color)
+}
+
+fun stealthStartCatch(player, guard, config) {
+    if (player == null) { return }
+    if (guard == null) { return }
+    if (config == null) { return }
+    var pdata = player.data
+    if (pdata == null) { return }
+    if (pdata[STEALTH_BUSY_KEY] == true) { return }
+    pdata[STEALTH_BUSY_KEY] = true
+
+    val caught_player = player
+    val guard_id = guard.id
+    var dimension = stealthNodeGet(config, "teleport_dimension")
+    if (dimension == null) { dimension = "minecraft:overworld" }
+    if (dimension == "") { dimension = "minecraft:overworld" }
+    val tx = stealthNumber(config, "teleport_x", 0)
+    val ty = stealthNumber(config, "teleport_y", 64)
+    val tz = stealthNumber(config, "teleport_z", 0)
+    var fade_time = stealthNumber(config, "fade_in", 0.35)
+    var hold_time = stealthNumber(config, "black_hold", 0.15)
+    var cooldown = stealthNumber(config, "cooldown", 1)
+    if (fade_time < 0) { fade_time = 0 }
+    if (hold_time < 0) { hold_time = 0 }
+    if (cooldown < 0) { cooldown = 0 }
+
+    fireEvent(STEALTH_EVENT, caught_player, guard_id)
+    async {
+        fadeIn(caught_player, fade_time, "", "")
+        await time(fade_time)
+        teleportPlayer(caught_player, dimension, tx, ty, tz)
+        await time(hold_time)
+        fadeOut(caught_player)
+        await time(cooldown)
+        if (caught_player.data != null) {
+            caught_player.data[STEALTH_BUSY_KEY] = false
+        }
+    }
+}
+
+every(0.12) -> stealth_detection {
+    if (stealthIsEnabled()) {
+        var guards = stealthCollect("stealth_guard")
+        var gi = 0
+        while (gi < listSize(guards)) {
+            var guard = guards[gi]
+            var config = stealthConfigFor(guard)
+            if (config != null) {
+                if (stealthBool(config, "enabled", true)) {
+                    var unit = stealthGuardNpc(guard)
+                    if (unit != null) {
+                        var scan_range = stealthNumber(guard, "range", 6) + 1
+                        var nearby = playersNear(unit, scan_range)
+                        var pi = 0
+                        while (pi < listSize(nearby)) {
+                            var player = nearby[pi]
+                            if (stealthInside(guard, player)) {
+                                stealthStartCatch(player, guard, config)
+                            }
+                            pi = pi + 1
+                        }
+                    }
+                }
+            }
+            gi = gi + 1
+        }
+    }
+}
+
+every(0.05) -> stealth_particles {
+    if (stealthIsEnabled()) {
+        var guards = stealthCollect("stealth_guard")
+        var gi = 0
+        while (gi < listSize(guards)) {
+            var guard = guards[gi]
+            var config = stealthConfigFor(guard)
+            if (config != null) {
+                if (stealthBool(config, "enabled", true)) {
+                    stealthDrawGuard(guard, config)
+                }
+            }
+            gi = gi + 1
+        }
+    }
+}
+
+on leave() -> stealth_leave {
+    if (_eventPlayer != null) {
+        if (_eventPlayer.data != null) {
+            _eventPlayer.data[STEALTH_BUSY_KEY] = false
+        }
+    }
+}

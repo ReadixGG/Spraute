@@ -46,6 +46,14 @@ public class UiCloseFunction implements ScriptFunction {
             LOGGER.warn("[Script] ui_close: not a server player");
             return null;
         }
+        // uiClose(player, canvas) — closes a scene canvas (overlay or fullscreen)
+        if (args.size() > 1) {
+            var canvasRef = org.zonarstudio.spraute_engine.scene.SceneRuntime.resolveCanvas(args.get(1));
+            if (canvasRef != null) {
+                org.zonarstudio.spraute_engine.scene.SceneRuntime.closeCanvasFor(canvasRef.sceneId(), canvasRef.canvas(), sp);
+                return null;
+            }
+        }
         ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> sp), new CloseSprauteUiPacket());
         org.zonarstudio.spraute_engine.ui.UiTracker.markClosed(sp.getUUID());
         context.notifyUiClosed(player);

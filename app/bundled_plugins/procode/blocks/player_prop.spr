@@ -1,0 +1,172 @@
+#\ block: get_player_hp
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "здоровье" input: player (type: value) "игрока"
+#\ template: {player}.hp
+
+#\ block: set_player_hp
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "здоровье" input: player (type: value) "игроку" input: value (type: value)
+#\ template: {player}.hp = {value}
+
+#\ block: get_player_max_hp
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "макс. HP" input: player (type: value) "игрока"
+#\ template: {player}.maxHp
+
+#\ block: set_player_max_hp
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "макс. HP" input: player (type: value) "игроку" input: value (type: value)
+#\ template: {player}.maxHp = {value}
+
+#\ block: get_player_hunger
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "голод" input: player (type: value) "игрока"
+#\ template: {player}.hunger
+
+#\ block: set_player_hunger
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "голод" input: player (type: value) "игроку" input: value (type: value)
+#\ template: {player}.hunger = {value}
+
+#\ block: get_player_saturation
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "насыщение" input: player (type: value) "игрока"
+#\ template: {player}.saturation
+
+#\ block: set_player_saturation
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "насыщение" input: player (type: value) "игроку" input: value (type: value)
+#\ template: {player}.saturation = {value}
+
+#\ block: get_player_selected_slot
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "слот хотбара" input: player (type: value) "игрока"
+#\ template: {player}.selectedSlot
+
+#\ block: set_player_selected_slot
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "слот хотбара" input: player (type: value) "игроку" (slot: number: 0)
+#\ template: {player}.selectedSlot = {slot}
+
+#\ block: get_player_air
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "воздух" input: player (type: value) "игрока"
+#\ template: {player}.air
+
+#\ block: set_player_air
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "воздух" input: player (type: value) "игроку" input: value (type: value)
+#\ template: {player}.air = {value}
+
+#\ block: get_player_max_air
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "макс. воздух" input: player (type: value) "игрока"
+#\ template: {player}.maxAir
+
+#\ block: player_vital_ratio
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "доля" [vital: dropdown(здоровье: hp, голод: hunger, воздух: air)] input: player (type: value) "игрока"
+#\ if vital == "hp":
+#\   template: {player}.hp / {player}.maxHp
+#\ if vital == "hunger":
+#\   template: {player}.hunger / 20
+#\ if vital == "air":
+#\   template: {player}.air / {player}.maxAir
+
+#\ block: get_player_armor
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "броня" input: player (type: value) "игрока"
+#\ template: {player}.armor
+
+#\ block: get_player_xp_level
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "уровень" input: player (type: value) "игрока"
+#\ template: {player}.xpLevel
+
+#\ block: set_player_xp_level
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "уровень" input: player (type: value) "игроку" input: value (type: value)
+#\ template: {player}.xpLevel = {value}
+
+#\ block: player_prop
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "у игрока ("
+#\ input: player (type: value)
+#\ row: ") свойство" [prop: dropdown(имя: name, здоровье: hp, макс. HP: maxHp, голод: hunger, насыщение: saturation, воздух: air, макс. воздух: maxAir, слот хотбара: selectedSlot, броня: armor, поглощение: absorption, уровень: xpLevel, опыт: xpTotal, X: x, Y: y, Z: z, поворот: yaw, наклон: pitch, UUID: uuid, взгляд X: lookX, взгляд Y: lookY, взгляд Z: lookZ, крадётся: sneaking, бежит: sprinting, на земле: onGround, режим: gamemode, пинг: ping, полёт разрешён: flightEnabled, летит: flying, скорость полёта: flySpeed, скорость ходьбы: walkSpeed, скорость движения: movementSpeed, сила прыжка: jumpStrength, высота шага: stepHeight, урон атаки: attackDamage, множитель копания: digSpeed, дальность блоков: blockReach, неуязвим: invulnerable, бесконечное строительство: instabuild, урон включён: healthEnabled, голод включён: hungerEnabled, полоска опыта: xpVisible, запрет F5: lockPerspective, язык: language, короткий язык: lang, английский?: isEnglish)]
+#\ template: {player}.{prop}
+
+#\ block: player_set_prop
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "у игрока ("
+#\ input: player (type: value)
+#\ row: ") установить" [prop: dropdown(здоровье: hp, макс. HP: maxHp, голод: hunger, насыщение: saturation, воздух: air, слот хотбара: selectedSlot, поглощение: absorption, уровень: xpLevel, X: x, Y: y, Z: z, поворот: yaw, наклон: pitch, взгляд X: lookX, взгляд Y: lookY, взгляд Z: lookZ, бежит: sprinting, полёт разрешён: flightEnabled, летит: flying, скорость полёта: flySpeed, скорость ходьбы: walkSpeed, скорость движения: movementSpeed, сила прыжка: jumpStrength, высота шага: stepHeight, урон атаки: attackDamage, множитель копания: digSpeed, дальность блоков: blockReach, неуязвим: invulnerable, бесконечное строительство: instabuild, урон включён: healthEnabled, голод включён: hungerEnabled, полоска опыта: xpVisible, запрет F5: lockPerspective)] "="
+#\ if prop == "sprinting" or prop == "lockPerspective" or prop == "xpVisible" or prop == "healthEnabled" or prop == "hungerEnabled":
+#\   row: [value: dropdown(вкл: true, выкл: false)]
+#\ if prop != "sprinting" and prop != "lockPerspective" and prop != "xpVisible" and prop != "healthEnabled" and prop != "hungerEnabled":
+#\   input: value (type: value)
+#\ template: {player}.{prop} = {value}
+
+#\ block: get_player_stats
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "характеристики" input: player (type: value) "игрока"
+#\ template: getPlayerStats({player})

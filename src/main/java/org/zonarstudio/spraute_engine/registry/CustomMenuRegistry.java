@@ -31,7 +31,21 @@ public class CustomMenuRegistry {
                 /*Registry.MENU_REGISTRY*/
                 //?}
         )) {
-            SPRAUTE_CONTAINER = IForgeMenuType.create((windowId, inv, data) -> new SprauteContainerMenu(windowId, inv, data.readUtf()));
+            SPRAUTE_CONTAINER = IForgeMenuType.create((windowId, inv, data) -> {
+                String json = data.readUtf();
+                // Client factory has a real GUI size — resolve percent slot coords against it
+                // so items line up with SlotW backgrounds (server keeps REF fallback).
+                int[] panel = net.minecraftforge.fml.DistExecutor.unsafeCallWhenOn(
+                        Dist.CLIENT,
+                        () -> () -> {
+                            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                            if (mc == null || mc.getWindow() == null) return null;
+                            return SprauteContainerMenu.panelSizeFor(json,
+                                    mc.getWindow().getGuiScaledWidth(),
+                                    mc.getWindow().getGuiScaledHeight());
+                        });
+                return new SprauteContainerMenu(windowId, inv, json, null, panel);
+            });
             event.register(
                     //? if >=1.20.1 {
                     Registries.MENU

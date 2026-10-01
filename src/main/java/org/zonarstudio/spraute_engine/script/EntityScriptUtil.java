@@ -37,6 +37,14 @@ public final class EntityScriptUtil {
                 if (byId != null) return byId;
             }
 
+            UUID modelUuid = org.zonarstudio.spraute_engine.entity.ModelManager.get(idOrKeyword);
+            if (modelUuid != null) {
+                Entity model = org.zonarstudio.spraute_engine.entity.ModelManager.getEntity(idOrKeyword, level);
+                if (model != null) return model;
+                Entity byId = level.getEntity(modelUuid);
+                if (byId != null) return byId;
+            }
+
             UUID billboardUuid = org.zonarstudio.spraute_engine.entity.BillboardManager.get(idOrKeyword);
             if (billboardUuid != null) {
                 Entity billboard = org.zonarstudio.spraute_engine.entity.BillboardManager.getEntity(idOrKeyword, level);
@@ -106,5 +114,22 @@ public final class EntityScriptUtil {
             }
         }
         return nearest;
+    }
+
+    /** Registry id, e.g. {@code minecraft:zombie}. Empty string if unknown. */
+    public static String getTypeId(Entity entity) {
+        if (entity == null) return "";
+        var key = net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES.getKey(entity.getType());
+        return key != null ? key.toString() : "";
+    }
+
+    /** Matches full id or short id ({@code zombie} vs {@code minecraft:zombie}). */
+    public static boolean matchesTypeId(String expected, Entity entity) {
+        if (expected == null || expected.isBlank() || entity == null) return false;
+        String typeId = getTypeId(entity);
+        if (typeId.isEmpty()) return false;
+        String t = expected.trim();
+        if (typeId.equalsIgnoreCase(t)) return true;
+        return typeId.replace("minecraft:", "").equalsIgnoreCase(t.replace("minecraft:", ""));
     }
 }

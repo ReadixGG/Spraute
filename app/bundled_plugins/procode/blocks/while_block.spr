@@ -1,0 +1,9 @@
+#\ block: while_block
+#\ category: Циклы
+#\ color: #06b6d4
+#\ shape: wrapper
+#\
+#\ row: "пока"
+#\ input: cond (type: value)
+#\ row: "повторять"
+#\ template: while ({cond}) {\n{DO}}

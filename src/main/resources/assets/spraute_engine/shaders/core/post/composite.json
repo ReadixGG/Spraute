@@ -1,0 +1,30 @@
+{
+    "blend": {
+        "func": "add",
+        "srcrgb": "one",
+        "dstrgb": "zero"
+    },
+    "vertex": "spraute_engine:post/composite",
+    "fragment": "spraute_engine:post/composite",
+    "attributes": [ "Position", "UV0" ],
+    "samplers": [
+        { "name": "Sampler0" }
+    ],
+    "uniforms": [
+        { "name": "InSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+        { "name": "Exposure", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Contrast", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Saturation", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Temperature", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Tint", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Filter", "type": "float", "count": 3, "values": [ 1.0, 1.0, 1.0 ] },
+        { "name": "Vignette", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "VignetteSmooth", "type": "float", "count": 1, "values": [ 0.45 ] },
+        { "name": "BloomIntensity", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "BloomThreshold", "type": "float", "count": 1, "values": [ 0.75 ] },
+        { "name": "Chromatic", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Grain", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Sharpen", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Time", "type": "float", "count": 1, "values": [ 0.0 ] }
+    ]
+}

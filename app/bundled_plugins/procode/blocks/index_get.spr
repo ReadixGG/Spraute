@@ -1,0 +1,9 @@
+#\ block: index_get
+#\ category: Переменные
+#\ color: #f59e0b
+#\ shape: value
+#\
+#\ row: (name: text: my_list) "["
+#\ input: index (type: value)
+#\ row: "]"
+#\ code: return _getVal("name").trim() + "[" + _getVal("index").trim() + "]";

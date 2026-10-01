@@ -1,0 +1,9 @@
+#\ block: player_raycast
+#\ category: Игрок
+#\ color: #84cc16
+#\ shape: value
+#\
+#\ row: "луч взгляда игрока"
+#\ input: player (type: value)
+#\ row: "макс." (dist: number: 50)
+#\ code: return _getVal("player").trim() + ".raycast(" + (_getVal("dist").trim() || "50") + ")";

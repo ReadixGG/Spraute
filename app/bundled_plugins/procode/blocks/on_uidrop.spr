@@ -1,0 +1,14 @@
+#\ block: on_uidrop
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда сброс в UI" [filter: dropdown(любой: any, один игрок: one, несколько: many)] "→" (handler: text: h_uidrop)
+#\ if filter == "any":
+#\   template: on uiDrop() -> {handler} {\n{DO}}
+#\ if filter == "one":
+#\   input: player (type: value)
+#\   template: on uiDrop({player}) -> {handler} {\n{DO}}
+#\ if filter == "many":
+#\   input: players (type: value)
+#\   template: on uiDrop({players}) -> {handler} {\n{DO}}

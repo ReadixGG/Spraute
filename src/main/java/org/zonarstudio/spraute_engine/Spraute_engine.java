@@ -20,11 +20,15 @@ import org.zonarstudio.spraute_engine.entity.ModEntities;
  * Spraute Engine — Story scripting engine for Minecraft.
  * 
  * Loads .spr scripts from config/spraute_engine/scripts/ and executes them
- * via /spraute run <name> command.
+ * Scenes are launched via the /spraute run <scene> command.
  */
 @Mod(Spraute_engine.MODID)
 @Mod.EventBusSubscriber(modid = Spraute_engine.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class Spraute_engine {
+
+    /** Players currently tracked as sprinting (server), for sprint-start events. */
+    private static final java.util.Set<java.util.UUID> SPRINTING_PLAYERS =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     /** Last entity that hurt a living mob (fallback when death damage source has no attacker). */
     private static final java.util.Map<java.util.UUID, net.minecraft.world.entity.Entity> LAST_ATTACKERS =
@@ -42,6 +46,10 @@ public class Spraute_engine {
 
         modEventBus.addListener(this::commonSetup);
 
+        // The 3D canvas is no longer a generic CUSTOM node wrapping a canvas: a CANVAS node
+        // carries its own render mode (screen / world) and holds the widgets directly, so it
+        // needs no type registration here — see SceneWorldCanvasRuntime.
+
         MinecraftForge.EVENT_BUS.register(this);
     }
 
@@ -53,6 +61,7 @@ public class Spraute_engine {
     @SubscribeEvent
     public static void onPlayerLoggedIn(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
         if (!SprauteEntityCompat.level(event.getEntity()).isClientSide && event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+            org.zonarstudio.spraute_engine.scene.SceneParticleEmitter.forgetPlayer(serverPlayer.getUUID());
             org.zonarstudio.spraute_engine.script.ScriptWorldData data = org.zonarstudio.spraute_engine.script.ScriptWorldData.get(SprauteEntityCompat.serverLevel(serverPlayer));
             boolean showScreen = true;
             Object val = data.get("_sys_load_screen_off", serverPlayer.getServer(), SprauteEntityCompat.serverLevel(serverPlayer));
@@ -63,18 +72,70 @@ public class Spraute_engine {
                     net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> serverPlayer),
                     new org.zonarstudio.spraute_engine.network.SyncLoadScreenPacket(showScreen)
             );
+            // GUI canvases of active scenes are re-shown to late joiners.
+            org.zonarstudio.spraute_engine.scene.SceneRuntime.showAutoCanvasesTo(serverPlayer);
+            org.zonarstudio.spraute_engine.scene.SceneRuntime.sendActiveScenesTo(serverPlayer);
+            org.zonarstudio.spraute_engine.scene.SceneRuntime.syncPresentationTo(serverPlayer);
+            org.zonarstudio.spraute_engine.scene.SceneRuntime.ensureScriptsRunning(serverPlayer.getServer());
+            org.zonarstudio.spraute_engine.scene.PlayerSkinOps.sendAllTo(serverPlayer);
+            org.zonarstudio.spraute_engine.scene.PlayerSkinLayers.sendAllTo(serverPlayer);
+            org.zonarstudio.spraute_engine.resource.AssetSyncServer.sendManifest(serverPlayer);
+            org.zonarstudio.spraute_engine.update.ModUpdateServer.onPlayerJoin(serverPlayer);
         }
     }
 
     @SubscribeEvent
     public static void onPlayerLoggedOut(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
         java.util.UUID id = event.getEntity().getUUID();
+        org.zonarstudio.spraute_engine.scene.SceneParticleEmitter.forgetPlayer(id);
+        org.zonarstudio.spraute_engine.script.ScriptManager scripts =
+                org.zonarstudio.spraute_engine.script.ScriptManager.getInstance();
+        if (scripts != null) {
+            if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) {
+                scripts.onPlayerLoggedOut(sp);
+            } else {
+                scripts.onPlayerLoggedOut(id);
+            }
+        }
+        org.zonarstudio.spraute_engine.script.CinematicViewTracker.clear(id);
+        org.zonarstudio.spraute_engine.scene.PlayerSkinOps.clear(id);
+        org.zonarstudio.spraute_engine.scene.PlayerSkinLayers.clear(id);
         org.zonarstudio.spraute_engine.script.PlayerDigSpeedOverrides.clear(id);
+        org.zonarstudio.spraute_engine.script.PlayerJumpStrengthOverrides.clear(id);
         org.zonarstudio.spraute_engine.script.PlayerStepHeightOverrides.clear(id);
         org.zonarstudio.spraute_engine.script.PlayerFlightOverrides.clear(id);
+        org.zonarstudio.spraute_engine.script.PlayerControlOverrides.clear(id);
+        org.zonarstudio.spraute_engine.script.HudHideOverrides.clear(id);
+        org.zonarstudio.spraute_engine.script.PlayerVitalsOverrides.clear(id);
         org.zonarstudio.spraute_engine.script.ItemUsageRestrictions.clear(id);
+        SPRINTING_PLAYERS.remove(id);
+        org.zonarstudio.spraute_engine.resource.AssetSyncServer.cancel(id);
+        org.zonarstudio.spraute_engine.update.ModUpdateServer.cancel(id);
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) {
             org.zonarstudio.spraute_engine.compat.SprauteStepHeightCompat.clear(sp);
+            org.zonarstudio.spraute_engine.resource.WorkspaceBrowserServer.releaseLocks(sp);
+        }
+    }
+
+    /**
+     * Global World / Local World, Stage 2: hides a per-player Local World clone's entity
+     * from every player but its owner. This is the standard, documented Forge mechanism for
+     * per-player entity visibility (see {@link org.zonarstudio.spraute_engine.scene.LocalWorldInstancing})
+     * — no spatial trick, no packet-pipeline hacking. Entities with no
+     * {@value org.zonarstudio.spraute_engine.scene.SceneNode#LOCAL_OWNER_TAG_PREFIX}-prefixed
+     * tag (i.e. everything outside Local World, or Global World content) are untouched.
+     */
+    @SubscribeEvent
+    public static void onStartTracking(net.minecraftforge.event.entity.player.PlayerEvent.StartTracking event) {
+        if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer tracker)) return;
+        net.minecraft.world.entity.Entity target = event.getTarget();
+        for (String tag : target.getTags()) {
+            if (!tag.startsWith(org.zonarstudio.spraute_engine.scene.SceneNode.LOCAL_OWNER_TAG_PREFIX)) continue;
+            String owner = tag.substring(org.zonarstudio.spraute_engine.scene.SceneNode.LOCAL_OWNER_TAG_PREFIX.length());
+            if (!owner.equals(tracker.getUUID().toString())) {
+                event.setCanceled(true);
+            }
+            return;
         }
     }
 
@@ -85,6 +146,20 @@ public class Spraute_engine {
         if (event.player instanceof net.minecraft.server.level.ServerPlayer sp) {
             org.zonarstudio.spraute_engine.script.PlayerStepHeightOverrides.apply(sp);
             org.zonarstudio.spraute_engine.script.PlayerFlightOverrides.apply(sp);
+            org.zonarstudio.spraute_engine.script.PlayerVitalsOverrides.apply(sp);
+
+            boolean sprinting = sp.isSprinting();
+            boolean wasSprinting = SPRINTING_PLAYERS.contains(sp.getUUID());
+            if (sprinting && !wasSprinting) {
+                boolean canceled = org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerSprint(sp);
+                if (canceled) {
+                    sp.setSprinting(false);
+                } else {
+                    SPRINTING_PLAYERS.add(sp.getUUID());
+                }
+            } else if (!sprinting && wasSprinting) {
+                SPRINTING_PLAYERS.remove(sp.getUUID());
+            }
         }
     }
 
@@ -98,7 +173,25 @@ public class Spraute_engine {
     public static void onServerTick(net.minecraftforge.event.TickEvent.ServerTickEvent event) {
         if (event.phase == net.minecraftforge.event.TickEvent.Phase.END) {
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().tick();
+            net.minecraft.server.MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+            if (server != null) {
+                org.zonarstudio.spraute_engine.script.ScriptLerpRuntime.tick(server);
+                org.zonarstudio.spraute_engine.scene.SceneRuntime.tickActiveHitboxes(server);
+                org.zonarstudio.spraute_engine.particle.ParticleGameplayRuntime.tick(server);
+                org.zonarstudio.spraute_engine.particle.ParticleLightRuntime.tick(server);
+                org.zonarstudio.spraute_engine.scene.custom.GenericNodeTypeRegistry.tickAll(server);
+                org.zonarstudio.spraute_engine.scene.SceneWorldCanvasRuntime.tickAll(server);
+                org.zonarstudio.spraute_engine.resource.AssetSyncServer.tick(server);
+                org.zonarstudio.spraute_engine.update.ModUpdateServer.tick(server);
+            }
         }
+    }
+
+    @SubscribeEvent
+    public static void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event) {
+        org.zonarstudio.spraute_engine.particle.ParticleGameplayRuntime.clear("");
+        org.zonarstudio.spraute_engine.scene.SceneParticleEmitter.clearCaches();
+        org.zonarstudio.spraute_engine.scene.ChunkForceTickets.releaseAll();
     }
 
     @SubscribeEvent
@@ -139,7 +232,10 @@ public class Spraute_engine {
                     .onPlayerAction(event.getEntity(), "use", item);
             net.minecraft.resources.ResourceLocation key =
                     net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(item);
-            if (key != null && Spraute_engine.MODID.equals(key.getNamespace())) {
+            // Custom items otherwise PASS and never send a use packet. Armor must still
+            // run ArmorItem.use() on the server or RMB only predicts the equip locally.
+            if (key != null && Spraute_engine.MODID.equals(key.getNamespace())
+                    && !(item instanceof net.minecraft.world.item.ArmorItem)) {
                 event.setCanceled(true);
             }
         }
@@ -178,7 +274,13 @@ public class Spraute_engine {
     @SubscribeEvent
     public static void onLivingJump(net.minecraftforge.event.entity.living.LivingEvent.LivingJumpEvent event) {
         if (!SprauteEntityCompat.level(event.getEntity()).isClientSide && event.getEntity() instanceof net.minecraft.world.entity.player.Player player) {
-            org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerAction(player, "jump", null);
+            boolean canceled = org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlayerAction(player, "jump", null);
+            if (canceled) {
+                // LivingJumpEvent is not cancelable — undo jump velocity.
+                net.minecraft.world.phys.Vec3 m = player.getDeltaMovement();
+                player.setDeltaMovement(m.x, Math.min(0.0, m.y), m.z);
+                player.hurtMarked = true;
+            }
         }
     }
 
@@ -204,8 +306,28 @@ public class Spraute_engine {
     }
 
     @SubscribeEvent
+    public static void onLivingAttack(net.minecraftforge.event.entity.living.LivingAttackEvent event) {
+        if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp)) return;
+        if (org.zonarstudio.spraute_engine.compat.SprauteDeathCompat.bypassesInvulnerability(event.getSource())) return;
+        if (org.zonarstudio.spraute_engine.script.PlayerVitalsOverrides.isHealthDisabled(sp)
+                || (org.zonarstudio.spraute_engine.script.PlayerVitalsOverrides.isHungerDisabled(sp)
+                && org.zonarstudio.spraute_engine.compat.SprauteDeathCompat.isStarve(event.getSource()))) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
     public static void onLivingHurt(net.minecraftforge.event.entity.living.LivingHurtEvent event) {
         if (SprauteEntityCompat.level(event.getEntity()).isClientSide) return;
+        if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) {
+            if (!org.zonarstudio.spraute_engine.compat.SprauteDeathCompat.bypassesInvulnerability(event.getSource())
+                    && (org.zonarstudio.spraute_engine.script.PlayerVitalsOverrides.isHealthDisabled(sp)
+                    || (org.zonarstudio.spraute_engine.script.PlayerVitalsOverrides.isHungerDisabled(sp)
+                    && org.zonarstudio.spraute_engine.compat.SprauteDeathCompat.isStarve(event.getSource())))) {
+                event.setCanceled(true);
+                return;
+            }
+        }
         net.minecraft.world.entity.Entity attacker =
                 org.zonarstudio.spraute_engine.compat.SprauteDeathCompat.resolveAttackerFromSource(event.getSource());
         if (attacker != null) {
@@ -214,14 +336,56 @@ public class Spraute_engine {
     }
 
     @SubscribeEvent
-    public static void onLivingDeath(net.minecraftforge.event.entity.living.LivingDeathEvent event) {
-        if (!SprauteEntityCompat.level(event.getEntity()).isClientSide) {
-            java.util.UUID victimId = event.getEntity().getUUID();
-            net.minecraft.world.entity.Entity killer = org.zonarstudio.spraute_engine.compat.SprauteDeathCompat.resolveKiller(
-                    event.getEntity(), event.getSource(), LAST_ATTACKERS);
-            LAST_ATTACKERS.remove(victimId);
-            org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onDeath(event.getEntity(), killer);
+    public static void onLivingHeal(net.minecraftforge.event.entity.living.LivingHealEvent event) {
+        if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp)) return;
+        if (org.zonarstudio.spraute_engine.script.PlayerVitalsOverrides.isHealthDisabled(sp)) {
+            event.setCanceled(true);
         }
+    }
+
+    @SubscribeEvent
+    public static void onLivingKnockBack(net.minecraftforge.event.entity.living.LivingKnockBackEvent event) {
+        if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp)) return;
+        if (org.zonarstudio.spraute_engine.script.PlayerVitalsOverrides.isHealthDisabled(sp)) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLivingDamage(net.minecraftforge.event.entity.living.LivingDamageEvent event) {
+        if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp)) return;
+        if (org.zonarstudio.spraute_engine.compat.SprauteDeathCompat.bypassesInvulnerability(event.getSource())) return;
+        if (org.zonarstudio.spraute_engine.script.PlayerVitalsOverrides.isHealthDisabled(sp)
+                || (org.zonarstudio.spraute_engine.script.PlayerVitalsOverrides.isHungerDisabled(sp)
+                && org.zonarstudio.spraute_engine.compat.SprauteDeathCompat.isStarve(event.getSource()))) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onUseItemStart(net.minecraftforge.event.entity.living.LivingEntityUseItemEvent.Start event) {
+        if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp)) return;
+        if (org.zonarstudio.spraute_engine.script.PlayerVitalsOverrides.isHungerDisabled(sp)
+                && event.getItem().isEdible()) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLivingDeath(net.minecraftforge.event.entity.living.LivingDeathEvent event) {
+        if (SprauteEntityCompat.level(event.getEntity()).isClientSide) return;
+        if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp
+                && org.zonarstudio.spraute_engine.script.PlayerVitalsOverrides.isHealthDisabled(sp)
+                && !org.zonarstudio.spraute_engine.compat.SprauteDeathCompat.bypassesInvulnerability(event.getSource())) {
+            event.setCanceled(true);
+            org.zonarstudio.spraute_engine.script.PlayerVitalsOverrides.apply(sp);
+            return;
+        }
+        java.util.UUID victimId = event.getEntity().getUUID();
+        net.minecraft.world.entity.Entity killer = org.zonarstudio.spraute_engine.compat.SprauteDeathCompat.resolveKiller(
+                event.getEntity(), event.getSource(), LAST_ATTACKERS);
+        LAST_ATTACKERS.remove(victimId);
+        org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onDeath(event.getEntity(), killer);
     }
 
     @SubscribeEvent
@@ -231,24 +395,18 @@ public class Spraute_engine {
             java.util.List<org.zonarstudio.spraute_engine.registry.CustomDropRegistry.DropRule> drops = org.zonarstudio.spraute_engine.registry.CustomDropRegistry.MOB_DROPS.get(mobId);
             if (drops != null) {
                 boolean replaced = false;
+                int xpAward = 0;
                 for (var rule : drops) {
                     if (rule.replace && !replaced) {
                         event.getDrops().clear();
                         replaced = true;
                     }
+                    if (rule.xp > xpAward) xpAward = rule.xp;
                     net.minecraft.world.level.Level entityLevel = SprauteEntityCompat.level(event.getEntity());
                     if (entityLevel.random.nextInt(100) < rule.chance) {
                         int count = rule.min + entityLevel.random.nextInt(Math.max(1, rule.max - rule.min + 1));
-                        net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(
-                            new net.minecraft.resources.ResourceLocation(rule.itemId.contains(":") ? rule.itemId : "minecraft:" + rule.itemId)
-                        );
-                        if (item != null && item != net.minecraft.world.item.Items.AIR) {
-                            net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item, count);
-                            if (rule.nbt != null && !rule.nbt.isEmpty()) {
-                                try {
-                                    stack.setTag(net.minecraft.nbt.TagParser.parseTag(rule.nbt));
-                                } catch (Exception e) {}
-                            }
+                        net.minecraft.world.item.ItemStack stack = org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.createStack(rule.itemId, count, rule.nbt);
+                        if (!stack.isEmpty()) {
                             net.minecraft.world.entity.item.ItemEntity itemEntity = new net.minecraft.world.entity.item.ItemEntity(
                                 entityLevel,
                                 event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(),
@@ -259,6 +417,12 @@ public class Spraute_engine {
                         }
                     }
                 }
+                if (xpAward > 0 && SprauteEntityCompat.level(event.getEntity()) instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                    net.minecraft.world.entity.ExperienceOrb.award(
+                            serverLevel,
+                            event.getEntity().position(),
+                            xpAward);
+                }
             }
         }
     }
@@ -266,19 +430,37 @@ public class Spraute_engine {
     @SubscribeEvent
     public static void onLeftClickBlock(net.minecraftforge.event.entity.player.PlayerInteractEvent.LeftClickBlock event) {
         if (!event.getLevel().isClientSide) {
-            org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onClickBlock(event.getEntity(), event.getPos(), event.getLevel().getBlockState(event.getPos()).getBlock(), true);
+            if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp
+                    && org.zonarstudio.spraute_engine.script.CinematicViewTracker.locksBlocks(sp)) {
+                event.setCanceled(true);
+                return;
+            }
+            boolean canceled = org.zonarstudio.spraute_engine.script.ScriptManager.getInstance()
+                    .onClickBlock(event.getEntity(), event.getPos(), event.getLevel().getBlockState(event.getPos()).getBlock(), true);
+            if (canceled) {
+                event.setCanceled(true);
+            }
         }
     }
 
     @SubscribeEvent
     public static void onRightClickBlock(net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock event) {
         if (event.getLevel().isClientSide()) return;
+        net.minecraft.world.entity.player.Player player = event.getEntity();
+        if (player instanceof net.minecraft.server.level.ServerPlayer sp
+                && org.zonarstudio.spraute_engine.script.CinematicViewTracker.locksBlocks(sp)) {
+            event.setCanceled(true);
+            event.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
+            return;
+        }
         net.minecraft.world.level.block.state.BlockState state = event.getLevel().getBlockState(event.getPos());
         net.minecraft.world.level.block.Block block = state.getBlock();
-        net.minecraft.world.entity.player.Player player = event.getEntity();
 
+        boolean useCanceled = org.zonarstudio.spraute_engine.script.ScriptManager.getInstance()
+                .onUseBlock(player, event.getPos(), block, event.getLevel());
         if (org.zonarstudio.spraute_engine.script.BlockInteractionUtil.isChestLike(block)) {
-            boolean canceled = org.zonarstudio.spraute_engine.script.ScriptManager.getInstance()
+            boolean canceled = useCanceled
+                    || org.zonarstudio.spraute_engine.script.ScriptManager.getInstance()
                     .onOpenChest(player, event.getPos(), block, event.getLevel());
             if (canceled) {
                 event.setCanceled(true);
@@ -289,17 +471,26 @@ public class Spraute_engine {
                 org.zonarstudio.spraute_engine.script.ChestLootManager.applyOnOpen(serverLevel, event.getPos(), state);
             }
         } else if (org.zonarstudio.spraute_engine.script.BlockInteractionUtil.isDoorLike(block)) {
-            boolean canceled = org.zonarstudio.spraute_engine.script.ScriptManager.getInstance()
+            boolean canceled = useCanceled
+                    || org.zonarstudio.spraute_engine.script.ScriptManager.getInstance()
                     .onOpenDoor(player, event.getPos(), block, event.getLevel());
             if (canceled) {
                 event.setCanceled(true);
                 event.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
                 return;
             }
+        } else if (useCanceled) {
+            event.setCanceled(true);
+            event.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
+            return;
         }
 
-        org.zonarstudio.spraute_engine.script.ScriptManager.getInstance()
+        boolean clickCanceled = org.zonarstudio.spraute_engine.script.ScriptManager.getInstance()
                 .onClickBlock(player, event.getPos(), block, false);
+        if (clickCanceled) {
+            event.setCanceled(true);
+            event.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
+        }
     }
 
     @SubscribeEvent
@@ -310,6 +501,12 @@ public class Spraute_engine {
                     sp, sp.getMainHandItem(), org.zonarstudio.spraute_engine.script.ItemUsageRestrictions.Action.ATTACK)) {
                 event.setCanceled(true);
                 org.zonarstudio.spraute_engine.script.ItemUsageRestrictions.notifyBlocked(sp);
+                return;
+            }
+            boolean scriptCanceled = org.zonarstudio.spraute_engine.script.ScriptManager.getInstance()
+                    .onPlayerAttack(sp, event.getTarget());
+            if (scriptCanceled) {
+                event.setCanceled(true);
             }
         }
     }
@@ -337,6 +534,10 @@ public class Spraute_engine {
     public static void onBreakBlock(net.minecraftforge.event.level.BlockEvent.BreakEvent event) {
         if (!event.getLevel().isClientSide() && event.getPlayer() != null) {
             if (event.getPlayer() instanceof net.minecraft.server.level.ServerPlayer sp) {
+                if (org.zonarstudio.spraute_engine.script.CinematicViewTracker.locksBlocks(sp)) {
+                    event.setCanceled(true);
+                    return;
+                }
                 if (org.zonarstudio.spraute_engine.script.ItemUsageRestrictions.isForbidden(
                         sp, sp.getMainHandItem(), org.zonarstudio.spraute_engine.script.ItemUsageRestrictions.Action.MINE)) {
                     event.setCanceled(true);
@@ -355,22 +556,22 @@ public class Spraute_engine {
             java.util.List<org.zonarstudio.spraute_engine.registry.CustomDropRegistry.DropRule> drops = org.zonarstudio.spraute_engine.registry.CustomDropRegistry.BLOCK_DROPS.get(blockId);
             if (drops != null) {
                 boolean replaced = false;
+                int xpAward = 0;
                 for (var rule : drops) {
                     if (rule.replace && !replaced) {
                         replaced = true;
                     }
+                    if (rule.xp > xpAward) xpAward = rule.xp;
                     if (((net.minecraft.world.level.Level)event.getLevel()).random.nextInt(100) < rule.chance) {
                         int count = rule.min + ((net.minecraft.world.level.Level)event.getLevel()).random.nextInt(Math.max(1, rule.max - rule.min + 1));
-                        net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(
-                            new net.minecraft.resources.ResourceLocation(rule.itemId.contains(":") ? rule.itemId : "minecraft:" + rule.itemId)
-                        );
-                        if (item != null && item != net.minecraft.world.item.Items.AIR) {
-                            net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item, count);
-                            if (rule.nbt != null && !rule.nbt.isEmpty()) {
-                                try {
-                                    stack.setTag(net.minecraft.nbt.TagParser.parseTag(rule.nbt));
-                                } catch (Exception e) {}
-                            }
+                        net.minecraft.world.item.ItemStack stack;
+                        if (org.zonarstudio.spraute_engine.scene.resource.SceneDropRule.isSelf(rule.itemId)) {
+                            stack = new net.minecraft.world.item.ItemStack(event.getState().getBlock().asItem(), count);
+                            org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.applySnbt(stack, rule.nbt);
+                        } else {
+                            stack = org.zonarstudio.spraute_engine.script.ItemStackScriptUtil.createStack(rule.itemId, count, rule.nbt);
+                        }
+                        if (!stack.isEmpty()) {
                             net.minecraft.world.entity.item.ItemEntity itemEntity = new net.minecraft.world.entity.item.ItemEntity(
                                 (net.minecraft.world.level.Level)event.getLevel(),
                                 event.getPos().getX() + 0.5,
@@ -382,6 +583,15 @@ public class Spraute_engine {
                             ((net.minecraft.world.level.Level)event.getLevel()).addFreshEntity(itemEntity);
                         }
                     }
+                }
+                if (xpAward > 0 && event.getLevel() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                    net.minecraft.world.entity.ExperienceOrb.award(
+                            serverLevel,
+                            new net.minecraft.world.phys.Vec3(
+                                    event.getPos().getX() + 0.5,
+                                    event.getPos().getY() + 0.5,
+                                    event.getPos().getZ() + 0.5),
+                            xpAward);
                 }
                 if (replaced) {
                     ((net.minecraft.world.level.Level)event.getLevel()).setBlockAndUpdate(event.getPos(), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
@@ -397,6 +607,11 @@ public class Spraute_engine {
     @SubscribeEvent
     public static void onPlaceBlock(net.minecraftforge.event.level.BlockEvent.EntityPlaceEvent event) {
         if (!event.getLevel().isClientSide() && event.getEntity() instanceof net.minecraft.world.entity.player.Player player) {
+            if (player instanceof net.minecraft.server.level.ServerPlayer sp
+                    && org.zonarstudio.spraute_engine.script.CinematicViewTracker.locksBlocks(sp)) {
+                event.setCanceled(true);
+                return;
+            }
             boolean canceled = org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onPlaceBlock(player, event.getPos(), event.getPlacedBlock().getBlock());
             if (canceled) {
                 event.setCanceled(true);
@@ -406,6 +621,12 @@ public class Spraute_engine {
 
     @SubscribeEvent
     public static void onChat(net.minecraftforge.event.ServerChatEvent event) {
+        //? if <1.20.1 {
+        /* // 1.19.2: ServerChatEvent also fires Preview while typing — only Submitted is a real send.
+        if (!(event instanceof net.minecraftforge.event.ServerChatEvent.Submitted)) {
+            return;
+        }
+        *///?}
         if (event.getPlayer() != null) {
             org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().onChat(event.getPlayer(), event.getRawText());
         }
@@ -432,21 +653,33 @@ public class Spraute_engine {
         org.zonarstudio.spraute_engine.config.SprauteConfig.load(gameDir);
         org.zonarstudio.spraute_engine.config.ScriptTriggersConfig.load(gameDir);
         org.zonarstudio.spraute_engine.registry.CustomWorldRegistry.reloadFromScripts();
+        org.zonarstudio.spraute_engine.registry.CustomProjectileRegistry.invalidateAndReparse();
+        org.zonarstudio.spraute_engine.registry.CustomParticleRegistry.invalidateAndReparse();
         ScriptManager.init(gameDir);
-        LOGGER.info("[Spraute Engine] Ready! Use /spraute run <script> to run scripts.");
+        LOGGER.info("[Spraute Engine] Ready! Use /spraute run <scene> to launch a scene.");
     }
 
     @SubscribeEvent
     public void onServerStarted(net.minecraftforge.event.server.ServerStartedEvent event) {
         org.zonarstudio.spraute_engine.registry.CustomWorldSafety.refreshOrphansFromServer(event.getServer());
         org.zonarstudio.spraute_engine.registry.CustomWorldSafety.rescueAllPlayers(event.getServer());
+        org.zonarstudio.spraute_engine.scene.SceneRuntime.purgeStaleSceneEntities(event.getServer());
         org.zonarstudio.spraute_engine.script.ScriptManager.getInstance().runAutorunScripts(event.getServer());
+        org.zonarstudio.spraute_engine.scene.SceneRuntime.loadAutoStartScenes(event.getServer());
     }
 
     @SubscribeEvent
     public static void onEntityJoinLevel(net.minecraftforge.event.entity.EntityJoinLevelEvent event) {
         if (event.getLevel().isClientSide()) return;
-        if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player)) return;
+        net.minecraft.world.entity.Entity entity = event.getEntity();
+        if (event.loadedFromDisk()
+                && org.zonarstudio.spraute_engine.scene.SceneRuntime.isSceneOwned(entity)
+                && !org.zonarstudio.spraute_engine.scene.SceneRuntime.shouldRetainSceneEntity(entity)) {
+            event.setCanceled(true);
+            org.zonarstudio.spraute_engine.scene.SceneRuntime.discardStaleSceneEntity(entity);
+            return;
+        }
+        if (!(entity instanceof net.minecraft.server.level.ServerPlayer player)) return;
         org.zonarstudio.spraute_engine.registry.CustomWorldSafety.rescuePlayerIfNeeded(player);
     }
 
@@ -511,6 +744,7 @@ public class Spraute_engine {
         @SubscribeEvent
         public static void registerAdditionalModels(net.minecraftforge.client.event.ModelEvent.RegisterAdditional event) {
             org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.ensureParsed();
+            org.zonarstudio.spraute_engine.scene.custom.CustomNodeRegistry.ensureParsed();
             for (String itemId : org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.ITEMS.keySet()) {
                 event.register(new net.minecraft.client.resources.model.ModelResourceLocation(
                         new net.minecraft.resources.ResourceLocation(Spraute_engine.MODID, itemId), "inventory"));
@@ -527,6 +761,9 @@ public class Spraute_engine {
             event.registerEntityRenderer(ModEntities.SPRAUTE_ORB.get(), org.zonarstudio.spraute_engine.entity.client.SprauteOrbRenderer::new);
             event.registerEntityRenderer(ModEntities.SPRAUTE_BILLBOARD.get(), org.zonarstudio.spraute_engine.entity.client.SprauteBillboardRenderer::new);
             event.registerEntityRenderer(ModEntities.SPRAUTE_PROJECTILE.get(), org.zonarstudio.spraute_engine.entity.client.SprauteProjectileRenderer::new);
+            event.registerEntityRenderer(ModEntities.SPRAUTE_MODEL.get(), org.zonarstudio.spraute_engine.entity.client.SprauteModelRenderer::new);
+            event.registerEntityRenderer(ModEntities.SPRAUTE_HITBOX.get(), org.zonarstudio.spraute_engine.entity.client.SprauteHitboxRenderer::new);
+            event.registerEntityRenderer(ModEntities.SPRAUTE_WORLD_CANVAS.get(), org.zonarstudio.spraute_engine.entity.client.SprauteWorldCanvasRenderer::new);
             
             // Only register if we actually have custom blocks that need it
             if (org.zonarstudio.spraute_engine.registry.CustomBlockRegistry.CUSTOM_GEO_BLOCK_ENTITY != null) {
@@ -599,7 +836,18 @@ public class Spraute_engine {
                 (preparationBarrier, resourceManager, profiler1, profiler2, backgroundExecutor, gameExecutor) ->
                     preparationBarrier.wait(null).thenRunAsync(() -> {
                         org.zonarstudio.spraute_engine.entity.client.SpModelCache.clearAll();
+                        org.zonarstudio.spraute_engine.entity.client.SpAnimationCache.clearAll();
+                        org.zonarstudio.spraute_engine.core.model.SpResourceCache.clearAll();
+                        org.zonarstudio.spraute_engine.entity.client.SprauteNpcRenderer.clearInstances();
+                        org.zonarstudio.spraute_engine.entity.client.SprauteModelRenderer.clearInstances();
+                        org.zonarstudio.spraute_engine.entity.NpcBonePoseSolver.clear();
                         org.zonarstudio.spraute_engine.item.client.GeoItemRenderer.clearInstances();
+                        org.zonarstudio.spraute_engine.client.editor.scene.EditorTexturePreview.clear();
+                        org.zonarstudio.spraute_engine.client.particle.ParticleTextureCache.clear();
+                        org.zonarstudio.spraute_engine.client.ui.UiSvgTextures.clear();
+                        org.zonarstudio.spraute_engine.client.PlayerSkinComposer.invalidateWorkspaceImages();
+                        org.zonarstudio.spraute_engine.client.editor.EditorI18n.invalidateLanguageCache();
+                        org.zonarstudio.spraute_engine.client.editor.visual.PluginI18n.clear();
                     }, gameExecutor)
             );
         }

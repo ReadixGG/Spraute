@@ -1,0 +1,20 @@
+import("spraute_chat")
+import("dialog_cinematic")
+val player = getFirstPlayer()
+val spawn = findSafeBlock(player, 32, 3)
+val spawn_x = listGet(spawn, 0)
+val spawn_y = listGet(spawn, 1)
+val spawn_z = listGet(spawn, 2)
+create npc my_npc {
+    name = "Андрей"
+    hp = 20
+    speed = 0.3
+    model = "geo/defolt.geo.json"
+    texture = "textures/entity/defolt.png"
+    animation = "animations/npc_classic.animation.json"
+    idleAnim = "idle"
+    walkAnim = "idle"
+    pos = spawn_x, spawn_y, spawn_z
+    showName = false
+}
+await interact(my_npc)

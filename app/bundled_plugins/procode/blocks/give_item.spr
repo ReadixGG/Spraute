@@ -1,0 +1,9 @@
+#\ block: give_item
+#\ category: Инвентарь
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "выдать игроку"
+#\ input: player (type: value)
+#\ row: "предмет" (item: item: minecraft:diamond) "x" (count: number: 1)
+#\ template: giveItem({player}, "{item}", {count})

@@ -23,7 +23,6 @@ public final class CameraRouteInputHandler {
     }
 
     private static boolean isHoldingCamera(Minecraft mc) {
-        return mc.player.getMainHandItem().getItem() instanceof org.zonarstudio.spraute_engine.item.CameraItem
-                || mc.player.getOffhandItem().getItem() instanceof org.zonarstudio.spraute_engine.item.CameraItem;
+        return false;
     }
 }

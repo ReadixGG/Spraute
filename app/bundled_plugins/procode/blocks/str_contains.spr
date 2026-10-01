@@ -1,0 +1,9 @@
+#\ block: str_contains
+#\ category: Текст
+#\ color: #10b981
+#\ shape: value
+#\
+#\ row: "("
+#\ input: s (type: value)
+#\ row: ") содержит" (sub: text: текст)
+#\ code: return _getVal("s").trim() + ".contains(\"" + _getVal("sub") + "\")";

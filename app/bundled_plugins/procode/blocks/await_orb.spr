@@ -1,0 +1,13 @@
+#\ block: await_orb
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать подбор орба" [filter: dropdown(любой: any, по текстуре: tex)]
+#\ input: player (type: value)
+#\ row: "кол-во" (amount: number: 1)
+#\ if filter == "any":
+#\   template: await orbPickup({player}, {amount})
+#\ if filter == "tex":
+#\   row: "текстура" (texture: texture: minecraft:textures/item/diamond.png)
+#\   template: await orbPickup({player}, {amount}, "{texture}")

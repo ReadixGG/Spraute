@@ -1,0 +1,8 @@
+#\ block: scene_unload
+#\ category: Иерархия
+#\ color: #84cc16
+#\ shape: statement
+#\
+#\ row: "выгрузить сцену" (sceneId: text: my_scene)
+#\
+#\ code: return 'sceneUnload("' + String(_getVal('sceneId') || '').trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '")\n';

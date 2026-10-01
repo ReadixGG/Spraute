@@ -1,0 +1,51 @@
+#\ block: register_event
+#\ category: События
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "зарегистрировать событие" (name: text: myEvent)
+#\ template: registerEvent("{name}")
+
+#\ block: fire_event
+#\ category: События
+#\ color: #a855f7
+#\ shape: statement
+#\
+#\ row: "вызвать событие" (name: text: myEvent)
+#\ row: "аргументы (через запятую, опц.)" (args: text: )
+#\ code: var n = String(_getVal('name') || '').trim();
+#\ code: if (!n) return '// fire_event: пустое имя\n';
+#\ code: var raw = String(_getVal('args') || '').trim();
+#\ code: if (!raw) return 'fireEvent(' + JSON.stringify(n) + ')\n';
+#\ code: return 'fireEvent(' + JSON.stringify(n) + ', ' + raw + ')\n';
+
+#\ block: on_custom_event
+#\ category: События
+#\ color: #a855f7
+#\ shape: wrapper
+#\
+#\ row: "когда событие" (name: text: myEvent) "→" (handler: text: h_event)
+#\ row: [filter: dropdown(без фильтра: none, игрок: player, игрок+арг: player_arg)]
+#\ if filter == "none":
+#\   template: on {name}() -> {handler} {\n{DO}}
+#\ if filter == "player":
+#\   input: player (type: value)
+#\   template: on {name}({player}) -> {handler} {\n{DO}}
+#\ if filter == "player_arg":
+#\   input: player (type: value)
+#\   row: "арг. 1" (arg1: text: )
+#\   template: on {name}({player}, "{arg1}") -> {handler} {\n{DO}}
+
+#\ block: await_custom_event
+#\ category: Ожидание
+#\ color: #f97316
+#\ shape: statement
+#\
+#\ row: "ждать событие" (name: text: myEvent)
+#\ input: player (type: value)
+#\ row: [save: dropdown(не сохранять: no, в перем.: yes)]
+#\ if save == "no":
+#\   template: await {name}({player})
+#\ if save == "yes":
+#\   row: "имя перем." (out: text: result)
+#\   template: val {out} = await {name}({player})
