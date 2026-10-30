@@ -133,7 +133,7 @@ public final class ProjectSounds {
     }
 
     /** A sound of a file: its own entry and its own stream. */
-    private static final class Instance extends AbstractSoundInstance {
+    private static final class Instance extends AbstractSoundInstance implements org.sprautestudio.st_addon_spraute.platform.CustomSoundStream {
         private final byte[] data;
         private final boolean wav;
 
@@ -159,7 +159,7 @@ public final class ProjectSounds {
             return w;
         }
 
-        /** Forge adds this to every sound; it is no override for a game without Forge, and a port needs its own way to it (PORTING.md). */
+        @Override
         public CompletableFuture<AudioStream> getStream(SoundBufferLibrary lib, Sound s, boolean looping) {
             return CompletableFuture.supplyAsync(() -> {
                 try {

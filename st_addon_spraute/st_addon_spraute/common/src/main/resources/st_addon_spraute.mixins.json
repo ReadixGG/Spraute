@@ -3,6 +3,7 @@
   "minVersion": "0.8",
   "package": "org.sprautestudio.st_addon_spraute.mixin",
   "compatibilityLevel": "JAVA_17",
+  "refmap": "st_addon_spraute.refmap.json",
   "mixins": [
     "EntityHitboxMixin",
     "LivingEntityHitboxMixin"

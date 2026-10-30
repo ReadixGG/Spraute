@@ -22,7 +22,7 @@ final class ForgeModelEntity extends SprauteModelEntity {
     @Override
     public PartEntity<?>[] getParts() {
         if (forgeParts == null) {
-            BodyPart[] parts = bodyParts();
+            BodyPart[] parts = parts();
             forgeParts = new PartEntity<?>[parts.length];
             for (int i = 0; i < parts.length; i++) forgeParts[i] = (ForgePart) parts[i];
         }

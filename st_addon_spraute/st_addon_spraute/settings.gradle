@@ -6,6 +6,10 @@ pluginManagement {
             url = 'https://maven.minecraftforge.net/'
         }
         maven {
+            name = 'Fabric'
+            url = 'https://maven.fabricmc.net/'
+        }
+        maven {
             name = 'Sponge'
             url = 'https://repo.spongepowered.org/repository/maven-public/'
         }
@@ -13,12 +17,12 @@ pluginManagement {
 }
 
 plugins {
-    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.10.0'
 }
 
 rootProject.name = 'st_addon_spraute'
 
-include 'core', 'common', 'forge'
+include 'core', 'common', 'forge', 'fabric'
 
 // Which Minecraft to build for: -Pmc=<version>, by default the one in gradle.properties.
 // All that differs between versions is in versions/<version>.properties.

@@ -13,13 +13,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(MouseHandler.class)
 public abstract class MouseLockMixin {
-    @Shadow(remap = false, aliases = "f_91516_")
+    @Shadow
     private double accumulatedDX;
-    @Shadow(remap = false, aliases = "f_91517_")
+    @Shadow
     private double accumulatedDY;
 
     /** turnPlayer */
-    @Inject(method = {"m_91523_", "turnPlayer"}, at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "turnPlayer", at = @At("HEAD"), cancellable = true)
     private void spraute$lockView(CallbackInfo ci) {
         if (!org.sprautestudio.st_addon_spraute.cutscene.client.CameraDirector.locksView()) return;
         // what the mouse moved is dropped, so nothing jumps when the lock is lifted

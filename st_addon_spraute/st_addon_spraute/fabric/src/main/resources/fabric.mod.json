@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${mod_version}",
+  "name": "${mod_name}",
+  "description": "${mod_description}",
+  "authors": ["${mod_authors}"],
+  "license": "${mod_license}",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["org.sprautestudio.st_addon_spraute.platform.fabric.FabricMod"],
+    "client": ["org.sprautestudio.st_addon_spraute.platform.fabric.FabricClientMod"],
+    "preLaunch": ["org.sprautestudio.st_addon_spraute.platform.fabric.MixinAudit"]
+  },
+  "mixins": [
+    "${mod_id}.mixins.json",
+    "${mod_id}.fabric.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": "${fabric_loader_range}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}",
+    "java": ">=17"
+  }
+}

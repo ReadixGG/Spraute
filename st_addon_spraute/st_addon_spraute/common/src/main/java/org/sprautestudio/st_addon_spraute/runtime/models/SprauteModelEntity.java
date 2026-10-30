@@ -65,7 +65,7 @@ public class SprauteModelEntity extends AnimatedEntity {
         for (int i = 0; i < MAX_PARTS; i++) if (parts[i] != null) parts[i].entity().setId(id + i + 1);
     }
 
-    protected BodyPart[] bodyParts() {
+    public BodyPart[] parts() {
         return parts;
     }
 

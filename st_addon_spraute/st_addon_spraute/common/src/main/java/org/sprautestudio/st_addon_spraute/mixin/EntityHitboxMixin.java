@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Entity.class)
 public abstract class EntityHitboxMixin {
     /** canBeCollidedWith */
-    @Inject(method = {"m_5829_", "canBeCollidedWith"}, at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "canBeCollidedWith", at = @At("HEAD"), cancellable = true)
     private void spraute$solid(CallbackInfoReturnable<Boolean> cir) {
         int f = Hitboxes.flags((Entity) (Object) this);
         if ((f & Hitboxes.SOLID) != 0) cir.setReturnValue(true);

@@ -1,36 +1,44 @@
 # Устройство движка и перенос на другие версии и загрузчики
 
-## Три модуля
+## Модули
 
 | Модуль | Что внутри | Что видит при компиляции |
 | ------ | ---------- | ------------------------ |
 | `core/` | Язык `.sst`, математика и разбор моделей и анимаций, документы проекта (катсцены, квесты, GUI, FX). Есть тесты. | Только Java и gson |
 | `common/` | Весь движок в игре: рантайм, редактор, UI, сеть, ассеты, миксины. | Minecraft без загрузчика (VanillaGradle) |
-| `forge/` | `platform/forge/`, `mods.toml`, запуск игры. Отсюда выходит jar. | Minecraft + Forge |
+| `forge/` | `platform/forge/`, `mods.toml`, запуск игры. Отсюда выходит jar для Forge. | Minecraft + Forge |
+| `fabric/` | `platform/fabric/`, `fabric.mod.json`, миксины событий, запуск игры. Отсюда выходит jar для Fabric. | Minecraft + Fabric API |
 
 Границы держит сама сборка, а не договорённость. Код с Forge в `common` не скомпилируется, код с Minecraft в `core` тоже.
 Это касается и методов, которые Forge незаметно дописывает в классы игры: `Entity.getPersistentData()`, `KeyMapping.getKey()` и другие.
 
 Пакеты сквозные: `org.sprautestudio.st_addon_spraute.lang` лежит в `core`, а `...runtime` в `common`.
-Классы `core` и `common` компилируются прямо в модуле загрузчика и попадают в один jar. Задача `checkJar` проверяет, что они там есть.
+Классы `core` и `common` компилируются прямо в модуле загрузчика и попадают в его jar. Задача `checkJar` проверяет, что они там есть.
 
 ## Команды
 
 ```bash
 ./gradlew -p st_addon_spraute/st_addon_spraute build              # всё: тесты, проверка jar
 ./gradlew -p st_addon_spraute/st_addon_spraute :core:test         # только тесты ядра
-./gradlew -p st_addon_spraute/st_addon_spraute runServer          # сервер без окна, папка run/
-./gradlew -p st_addon_spraute/st_addon_spraute runClient
+./gradlew -p st_addon_spraute/st_addon_spraute :forge:runServer   # сервер без окна, папка run/
+./gradlew -p st_addon_spraute/st_addon_spraute :forge:runClient
+./gradlew -p st_addon_spraute/st_addon_spraute :fabric:runServer  # папка fabric/run/
+./gradlew -p st_addon_spraute/st_addon_spraute :fabric:runClient
+./gradlew -p st_addon_spraute/st_addon_spraute :fabric:runAuditClient  # все миксины на классах клиента, без окна игры
 ```
 
-Jar: `build/libs/st_addon_spraute-<версия>.jar`.
+Имя задачи указывайте вместе с модулем: просто `runServer` запустит оба сервера подряд.
+
+Jar: `build/libs/st_addon_spraute-<версия>.jar` для Forge и `build/libs/st_addon_spraute-fabric-<версия>.jar` для Fabric (ему нужен Fabric API).
 
 ## Куда класть новый код
 
 1. Не нужна игра: в `core`, и лучше с тестом.
 2. Нужна игра: в `common`.
 3. Нужно то, чего нет в игре без загрузчика: метод в `Platform` или `ClientPlatform` плюс его реализация в `forge`.
-4. Нужно новое событие игры: `Hook` в `Hooks` или `ClientHooks`, плюс одна строка `bridge(...)` в `ForgeEvents` или `ForgeClientEvents`.
+4. Нужно новое событие игры: `Hook` в `Hooks` или `ClientHooks`, плюс одна строка `bridge(...)` в `ForgeEvents` или `ForgeClientEvents`, плюс вызов на Fabric: в `FabricEvents`, `FabricClientEvents` или, если в Fabric API такого события нет, миксин в `platform/fabric/mixin`.
+
+После изменения миксинов запускайте `:fabric:runAuditClient`: несовпадение с кодом игры иначе проявится только вылетом при запуске клиента.
 
 Новый класс со слушателями получает `public static void registerHooks()` и строку в `Modules` (`ClientModules`, если он клиентский).
 `ClientModules` загружается только на клиенте, поэтому выделенный сервер не трогает клиентские классы.
@@ -66,23 +74,25 @@ private static void onAttack(Hooks.LivingAttack e) {
 
 ## Новый загрузчик
 
-1. Создать модуль рядом с `forge/` и добавить его в `settings.gradle`. Исходники `core` и `common` подключаются так же, как в `forge/build.gradle`.
+1. Создать модуль рядом с `forge/` и `fabric/` и добавить его в `settings.gradle`. Исходники `core` и `common` подключаются так же, как в их `build.gradle`.
 2. Реализовать `Platform` и `ClientPlatform`.
-3. Вызывать `Hook.fire(...)` из событий загрузчика: всего 75 событий, образец в `ForgeEvents` и `ForgeClientEvents`. Если у загрузчика нет приоритетов, есть `fire(event)`, он пройдёт их все по порядку.
+3. Вызывать `Hook.fire(...)` из событий загрузчика: всего 75 событий. Образцы: `ForgeEvents` (у загрузчика есть почти всё) и `FabricEvents` с миксинами (нет многого). Если у загрузчика нет приоритетов, есть `fire(event)`, он пройдёт их все по порядку.
 4. На старте: `Platform.install(...)`, на клиенте `ClientPlatform.install(...)`, затем `St_addon_spraute.init()`, и только потом подключение событий: слушатели регистрируются внутри `init()`.
 
-### Что потребует отдельной работы
+Миксины `common` указывают официальные имена, а refmap каждого загрузчика переводит их в свои.
 
-Эти места привязаны к Forge и не решаются одной реализацией метода:
+## Чем Fabric отличается от Forge
 
-| Что | Где | В чём дело |
-| --- | --- | ---------- |
-| Имена в миксинах | `common/.../mixin/*` | Указаны `remap = false` и пара имён SRG + официальное. Загрузчику с другими именами в рантайме (Fabric: intermediary) нужны свои. NeoForge на официальных именах должен подойти, но это не проверялось. |
-| Звуки проекта | `ProjectSounds.Instance.getStream` | Метод дописан в `SoundInstance` самим Forge, без него собственные звуки проекта не заиграют. Нужен миксин или аналог. |
-| Доп. хитбоксы персонажей | `BodyPart`, `Platform.bodyPart`, `Platform.modelEntity` | В Forge это `PartEntity`. В других загрузчиках хитбоксы придётся встраивать в выбор цели самим. |
-| Данные на сущности | `Platform.persistentData` | Forge хранит их и сохраняет в NBT сам. Иначе нужен миксин сохранения. Для уже идущих миров формат должен совпасть. |
-| Игрок-заглушка | `Platform.fakePlayer` | Нужен для команды `use` от лица NPC. |
-| Клавиши | `ClientPlatform.gameKey` | Контекст «только в игре» есть не везде. |
-| HUD | `ClientHooks.RenderHudPart` | Части HUD у Forge именованные (`minecraft:player_health`...). У других загрузчиков их придётся выделять самим. Имена перечислены в `HudParts`, а `drawOriginal` рисует часть с другим положением. |
-| JavaScript сюжетов | `runtime/JsEngine` | Nashorn в игру приносит Forge. Другому загрузчику надо положить его в jar. |
-| `on forge "..."` в сюжетах | `Platform.listenLoaderEvent` | События Forge по имени. Для другого загрузчика по умолчанию ошибка: у него свои имена событий. |
+Движок на Fabric тот же. Различия там, где у Fabric нет того, что Forge даёт готовым:
+
+| Что | На Fabric |
+| --- | --- |
+| `on forge "..."` в сюжетах | Не работает: это события самого Forge. Сюжет получит ошибку. |
+| Свои координаты частей HUD, которые рисует игра | Не применяются: у Forge HUD разбит на части, которые можно перерисовать в другом месте. Часть остаётся на месте игры. Скрытие и замена на свои работают. |
+| Скрытие HUD в катсценах | Скрываются здоровье, броня, еда, воздух, опыт, хотбар, прицел, эффекты, боссы, скорборд, транспорт, название предмета. Не скрываются виньетка, тыква и подзорная труба, список игроков, отладочный экран: у них нет своей точки в `GuiMixin`. |
+| Стадии отрисовки мира | `AFTER_PARTICLES` = `WorldRenderEvents.AFTER_TRANSLUCENT`, `AFTER_WEATHER` = `WorldRenderEvents.LAST`: близко к Forge, но не тот же момент. |
+| Доп. хитбоксы персонажей | `FabricPart` и миксины `Level`, `ServerLevel`: показывают части игре так же, как части дракона. |
+| Данные на сущности | Хранятся под именем `ForgeData`, как у Forge, поэтому мир можно перенести между загрузчиками. |
+| JavaScript сюжетов | Nashorn лежит внутри jar. |
+
+Клиент и сервер должны быть на одном загрузчике: Fabric-клиент не подключится к Forge-серверу и наоборот.

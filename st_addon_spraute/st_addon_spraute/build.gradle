@@ -1,7 +1,8 @@
 // What all modules share. The three of them, each knowing less than the next:
 //   core    the engine with no game at all
 //   common  the engine in Minecraft, with no loader
-//   forge   what Forge needs; the jar comes from here
+//   forge   what Forge needs; its jar comes from here
+//   fabric  what Fabric needs; its jar comes from here
 // See PORTING.md.
 group = mod_group_id
 version = mod_version

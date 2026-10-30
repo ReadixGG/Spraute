@@ -1,0 +1,86 @@
+plugins {
+    id 'java-library'
+    id 'fabric-loom' version '1.7-SNAPSHOT'
+}
+
+// Without these the modules are not configured yet, and their sourceSets would silently be this project's own
+evaluationDependsOn(':core')
+evaluationDependsOn(':common')
+
+base {
+    archivesName = "${mod_id}-fabric"
+}
+
+repositories {
+    maven {
+        name = 'Fabric'
+        url = 'https://maven.fabricmc.net/'
+    }
+}
+
+loom {
+    mixin {
+        defaultRefmapName = "${mod_id}.refmap.json"
+    }
+    runs {
+        server {
+            // a dev server has nobody on it: stories run anyway
+            vmArg '-Dspraute.tickWithoutPlayers=true'
+        }
+        // applies every mixin to the game's classes on the client, without opening the game
+        auditClient {
+            client()
+            vmArg '-Dspraute.auditMixins=true'
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    // JavaScript of stories: unlike Forge, Fabric does not bring Nashorn along
+    implementation "org.openjdk.nashorn:nashorn-core:${nashorn_version}"
+    include "org.openjdk.nashorn:nashorn-core:${nashorn_version}"
+}
+
+// The mod's jar holds the engine's code as its own: it is compiled here, against this loader's game
+tasks.named('compileJava', JavaCompile).configure {
+    source project(':core').sourceSets.main.java
+    source project(':common').sourceSets.main.java
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    from project(':common').sourceSets.main.resources
+
+    var replaceProperties = [mod_id: mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
+                             mod_authors: mod_authors, mod_description: mod_description,
+                             minecraft_version: minecraft_version, fabric_loader_range: fabric_loader_range]
+    inputs.properties replaceProperties
+    filesMatching(['fabric.mod.json', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('remapJar').configure {
+    destinationDirectory = rootProject.layout.buildDirectory.dir('libs')
+}
+
+// A jar without the engine still builds, and only falls apart in the game
+def checkJar = tasks.register('checkJar') {
+    dependsOn 'remapJar'
+    def jarFile = tasks.named('remapJar').flatMap { it.archiveFile }
+    doLast {
+        def tree = zipTree(jarFile)
+        ['org/sprautestudio/st_addon_spraute/lang/Analyzer.class',
+         'org/sprautestudio/st_addon_spraute/St_addon_spraute.class',
+         'org/sprautestudio/st_addon_spraute/platform/fabric/FabricMod.class',
+         'fabric.mod.json',
+         "${mod_id}.refmap.json".toString(),
+         "${mod_id}.mixins.json".toString()].each { name ->
+            if (tree.matching { include name }.files.isEmpty()) throw new GradleException("The jar has no ${name}")
+        }
+    }
+}
+tasks.named('build').configure { dependsOn checkJar }
