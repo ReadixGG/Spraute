@@ -750,7 +750,8 @@ public final class Eval {
         while (m.find()) {
             String inner = m.group(1).trim();
             String value;
-            Expr expr = inner.isEmpty() ? null : Parser.parseExpression(inner);
+            // "{key: ...}" is NBT, not an expression
+            Expr expr = inner.isEmpty() || inner.matches("(?s)[\\w.+-]+\\s*:.*") ? null : Parser.parseExpression(inner);
             if (expr == null) {
                 value = m.group(0);
             } else {

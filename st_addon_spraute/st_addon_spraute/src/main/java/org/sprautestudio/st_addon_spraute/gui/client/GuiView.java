@@ -1175,10 +1175,8 @@ public class GuiView extends Widget implements UI.CursorProvider {
     private void drawItem(Canvas c, Element e, int[] r, float op) {
         int bgc = e.color("background");
         if ((bgc >>> 24) != 0) c.round(r[0], r[1], r[2], r[3], 3, a(bgc, op));
-        ResourceLocation rl = ResourceLocation.tryParse(e.get("item").contains(":") ? e.get("item") : "minecraft:" + e.get("item"));
-        Item item = rl == null ? null : BuiltInRegistries.ITEM.getOptional(rl).orElse(null);
-        if (item == null) return;
-        ItemStack stack = new ItemStack(item, Math.max(1, e.i("count")));
+        ItemStack stack = stackOf(e.get("item"), e.i("count"));
+        if (stack.isEmpty()) return;
         c.g.pose().pushPose();
         c.g.pose().translate(r[0], r[1], 0);
         c.g.pose().scale(r[2] / 16f, r[3] / 16f, 1);
@@ -1193,10 +1191,7 @@ public class GuiView extends Widget implements UI.CursorProvider {
     private int carried = -1;
 
     private static ItemStack stackOf(String id, int count) {
-        if (id == null || id.isBlank()) return ItemStack.EMPTY;
-        ResourceLocation rl = ResourceLocation.tryParse(id.contains(":") ? id.trim() : "minecraft:" + id.trim());
-        Item item = rl == null ? null : BuiltInRegistries.ITEM.getOptional(rl).orElse(null);
-        return item == null ? ItemStack.EMPTY : new ItemStack(item, Math.max(1, count));
+        return id == null || id.isBlank() ? ItemStack.EMPTY : org.sprautestudio.st_addon_spraute.runtime.ItemSpec.stack(id, count);
     }
 
     /** Cell background: a picture, the vanilla bevel, a flat colour or nothing. */

@@ -183,49 +183,39 @@ public final class Shops {
     // ------------------------------------------------------------------ items and money
 
     static Item item(String id) {
-        ResourceLocation rl = ResourceLocation.tryParse(id == null ? "" : (id.contains(":") ? id : "minecraft:" + id));
-        Item it = rl == null ? null : BuiltInRegistries.ITEM.get(rl);
-        return it == null ? Items.AIR : it;
+        return org.sprautestudio.st_addon_spraute.runtime.ItemSpec.item(id);
     }
 
-    private static int count(ServerPlayer p, Item it) {
-        return p.getInventory().countItem(it);
+    private static int count(ServerPlayer p, String item) {
+        return org.sprautestudio.st_addon_spraute.runtime.ItemSpec.count(p, item);
     }
 
-    private static void take(ServerPlayer p, Item it, int n) {
-        var inv = p.getInventory();
-        for (int i = 0; i < inv.getContainerSize() && n > 0; i++) {
-            ItemStack s = inv.getItem(i);
-            if (s.is(it)) {
-                int k = Math.min(n, s.getCount());
-                s.shrink(k);
-                n -= k;
-            }
-        }
-        inv.setChanged();
+    private static void take(ServerPlayer p, String item, int n) {
+        org.sprautestudio.st_addon_spraute.runtime.ItemSpec.take(p, item, n);
     }
 
-    private static void give(ServerPlayer p, Item it, int n) {
+    private static void give(ServerPlayer p, String item, int n) {
+        int most = item(item).getMaxStackSize();
         while (n > 0) {
-            int k = Math.min(n, it.getMaxStackSize());
-            ItemStack s = new ItemStack(it, k);
+            int k = Math.min(n, most);
+            ItemStack s = org.sprautestudio.st_addon_spraute.runtime.ItemSpec.stack(item, k);
             if (!p.addItem(s)) p.drop(s, false);
             n -= k;
         }
     }
 
     private static int balance(ServerPlayer p, ShopDef def) {
-        return def.coins() ? Coins.get(p) : count(p, item(def.currency));
+        return def.coins() ? Coins.get(p) : count(p, def.currency);
     }
 
     private static void pay(ServerPlayer p, ShopDef def, int n) {
         if (def.coins()) Coins.set(p, Math.max(0, Coins.get(p) - n));
-        else take(p, item(def.currency), n);
+        else take(p, def.currency, n);
     }
 
     private static void earn(ServerPlayer p, ShopDef def, int n) {
         if (def.coins()) Coins.add(p, n);
-        else give(p, item(def.currency), n);
+        else give(p, def.currency, n);
     }
 
     // ------------------------------------------------------------------ the window
@@ -260,7 +250,7 @@ public final class Shops {
             l.stock = os.stock;
             int mine = os.bought.getOrDefault(who, 0);
             l.left = o.limit < 0 ? -1 : Math.max(0, o.limit - mine);
-            l.have = count(p, item(o.item));
+            l.have = count(p, o.item);
             if (!check(s, o.unlock)) {
                 l.state = "locked";
                 l.lockText = o.lockText;
@@ -317,7 +307,7 @@ public final class Shops {
                 data.put("amount", (double) n);
                 data.put("type", o.type);
                 GameEvents.post("purchase", p, data);
-                String what = (o.name.isEmpty() ? new ItemStack(item(o.item)).getHoverName().getString() : o.name) + " ×" + (n * o.count);
+                String what = (o.name.isEmpty() ? org.sprautestudio.st_addon_spraute.runtime.ItemSpec.stack(o.item, 1).getHoverName().getString() : o.name) + " ×" + (n * o.count);
                 result = switch (o.type) {
                     case "sell" -> "Продано: " + what;
                     case "trade" -> "Обменяно: " + what;
@@ -340,26 +330,26 @@ public final class Shops {
         int price = 0;
         for (int i = 0; i < n; i++) price += ShopDef.finalPrice(o, os.total + i);
         for (ShopDef.Stack c : o.costs) {
-            if (count(p, item(c.item)) < c.count * n) return "Не хватает: " + new ItemStack(item(c.item)).getHoverName().getString() + " ×" + (c.count * n);
+            if (count(p, c.item) < c.count * n) return "Не хватает: " + org.sprautestudio.st_addon_spraute.runtime.ItemSpec.stack(c.item, 1).getHoverName().getString() + " ×" + (c.count * n);
         }
         switch (o.type) {
             case "sell" -> {
-                if (count(p, it) < o.count * n) return "У вас нет столько: нужно " + (o.count * n);
-                take(p, it, o.count * n);
-                for (ShopDef.Stack c : o.costs) take(p, item(c.item), c.count * n);
+                if (count(p, o.item) < o.count * n) return "У вас нет столько: нужно " + (o.count * n);
+                take(p, o.item, o.count * n);
+                for (ShopDef.Stack c : o.costs) take(p, c.item, c.count * n);
                 earn(p, def, price);
             }
             case "trade" -> {
                 if (price > 0 && balance(p, def) < price) return "Не хватает денег: нужно " + price;
-                for (ShopDef.Stack c : o.costs) take(p, item(c.item), c.count * n);
+                for (ShopDef.Stack c : o.costs) take(p, c.item, c.count * n);
                 if (price > 0) pay(p, def, price);
-                give(p, it, o.count * n);
+                give(p, o.item, o.count * n);
             }
             default -> {
                 if (balance(p, def) < price) return "Не хватает денег: нужно " + price;
                 pay(p, def, price);
-                for (ShopDef.Stack c : o.costs) take(p, item(c.item), c.count * n);
-                give(p, it, o.count * n);
+                for (ShopDef.Stack c : o.costs) take(p, c.item, c.count * n);
+                give(p, o.item, o.count * n);
             }
         }
         return null;

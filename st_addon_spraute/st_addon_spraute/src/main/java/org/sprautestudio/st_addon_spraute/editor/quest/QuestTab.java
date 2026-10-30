@@ -171,7 +171,11 @@ public class QuestTab extends EditorTab {
             form.note("Раздел награды скрыт со страницы, но награда всё равно выдаётся");
         form.integer("Монеты", null, () -> doc.reward.coins, v -> doc.reward.coins = Math.max(0, v));
         form.integer("Опыт", null, () -> doc.reward.xp, v -> doc.reward.xp = Math.max(0, v));
-        for (int i = 0; i < doc.reward.items.size(); i++) form.rewardItem(i);
+        for (int i = 0; i < doc.reward.items.size(); i++) {
+            QuestDef.Item item = doc.reward.items.get(i);
+            form.rewardItem(i);
+            form.text("NBT", "Необязательно. Как в командах: {Damage:5,display:{Name:'{\"text\":\"Меч\"}'}}", () -> org.sprautestudio.st_addon_spraute.runtime.ItemSpec.nbt(item.item), v -> item.item = org.sprautestudio.st_addon_spraute.runtime.ItemSpec.with(item.item, v));
+        }
         form.button("+ предмет в награду", () -> {
             doc.reward.items.add(new QuestDef.Item("minecraft:emerald", 1));
             changed();
@@ -290,8 +294,8 @@ public class QuestTab extends EditorTab {
             QuestDef.Item st = doc.reward.items.get(i);
             Row r = row("Предмет " + (i + 1), null);
             r.editor = r.add(new Widget() {
-                final Button pick = add(new Button(() -> st.item.replace("minecraft:", ""), () -> AssetPicker.open(ParamType.ITEM, st.item, v -> {
-                    st.item = v;
+                final Button pick = add(new Button(() -> org.sprautestudio.st_addon_spraute.runtime.ItemSpec.id(st.item).replace("minecraft:", ""), () -> AssetPicker.open(ParamType.ITEM, org.sprautestudio.st_addon_spraute.runtime.ItemSpec.id(st.item), v -> {
+                    st.item = org.sprautestudio.st_addon_spraute.runtime.ItemSpec.with(v, org.sprautestudio.st_addon_spraute.runtime.ItemSpec.nbt(st.item));
                     changed();
                 })).icon(Icon.CUBE).style(Button.Style.GHOST));
                 final TextField n = add(new TextField());

@@ -1681,9 +1681,12 @@ public class GuiTab extends EditorTab {
                         case ITEM -> ParamType.ITEM;
                         default -> ParamType.SOUND;
                     };
-                    Button pick = Button.icon(Icon.SEARCH, "Выбрать…", () -> AssetPicker.open(pt, getter.get(), v -> {
-                        apply(key + System.nanoTime(), setter, v);
-                        tf.setText(v);
+                    // the text field may hold an item's NBT after its id: choosing another item keeps it
+                    boolean item = pt == ParamType.ITEM;
+                    Button pick = Button.icon(Icon.SEARCH, "Выбрать…", () -> AssetPicker.open(pt, item ? org.sprautestudio.st_addon_spraute.runtime.ItemSpec.id(getter.get()) : getter.get(), v -> {
+                        String next = item ? org.sprautestudio.st_addon_spraute.runtime.ItemSpec.with(v, org.sprautestudio.st_addon_spraute.runtime.ItemSpec.nbt(getter.get())) : v;
+                        apply(key + System.nanoTime(), setter, next);
+                        tf.setText(next);
                     }));
                     return new PropRow(p.label(), p.doc(), tf, pick);
                 }

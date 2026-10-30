@@ -56,10 +56,9 @@ public class OrbRenderer extends EntityRenderer<SprauteOrb> {
         pose.pushPose();
         pose.translate(0, size / 2 + 0.05f * Mth.sin(t * 0.1f), 0);
         if (look.startsWith("item:")) {
-            var item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(look.substring(5)));
             pose.mulPose(Axis.YP.rotationDegrees(t * 4));
             pose.scale(size * 2 * pulse, size * 2 * pulse, size * 2 * pulse);
-            Minecraft.getInstance().getItemRenderer().renderStatic(new ItemStack(item), ItemDisplayContext.GROUND, 0xF000F0,
+            Minecraft.getInstance().getItemRenderer().renderStatic(org.sprautestudio.st_addon_spraute.runtime.ItemSpec.stack(look.substring(5), 1), ItemDisplayContext.GROUND, 0xF000F0,
                     OverlayTexture.NO_OVERLAY, pose, buffers, orb.level(), orb.getId());
             pose.popPose();
             return;

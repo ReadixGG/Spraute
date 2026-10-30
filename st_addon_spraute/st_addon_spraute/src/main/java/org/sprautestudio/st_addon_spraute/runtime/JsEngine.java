@@ -364,8 +364,7 @@ public final class JsEngine {
 
         public void give(String item, int count) {
             if (!(e instanceof net.minecraft.world.entity.player.Player p)) return;
-            var it = BuiltInRegistries.ITEM.get(new ResourceLocation(item.contains(":") ? item : "minecraft:" + item));
-            p.getInventory().add(new ItemStack(it, Math.max(1, count)));
+            p.getInventory().add(ItemSpec.stack(item, count));
         }
 
         public String getHand() {

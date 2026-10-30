@@ -236,7 +236,11 @@ public class ShopTab extends EditorTab {
         form.number("Скидка (доля)", "1 — полная цена, 0.8 — скидка 20%", () -> o.discount, v -> o.discount = (float) Math.max(0.01, v));
         form.number("Рост цены", "Каждая покупка дороже на эту долю: 0.25 — +25%", () -> o.priceGrowth, v -> o.priceGrowth = (float) Math.max(0, v));
         form.note(o.type.equals("sell") ? "Предметы, которые торговец берёт сверху:" : "Предметы, которые нужно отдать:");
-        for (int i = 0; i < o.costs.size(); i++) form.cost(o, i);
+        for (int i = 0; i < o.costs.size(); i++) {
+            ShopDef.Stack cost = o.costs.get(i);
+            form.cost(o, i);
+            form.nbt(() -> cost.item, v -> cost.item = v);
+        }
         form.button("+ предмет в цену", () -> {
             o.costs.add(new ShopDef.Stack("minecraft:emerald", 1));
             changed();
@@ -330,20 +334,26 @@ public class ShopTab extends EditorTab {
         /** An item: its id on a button that opens the visual item picker. */
         void item(String label, Supplier<String> get, Consumer<String> set) {
             Row r = row(label, "Нажмите, чтобы выбрать предмет");
-            r.editor = r.add(new Button(() -> get.get().isEmpty() ? "выбрать…" : get.get().replace("minecraft:", ""),
-                    () -> AssetPicker.open(ParamType.ITEM, get.get(), v -> {
-                        set.accept(v);
+            r.editor = r.add(new Button(() -> get.get().isEmpty() ? "выбрать…" : org.sprautestudio.st_addon_spraute.runtime.ItemSpec.id(get.get()).replace("minecraft:", ""),
+                    () -> AssetPicker.open(ParamType.ITEM, org.sprautestudio.st_addon_spraute.runtime.ItemSpec.id(get.get()), v -> {
+                        set.accept(org.sprautestudio.st_addon_spraute.runtime.ItemSpec.with(v, org.sprautestudio.st_addon_spraute.runtime.ItemSpec.nbt(get.get())));
                         changed();
                         buildForm();
                     })).icon(Icon.CUBE).style(Button.Style.GHOST));
+            if (!get.get().isEmpty()) nbt(get, set);
+        }
+
+        /** The item's NBT, kept in the same text as its id. */
+        void nbt(Supplier<String> get, Consumer<String> set) {
+            text("NBT", "Необязательно. Как в командах: {Damage:5,display:{Name:'{\"text\":\"Меч\"}'}}", () -> org.sprautestudio.st_addon_spraute.runtime.ItemSpec.nbt(get.get()), v -> set.accept(org.sprautestudio.st_addon_spraute.runtime.ItemSpec.with(get.get(), v)));
         }
 
         void cost(ShopDef.Offer o, int i) {
             ShopDef.Stack st = o.costs.get(i);
             Row r = row("Предмет " + (i + 1), null);
             r.editor = r.add(new Widget() {
-                final Button pick = add(new Button(() -> st.item.replace("minecraft:", ""), () -> AssetPicker.open(ParamType.ITEM, st.item, v -> {
-                    st.item = v;
+                final Button pick = add(new Button(() -> org.sprautestudio.st_addon_spraute.runtime.ItemSpec.id(st.item).replace("minecraft:", ""), () -> AssetPicker.open(ParamType.ITEM, org.sprautestudio.st_addon_spraute.runtime.ItemSpec.id(st.item), v -> {
+                    st.item = org.sprautestudio.st_addon_spraute.runtime.ItemSpec.with(v, org.sprautestudio.st_addon_spraute.runtime.ItemSpec.nbt(st.item));
                     changed();
                 })).icon(Icon.CUBE).style(Button.Style.GHOST));
                 final TextField n = add(new TextField());

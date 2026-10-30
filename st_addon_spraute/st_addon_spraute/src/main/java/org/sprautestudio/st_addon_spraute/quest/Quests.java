@@ -277,9 +277,7 @@ public final class Quests {
     // ------------------------------------------------------------------ the reward
 
     private static Item item(String id) {
-        ResourceLocation rl = ResourceLocation.tryParse(id.contains(":") ? id : "minecraft:" + id);
-        Item it = rl == null ? null : BuiltInRegistries.ITEM.get(rl);
-        return it == null ? Items.AIR : it;
+        return org.sprautestudio.st_addon_spraute.runtime.ItemSpec.item(id);
     }
 
     private static void reward(ServerPlayer p, QuestDef.Reward r) {
@@ -290,7 +288,7 @@ public final class Quests {
             if (it == Items.AIR) continue;
             int left = Math.max(1, i.count);
             while (left > 0) {
-                ItemStack s = new ItemStack(it, Math.min(left, it.getMaxStackSize()));
+                ItemStack s = org.sprautestudio.st_addon_spraute.runtime.ItemSpec.stack(i.item, Math.min(left, it.getMaxStackSize()));
                 left -= s.getCount();
                 if (!p.addItem(s)) p.drop(s, false);
             }
@@ -337,7 +335,7 @@ public final class Quests {
             en.layout = d.layout;
             en.state = q.state;
             en.order = q.order;
-            en.reward = QuestJournal.rewardText(d.reward, i -> new ItemStack(item(i.item)).getHoverName().getString());
+            en.reward = QuestJournal.rewardText(d.reward, i -> org.sprautestudio.st_addon_spraute.runtime.ItemSpec.stack(i.item, 1).getHoverName().getString());
             for (QuestDef.Task t : d.tasks) {
                 int prog = q.progress.getOrDefault(t.id, 0);
                 if (t.hidden && !q.revealed.contains(t.id) && prog == 0) continue;

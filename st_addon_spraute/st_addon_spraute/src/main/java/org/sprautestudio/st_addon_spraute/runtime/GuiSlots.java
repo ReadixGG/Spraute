@@ -18,10 +18,7 @@ public final class GuiSlots {
     private GuiSlots() {}
 
     public static ItemStack stack(String id, int count) {
-        if (id == null || id.isBlank()) return ItemStack.EMPTY;
-        ResourceLocation rl = ResourceLocation.tryParse(id.contains(":") ? id.trim() : "minecraft:" + id.trim());
-        Item item = rl == null ? null : BuiltInRegistries.ITEM.getOptional(rl).orElse(null);
-        return item == null || item == Items.AIR ? ItemStack.EMPTY : new ItemStack(item, Math.max(1, count));
+        return id == null || id.isBlank() ? ItemStack.EMPTY : ItemSpec.stack(id, count);
     }
 
     public static String id(ItemStack st) {
@@ -41,7 +38,7 @@ public final class GuiSlots {
     static void send(SprauteScriptInstance s, ServerPlayer p, String slot) {
         if (p == null) return;
         ItemStack st = s.guiSlots.getOrDefault(slot, ItemStack.EMPTY);
-        SprauteNetwork.sendTo(p, new Packets.GuiUpdate(s.getId(), slot, "item", id(st)));
+        SprauteNetwork.sendTo(p, new Packets.GuiUpdate(s.getId(), slot, "item", ItemSpec.of(st)));
         SprauteNetwork.sendTo(p, new Packets.GuiUpdate(s.getId(), slot, "count", String.valueOf(Math.max(1, st.getCount()))));
     }
 
@@ -67,7 +64,7 @@ public final class GuiSlots {
         ItemStack src = p.getInventory().getItem(inv);
         if (src.isEmpty()) return;
         String filter = e.get("filter").trim();
-        if (!filter.isEmpty() && !id(src).equals(filter.contains(":") ? filter : "minecraft:" + filter)) {
+        if (!filter.isEmpty() && !ItemSpec.matches(src, filter)) {
             send(s, p, slot);
             return;
         }

@@ -143,9 +143,7 @@ public class ShopPanel {
     }
 
     static ItemStack stack(String id, int count) {
-        ResourceLocation rl = ResourceLocation.tryParse(id == null ? "" : (id.contains(":") ? id : "minecraft:" + id));
-        Item it = rl == null ? Items.AIR : BuiltInRegistries.ITEM.get(rl);
-        return new ItemStack(it == null ? Items.AIR : it, Math.max(1, count));
+        return org.sprautestudio.st_addon_spraute.runtime.ItemSpec.stack(id, count);
     }
 
     private ItemStack money() {

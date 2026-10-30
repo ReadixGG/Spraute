@@ -469,7 +469,7 @@ public final class Specs {
         cmd("stopsound", CAT_PLAYER, "[id <id:text>]",
                 "Останавливает свой звук, запущенный с id, или без id — все свои звуки, играющие по кругу.");
         cmd("give", CAT_PLAYER, "<item:item> [count <count:int>]",
-                "Выдаёт игроку предмет.");
+                "После id можно указать NBT: give \"minecraft:diamond_sword{Damage:5}\". Это работает у всех предметов. Выдаёт игроку предмет.");
         cmd("command", CAT_PLAYER, "<command:text>",
                 "Выполняет команду Minecraft от имени сервера. Пример: command \"time set night\"");
 

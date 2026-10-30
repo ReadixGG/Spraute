@@ -56,8 +56,7 @@ public final class Notices {
         ItemStack stack = ItemStack.EMPTY;
         ResourceLocation tex = null;
         if (!item.isEmpty()) {
-            Item it = ForgeRegistries.ITEMS.getValue(ResourceLocation.tryParse(item.contains(":") ? item : "minecraft:" + item));
-            if (it != null) stack = new ItemStack(it);
+            stack = org.sprautestudio.st_addon_spraute.runtime.ItemSpec.stack(item, 1);
         } else if (!icon.isEmpty()) {
             tex = texture(icon, project);
         }

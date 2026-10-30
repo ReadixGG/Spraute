@@ -1507,7 +1507,7 @@ final class Emitter {
                     if (image != null) look = Images.texture(script.deployed.project, text(image)).toString();
                     else if (item != null) {
                         String iid = text(item);
-                        look = "item:" + (iid.contains(":") ? iid : "minecraft:" + iid);
+                        look = "item:" + ItemSpec.with(iid, ItemSpec.nbt(iid));
                     }
                     int col = color != null ? org.sprautestudio.st_addon_spraute.gui.GuiDoc.toColor(text(color)) : 0xFFFFFFFF;
                     if ((col >>> 24) == 0) col |= 0xFF000000;
@@ -2308,9 +2308,11 @@ final class Emitter {
     }
 
     private ItemStack itemStack(Expr e, int count) {
-        Item item = ForgeRegistries.ITEMS.getValue(id(e));
-        if (item == null) throw new SprauteRuntimeException("Предмет " + text(e) + " не найден");
-        return new ItemStack(item, count);
+        String spec = text(e);
+        if (ItemSpec.error(spec) != null) throw new SprauteRuntimeException("Предмет " + spec + ": ошибка в NBT: " + ItemSpec.error(spec));
+        ItemStack stack = ItemSpec.stack(spec, count);
+        if (stack.isEmpty()) throw new SprauteRuntimeException("Предмет " + spec + " не найден");
+        return stack;
     }
 
     private String emotionName(Expr e) {

@@ -344,8 +344,10 @@ public final class WorldApi {
 
     private static ItemStack stack(String item, int count) {
         if (item.isBlank() || item.equals("air")) return ItemStack.EMPTY;
-        Item it = BuiltInRegistries.ITEM.getOptional(id(item)).orElseThrow(() -> new SprauteRuntimeException("Нет такого предмета: " + item));
-        return new ItemStack(it, Math.max(1, count));
+        if (ItemSpec.error(item) != null) throw new SprauteRuntimeException("Предмет " + item + ": ошибка в NBT: " + ItemSpec.error(item));
+        ItemStack s = ItemSpec.stack(item, count);
+        if (s.isEmpty()) throw new SprauteRuntimeException("Нет такого предмета: " + item);
+        return s;
     }
 
     private static EquipmentSlot slot(String s) {
@@ -454,12 +456,15 @@ public final class WorldApi {
             case "has" -> {
                 // has("minecraft:diamond") — the player carries it
                 if (!(e instanceof Player p)) return false;
-                Item it = stack(Eval.str(arg(a, 0, "")), 1).getItem();
-                return p.getInventory().countItem(it) >= (int) Eval.num(arg(a, 1, 1.0));
+                String item = Eval.str(arg(a, 0, ""));
+                stack(item, 1);
+                return ItemSpec.count(p, item) >= (int) Eval.num(arg(a, 1, 1.0));
             }
             case "count" -> {
                 if (!(e instanceof Player p)) return 0.0;
-                return (double) p.getInventory().countItem(stack(Eval.str(arg(a, 0, "")), 1).getItem());
+                String item = Eval.str(arg(a, 0, ""));
+                stack(item, 1);
+                return (double) ItemSpec.count(p, item);
             }
             default -> throw new SprauteRuntimeException("У сущности нет метода ." + name + "(). Есть: kill, remove, tp, damage, heal, effect, "
                     + "cleareffects, push, dash, launch, knockback, pull, stop, lookat, give, equip, distance, has, count");
@@ -473,7 +478,8 @@ public final class WorldApi {
     public static double itemCount(String item) {
         ServerPlayer p = SprauteRuntime.player();
         if (p == null) return 0;
-        return p.getInventory().countItem(stack(item, 1).getItem());
+        stack(item, 1);
+        return ItemSpec.count(p, item);
     }
 
     /** Gives the player items; how many were given. */
@@ -489,19 +495,8 @@ public final class WorldApi {
     public static double take(String item, int count) {
         ServerPlayer p = SprauteRuntime.player();
         if (p == null || count <= 0) return 0;
-        Item it = stack(item, 1).getItem();
-        int left = count;
-        var inv = p.getInventory();
-        for (int i = 0; i < inv.getContainerSize() && left > 0; i++) {
-            ItemStack s = inv.getItem(i);
-            if (s.is(it)) {
-                int n = Math.min(left, s.getCount());
-                s.shrink(n);
-                left -= n;
-            }
-        }
-        inv.setChanged();
-        return count - left;
+        stack(item, 1);
+        return ItemSpec.take(p, item, count);
     }
 
     /** The item in the main hand of an entity (player, character, mob). */
