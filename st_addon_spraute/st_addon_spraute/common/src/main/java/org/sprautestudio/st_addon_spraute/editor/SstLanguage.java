@@ -109,6 +109,7 @@ public final class SstLanguage implements LanguageSupport {
         String head = null;
         CommandSpec spec = null;
         int tokenInStatement = 0;
+        boolean scriptLine = false;
         for (int i = 0; i < tokens.size(); i++) {
             Token t = tokens.get(i);
             int color;
@@ -147,8 +148,12 @@ public final class SstLanguage implements LanguageSupport {
                         color = Theme.CODE_VARIABLE;
                     } else if (spec != null && isGroupKeyword(spec, t.text)) {
                         color = Theme.CODE_PARAM_KW;
-                    } else if (t.text.equals("as") && tokenInStatement >= 2) {
+                    } else if (t.text.equals("as") && (tokenInStatement >= 2 || statementStart)) {
                         color = Theme.CODE_KEYWORD;
+                    } else if (scriptLine && (t.text.equals("solo") || t.text.equals("autostart") || t.text.equals("once"))) {
+                        color = Theme.CODE_KEYWORD;
+                    } else if (t.text.equals("actor")) {
+                        color = Theme.CODE_NUMBER;
                     } else if (t.text.equals("name") || t.text.equals("speed") || t.text.equals("skin") || t.text.equals("existing")
                             || t.text.equals("yaw") || t.text.equals("pitch") || t.text.equals("dim") || t.text.equals("emotion")) {
                         color = Theme.CODE_PARAM_KW;
@@ -166,7 +171,9 @@ public final class SstLanguage implements LanguageSupport {
                 head = null;
                 spec = null;
                 tokenInStatement = 0;
+                scriptLine = false;
             } else {
+                if (statementStart && t.text.equals("script")) scriptLine = true;
                 statementStart = false;
                 tokenInStatement++;
             }
@@ -403,6 +410,19 @@ public final class SstLanguage implements LanguageSupport {
         Token first = toks.get(0);
         if (first.type == TokenType.KEYWORD) {
             switch (first.text) {
+                case "script" -> {
+                    if (toks.size() >= 2) {
+                        Set<String> written = new HashSet<>();
+                        for (Token w : toks) written.add(w.text);
+                        if (!written.contains("solo")) out.add(new Completion("solo", Kind.KEYWORD, "у каждого игрока свой", "solo", Specs.keywordDocs().get("solo"), rs, 0));
+                        if (!written.contains("autostart")) {
+                            out.add(new Completion("autostart", Kind.KEYWORD, "сам при входе", "autostart", Specs.keywordDocs().get("autostart"), rs, 0));
+                            out.add(new Completion("autostart once", Kind.KEYWORD, "сам один раз", "autostart once", Specs.keywordDocs().get("once"), rs, 1));
+                        } else if (!written.contains("once") && toks.get(toks.size() - 1).text.equals("autostart")) {
+                            out.add(new Completion("once", Kind.KEYWORD, "только первый вход", "once", Specs.keywordDocs().get("once"), rs, 0));
+                        }
+                    }
+                }
                 case "goto" -> {
                     if (toks.size() == 1) for (Analyzer.Symbol s : r.labels.values()) out.add(sym(s, rs));
                 }
@@ -480,6 +500,10 @@ public final class SstLanguage implements LanguageSupport {
             return filter(out, typed, 80);
         }
         if (first.type != TokenType.IDENT) return List.of();
+        if (first.text.equals("as") && toks.size() == 1) {
+            exprCompletions(out, rs, r);
+            return filter(out, typed, 80);
+        }
 
         // sub-command after a head ("wait " -> flag/until/...)
         if (toks.size() == 1 && Specs.withHead(first.text).size() > 1) {
@@ -573,6 +597,9 @@ public final class SstLanguage implements LanguageSupport {
         out.add(snippet("repeat", "repeat ${1:3} {\n    $0\n}", rs));
         out.add(snippet("for", "for ${1:x} in ${2:список} {\n    $0\n}", rs));
         out.add(snippet("script autostart", "script ${1:5001} \"${2:Название}\" autostart", rs));
+        out.add(snippet("script solo", "script ${1:5001} \"${2:Название}\" solo", rs));
+        out.add(snippet("as", "as ${1:actor} {\n    $0\n}", rs));
+        out.add(snippet("for players", "for p in players() {\n    as p {\n        $0\n    }\n}", rs));
         out.add(snippet("for range", "for ${1:i} in range(${2:10}) {\n    $0\n}", rs));
         out.add(snippet("every", "every ${1:20t} {\n    $0\n}", rs));
         out.add(snippet("on tick", "on tick {\n    $0\n}", rs));
@@ -672,6 +699,7 @@ public final class SstLanguage implements LanguageSupport {
                 r.characters.values().forEach(s -> out.add(sym(s, rs)));
                 r.locations.values().forEach(s -> out.add(sym(s, rs)));
                 out.add(new Completion("player", Kind.KEYWORD, "игрок", "player", "Игрок", rs, 1));
+                out.add(new Completion("actor", Kind.KEYWORD, "игрок события", "actor", Specs.keywordDocs().get("actor"), rs, 1));
                 placeSnippets(out, rs);
                 locationLiterals(out, rs);
             }
@@ -803,7 +831,7 @@ public final class SstLanguage implements LanguageSupport {
             String insert = f.signature().endsWith("()") ? f.name() + "()" : f.name() + "(${1})";
             out.add(new Completion(f.name(), Kind.FUNCTION, f.returns(), insert, f.signature() + "\n\n" + f.doc(), rs, 1));
         }
-        for (String k : List.of("and", "or", "not", "true", "false", "player")) {
+        for (String k : List.of("and", "or", "not", "true", "false", "player", "actor")) {
             out.add(new Completion(k, Kind.KEYWORD, null, k + (k.equals("not") ? " " : ""), Specs.keywordDocs().get(k), rs, 3));
         }
     }
@@ -882,6 +910,7 @@ public final class SstLanguage implements LanguageSupport {
             String detail = sym.detail() == null || sym.detail().isEmpty() ? "" : " = " + sym.detail();
             return kind + " " + word + detail + "\nCtrl+клик — перейти к объявлению";
         }
+        if (Specs.keywordDocs().containsKey(word)) return word + "\n" + Specs.keywordDocs().get(word);
         return null;
     }
 

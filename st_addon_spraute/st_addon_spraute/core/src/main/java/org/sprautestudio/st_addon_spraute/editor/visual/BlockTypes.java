@@ -157,7 +157,8 @@ public final class BlockTypes {
             Map.entry("xplevel", "уровень опыта игрока"), Map.entry("food", "сытость игрока"), Map.entry("gamemode", "режим игры"),
             Map.entry("dimension", "измерение %p0"), Map.entry("weather", "погода"), Map.entry("biome", "биом в %p0"),
             Map.entry("light", "свет в %p0"), Map.entry("sky", "видно небо из %p0 ?"), Map.entry("posof", "позиция %p0"),
-            Map.entry("charname", "имя %p0"), Map.entry("targetof", "цель %p0"));
+            Map.entry("charname", "имя %p0"), Map.entry("targetof", "цель %p0"),
+            Map.entry("players", "все игроки"), Map.entry("playercount", "сколько игроков"));
 
     private static final Map<String, String> PARAM_LABELS = Map.ofEntries(
             Map.entry("who", "кто"), Map.entry("text", "текст"), Map.entry("slot", "слот"), Map.entry("time", "время"),
@@ -340,11 +341,13 @@ public final class BlockTypes {
         for (EventDefs.Def d : EventDefs.ALL.values())
             TEMPLATES.put("wait " + d.name(), "ждать: " + d.title() + (d.filter() != null ? " %what" : ""));
 
-        special("start", CAT_FLOW, Shape.HAT, "когда начинается сюжет %id %title автозапуск %auto", List.of(),
+        special("start", CAT_FLOW, Shape.HAT, "когда начинается сюжет %id %title автозапуск %auto у каждого игрока свой %solo", List.of(),
                 "Начало сюжета: id и название. Сюжет — это стопка блоков под этой шапкой.\n"
+                        + "«У каждого игрока свой» (solo): у каждого своя копия сюжета, своё продвижение и свои персонажи.\n"
                         + "Автозапуск: «при входе» — сюжет сам начинается, когда игрок заходит в мир; «один раз» — только при первом входе.",
                 f("id", "id", ParamType.SCRIPT, false, "5001"), f("title", "название", ParamType.TEXT, true, "Новый сюжет"),
-                f("auto", "нет", ParamType.CHOICE, true, "нет"));
+                f("auto", "нет", ParamType.CHOICE, true, "нет"),
+                new Field("solo", "нет", ParamType.BOOL, true, "", false, false, null, 0, true));
         {
             Map<String, String> autoModes = new LinkedHashMap<>();
             for (String m : List.of("нет", "при входе", "один раз")) autoModes.put(m, "%id %title %auto");
@@ -379,6 +382,10 @@ public final class BlockTypes {
                 "Перебор: блоки внутри выполняются для каждого элемента списка (ключа словаря, числа 0..N-1). "
                         + "Например, «из» = enemies или range(1, 11).",
                 f("var", "имя", null, false, "x"), f("list", "список", ParamType.EXPR, false, "range(10)"));
+        special("as", CAT_FLOW, Shape.C, "для игрока %who", List.of(""),
+                "Блоки внутри относятся к этому игроку: всё показанное (речь, GUI, камера, титры) видит только он. "
+                        + "Например, «игрок события» в обработчике или переменная цикла по «всем игрокам».",
+                f("who", "игрок", ParamType.EXPR, false, "actor"));
         special("every", CAT_FLOW, Shape.C, "каждые %time в фоне", List.of(""),
                 "Повторяет блоки в фоне с этим интервалом, пока идёт сюжет (1t — каждый тик, 20t — раз в секунду).",
                 f("time", "время", ParamType.DURATION, false, "20t"));
@@ -533,6 +540,7 @@ public final class BlockTypes {
         rep("op:random", CAT_OPS, Shape.REPORTER, "случайное от %a до %b", "randint(%a, %b)", "Случайное целое число в диапазоне.",
                 f("a", "", ParamType.NUMBER, false, "1"), f("b", "", ParamType.NUMBER, false, "10"));
         rep("op:round", CAT_OPS, Shape.REPORTER, "округлить %a", "round(%a)", "Округляет до целого.", f("a", "", ParamType.NUMBER, false, ""));
+        rep("val:actor", CAT_VALUES, Shape.REPORTER, "игрок события", "actor", "Игрок, вызвавший событие, которое сейчас обрабатывается. Вне события — главный игрок сюжета.");
         rep("op:text", CAT_OPS, Shape.REPORTER, "текст %a", "%a", "Просто текст — для подстановки в гнездо.", f("a", "", ParamType.TEXT, false, "текст"));
         rep("op:number", CAT_OPS, Shape.REPORTER, "число %a", "%a", "Просто число.", f("a", "", ParamType.NUMBER, false, "0"));
         rep("op:expr", CAT_OPS, Shape.REPORTER, "выражение %a", "(%a)", "Любое выражение языка: hp * 2 + 1", f("a", "", ParamType.EXPR, false, ""));

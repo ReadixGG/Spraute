@@ -557,6 +557,11 @@ public final class Specs {
         KEYWORD_DOCS.put("async", "Асинхронно — не ждать завершения:\nasync { ... }          — фоновая ветка\nasync walk { ... }     — ветка с именем (для await/cancel)\nasync call f() as job  — функция в фоне");
         KEYWORD_DOCS.put("await", "Ждать завершения асинхронных веток: await walk, job");
         KEYWORD_DOCS.put("cancel", "Остановить асинхронную ветку: cancel walk");
+        KEYWORD_DOCS.put("solo", "В заголовке сюжета: script 5001 \"Вступление\" solo. У каждого игрока своя копия сюжета: своё продвижение и свои персонажи, которых видит только он.\n"
+                + "Без solo сюжет один на всех, и все игроки видят одно и то же.");
+        KEYWORD_DOCS.put("autostart", "В заголовке сюжета: script 5001 \"Вступление\" autostart. Сюжет сам запускается, когда игрок заходит в мир (если он ещё не идёт).");
+        KEYWORD_DOCS.put("once", "В заголовке сюжета: autostart once. Сюжет запускается сам только при первом входе в этот мир.");
+        KEYWORD_DOCS.put("actor", "Игрок, вызвавший обрабатываемое событие: on key H { as actor { say player \"Это я\" } }.\nВне события — главный игрок сюжета.");
         KEYWORD_DOCS.put("as", "Блок про конкретного игрока: as actor { give \"minecraft:bread\" } или for p in players() { as p { quest start \"поход\" } }.\n"
                 + "Внутри player — этот игрок, и всё показанное (say, gui, camera, title) видит только он. actor — игрок, вызвавший обрабатываемое событие.");
         KEYWORD_DOCS.put("on", "Обработчик события — работает в фоне и срабатывает каждый раз:\non button \"yes\" { ... }\non key H { ... }\non click alice { ... }\n"

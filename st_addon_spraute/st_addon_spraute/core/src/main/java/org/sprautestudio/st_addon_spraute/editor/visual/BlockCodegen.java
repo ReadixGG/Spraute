@@ -65,7 +65,8 @@ public final class BlockCodegen {
         if (!id.matches("\\d+")) fail(start, "Id сюжета должен быть числом");
         String auto = start.field("auto").trim();
         line(0, "script " + (id.isEmpty() ? "0" : id) + " " + quote(start.field("title"))
-                + (auto.equals("при входе") ? " autostart" : auto.equals("один раз") ? " autostart once" : ""), start);
+                + (auto.equals("при входе") ? " autostart" : auto.equals("один раз") ? " autostart once" : "")
+                + (isYes(start.field("solo")) ? " solo" : ""), start);
         line(0, "", null);
         List<Block> body = main.blocks.subList(1, main.blocks.size());
         List<VisualScript.Stack> funcs = new ArrayList<>();
@@ -328,6 +329,7 @@ public final class BlockCodegen {
             }
             case "while" -> block(b, indent, "while " + required(b, "cond"));
             case "for" -> block(b, indent, "for " + required(b, "var") + " in " + required(b, "list"));
+            case "as" -> block(b, indent, "as " + required(b, "who"));
             case "every" -> block(b, indent, "every " + required(b, "time"));
             case "break" -> line(indent, "break", b);
             case "continue" -> line(indent, "continue", b);
@@ -364,6 +366,11 @@ public final class BlockCodegen {
         }
     }
 
+    private static boolean isYes(String value) {
+        String v = value.trim().toLowerCase();
+        return v.equals("true") || v.equals("да");
+    }
+
     private void block(Block b, int indent, String head) {
         line(indent, head + " {", b);
         statements(b.slots.get(0), indent + 1);
@@ -374,8 +381,7 @@ public final class BlockCodegen {
         StringBuilder sb = new StringBuilder(spec.key);
         for (CommandSpec.Group g : spec.groups) {
             if (g.isFlag()) {
-                String v = b.field(g.keyword).trim().toLowerCase();
-                if (v.equals("true") || v.equals("да")) sb.append(' ').append(g.keyword);
+                if (isYes(b.field(g.keyword))) sb.append(' ').append(g.keyword);
                 continue;
             }
             List<String> values = new ArrayList<>();
