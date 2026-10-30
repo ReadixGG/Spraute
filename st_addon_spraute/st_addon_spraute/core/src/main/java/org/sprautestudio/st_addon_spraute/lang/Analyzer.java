@@ -605,10 +605,10 @@ public final class Analyzer {
                 warn("Сущности «" + s.value.substring(8) + "» нет в проекте (папка «Сущности»)", e);
             return;
         }
-        if (type == ParamType.ITEM && !org.sprautestudio.st_addon_spraute.runtime.ItemSpec.nbt(s.value).isEmpty()) {
-            String bad = org.sprautestudio.st_addon_spraute.runtime.ItemSpec.error(s.value);
+        if (type == ParamType.ITEM && !ItemText.nbt(s.value).isEmpty()) {
+            String bad = ItemText.error(s.value);
             if (bad != null) error("Ошибка в NBT предмета: " + bad, e);
-            String item = org.sprautestudio.st_addon_spraute.runtime.ItemSpec.id(s.value);
+            String item = ItemText.id(s.value);
             if (registries.items != null && !registries.items.test(item)) warn("'" + item + "' не найден в игре (" + type.title + ")", e);
             return;
         }

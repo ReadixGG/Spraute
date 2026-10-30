@@ -70,7 +70,7 @@ public class QuestJournal {
         e.title = d.title;
         e.giver = d.giver;
         e.description = d.description;
-        e.reward = rewardText(d.reward, i -> org.sprautestudio.st_addon_spraute.runtime.ItemSpec.id(i.item).replace("minecraft:", ""));
+        e.reward = rewardText(d.reward, i -> org.sprautestudio.st_addon_spraute.lang.ItemText.id(i.item).replace("minecraft:", ""));
         e.layout = d.layout;
         boolean before = true;
         for (QuestDef.Task t : d.tasks) {

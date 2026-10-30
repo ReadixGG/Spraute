@@ -10,11 +10,10 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
+import org.sprautestudio.st_addon_spraute.lang.ItemText;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * An item as written anywhere in a project: an id with NBT after it if wanted, as in Minecraft's own commands:
@@ -25,22 +24,28 @@ public final class ItemSpec {
     private ItemSpec() {
     }
 
-    /** Where NBT starts: "{key:" or "{}". A plain "{name}" is a story's variable in the id. */
-    private static final Pattern NBT_START = Pattern.compile("\\{\\s*(?:[\\w.+-]+\\s*:|\"|})");
-
     private record Parsed(String id, String nbtText, CompoundTag nbt, String error) {
     }
 
     private static final Map<String, Parsed> CACHE = new ConcurrentHashMap<>();
 
+    /** Gives the language, which knows nothing of the game, the game's reading of NBT. */
+    public static void install() {
+        ItemText.setNbtCheck(text -> {
+            try {
+                TagParser.parseTag(text);
+                return null;
+            } catch (Exception e) {
+                return e.getMessage();
+            }
+        });
+    }
+
     private static Parsed parse(String spec) {
         String key = spec == null ? "" : spec.trim();
         Parsed have = CACHE.get(key);
         if (have != null) return have;
-        Matcher m = NBT_START.matcher(key);
-        String id = m.find() ? key.substring(0, m.start()).trim() : key;
-        String text = key.substring(id.length()).trim();
-        if (!id.isEmpty() && !id.contains(":")) id = "minecraft:" + id;
+        String id = ItemText.id(key), text = ItemText.nbt(key);
         CompoundTag nbt = null;
         String error = null;
         if (!text.isEmpty()) {

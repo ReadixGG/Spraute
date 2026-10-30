@@ -1,0 +1,16 @@
+// What the engine is without any game: the language, models and animation maths, the documents of a project.
+// Nothing here may know Minecraft or a loader: this module's classpath has neither, so such code does not compile.
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    implementation "com.google.code.gson:gson:${gson_version}"
+
+    testImplementation "org.junit.jupiter:junit-jupiter:${junit_version}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}

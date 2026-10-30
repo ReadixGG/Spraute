@@ -13,3 +13,5 @@ plugins {
 }
 
 rootProject.name = 'st_addon_spraute'
+
+include 'core'

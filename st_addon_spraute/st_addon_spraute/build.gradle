@@ -17,6 +17,19 @@ plugins {
 
 apply plugin: 'org.spongepowered.mixin'
 
+allprojects {
+    repositories {
+        mavenCentral()
+    }
+
+    plugins.withType(JavaPlugin).configureEach {
+        java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+        tasks.withType(JavaCompile).configureEach {
+            options.encoding = 'UTF-8'
+        }
+    }
+}
+
 group = mod_group_id
 version = mod_version
 
@@ -167,6 +180,8 @@ dependencies {
     // JavaScript of stories: the Nashorn engine Forge already ships with the game
     compileOnly 'org.openjdk.nashorn:nashorn-core:15.3'
 
+    compileOnly project(':core')
+
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
@@ -203,6 +218,25 @@ tasks.named('jar', Jar).configure {
     // This is the preferred method to reobfuscate your jar file
     finalizedBy 'reobfJar'
 }
+
+// The mod's jar holds core's classes as its own.
+// Without this core is not configured yet, and its sourceSets would silently be this project's own.
+evaluationDependsOn(':core')
+
+tasks.named('compileJava', JavaCompile).configure {
+    source project(':core').sourceSets.main.java
+}
+
+// A jar without the engine's own classes still builds, and only falls apart in the game
+def checkJarHoldsCore = tasks.register('checkJarHoldsCore') {
+    def jarFile = tasks.named('jar', Jar).flatMap { it.archiveFile }
+    doLast {
+        def names = zipTree(jarFile).matching { include 'org/sprautestudio/st_addon_spraute/lang/Analyzer.class' }.files
+        if (names.isEmpty()) throw new GradleException('The jar has no classes of core')
+    }
+}
+checkJarHoldsCore.configure { dependsOn 'reobfJar' }
+tasks.named('build').configure { dependsOn checkJarHoldsCore }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation

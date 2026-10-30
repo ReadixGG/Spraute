@@ -1,7 +1,6 @@
 package org.sprautestudio.st_addon_spraute.core.anim;
 
 import org.sprautestudio.st_addon_spraute.core.model.SpModelInstance;
-import org.sprautestudio.st_addon_spraute.runtime.Anims;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -13,6 +12,13 @@ import java.util.Map;
  * (encode / decode travel in the entity's synced data), the client poses the model.
  */
 public final class AnimationSystem {
+    /** id -> an animation: where they are found is the game's business. */
+    private static java.util.function.Function<String, java.util.Optional<Animation>> library = id -> java.util.Optional.empty();
+
+    public static void setLibrary(java.util.function.Function<String, java.util.Optional<Animation>> found) {
+        library = found;
+    }
+
     /** The action layer replaces what is under it; all the others add to the pose. */
     private static final String REPLACING = "action";
     /** Worked out on the spot by the body itself: not saved. */
@@ -166,7 +172,7 @@ public final class AnimationSystem {
             String[] f = row.split("\t", -1);
             if (f.length < 4) continue;
             try {
-                var a = Anims.resolve(f[1]);
+                var a = library.apply(f[1]);
                 if (a.isEmpty()) continue;
                 ConfiguredAnimation ca = a.get().configure().transitionTime(0);
                 ca.loopMode(LoopMode.values()[Integer.parseInt(f[2])]).speed(Float.parseFloat(f[3]));
@@ -195,7 +201,7 @@ public final class AnimationSystem {
                 Layer l = layers.computeIfAbsent(f[0], Layer::new);
                 if (l.startSerial == s) continue;
                 l.startSerial = s;
-                ConfiguredAnimation ca = (f[2].isEmpty() ? Animation.NULL : Anims.resolve(f[2]).orElse(Animation.NULL)).configure();
+                ConfiguredAnimation ca = (f[2].isEmpty() ? Animation.NULL : library.apply(f[2]).orElse(Animation.NULL)).configure();
                 ca.loopMode(LoopMode.values()[Integer.parseInt(f[3])]).speed(Float.parseFloat(f[4])).transitionTime(Float.parseFloat(f[5]));
                 if (f.length > 6) ca.startTime(Float.parseFloat(f[6]));
                 if (instant) {

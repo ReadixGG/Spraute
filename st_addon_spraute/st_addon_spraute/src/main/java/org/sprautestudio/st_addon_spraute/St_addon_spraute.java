@@ -22,6 +22,8 @@ public class St_addon_spraute {
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public St_addon_spraute() {
+        org.sprautestudio.st_addon_spraute.runtime.ItemSpec.install();
+        org.sprautestudio.st_addon_spraute.core.anim.AnimationSystem.setLibrary(org.sprautestudio.st_addon_spraute.runtime.Anims::resolve);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::commonSetup);
         org.sprautestudio.st_addon_spraute.runtime.orb.Orbs.register(FMLJavaModLoadingContext.get().getModEventBus());
         MinecraftForge.EVENT_BUS.addListener(this::onServerAboutToStart);
