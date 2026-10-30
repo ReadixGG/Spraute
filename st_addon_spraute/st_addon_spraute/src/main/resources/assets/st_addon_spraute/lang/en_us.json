@@ -1,0 +1,9 @@
+{
+  "key.st_addon_spraute.open": "Open Spraute editor",
+  "key.categories.st_addon_spraute": "Spraute",
+  "key.st_addon_spraute.cutscene_frame": "Cutscene: add frame",
+  "entity.st_addon_spraute.orb": "Story orb",
+  "entity.st_addon_spraute.camera": "Camera",
+  "key.st_addon_spraute.journal": "Quest journal",
+  "key.st_addon_spraute.speech_log": "Speech history"
+}

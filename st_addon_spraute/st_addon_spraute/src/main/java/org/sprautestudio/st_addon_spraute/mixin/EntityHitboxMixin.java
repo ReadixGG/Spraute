@@ -1,0 +1,19 @@
+package org.sprautestudio.st_addon_spraute.mixin;
+
+import net.minecraft.world.entity.Entity;
+import org.sprautestudio.st_addon_spraute.hitbox.Hitboxes;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/** "solid" characters: other entities collide with them like with a boat or a shulker. SRG names: the game runs with them. */
+@Mixin(Entity.class)
+public abstract class EntityHitboxMixin {
+    /** canBeCollidedWith */
+    @Inject(method = "m_5829_", at = @At("HEAD"), cancellable = true, remap = false)
+    private void spraute$solid(CallbackInfoReturnable<Boolean> cir) {
+        int f = Hitboxes.flags((Entity) (Object) this);
+        if ((f & Hitboxes.SOLID) != 0) cir.setReturnValue(true);
+    }
+}

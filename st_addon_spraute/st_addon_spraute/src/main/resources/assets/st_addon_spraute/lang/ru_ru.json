@@ -1,0 +1,9 @@
+{
+  "key.st_addon_spraute.open": "Открыть редактор Spraute",
+  "key.categories.st_addon_spraute": "Spraute",
+  "key.st_addon_spraute.cutscene_frame": "Катсцена: добавить кадр",
+  "entity.st_addon_spraute.orb": "Частица сюжета",
+  "entity.st_addon_spraute.camera": "Камера",
+  "key.st_addon_spraute.journal": "Журнал квестов",
+  "key.st_addon_spraute.speech_log": "История речи"
+}
