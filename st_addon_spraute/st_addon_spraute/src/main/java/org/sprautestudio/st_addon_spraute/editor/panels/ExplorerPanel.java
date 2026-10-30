@@ -79,7 +79,7 @@ public class ExplorerPanel extends Widget {
         default void newImage() {
         }
 
-        /** A Minecraft skin made into a Spraute character texture (128×64). */
+        /** A Minecraft skin made into a Spraute character texture (64×64). */
         default void stSkin(Project.ImageRef image) {
         }
 
@@ -152,7 +152,7 @@ public class ExplorerPanel extends Widget {
                     pm.item("Открыть", Icon.IMAGE, null, () -> actions.openImage(img));
                     pm.item("Копировать имя", Icon.COPY, null, () -> net.minecraft.client.Minecraft.getInstance().keyboardHandler.setClipboard(img.name()));
                     pm.separator();
-                    pm.item("Сделать текстурой Spraute (128×64)", Icon.USER, null, () -> actions.stSkin(img));
+                    pm.item("Сделать текстурой Spraute (64×64)", Icon.USER, null, () -> actions.stSkin(img));
                     pm.item("Переименовать", Icon.EDIT, null, () -> actions.renameImage(img));
                     pm.item("Удалить", Icon.TRASH, null, () -> actions.deleteImage(img)).color(Theme.ERROR);
                     pm.separator();

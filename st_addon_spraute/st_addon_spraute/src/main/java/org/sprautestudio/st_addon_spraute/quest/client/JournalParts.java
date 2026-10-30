@@ -29,11 +29,11 @@ public final class JournalParts {
     }
 
     private static ResourceLocation tex(String n) {
-        return new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/quests/" + n + ".png");
+        return new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/journal/" + n + ".png");
     }
 
-    static final ResourceLocation BUTTON = tex("button"), CATEGORIES = tex("categories"), TASK_LINE = tex("quest_task_line");
-    static final ResourceLocation[] TABS = {tex("quests_current"), tex("quests_completed"), tex("quests_failed")};
+    static final ResourceLocation BUTTON = tex("entry"), CATEGORIES = tex("icons"), TASK_LINE = tex("task_strip");
+    static final ResourceLocation[] TABS = {tex("tab_current"), tex("tab_completed"), tex("tab_failed")};
     static final String[] STATES = {"active", "completed", "failed"};
     static final String[] TAB_NAMES = {"Текущие", "Выполненные", "Проваленные"};
 
@@ -195,10 +195,10 @@ public final class JournalParts {
             boolean sel = q == cur;
             boolean hov = inList && LiveDraw.in(er, mx, my);
             int vv = sel ? 70 : hov ? 35 : 0;
-            String prop = sel ? "buttonOn" : hov ? "buttonHover" : "button";
+            String prop = sel ? "buttonOn" : hov ? "buttonHover" : "entry";
             var skin = sel ? st.buttonOn : hov ? st.buttonHover : st.button;
             if (e.get(prop).isEmpty() && !skin.isSet() && (sel || hov)) {
-                if (!e.get("button").isEmpty()) prop = "button";
+                if (!e.get("entry").isEmpty()) prop = "entry";
                 else skin = st.button;
             }
             ResourceLocation rl = LiveDraw.tex(v.project, e, prop, skin, BUTTON);

@@ -239,7 +239,10 @@ public final class Fights {
             if (e instanceof org.sprautestudio.st_addon_spraute.runtime.models.SprauteModelEntity me) {
                 var look = org.sprautestudio.st_addon_spraute.runtime.models.EntityLibrary.look(me.model());
                 if (look != null) {
-                    Optional<Animation> a = look.animation(id);
+                    // a model's own copy of a built-in clip first: its moves are in the pixels of this body
+                    int bang = id.indexOf('!');
+                    Optional<Animation> a = bang >= 0 ? look.animation(id.substring(bang + 1)) : Optional.empty();
+                    if (a.isEmpty()) a = look.animation(id);
                     if (a.isPresent()) return a;
                 }
             }

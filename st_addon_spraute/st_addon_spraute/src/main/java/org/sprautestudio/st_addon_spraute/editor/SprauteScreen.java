@@ -311,7 +311,7 @@ public final class SprauteScreen extends UI {
 
             @Override
             public void stSkin(Project.ImageRef image) {
-                org.sprautestudio.st_addon_spraute.editor.assets.StSkinDialog.open(project, image.path(), image.name(), made -> {
+                org.sprautestudio.st_addon_spraute.editor.assets.FaceSkinDialog.open(project, image.path(), image.name(), made -> {
                     explorer.reload();
                     openImage(made);
                 });
@@ -1192,7 +1192,7 @@ public final class SprauteScreen extends UI {
         int[][] sizes = {{16, 16}, {32, 32}, {64, 64}, {128, 64}, {64, 32}, {128, 128}, {256, 256}};
         int[] pick = {3};
         d.body.add(new org.sprautestudio.st_addon_spraute.ui.widgets.Dropdown<>(() -> List.of(0, 1, 2, 3, 4, 5, 6), () -> pick[0],
-                i -> sizes[i][0] + "×" + sizes[i][1] + (i == 2 ? " — скин Minecraft" : i == 3 ? " — персонаж Spraute" : i == 0 ? " — иконка, предмет" : ""),
+                i -> sizes[i][0] + "×" + sizes[i][1] + (i == 2 ? " — скин Minecraft" : i == 3 ? " — персонаж" : i == 0 ? " — иконка, предмет" : ""),
                 i -> pick[0] = i));
         d.addButton("Отмена", Button.Style.DEFAULT, d::close);
         Runnable ok = () -> {
@@ -1230,10 +1230,10 @@ public final class SprauteScreen extends UI {
      * A Minecraft skin turned into a Spraute texture among the project's pictures ("<name> ST");
      * null (with a message) when it is not a skin.
      */
-    private Project.ImageRef makeStSkin(java.nio.file.Path source, String name) {
+    private Project.ImageRef makeFaceSkin(java.nio.file.Path source, String name) {
         if (project == null) return null;
         try {
-            java.nio.file.Path out = org.sprautestudio.st_addon_spraute.editor.assets.StSkin.convertFile(source, project.imagesDir(), Project.sanitize(name) + " ST");
+            java.nio.file.Path out = org.sprautestudio.st_addon_spraute.editor.assets.FaceSkin.convertFile(source, project.imagesDir(), Project.sanitize(name) + " лицо");
             Project.ImageRef ref = new Project.ImageRef(out);
             org.sprautestudio.st_addon_spraute.editor.assets.ProjectImages.load(project, ref);
             explorer.reload();
@@ -1246,13 +1246,13 @@ public final class SprauteScreen extends UI {
     }
 
     /** For the entity editor: pick a Minecraft skin, make it a Spraute texture, give its picture name. */
-    public static void pickStSkin(java.util.function.Consumer<String> done) {
+    public static void pickFaceSkin(java.util.function.Consumer<String> done) {
         SprauteScreen s = instance;
         if (s == null || s.project == null) return;
         s.pickFiles("Скин Minecraft (64×64)", new String[]{"*.png"}, "Скин PNG", paths -> {
             for (java.nio.file.Path p : paths) {
                 String n = p.getFileName().toString();
-                org.sprautestudio.st_addon_spraute.editor.assets.StSkinDialog.open(s.project, p, n.endsWith(".png") ? n.substring(0, n.length() - 4) : n, r -> {
+                org.sprautestudio.st_addon_spraute.editor.assets.FaceSkinDialog.open(s.project, p, n.endsWith(".png") ? n.substring(0, n.length() - 4) : n, r -> {
                     s.explorer.reload();
                     done.accept(r.name());
                 });
@@ -1263,7 +1263,7 @@ public final class SprauteScreen extends UI {
     private static boolean looksLikeSkin(java.nio.file.Path p) {
         try {
             java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(p.toFile());
-            return img != null && org.sprautestudio.st_addon_spraute.editor.assets.StSkin.isSkin(img);
+            return img != null && org.sprautestudio.st_addon_spraute.editor.assets.FaceSkin.isSkin(img);
         } catch (Exception e) {
             return false;
         }
@@ -1287,7 +1287,7 @@ public final class SprauteScreen extends UI {
                     toastError("Не удалось прочитать " + p.getFileName());
                 }
                 // a Minecraft skin: its Spraute version comes along by itself
-                if (p.getFileName().toString().toLowerCase().endsWith(".png") && looksLikeSkin(last.path())) makeStSkin(last.path(), last.name());
+                if (p.getFileName().toString().toLowerCase().endsWith(".png") && looksLikeSkin(last.path())) makeFaceSkin(last.path(), last.name());
                 n++;
             } catch (IOException e) {
                 toastError("Ошибка копирования " + p.getFileName() + ": " + e.getMessage());

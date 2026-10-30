@@ -372,7 +372,7 @@ final class McpContent {
                     }
                 });
 
-        tool("assets", "Что можно использовать: models — модели (и их анимации), entities — типы сущностей spraute:…, storytelling — персонажи и сущности "
+        tool("assets", "Что можно использовать: models — модели (и их анимации), entities — типы сущностей spraute:…, classic — персонажи и сущности "
                         + "Spraute, fx — шаблоны эффектов, fights — шаблоны боя, animations — анимации модели (query = модель).",
                 schema("kind", "string", "models | entities | fx | fights | animations", "+", "query", "string", "Фильтр / имя модели", "?"), a -> {
                     String kn = str(a, "kind", "models"), q = str(a, "query", "").toLowerCase(Locale.ROOT);
@@ -427,7 +427,7 @@ final class McpContent {
                     return total == 0 ? "Ничего" : String.join("\n", out) + (total > lim ? "\n… ещё " + (total - lim) : "");
                 });
 
-        tool("convert_skin", "Делает из скина Minecraft (64×64 или 64×32) текстуру персонажа Spraute 128×64 с глазами, бровями и ртом, "
+        tool("convert_skin", "Делает из скина Minecraft (64×64 или 64×32) текстуру персонажа Spraute 64×64 с глазами, бровями и ртом, "
                         + "которые движок анимирует. Источник — картинка проекта (image) или файл на диске (file). Результат — картинка «<имя> ST»; "
                         + "её можно дать типу сущности (texture \"image:<имя> ST\") или в сюжете: skin кто \"<имя> ST\".",
                 schema("project", "string", "Имя проекта", "+", "image", "string", "Картинка проекта (имя без .png)", "?", "file", "string", "Или путь к PNG на диске", "?",
@@ -449,16 +449,16 @@ final class McpContent {
                             src = pr.imagesDir().resolve(base + ".png");
                         }
                         if (!Files.exists(src)) throw new IllegalArgumentException("Нет файла " + src);
-                        var o = new org.sprautestudio.st_addon_spraute.editor.assets.StSkin.Options();
+                        var o = new org.sprautestudio.st_addon_spraute.editor.assets.FaceSkin.Options();
                         o.eyeH = (int) num(a, "eyes", 0);
                         o.offset = (int) num(a, "offset", -1);
                         o.still = (int) num(a, "still", 0);
-                        o.brows = org.sprautestudio.st_addon_spraute.editor.assets.StSkin.Brows.valueOf(str(a, "brows", "THICK").toUpperCase(Locale.ROOT));
+                        o.brows = org.sprautestudio.st_addon_spraute.editor.assets.FaceSkin.Brows.valueOf(str(a, "brows", "THICK").toUpperCase(Locale.ROOT));
                         o.eraseFace = !bool(a, "keep_face", false);
-                        var img = org.sprautestudio.st_addon_spraute.editor.assets.StSkin.read(src);
-                        int[] eyes = org.sprautestudio.st_addon_spraute.editor.assets.StSkin.findEyes(img, o);
-                        Path out = org.sprautestudio.st_addon_spraute.editor.assets.StSkin.convertFile(src, pr.imagesDir(),
-                                Project.sanitize(str(a, "name", base + " ST")), o);
+                        var img = org.sprautestudio.st_addon_spraute.editor.assets.FaceSkin.read(src);
+                        int[] eyes = org.sprautestudio.st_addon_spraute.editor.assets.FaceSkin.findEyes(img, o);
+                        Path out = org.sprautestudio.st_addon_spraute.editor.assets.FaceSkin.convertFile(src, pr.imagesDir(),
+                                Project.sanitize(str(a, "name", base + " лицо")), o);
                         Project.ImageRef ref = new Project.ImageRef(out);
                         onClient(() -> {
                             org.sprautestudio.st_addon_spraute.editor.assets.ProjectImages.load(pr, ref);

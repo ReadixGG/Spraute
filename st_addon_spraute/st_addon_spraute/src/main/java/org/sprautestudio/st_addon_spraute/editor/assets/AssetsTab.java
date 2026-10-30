@@ -82,7 +82,7 @@ public class AssetsTab extends EditorTab {
             refreshModels();
         }));
         modelList = add(new ListView<>((c, m, x, y, w, h, sel, hov) -> {
-            c.icon(Icon.CUBE, x + 6, y + (h - 9) / 2, m.storytelling() ? Theme.ACCENT_2 : Theme.TEXT_MUTED);
+            c.icon(Icon.CUBE, x + 6, y + (h - 9) / 2, m.builtin() ? Theme.ACCENT_2 : Theme.TEXT_MUTED);
             c.textEllipsized(m.title(), x + 20, y + 3, w - 26, sel ? Theme.TEXT : Theme.TEXT_DIM);
             c.textEllipsized(m.idString(), x + 20, y + 13, w - 26, Theme.TEXT_MUTED);
         }));
@@ -234,7 +234,7 @@ public class AssetsTab extends EditorTab {
         String q = modelSearch.text();
         List<AssetIndex.Model> list = new ArrayList<>();
         for (AssetIndex.Model m : AssetIndex.models()) {
-            if (onlySpraute && !m.storytelling() && q.isBlank()) continue;
+            if (onlySpraute && !m.builtin() && q.isBlank()) continue;
             if (AssetIndex.matches(q, m.idString(), m.title())) list.add(m);
         }
         AssetIndex.Model sel = modelList.selectedItem();

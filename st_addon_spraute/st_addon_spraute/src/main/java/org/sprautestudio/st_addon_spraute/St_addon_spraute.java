@@ -37,7 +37,9 @@ public class St_addon_spraute {
     private void onPlayerLogin(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) {
             EngineServer.sync(sp);
-            org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendTo(sp, new org.sprautestudio.st_addon_spraute.net.Packets.CoinsSync(org.sprautestudio.st_addon_spraute.core.system.Coins.get()));
+            org.sprautestudio.st_addon_spraute.core.system.Coins.sync(sp, -2);
+            org.sprautestudio.st_addon_spraute.core.system.PlayerTexture.sendTo(sp);
+            SprauteRuntime.env().ifPresent(env -> env.sendTo(sp));
         }
     }
 
@@ -55,7 +57,6 @@ public class St_addon_spraute {
     }
 
     private void onServerStarted(ServerStartedEvent event) {
-        org.sprautestudio.st_addon_spraute.core.system.Coins.load(event.getServer());
     }
 
     private void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event) {
@@ -73,6 +74,8 @@ public class St_addon_spraute {
         SprauteRuntime.get().clear();
         SprauteRuntime.get().closeEnvironment();
         org.sprautestudio.st_addon_spraute.core.script.Behaviours.unload();
+        org.sprautestudio.st_addon_spraute.core.system.WorldClock.unload();
+        org.sprautestudio.st_addon_spraute.core.system.CameraState.unload();
         EngineServer.unload();
         org.sprautestudio.st_addon_spraute.shop.Shops.unload();
         org.sprautestudio.st_addon_spraute.quest.Quests.unload();
@@ -112,7 +115,19 @@ public class St_addon_spraute {
                         })));
     }
 
+    private boolean tickEvents;
+
     private void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase == TickEvent.Phase.END) SprauteRuntime.env().ifPresent(org.sprautestudio.st_addon_spraute.core.script.ScriptEnvironment::tick);
+        if (event.phase != TickEvent.Phase.END) return;
+        SprauteRuntime.env().ifPresent(org.sprautestudio.st_addon_spraute.core.script.ScriptEnvironment::tick);
+        // only when some story listens: a tick is a lot of events
+        if (event.getServer().getTickCount() % 100 == 0) {
+            tickEvents = false;
+            for (var d : SprauteRuntime.get().all().values()) if (d.source.contains("servertick") || d.source.contains("playertick")) tickEvents = true;
+        }
+        if (tickEvents) {
+            org.sprautestudio.st_addon_spraute.runtime.GameEvents.fire("servertick", null, new java.util.HashMap<>());
+            for (var p : event.getServer().getPlayerList().getPlayers()) org.sprautestudio.st_addon_spraute.runtime.GameEvents.fire("playertick", p, new java.util.HashMap<>());
+        }
     }
 }

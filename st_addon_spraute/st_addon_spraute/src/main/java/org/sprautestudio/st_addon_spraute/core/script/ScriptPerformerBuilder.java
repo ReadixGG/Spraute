@@ -76,14 +76,21 @@ public final class ScriptPerformerBuilder {
         }
     }
 
-    private static final class Wait extends ScriptPerformerAction {
+    private static class Wait extends ScriptPerformerAction {
         private final Runnable begin;
         private final BooleanSupplier done;
+        private final String words;
 
-        Wait(ScriptPerformer p, Runnable begin, BooleanSupplier done) {
+        Wait(ScriptPerformer p, Runnable begin, BooleanSupplier done, String words) {
             super(p);
             this.begin = begin;
             this.done = done;
+            this.words = words;
+        }
+
+        @Override
+        public String describe() {
+            return words;
         }
 
         @Override
@@ -104,6 +111,9 @@ public final class ScriptPerformerBuilder {
     }
 
     public void label(String name) {
+        if (name.equals(ScriptPerformer.LABEL_START) || name.equals(ScriptPerformer.LABEL_END))
+            throw new IllegalArgumentException("Имя метки «" + name + "» зарезервировано");
+        if (performer.labels.containsKey(name)) throw new IllegalArgumentException("Метка «" + name + "» объявлена дважды");
         performer.labels.put(name, performer.actions.size());
         performer.labelPointsNames.add(name);
     }
@@ -117,11 +127,21 @@ public final class ScriptPerformerBuilder {
     }
 
     public void thenWaitUntil(BooleanSupplier done) {
-        append(p -> new Wait(p, null, done));
+        append(p -> new Wait(p, null, done, "Ждёт условие"));
     }
 
-    private void waitWith(Runnable begin, BooleanSupplier done) {
-        append(p -> new Wait(p, begin, done));
+    private void waitWith(String words, Runnable begin, BooleanSupplier done) {
+        append(p -> new Wait(p, begin, done, words));
+    }
+
+    /** A step the performer does not wait for: it keeps going while the next steps run, until a later one finishes. */
+    public void thenPassing(Runnable begin, BooleanSupplier done) {
+        append(p -> new Wait(p, begin, done, "Идёт параллельно") {
+            @Override
+            public boolean blocking() {
+                return false;
+            }
+        });
     }
 
     public void thenDelay(int ticks) {
@@ -130,7 +150,7 @@ public final class ScriptPerformerBuilder {
 
     public void thenDelay(IntSupplier ticks) {
         int[] left = {0};
-        waitWith(() -> left[0] = ticks.getAsInt(), () -> left[0]-- <= 0);
+        waitWith("Ждёт время", () -> left[0] = ticks.getAsInt(), () -> left[0]-- <= 0);
     }
 
     public void thenDelayRandom(int min, int max, Random random) {
@@ -153,14 +173,21 @@ public final class ScriptPerformerBuilder {
     }
 
     public void removeParallelPerformer(String name) {
-        thenRun(() -> script.running.remove(name));
+        thenRun(() -> {
+            ScriptPerformer p = script.running.remove(name);
+            if (p != null) p.stop();
+        });
     }
 
+    /** A checkpoint: a reload comes back here. */
     public void saveState(String name) {
         label("__state_" + name);
+        thenRun(() -> script.passCheckpoint(name, performer));
     }
 
+    /** Back to a checkpoint: what the story's characters are doing is undone. */
     public void gotoSaveState(String name) {
+        thenRun(() -> Characters.rollback(script.getId()));
         gotoLabel("__state_" + name, true);
     }
 
@@ -179,27 +206,39 @@ public final class ScriptPerformerBuilder {
     // ================================================================== waits
 
     public void thenWaitForFlag(String name) {
-        thenWaitUntil(() -> script.getFlags().has(name));
+        append(p -> new Wait(p, null, () -> script.getFlags().has(name), "Ждёт флаг " + name));
     }
 
     public void thenWaitForKey(String key) {
         long[] from = {0};
-        waitWith(() -> from[0] = script.env.keyCount(key), () -> script.env.keyCount(key) > from[0]);
+        waitWith("Ждёт нажатия " + key.toUpperCase(java.util.Locale.ROOT), () -> from[0] = script.env.keyCount(key), () -> script.env.keyCount(key) > from[0]);
+    }
+
+    /** For a handler: each press is taken once, also those made while its body was running. */
+    public void thenWaitForEachKey(String key) {
+        long[] seen = {-1};
+        waitWith("Ждёт нажатия " + key.toUpperCase(java.util.Locale.ROOT), () -> {
+            if (seen[0] < 0) seen[0] = script.env.keyCount(key);
+        }, () -> {
+            if (script.env.keyCount(key) <= seen[0]) return false;
+            seen[0]++;
+            return true;
+        });
     }
 
     public void thenWaitForTrigger() {
         int[] from = {0};
-        waitWith(() -> from[0] = script.triggerSeq, () -> script.triggerSeq > from[0]);
+        waitWith("Ждёт триггер", () -> from[0] = script.triggerSeq, () -> script.triggerSeq > from[0]);
     }
 
     public void thenAwaitEntityClick(Character<?> c) {
         long[] from = {0};
-        waitWith(() -> from[0] = Behaviours.clicks(script.optional(c).orElse(null)), () -> Behaviours.clicks(script.optional(c).orElse(null)) > from[0]);
+        waitWith("Ждёт клика по персонажу " + c.getName(), () -> from[0] = Behaviours.clicks(script.optional(c).orElse(null)), () -> Behaviours.clicks(script.optional(c).orElse(null)) > from[0]);
     }
 
     public void thenAwaitBlockClick(BlockPos pos) {
         long[] from = {0};
-        waitWith(() -> from[0] = Behaviours.clicks(pos), () -> Behaviours.clicks(pos) > from[0]);
+        waitWith("Ждёт клика по блоку", () -> from[0] = Behaviours.clicks(pos), () -> Behaviours.clicks(pos) > from[0]);
     }
 
     public void thenWhenPlayerCloseTo(Character<?> c, double radius) {
@@ -225,6 +264,13 @@ public final class ScriptPerformerBuilder {
         });
     }
 
+    public void thenWhenPlayerInDimension(net.minecraft.resources.ResourceLocation dim) {
+        thenWaitUntil(() -> {
+            ServerPlayer p = SprauteRuntime.player();
+            return p != null && p.level().dimension().location().equals(dim);
+        });
+    }
+
     public void thenWhenPlayerExitBox(AABB box) {
         thenWaitUntil(() -> {
             ServerPlayer p = SprauteRuntime.player();
@@ -234,10 +280,14 @@ public final class ScriptPerformerBuilder {
 
     /** The player sees the character: on the screen and nothing in between. */
     public void thenWaitCharacterVisible(Character<?> c) {
+        thenWaitCharacterVisible(c, true);
+    }
+
+    public void thenWaitCharacterVisible(Character<?> c, boolean lineOfSight) {
         thenWaitUntil(() -> {
             ServerPlayer p = SprauteRuntime.player();
             Entity e = script.optional(c).orElse(null);
-            if (p == null || e == null || p.level() != e.level() || !p.hasLineOfSight(e)) return false;
+            if (p == null || e == null || p.level() != e.level() || lineOfSight && !p.hasLineOfSight(e)) return false;
             Vec3 to = e.getEyePosition().subtract(p.getEyePosition()).normalize();
             return p.getViewVector(1).dot(to) > 0.5;
         });
@@ -246,7 +296,8 @@ public final class ScriptPerformerBuilder {
     // ================================================================== speech
 
     private void sendSpeech(String name, Integer color, String icon, String text, String hint, boolean think, boolean wait) {
-        SprauteNetwork.sendToAll(new Packets.Speech(script.getId(), name, color != null ? color : -1, icon, text, hint, think, wait));
+        script.journal.add(new ScriptInstance.Line(name, color != null ? color : -1, icon, text, think));
+        SprauteNetwork.sendToAll(new Packets.Speech(script.getId(), name, color != null ? color : -1, icon, text, hint, think, wait, false));
     }
 
     public void thenSetSpeechEntity(int slot, String name) {
@@ -270,7 +321,10 @@ public final class ScriptPerformerBuilder {
     }
 
     public void clearChat() {
-        thenRun(() -> SprauteNetwork.sendToAll(new Packets.SpeechClear()));
+        thenRun(() -> {
+            script.journal.clear();
+            SprauteNetwork.sendToAll(new Packets.SpeechClear(script.getId()));
+        });
     }
 
     public void thenTitle(Title t) {
@@ -298,67 +352,109 @@ public final class ScriptPerformerBuilder {
 
     // ================================================================== characters
 
-    private void withBody(Character<?> c, Consumer<Entity> action) {
-        thenRun(() -> script.optional(c).ifPresent(action));
+    /** A part of the character's state: kept, and put back on a new body or when this story takes the body over. */
+    private void state(Character<?> c, String key, Consumer<Entity> action) {
+        thenRun(() -> keep(c, key, action));
     }
 
-    private void withAnimated(Character<?> c, Consumer<AnimatedEntity> action) {
-        withBody(c, e -> {
+    private void keep(Character<?> c, String key, Consumer<Entity> action) {
+        script.note(c.getId() + "|" + key, performer);
+        Characters.state(script, c, key, action);
+    }
+
+    private void stateAnimated(Character<?> c, String key, Consumer<AnimatedEntity> action) {
+        state(c, key, e -> {
+            if (e instanceof AnimatedEntity ae) action.accept(ae);
+        });
+    }
+
+    /** Something done once, if this story acts on the body now. */
+    private void act(Character<?> c, Consumer<Entity> action) {
+        thenRun(() -> Characters.act(script, c, action));
+    }
+
+    private void actAnimated(Character<?> c, Consumer<AnimatedEntity> action) {
+        act(c, e -> {
             if (e instanceof AnimatedEntity ae) action.accept(ae);
         });
     }
 
     public void positionEntity(Character<?> c, Supplier<Location> at) {
-        thenRun(() -> Characters.place(c, at.get()));
+        thenRun(() -> Characters.place(script, c, at.get()));
     }
 
     public void removeEntity(Character<?> c) {
-        thenRun(() -> Characters.remove(c));
+        thenRun(() -> Characters.remove(script, c));
     }
 
     public void freeEntity(Character<?> c) {
-        thenRun(() -> {
-            script.optional(c).ifPresent(Behaviours::clear);
-            Characters.free(c);
-        });
+        thenRun(() -> Characters.free(c));
     }
 
     /** The character stops going anywhere. */
     public void thenClearMovement(Character<?> c) {
-        withBody(c, Behaviours::clear);
-    }
-
-    public void entityLookAt(Character<?> c, Supplier<Location> at) {
-        withBody(c, e -> {
-            Location l = at.get();
-            if (l == null) return;
-            Vec3 target = new Vec3(l.x, l.y, l.z);
-            Behaviours.lookOnce(e, target);
-            if (e instanceof AnimatedEntity ae) ae.setLookTarget(() -> target);
+        thenRun(() -> {
+            Characters.forget(script, c, "move");
+            Characters.act(script, c, e -> Behaviours.stop(e, Behaviours.Type.MOVEMENT));
         });
     }
 
-    public void entityLookAt(Character<?> c, Supplier<Location> at, boolean ignoredA, boolean ignoredB) {
-        withBody(c, e -> {
-            Location l = at.get();
-            if (l != null) Behaviours.lookOnce(e, new Vec3(l.x, l.y, l.z));
+    /** The behaviour of this type ends. */
+    public void thenClearBehaviour(Character<?> c, Behaviours.Type type) {
+        thenRun(() -> {
+            if (type == Behaviours.Type.MOVEMENT) Characters.forget(script, c, "move");
+            if (type == Behaviours.Type.LOOK) Characters.forget(script, c, "look");
+            Characters.act(script, c, e -> Behaviours.stop(e, type));
+        });
+    }
+
+    /** Looks at the target and keeps looking until told otherwise; a target that is gone just changes nothing. */
+    public void entityLookAt(Character<?> c, Supplier<Location> at, boolean instant) {
+        state(c, "look", e -> {
+            Supplier<Vec3> target = () -> {
+                Location l = at.get();
+                return l == null ? null : new Vec3(l.x, l.y, l.z);
+            };
+            if (e instanceof AnimatedEntity ae) ae.setLookTarget(target, instant);
+            else {
+                Vec3 v = target.get();
+                if (v != null) Behaviours.lookOnce(e, v);
+            }
+            org.sprautestudio.st_addon_spraute.path.Walkers.lookAt(e, target);
+        });
+    }
+
+    /** Waits until the head has turned to the target. */
+    public void thenWaitLook(Character<?> c) {
+        int[] waited = {0};
+        waitWith("Поворачивается к цели", () -> waited[0] = 0, () -> ++waited[0] > 60
+                || !(script.optional(c).orElse(null) instanceof AnimatedEntity ae) || ae.lookSettled());
+    }
+
+    public void entityStopLook(Character<?> c) {
+        thenRun(() -> {
+            Characters.forget(script, c, "look");
+            Characters.act(script, c, e -> {
+                if (e instanceof AnimatedEntity ae) ae.setLookTarget(null, false);
+                org.sprautestudio.st_addon_spraute.path.Walkers.lookAt(e, null);
+            });
         });
     }
 
     public void thenEntityFollowEntity(Character<?> who, Character<?> target, double speed, double min) {
-        withBody(who, e -> Behaviours.follow(e, () -> script.optional(target).orElse(null), speed, min, 1e9));
+        state(who, "move", e -> Behaviours.follow(e, () -> script.optional(target).orElse(null), speed, min, -1));
     }
 
     public void thenEntityFollowPlayer(Character<?> who, double speed, double min, double max) {
-        withBody(who, e -> Behaviours.follow(e, SprauteRuntime::player, speed, min, max));
+        state(who, "move", e -> Behaviours.follow(e, SprauteRuntime::player, speed, min, max));
     }
 
     public void thenEntityRandomWalk(Character<?> who, double speed, int ignored, double radius) {
-        withBody(who, e -> Behaviours.wander(e, speed, radius));
+        state(who, "move", e -> Behaviours.wander(e, speed, radius));
     }
 
     public void entityMoveSpeed(Character<?> who, double speed) {
-        withBody(who, e -> {
+        state(who, "speed", e -> {
             if (e instanceof LivingEntity le) {
                 var a = le.getAttribute(Attributes.MOVEMENT_SPEED);
                 if (a != null) a.setBaseValue(0.25 * speed);
@@ -366,26 +462,30 @@ public final class ScriptPerformerBuilder {
         });
     }
 
-    public void entitySit(Character<?> who) {
-        withAnimated(who, ae -> ae.setSitting(true));
+    /** Sits on an invisible seat that comes and goes by itself; at a point (with the body's turn locked) or where it stands. */
+    public void entitySit(Character<?> who, Supplier<Location> at) {
+        state(who, "sit", e -> Seats.sit(e, at != null ? at.get() : null));
     }
 
     public void entityStopSit(Character<?> who) {
-        withAnimated(who, ae -> ae.setSitting(false));
+        thenRun(() -> {
+            Characters.forget(script, who, "sit");
+            Characters.act(script, who, Seats::stand);
+        });
     }
 
     public void entityNameOverride(Character<?> who, Supplier<String> name) {
-        withBody(who, e -> e.setCustomName(Component.literal(name.get())));
+        state(who, "name", e -> e.setCustomName(Component.literal(name.get())));
     }
 
     public void thenSetHeldItem(Character<?> who, ItemStack stack) {
-        withBody(who, e -> {
+        state(who, "hand", e -> {
             if (e instanceof LivingEntity le) le.setItemSlot(EquipmentSlot.MAINHAND, stack.copy());
         });
     }
 
     public void setMaxHealth(Character<?> who, float hp) {
-        withBody(who, e -> {
+        state(who, "health", e -> {
             if (e instanceof AnimatedEntity ae) ae.setMaxHealth(hp);
             else if (e instanceof LivingEntity le) {
                 var a = le.getAttribute(Attributes.MAX_HEALTH);
@@ -396,32 +496,50 @@ public final class ScriptPerformerBuilder {
     }
 
     public void entityTextureOverride(Character<?> who, ResourceLocation texture) {
-        withAnimated(who, ae -> ae.setTextureOverride(texture));
+        stateAnimated(who, "texture", ae -> ae.setTextureOverride(texture));
     }
 
     // ================================================================== animations
 
     public void setAnimation(Character<?> who, String layer, ConfiguredAnimation ca) {
-        withAnimated(who, ae -> ae.startAnimation(layer, ca));
+        boolean stays = ca.loopMode() != org.sprautestudio.st_addon_spraute.core.anim.LoopMode.ONCE;
+        thenRun(() -> {
+            Characters.forget(script, who, "anim:" + layer);
+            Characters.act(script, who, e -> {
+                if (e instanceof AnimatedEntity ae) ae.startAnimation(layer, ca);
+            });
+            // what stays on a layer is part of the state; a clip that plays once is not
+            if (stays && !ca.animation().isNull()) keep(who, "anim:" + layer, e -> {
+                if (e instanceof AnimatedEntity ae && !ae.getAnimationSystem().getLayer(layer).activeAnimation().id().equals(ca.animation().id())) ae.startAnimation(layer, ca);
+            });
+        });
     }
 
     public void clearAnimations(Character<?> who, float fade) {
-        withAnimated(who, ae -> {
-            for (String l : ae.getAnimationSystem().getLayerNames()) if (!l.equals("movement")) ae.getAnimationSystem().stopAnimation(l, fade);
+        thenRun(() -> {
+            Characters.forget(script, who, "anim:");
+            Characters.act(script, who, e -> {
+                if (e instanceof AnimatedEntity ae) for (String l : ae.getAnimationSystem().getLayerNames()) if (!l.equals("movement")) ae.getAnimationSystem().stopAnimation(l, fade);
+            });
         });
     }
 
     public void overridePredefinedAnimation(Character<?> who, MovementActionType type, ConfiguredAnimation ca) {
-        withAnimated(who, ae -> ae.setAnimationOverride(type, ca));
+        stateAnimated(who, "gait:" + type, ae -> ae.setAnimationOverride(type, ca));
     }
 
     public void removeOverridePredefined(Character<?> who) {
-        withAnimated(who, AnimatedEntity::clearAnimationOverrides);
+        thenRun(() -> {
+            Characters.forget(script, who, "gait:");
+            Characters.act(script, who, e -> {
+                if (e instanceof AnimatedEntity ae) ae.clearAnimationOverrides();
+            });
+        });
     }
 
     /** A built-in gesture (it goes on the head and the body), or the model's own animation of this name. */
     private void gesture(Character<?> who, String name, int times, float speed) {
-        withAnimated(who, ae -> {
+        actAnimated(who, ae -> {
             Animation a = Anims.gesture(ae, name);
             if (a == null) return;
             ConfiguredAnimation ca = a.configure().transitionTime(0.1f).speed(speed);
@@ -439,6 +557,10 @@ public final class ScriptPerformerBuilder {
         gesture(who, "nope", times, 1);
     }
 
+    public void refuse(Character<?> who, int times) {
+        gesture(who, "refuse", times, 1);
+    }
+
     public void laugh(Character<?> who) {
         gesture(who, "laugh", 1, 1);
     }
@@ -453,7 +575,7 @@ public final class ScriptPerformerBuilder {
 
     /** Trembles for this long. */
     public void shake(Character<?> who, int ticks) {
-        withAnimated(who, ae -> {
+        actAnimated(who, ae -> {
             Animation a = Anims.gesture(ae, "shake");
             if (a == null) return;
             ae.startAnimation("action", a.configure().transitionTime(0.1f).loopMode(org.sprautestudio.st_addon_spraute.core.anim.LoopMode.LOOP));
@@ -499,13 +621,19 @@ public final class ScriptPerformerBuilder {
         thenRun(() -> SprauteNetwork.sendToAll(new Packets.ScreenFx(kind, a, b, c, argb)));
     }
 
-    /** The screen goes black and comes back over this long. */
+    /** Black at once, held this long, then a second to fade away. */
     public void blackout(int ticks) {
-        screen("pulse", ticks / 3, ticks / 3, ticks - ticks / 3 * 2, 0xFF000000);
+        screen("pulse", 0, ticks, 20, 0xFF000000);
     }
 
+    /** White: up and away, about a second each unless told otherwise. */
     public void flash(int ticks) {
-        screen("pulse", 0, 0, ticks, 0xFFFFFFFF);
+        screen("pulse", ticks / 2, 0, ticks - ticks / 2, 0xFFFFFFFF);
+    }
+
+    /** A filled screen: its colour, how it comes, stays and goes; under the chat, speech stays readable. */
+    public void screenFill(int argb, int in, int hold, int out, boolean underChat) {
+        screen(underChat ? "pulse_under" : "pulse", in, hold, out, argb);
     }
 
     /** A colour over the screen until changed (alpha 0 — none). */

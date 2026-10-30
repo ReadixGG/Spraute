@@ -97,10 +97,14 @@ minecraft {
         client {
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             property 'forge.enabledGameTestNamespaces', mod_id
+            // -PquickWorld=name: straight into a world, for checking without the menus
+            if (project.hasProperty('quickWorld')) args '--quickPlaySingleplayer', project.quickWorld
         }
 
         server {
             property 'forge.enabledGameTestNamespaces', mod_id
+            // a dev server has nobody on it: stories run anyway
+            property 'spraute.tickWithoutPlayers', 'true'
             args '--nogui'
         }
 

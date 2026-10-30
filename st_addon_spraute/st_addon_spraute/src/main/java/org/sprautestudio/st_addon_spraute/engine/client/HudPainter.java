@@ -21,6 +21,8 @@ public final class HudPainter {
         public float exp;
         public int level;
         public int coins;
+        /** How much is needed, shown as have/need; -1 — nothing. */
+        public int coinsNeed = -1;
         public int selected;
         public ItemStack[] hotbar = new ItemStack[9];
         public ItemStack offhand = ItemStack.EMPTY;
@@ -36,11 +38,9 @@ public final class HudPainter {
         }
     }
 
-    public static final ResourceLocation ST_HP_BACK = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/system/health/gui_hp_background.png");
-    public static final ResourceLocation ST_HP_FILL = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/system/health/gui_hp_scale.png");
-    public static final ResourceLocation ST_HP_FRAME = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/system/health/gui_hp_frame.png");
-    public static final ResourceLocation ST_CHAT_BACK = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/chatlog/bg.png");
-    public static final ResourceLocation ST_CHAT_FRAME = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/chatlog/bgframe.png");
+    public static final ResourceLocation CHAT_BACK = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/log/back.png");
+    public static final ResourceLocation CHAT_FRAME = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/log/frame.png");
+    private static final ResourceLocation COIN = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/coin.png");
     private static final ResourceLocation ICONS = new ResourceLocation("minecraft", "textures/gui/icons.png");
     private static final ResourceLocation WIDGETS = new ResourceLocation("minecraft", "textures/gui/widgets.png");
 
@@ -76,7 +76,7 @@ public final class HudPainter {
             case "air" -> new int[]{cx + 10, sh - 39 - (vanillaDrawn(cfg, "food", s) ? 10 : 0), 81, 9};
             case "exp" -> new int[]{cx - 91, sh - 29, 182, 5};
             case "hotbar" -> new int[]{cx - 91, sh - 22, 182, 22};
-            case "coins" -> new int[]{sw - 62, 6, 56, 18};
+            case "coins" -> new int[]{sw - 62, sh - 24, 56, 18};
             default -> new int[]{0, 0, 10, 10};
         };
     }
@@ -171,8 +171,11 @@ public final class HudPainter {
                 Skins.draw(g, p, e.back, x, y, w, h);
                 if (!e.back.isSet() && !e.frame.isSet()) g.fill(x, y, x + w, y + h, 0x88000000);
                 int pd = Math.max(0, Math.min(e.pad, Math.min(w, h) / 2));
-                if (e.fill.isSet()) Skins.drawFill(g, p, e.fill, x + pd, y + pd, w - 2 * pd, h - 2 * pd, frac);
-                else g.fill(x + pd, y + pd, x + pd + Math.round((w - 2 * pd) * frac), y + h - pd, barColor(key));
+                if (e.fill.isSet()) Skins.drawFill(g, p, e.fill, x + pd, y + pd, w - 2 * pd, h - 2 * pd, frac, e.fillDir);
+                else {
+                    int[] part = Skins.filledPart(x + pd, y + pd, w - 2 * pd, h - 2 * pd, frac, e.fillDir);
+                    g.fill(part[0], part[1], part[0] + part[2], part[1] + part[3], barColor(key));
+                }
                 Skins.draw(g, p, e.frame, x, y, w, h);
                 if (e.text) {
                     String t = label(key, s);
@@ -206,8 +209,9 @@ public final class HudPainter {
                 int size = h, step = size + e.gap;
                 for (int i = 0; i < 9; i++) {
                     int sx = x + i * step;
-                    boolean locked = i >= s.hotbarSize;
-                    EngineConfig.Skin sk = locked && e.fill.isSet() ? e.fill : e.back;
+                    if (i >= s.hotbarSize) continue;
+                    boolean locked = false;
+                    EngineConfig.Skin sk = e.back;
                     if (sk.isSet()) Skins.draw(g, p, sk, sx, y, size, size);
                     else {
                         g.fill(sx, y, sx + size, y + size, 0xAA000000);
@@ -263,16 +267,16 @@ public final class HudPainter {
         };
     }
 
-    private static final ResourceLocation ST_HOTBAR = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/system/inventory/hotbar.png");
-    private static final ResourceLocation ST_SELECTION = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/system/inventory/selection.png");
+    private static final ResourceLocation WIDE_HOTBAR = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/slots/hotbar.png");
+    private static final ResourceLocation WIDE_SELECTION = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/slots/selection.png");
 
     /** The game's own look of a part (for the editor preview; in the game the game draws it). */
     public static void standard(GuiGraphics g, Font font, String key, String style, int[] r, State s) {
-        if (key.equals("hotbar") && style.equals("storytelling")) {
+        if (key.equals("hotbar") && style.equals("classic")) {
             int x = r[0], y = r[1];
             RenderSystem.enableBlend();
-            g.blit(ST_HOTBAR, x - 2, y - 4, 0, 0, 186, 26, 186, 26);
-            g.blit(ST_SELECTION, x - 1 + s.selected * 20 + 2, y - 1, 0, 0, 24, 23, 24, 23);
+            g.blit(WIDE_HOTBAR, x - 2, y - 4, 0, 0, 186, 26, 186, 26);
+            g.blit(WIDE_SELECTION, x - 1 + s.selected * 20 + 2, y - 1, 0, 0, 24, 23, 24, 23);
             for (int i = 0; i < 9; i++) {
                 ItemStack st = s.hotbar[i];
                 if (i >= s.hotbarSize || st == null || st.isEmpty()) continue;
@@ -289,12 +293,8 @@ public final class HudPainter {
         int x = r[0], y = r[1];
         switch (key) {
             case "health" -> {
-                if (s.stHealth) {
-                    Skins.draw(g, ST_HP_BACK, null, x, y, 68, 67);
-                    int fh = Math.round(67 * Math.max(0, Math.min(1, s.hp / s.maxHp)));
-                    if (Skins.exists(ST_HP_FILL)) g.blit(ST_HP_FILL, x, y + 67 - fh, 68, fh, 0, 67 - fh, 68, fh, 68, 67);
-                    Skins.draw(g, ST_HP_FRAME, null, x, y, 68, 67);
-                } else icons(g, x, y, Math.round(s.hp), 16, 52, 61, 0, false);
+                if (s.stHealth) vessel(g, font, x, y, s);
+                else icons(g, x, y, Math.round(s.hp), 16, 52, 61, 0, false);
             }
             case "armor" -> icons(g, x, y, s.armor, 16, 34, 25, 9, false);
             case "food" -> icons(g, x, y, s.food, 16, 52, 61, 27, true);
@@ -315,14 +315,14 @@ public final class HudPainter {
                 g.drawString(font, t, tx, ty, 0xFF80FF20, false);
             }
             case "hotbar" -> {
-                g.blit(WIDGETS, x, y, 0, 0, 182, 22);
+                // only the open slots: the bar is cut to them, with its right end
+                int barW = s.hotbarSize * 20 + 1;
+                g.blit(WIDGETS, x, y, 0, 0, barW, 22);
+                g.blit(WIDGETS, x + barW, y, 181, 0, 1, 22);
                 g.blit(WIDGETS, x - 1 + s.selected * 20, y - 1, 0, 22, 24, 24);
                 for (int i = 0; i < 9; i++) {
                     ItemStack st = s.hotbar[i];
-                    if (i >= s.hotbarSize) {
-                        g.fill(x + 3 + i * 20, y + 3, x + 19 + i * 20, y + 19, 0xAA202020);
-                        continue;
-                    }
+                    if (i >= s.hotbarSize) continue;
                     if (st != null && !st.isEmpty()) {
                         g.renderItem(st, x + 3 + i * 20, y + 3);
                         g.renderItemDecorations(font, st, x + 3 + i * 20, y + 3);
@@ -330,13 +330,48 @@ public final class HudPainter {
                 }
             }
             case "coins" -> {
-                String t = String.valueOf(s.coins);
-                g.fill(x + r[2] - 18, y + 1, x + r[2] - 2, y + 17, 0xFF7FE0FF);
-                g.drawString(font, t, x + r[2] - 22 - font.width(t), y + 5, 0xFFFFFFFF, true);
+                String have = shortNumber(s.coins);
+                g.blit(COIN, x + r[2] - 18, y + 1, 0, 0, 16, 16, 16, 16);
+                int tx = x + r[2] - 22;
+                if (s.coinsNeed >= 0) {
+                    String need = "/" + shortNumber(s.coinsNeed);
+                    tx -= font.width(need);
+                    g.drawString(font, need, tx, y + 5, 0xFFFFFFFF, true);
+                }
+                g.drawString(font, have, tx - font.width(have), y + 5, s.coinsNeed >= 0 && s.coins < s.coinsNeed ? 0xFFFF5555 : 0xFFFFFFFF, true);
             }
             default -> {
             }
         }
+    }
+
+    /** 12500 — 12.5k, 3000000 — 3M. */
+    private static String shortNumber(int n) {
+        if (n < 10000) return String.valueOf(n);
+        if (n < 1000000) return Math.round(n / 100f) / 10f + "k";
+        return Math.round(n / 100000f) / 10f + "M";
+    }
+
+    /** The health vessel: filled from below, two waves running opposite ways at the level; the maximum written under it. */
+    private static void vessel(GuiGraphics g, Font font, int x, int y, State s) {
+        int size = 40;
+        int ox = x + 14, oy = y + 6;
+        float share = s.maxHp <= 0 ? 0 : Math.max(0, Math.min(1, s.hp / s.maxHp));
+        float t = System.nanoTime() / 1e9f;
+        float r = size / 2f;
+        for (int cx = 0; cx < size; cx++) {
+            float dx = cx + 0.5f - r;
+            int half = (int) Math.sqrt(Math.max(0, r * r - dx * dx));
+            int top = oy + Math.round(r) - half, bottom = oy + Math.round(r) + half;
+            g.fill(ox + cx, top, ox + cx + 1, bottom, 0xC0101218);
+            float level = oy + size * (1 - share);
+            int front = Math.round(level + (float) Math.sin(cx * 0.35f + t * 3) * 1.5f);
+            int back = Math.round(level + (float) Math.sin(-cx * 0.28f + t * 2.2f) * 1.5f);
+            if (share > 0 && Math.max(back, top) < bottom) g.fill(ox + cx, Math.max(back, top), ox + cx + 1, bottom, 0x80E05555);
+            if (share > 0 && Math.max(front, top) < bottom) g.fill(ox + cx, Math.max(front, top), ox + cx + 1, bottom, 0xFFC02F2F);
+        }
+        String max = String.valueOf(Math.round(s.maxHp));
+        g.drawString(font, max, ox + (size - font.width(max)) / 2, oy + size + 2, 0xFFFFFFFF, true);
     }
 
     /** A vanilla row of 10 icons out of icons.png: container, full and half sprite columns. */
@@ -360,11 +395,11 @@ public final class HudPainter {
 
     public static void chatBack(GuiGraphics g, EngineConfig cfg, int x, int y, int w, int h) {
         if (cfg.chatLog.back.isSet()) Skins.draw(g, cfg.project, cfg.chatLog.back, x, y, w, h);
-        else Skins.draw(g, ST_CHAT_BACK, null, x, y, w, h);
+        else Skins.draw(g, CHAT_BACK, null, x, y, w, h);
     }
 
     public static void chatFrame(GuiGraphics g, EngineConfig cfg, int x, int y, int w, int h) {
         if (cfg.chatLog.frame.isSet()) Skins.draw(g, cfg.project, cfg.chatLog.frame, x, y, w, h);
-        else Skins.draw(g, ST_CHAT_FRAME, null, x, y, w, h);
+        else Skins.draw(g, CHAT_FRAME, null, x, y, w, h);
     }
 }

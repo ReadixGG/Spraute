@@ -36,8 +36,8 @@ public final class QuestClient {
     public static final KeyMapping JOURNAL = new KeyMapping("key.st_addon_spraute.journal", KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J, "key.categories.st_addon_spraute");
 
-    private static final ResourceLocation TASK_LINE = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/quests/quest_task_line.png");
-    private static final ResourceLocation CATEGORIES = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/quests/categories.png");
+    private static final ResourceLocation TASK_LINE = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/journal/task_strip.png");
+    private static final ResourceLocation CATEGORIES = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/journal/icons.png");
 
     private static QuestJournal journal = new QuestJournal();
     private static String toastTitle = "", toastText = "", toastKind = "";

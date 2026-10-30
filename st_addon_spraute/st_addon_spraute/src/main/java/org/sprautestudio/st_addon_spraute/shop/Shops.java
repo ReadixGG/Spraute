@@ -215,16 +215,16 @@ public final class Shops {
     }
 
     private static int balance(ServerPlayer p, ShopDef def) {
-        return def.coins() ? Coins.get() : count(p, item(def.currency));
+        return def.coins() ? Coins.get(p) : count(p, item(def.currency));
     }
 
     private static void pay(ServerPlayer p, ShopDef def, int n) {
-        if (def.coins()) Coins.set(Math.max(0, Coins.get() - n));
+        if (def.coins()) Coins.set(p, Math.max(0, Coins.get(p) - n));
         else take(p, item(def.currency), n);
     }
 
     private static void earn(ServerPlayer p, ShopDef def, int n) {
-        if (def.coins()) Coins.add(n);
+        if (def.coins()) Coins.add(p, n);
         else give(p, item(def.currency), n);
     }
 

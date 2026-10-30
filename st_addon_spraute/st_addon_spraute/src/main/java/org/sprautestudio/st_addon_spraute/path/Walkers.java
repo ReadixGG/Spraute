@@ -43,6 +43,8 @@ public final class Walkers {
         final float oldStep;
         int index, dir = 1, waitLeft, stuck, repath;
         boolean waiting;
+        /** A straight move through the air and walls, for flying and special bodies. */
+        boolean straight;
         Vec3 last;
         /** The way it was going, to keep facing it while standing. */
         float facing = Float.NaN;
@@ -74,6 +76,26 @@ public final class Walkers {
     /** Starts (or restarts) a walk. speed ≤ 0 and mode "" — the path's own. from — the point to begin with (0 — first; -1 — the nearest). */
     public static void start(Entity e, String name, PathDef d, double speed, String mode, int from) {
         if (e == null || d.points.isEmpty()) return;
+        startWalk(e, name, d, speed, mode, from, false);
+        // a walk is the body's movement behaviour: whatever moved it before ends
+        org.sprautestudio.st_addon_spraute.core.script.Behaviours.walking(e);
+    }
+
+    /** Walks to one point, for what drives the walking itself (following, wandering). */
+    public static void go(Entity e, Vec3 to, double speed, boolean straight) {
+        var d = new PathDef();
+        d.points.add(new PathDef.Point(to.x, to.y, to.z));
+        d.speed = speed;
+        startWalk(e, "", d, speed, "once", 0, straight);
+    }
+
+    /** A straight move without physics, as a behaviour. */
+    public static void fly(Entity e, Vec3 to, double speed) {
+        go(e, to, speed, true);
+        org.sprautestudio.st_addon_spraute.core.script.Behaviours.walking(e);
+    }
+
+    private static void startWalk(Entity e, String name, PathDef d, double speed, String mode, int from, boolean straight) {
         stop(e);
         if (from < 0) {
             double best = Double.MAX_VALUE;
@@ -88,6 +110,7 @@ public final class Walkers {
         Walk w = new Walk(e, name, d, mode == null || mode.isEmpty() ? d.mode : mode, speed > 0 ? speed : d.speed, from);
         // slabs and stairs are walked up, not jumped onto
         e.setMaxUpStep(Math.max(w.oldStep, 1.05f));
+        w.straight = straight;
         WALKS.put(e.getUUID(), w);
     }
 
@@ -116,15 +139,10 @@ public final class Walkers {
         return p.speed > 0 ? p.speed : w.speed;
     }
 
-    /** Fast walk from this speed on. */
+    /** Fast walk from this path speed on (a body moved faster than this shows it by itself, see AnimatedEntity). */
     public static final double FAST_WALK = 1.6;
     /** Run from this speed on. */
     public static final double RUN = 2.0;
-
-    /** Spraute's "walking speed" that picks the gait for a path speed. */
-    public static float gait(double speed) {
-        return speed < FAST_WALK ? 0.2f : speed < RUN ? 0.35f : 0.5f;
-    }
 
     /** The point being walked to (0-based), -1 — not walking. */
     public static int point(Entity e) {
@@ -190,7 +208,7 @@ public final class Walkers {
         double sp = p.speed > 0 ? p.speed : w.speed;
         double want = sp * WALK_BPS / 20; // blocks a tick
         float yaw;
-        if (e instanceof Mob m && !m.isNoAi()) {
+        if (e instanceof Mob m && !m.isNoAi() && !w.straight) {
             var nav = m.getNavigation();
             // the way: found again now and then (the world changes, it may be pushed off it)
             if (w.route == null || --w.repath <= 0) {

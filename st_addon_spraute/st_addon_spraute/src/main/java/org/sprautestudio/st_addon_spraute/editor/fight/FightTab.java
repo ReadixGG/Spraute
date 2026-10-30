@@ -268,7 +268,7 @@ public class FightTab extends EditorTab {
 
     private static String shortId(Anims.Entry e) {
         String c = e.container().toString();
-        return c.startsWith("storytelling:") ? c.substring(13) : c;
+        return c.startsWith("st_addon_spraute:") ? c.substring(13) : c;
     }
 
     // ================================================================== inspector

@@ -136,7 +136,20 @@ public final class SprauteNetwork {
         CHANNEL.registerMessage(id++, Packets.Speech.class, Packets.Speech::write, Packets.Speech::read,
                 (msg, ctx) -> client(ctx, () -> () -> ClientHandlers.speech(msg)), Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(id++, Packets.SpeechClear.class, Packets.SpeechClear::write, Packets.SpeechClear::read,
-                (msg, ctx) -> client(ctx, () -> () -> ClientHandlers.speechClear()), Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+                (msg, ctx) -> client(ctx, () -> () -> ClientHandlers.speechClear(msg)), Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, Packets.CameraPos.class, Packets.CameraPos::write, Packets.CameraPos::read, (msg, ctx) -> {
+            ServerPlayer p = ctx.get().getSender();
+            ctx.get().enqueueWork(() -> {
+                if (p != null) org.sprautestudio.st_addon_spraute.core.system.CameraState.report(p, msg.x(), msg.y(), msg.z(), msg.active());
+            });
+            ctx.get().setPacketHandled(true);
+        }, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(id++, Packets.ChoiceParagraph.class, Packets.ChoiceParagraph::write, Packets.ChoiceParagraph::read, (msg, ctx) -> {
+            ctx.get().enqueueWork(() -> org.sprautestudio.st_addon_spraute.runtime.SprauteScriptInstance.paragraph(msg.scriptId(), msg.choiceId(), msg.index()));
+            ctx.get().setPacketHandled(true);
+        }, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(id++, Packets.SpeechNewest.class, Packets.SpeechNewest::write, Packets.SpeechNewest::read,
+                (msg, ctx) -> client(ctx, () -> () -> ClientHandlers.speechNewest(msg)), Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(id++, Packets.ScreenFx.class, Packets.ScreenFx::write, Packets.ScreenFx::read,
                 (msg, ctx) -> client(ctx, () -> () -> ClientHandlers.screenFx(msg)), Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(id++, Packets.CoinsSync.class, Packets.CoinsSync::write, Packets.CoinsSync::read,
@@ -199,8 +212,8 @@ public final class SprauteNetwork {
         CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), msg);
     }
 
-    private static void client(Supplier<NetworkEvent.Context> ctx, Supplier<DistExecutor.SafeRunnable> action) {
-        ctx.get().enqueueWork(() -> DistExecutor.safeRunWhenOn(Dist.CLIENT, action));
+    private static void client(Supplier<NetworkEvent.Context> ctx, Supplier<Runnable> action) {
+        ctx.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, action));
         ctx.get().setPacketHandled(true);
     }
 
@@ -232,7 +245,11 @@ public final class SprauteNetwork {
             SprauteRuntime.get().putGuis(msg.project(), msg.guis());
             SprauteRuntime.DeployResult r = SprauteRuntime.get().deploy(msg.project(), msg.source());
             sendTo(player, new Packets.DeployResult(r.ok(), r.id(), r.messages()));
-            if (r.ok() && msg.start()) runCommand(player, "script start " + r.id());
+            if (r.ok() && msg.start()) {
+                // what runs now is the old text: it stops, the new one starts
+                SprauteRuntime.env().ifPresent(env -> env.stop(r.id()));
+                runCommand(player, "script start " + r.id());
+            }
             sendTo(player, SprauteRuntime.get().status());
         });
     }

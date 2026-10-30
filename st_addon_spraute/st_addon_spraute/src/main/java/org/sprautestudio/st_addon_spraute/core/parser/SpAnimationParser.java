@@ -96,7 +96,17 @@ public final class SpAnimationParser {
             }
         }
 
-        return new AnimationClip(lengthSec, loop, boneTracks, propertyTracks);
+        AnimationClip made = new AnimationClip(lengthSec, loop, boneTracks, propertyTracks);
+        JsonElement loopEl = obj.get("loop");
+        if (loop && lengthSec > 0) {
+            for (BoneTrack b : boneTracks.values()) {
+                b.rotation().loopLength = lengthSec;
+                b.position().loopLength = lengthSec;
+                b.scale().loopLength = lengthSec;
+            }
+        }
+        made.holdsLast = loopEl != null && loopEl.isJsonPrimitive() && "hold_on_last_frame".equalsIgnoreCase(loopEl.getAsString());
+        return made;
     }
 
     private static KeyframeTrack parseChannel(JsonElement channelEl) {
@@ -202,7 +212,7 @@ public final class SpAnimationParser {
         try {
             if (el.getAsJsonPrimitive().isBoolean()) return el.getAsBoolean();
             String s = el.getAsString().toLowerCase(Locale.ROOT);
-            return "true".equals(s) || "loop".equals(s) || "hold_on_last_frame".equals(s);
+            return "true".equals(s) || "loop".equals(s);
         } catch (Exception ignored) {
             return false;
         }
@@ -291,6 +301,8 @@ public final class SpAnimationParser {
     public static final class AnimationClip {
         private final float lengthSec;
         private final boolean loop;
+        /** It stays on its last frame when it ends. */
+        public boolean holdsLast;
         private final Map<String, BoneTrack> bones;
         private final Map<String, Map<String, PropertyTrack>> properties;
 
@@ -527,51 +539,71 @@ public final class SpAnimationParser {
             return times.length == 0;
         }
 
+        /** Length of the loop this track belongs to; 0 — it does not loop. */
+        float loopLength;
+
+        /** The neighbour key's value and time, going round the loop if there is one. */
+        private float keyTime(int i) {
+            int n = times.length;
+            if (loopLength > 0) return times[Math.floorMod(i, n)] + Math.floorDiv(i, n) * loopLength;
+            return times[Math.max(0, Math.min(n - 1, i))];
+        }
+
+        private SpVec3 keyValue(int i) {
+            int n = times.length;
+            return values[loopLength > 0 ? Math.floorMod(i, n) : Math.max(0, Math.min(n - 1, i))];
+        }
+
         public void sample(float t, SpVec3 out) {
-            if (times.length == 0) {
+            int n = times.length;
+            if (n == 0) {
                 out.set(0, 0, 0);
                 return;
             }
-            if (times.length == 1 || t <= times[0]) {
+            if (n == 1) {
                 out.set(values[0]);
                 return;
             }
-
-            int last = times.length - 1;
-            if (t >= times[last]) {
-                out.set(values[last]);
+            boolean wrap = loopLength > 0;
+            if (!wrap && t <= times[0]) {
+                out.set(values[0]);
                 return;
             }
-
-            int idx = 0;
-            while (idx + 1 < times.length && t > times[idx + 1]) {
-                idx++;
+            if (!wrap && t >= times[n - 1]) {
+                out.set(values[n - 1]);
+                return;
             }
-
-            float t0 = times[idx];
-            float t1 = times[idx + 1];
-            SpVec3 v0 = values[idx];
-            SpVec3 v1 = values[idx + 1];
-            float alpha = (t - t0) / (t1 - t0);
-
-            // Step: hold the left keyframe value for the whole segment.
-            if (lerpModes[idx] == Keyframe.LERP_STEP) {
+            // the key before t; in a loop, the gap past the last key leads round to the first
+            int idx;
+            if (wrap && t < times[0]) idx = -1;
+            else {
+                idx = 0;
+                while (idx + 1 < n && t >= times[idx + 1]) idx++;
+            }
+            float t0 = keyTime(idx), t1 = keyTime(idx + 1);
+            SpVec3 v0 = keyValue(idx), v1 = keyValue(idx + 1);
+            float span = t1 - t0;
+            if (span <= 1e-5f) {
+                out.set(v1);
+                return;
+            }
+            float alpha = (t - t0) / span;
+            int mode = lerpModes[Math.floorMod(idx, n)];
+            if (mode == Keyframe.LERP_STEP) {
                 out.set(v0);
                 return;
             }
-
-            // Catmull-Rom (Blockbench "smooth"): spline through neighbouring keys.
-            if (lerpModes[idx] == Keyframe.LERP_CATMULLROM || lerpModes[idx + 1] == Keyframe.LERP_CATMULLROM) {
-                SpVec3 p0 = values[Math.max(0, idx - 1)];
-                SpVec3 p3 = values[Math.min(last, idx + 2)];
+            if (mode == Keyframe.LERP_CATMULLROM || lerpModes[Math.floorMod(idx + 1, n)] == Keyframe.LERP_CATMULLROM) {
+                // Hermite with tangents by real time: keys at uneven distances do not make the speed jump at them
+                float ta = keyTime(idx - 1), tb = keyTime(idx + 2);
+                SpVec3 pa = keyValue(idx - 1), pb = keyValue(idx + 2);
                 out.set(
-                    catmullRom(alpha, p0.x, v0.x, v1.x, p3.x),
-                    catmullRom(alpha, p0.y, v0.y, v1.y, p3.y),
-                    catmullRom(alpha, p0.z, v0.z, v1.z, p3.z)
+                    hermite(alpha, span, pa.x, v0.x, v1.x, pb.x, t0 - ta, tb - t1),
+                    hermite(alpha, span, pa.y, v0.y, v1.y, pb.y, t0 - ta, tb - t1),
+                    hermite(alpha, span, pa.z, v0.z, v1.z, pb.z, t0 - ta, tb - t1)
                 );
                 return;
             }
-
             out.set(
                 v0.x + (v1.x - v0.x) * alpha,
                 v0.y + (v1.y - v0.y) * alpha,
@@ -579,13 +611,11 @@ public final class SpAnimationParser {
             );
         }
 
-        private static float catmullRom(float t, float p0, float p1, float p2, float p3) {
-            float t2 = t * t;
-            float t3 = t2 * t;
-            return 0.5f * ((2f * p1)
-                    + (-p0 + p2) * t
-                    + (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2
-                    + (-p0 + 3f * p1 - 3f * p2 + p3) * t3);
+        private static float hermite(float a, float span, float p0, float p1, float p2, float p3, float before, float after) {
+            float m1 = before > 1e-5f ? (p2 - p0) / (before + span) : (p2 - p1) / span;
+            float m2 = after > 1e-5f ? (p3 - p1) / (span + after) : (p2 - p1) / span;
+            float a2 = a * a, a3 = a2 * a;
+            return (2 * a3 - 3 * a2 + 1) * p1 + (a3 - 2 * a2 + a) * span * m1 + (-2 * a3 + 3 * a2) * p2 + (a3 - a2) * span * m2;
         }
     }
 

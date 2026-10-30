@@ -16,7 +16,7 @@ import java.util.Locale;
 public final class AssetIndex {
     private AssetIndex() {}
 
-    public record Model(ResourceLocation id, EntityType<?> type, String title, boolean storytelling) {
+    public record Model(ResourceLocation id, EntityType<?> type, String title, boolean builtin) {
         public String idString() {
             return id.toString();
         }
@@ -90,7 +90,7 @@ public final class AssetIndex {
         list.sort((a, b) -> {
             boolean ka = Specs.ST_ENTITIES.contains(a.idString()), kb = Specs.ST_ENTITIES.contains(b.idString());
             if (ka != kb) return ka ? -1 : 1;
-            if (a.storytelling != b.storytelling) return a.storytelling ? -1 : 1;
+            if (a.builtin != b.builtin) return a.builtin ? -1 : 1;
             return a.idString().compareTo(b.idString());
         });
         models = Collections.unmodifiableList(list);

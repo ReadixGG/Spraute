@@ -339,7 +339,7 @@ public final class SprauteRuntime {
     /** Exceptions of running stories: logged, and the cause shown in the editor console. */
     public static void installErrorHook() {
         ScriptEnvironment.onError = (id, error) -> {
-            St_addon_spraute.LOGGER.error("Story #{} failed", id, error);
+            if (!(error instanceof SprauteRuntimeException)) St_addon_spraute.LOGGER.error("Story #{} failed", id, error);
             Throwable root = error;
             while (root.getCause() != null && root.getCause() != root) root = root.getCause();
             StackTraceElement where = null;
@@ -348,6 +348,10 @@ public final class SprauteRuntime {
                     where = e;
                     break;
                 }
+            }
+            if (root instanceof SprauteRuntimeException) {
+                get().report(id, "Сюжет остановлен из-за ошибки: " + root.getMessage());
+                return;
             }
             get().report(id, "Сюжет остановлен из-за ошибки: " + root.getClass().getSimpleName()
                     + (root.getMessage() != null ? ": " + root.getMessage() : "")
@@ -487,6 +491,7 @@ public final class SprauteRuntime {
                         e.stage = String.valueOf(main.getStage());
                         e.actionIndex = main.getActionIndex();
                         e.actionCount = main.getActionsAmount();
+                        e.doing = main.describe();
                         if (!e.spraute) {
                             for (String l : main.labelPointsNames) if (!l.startsWith("__sp_")) e.labels.add(l);
                         }

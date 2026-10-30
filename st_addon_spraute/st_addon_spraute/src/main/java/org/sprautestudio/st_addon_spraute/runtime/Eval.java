@@ -166,6 +166,8 @@ public final class Eval {
                 return script.getRandom().nextDouble() * 100 < num(eval(a.get(0)));
             case "flag":
                 return script.getFlags().has(str(eval(a.get(0))));
+            case "consumeflag":
+                return script.getFlags().consume(str(eval(a.get(0))));
             case "js":
                 return JsEngine.run(script, str(eval(a.get(0))));
             case "nbt":
@@ -222,11 +224,19 @@ public final class Eval {
                 Object v = script.event.get(str(eval(a.get(0))));
                 return v == null ? "" : v;
             }
+            case "cameraactive":
+                return org.sprautestudio.st_addon_spraute.core.system.CameraState.active();
+            case "camerapos":
+                return WorldApi.list(org.sprautestudio.st_addon_spraute.core.system.CameraState.position());
+            case "timeday": {
+                var server = SprauteRuntime.server();
+                return server == null ? 0.0 : (double) org.sprautestudio.st_addon_spraute.core.system.WorldClock.day(server);
+            }
             case "incutscene":
                 return !script.cutscene.isEmpty();
             case "coins":
                 try {
-                    return (double) org.sprautestudio.st_addon_spraute.core.system.Coins.get();
+                    return (double) org.sprautestudio.st_addon_spraute.core.system.Coins.get(SprauteRuntime.player());
                 } catch (Throwable t) {
                     return 0.0;
                 }
@@ -482,13 +492,13 @@ public final class Eval {
                 Character<?> ch = characterArg(a.get(0), c.name);
                 Location loc = position(a.get(1));
                 if (loc == null) throw new SprauteRuntimeException(c.name + "(): точка не найдена");
-                org.sprautestudio.st_addon_spraute.core.script.Characters.place(ch, loc);
+                org.sprautestudio.st_addon_spraute.core.script.Characters.place(script, ch, loc);
                 if (c.name.equals("spawn")) afterSpawn(((Ident) a.get(0)).name, ch);
                 return true;
             }
             case "despawn": {
                 Character<?> ch = characterArg(a.get(0), c.name);
-                org.sprautestudio.st_addon_spraute.core.script.Characters.remove(ch);
+                org.sprautestudio.st_addon_spraute.core.script.Characters.remove(script, ch);
                 return true;
             }
             case "give":

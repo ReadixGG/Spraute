@@ -29,7 +29,8 @@ public final class Anims {
     private Anims() {}
 
     public static final String DEFAULT_NS = St_addon_spraute.MODID;
-    private static final ResourceLocation GESTURES = new ResourceLocation(DEFAULT_NS, "gestures");
+    /** What the gesture commands are called in the rig's animation file. */
+    private static final Map<String, String> GESTURES = Map.of("nod", "nodsYes", "nope", "nodsNo", "laugh", "laughter", "sigh", "idle_sigh", "shake", "shiver", "refuse", "refuse");
 
     /** One animation known to the game. */
     public record Entry(ResourceLocation container, String key, String id, double seconds, boolean loops) {
@@ -115,7 +116,21 @@ public final class Anims {
             Optional<Animation> own = me.look().animation(name);
             if (own.isPresent()) return own.get();
         }
-        return resolve(GESTURES + "!" + name).orElse(null);
+        return humanoid(GESTURES.getOrDefault(name, name)).orElse(null);
+    }
+
+    /** Puts an emotion on the face layer: a model's own clip "emotion_<name>", else the default model's. */
+    public static void showEmotion(AnimatedEntity e, String name) {
+        String clip = org.sprautestudio.st_addon_spraute.core.anim.Emotions.clip(name);
+        if (clip == null) return;
+        Optional<Animation> a = Optional.empty();
+        if (e instanceof org.sprautestudio.st_addon_spraute.runtime.models.SprauteModelEntity me && me.look() != null) {
+            a = me.look().animation("emotion_" + name.toLowerCase(java.util.Locale.ROOT));
+            if (a.isEmpty() && !clip.isEmpty()) a = me.look().animation(clip);
+        }
+        if (a.isEmpty() && !clip.isEmpty()) a = humanoid(clip);
+        if (a.isPresent()) e.startAnimation("emotion", a.get().configure().transitionTime(0.25f).loopMode(org.sprautestudio.st_addon_spraute.core.anim.LoopMode.HOLD_ON_LAST_FRAME));
+        else e.getAnimationSystem().stopAnimation("emotion", 0.25f);
     }
 
     public static boolean exists(String id) {

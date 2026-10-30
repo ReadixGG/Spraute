@@ -146,40 +146,40 @@ public class FightDef {
         switch (name == null ? "" : name) {
             case "fists" -> {
                 d.title = "Кулачный бой";
-                d.idle = "st4/fistfight_idle";
-                d.attacks.add(new Attack("Левой", "st4/fistfight_punch_left", 2, 2.2f, 0, 10, 3));
-                d.attacks.add(new Attack("Правой", "st4/fistfight_punch_right", 2.5f, 2.2f, 0, 10, 3));
-                Attack two = new Attack("Двойной", "st4/fistfight_doublepunch", 4, 2.3f, 0, 18, 1);
+                d.idle = "entity/humanoid!fight_idle";
+                d.attacks.add(new Attack("Левой", "entity/humanoid!punch_left", 2, 2.2f, 0, 10, 3));
+                d.attacks.add(new Attack("Правой", "entity/humanoid!punch_right", 2.5f, 2.2f, 0, 10, 3));
+                Attack two = new Attack("Двойной", "entity/humanoid!punch_combo", 4, 2.3f, 0, 18, 1);
                 two.knockback = 0.8f;
                 d.attacks.add(two);
-                d.block.anim = "st4/fistfight_block";
+                d.block.anim = "entity/humanoid!block_hit";
                 d.block.chance = 0.25f;
                 d.block.power = 0.8f;
-                d.dodge.anim = "st5/dodge_side";
+                d.dodge.anim = "entity/humanoid!dodge_left";
                 d.dodge.chance = 0.1f;
                 d.dodge.power = 2;
-                d.hurt = "st5/knockback_face";
-                d.defeat = "st3/humanoid/body_endanimated_fallingtobackfromhit";
+                d.hurt = "entity/humanoid!hit_front";
+                d.defeat = "entity/humanoid!knockdown";
             }
             case "sword" -> {
                 d.title = "Мечник";
                 d.health = 30;
                 d.armor = 0.15f;
-                d.idle = "st3/placeholder/placeholder_pose_swordforward";
-                d.attacks.add(new Attack("Взмах", "st6/sword_attack_right", 5, 2.8f, 0, 14, 3));
-                Attack heavy = new Attack("Сильный удар", "st3/humanoid/placeholder_endanimated_strongattack", 8, 3, 0, 24, 1);
+                d.idle = "entity/humanoid!fight_idle_sword";
+                d.attacks.add(new Attack("Взмах", "entity/humanoid!slash_right", 5, 2.8f, 0, 14, 3));
+                Attack heavy = new Attack("Сильный удар", "entity/humanoid!slash_right", 8, 3, 0, 24, 1);
                 heavy.knockback = 1;
                 heavy.lunge = 1;
                 d.attacks.add(heavy);
-                d.block.anim = "st3/placeholder/placeholder_pose_blockattack";
+                d.block.anim = "entity/humanoid!block_hit";
                 d.block.chance = 0.35f;
                 d.block.power = 0.9f;
-                d.dodge.anim = "st6/humanoid/dodge_back";
+                d.dodge.anim = "entity/humanoid!dodge_left";
                 d.dodge.chance = 0.1f;
                 d.dodge.power = 2.5f;
-                d.hurt = "st6/humanoid/stagger_endanimated";
+                d.hurt = "entity/humanoid!hit_front";
                 d.staggerChance = 0.25f;
-                d.defeat = "st4/gentle_death";
+                d.defeat = "entity/humanoid!knockdown";
                 d.hitSound = "minecraft:entity.player.attack.sweep";
             }
             case "brute" -> {
@@ -187,30 +187,30 @@ public class FightDef {
                 d.health = 45;
                 d.armor = 0.25f;
                 d.speed = 1.05f;
-                d.idle = "st4/hammer_fight_pose";
-                Attack swing = new Attack("Размах", "st5/swinging_punch", 6, 2.6f, 0, 20, 2);
+                d.idle = "entity/humanoid!fight_idle";
+                Attack swing = new Attack("Размах", "entity/humanoid!slash_right", 6, 2.6f, 0, 20, 2);
                 swing.knockback = 1.2f;
                 d.attacks.add(swing);
-                Attack spin = new Attack("С разворота", "st5/body_endanimated_spinpunch", 9, 2.8f, 0, 30, 1);
+                Attack spin = new Attack("С разворота", "entity/humanoid!slash_right", 9, 2.8f, 0, 30, 1);
                 spin.knockback = 1.6f;
                 d.attacks.add(spin);
-                d.hurt = "st4/belly_hurt_pose";
+                d.hurt = "entity/humanoid!hit_front";
                 d.staggerChance = 0.1f;
-                d.defeat = "st3/humanoid/body_endanimated_fallingtobackfromhit";
+                d.defeat = "entity/humanoid!knockdown";
             }
             case "weak" -> {
                 d.title = "Слабак";
                 d.health = 8;
                 d.speed = 1.15f;
-                d.idle = "st5/fistfight_idle_no_legs";
-                d.attacks.add(new Attack("Тычок", "st4/fistfight_punch_right", 1, 2, 0, 18, 1));
-                d.dodge.anim = "st6/humanoid/dodge_back";
+                d.idle = "entity/humanoid!fight_idle";
+                d.attacks.add(new Attack("Тычок", "entity/humanoid!punch_right", 1, 2, 0, 18, 1));
+                d.dodge.anim = "entity/humanoid!dodge_left";
                 d.dodge.chance = 0.15f;
                 d.dodge.power = 2;
-                d.hurt = "st5/knockback_face";
+                d.hurt = "entity/humanoid!hit_front";
                 d.staggerChance = 0.8f;
                 d.fleeAt = 0.25f;
-                d.defeat = "st4/gentle_death";
+                d.defeat = "entity/humanoid!knockdown";
             }
             default -> {
                 return null;

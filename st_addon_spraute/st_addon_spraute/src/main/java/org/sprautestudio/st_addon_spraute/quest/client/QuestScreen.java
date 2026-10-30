@@ -25,12 +25,12 @@ public class QuestScreen extends Screen {
     public static final int W = 392, H = 230;
 
     private static ResourceLocation tex(String n) {
-        return new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/quests/" + n + ".png");
+        return new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/journal/" + n + ".png");
     }
 
-    private static final ResourceLocation BG = tex("bg"), BG_2 = tex("bg_2"), BUTTON = tex("button"), CATEGORIES = tex("categories"),
-            LINE = tex("quest_line"), TASK_LINE = tex("quest_task_line");
-    private static final ResourceLocation[] TABS = {tex("quests_current"), tex("quests_completed"), tex("quests_failed")};
+    private static final ResourceLocation BG = tex("card"), BG_2 = tex("list"), BUTTON = tex("entry"), CATEGORIES = tex("icons"),
+            LINE = tex("divider"), TASK_LINE = tex("task_strip");
+    private static final ResourceLocation[] TABS = {tex("tab_current"), tex("tab_completed"), tex("tab_failed")};
     private static final String[] STATES = {"active", "completed", "failed"};
     private static final String[] TAB_NAMES = {"Текущие", "Выполненные", "Проваленные"};
     /** The colours of the engine settings (set on every frame). */

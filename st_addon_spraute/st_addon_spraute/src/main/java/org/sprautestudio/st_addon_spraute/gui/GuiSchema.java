@@ -132,9 +132,11 @@ public final class GuiSchema {
         b.group("Часть HUD")
                 .c("style", "стиль", "default", org.sprautestudio.st_addon_spraute.engine.EngineConfig.styles(key),
                         "default — как в игре (вписывается в рамку элемента); bar — полоска; icons — ряд своих иконок; "
-                                + "storytelling — хотбар Spraute; slots — свои ячейки; icon — значок и число")
+                                + "classic — хотбар Spraute; slots — свои ячейки; icon — значок и число")
                 .p("count", "иконок", Kind.INT, "10", "Сколько иконок в ряду (стиль icons)")
                 .p("pad", "отступ заливки", Kind.INT, "1", "Отступ заливки полоски от краёв (стиль bar)")
+                .c("direction", "куда заполняется", "right", List.of("right", "left", "up", "down"),
+                        "Стиль bar: right — вправо, left — влево, up — снизу вверх, down — сверху вниз")
                 .p("gap", "промежуток", Kind.INT, "0", "Между иконками или ячейками")
                 .p("reverse", "справа налево", Kind.BOOL, key.equals("food") || key.equals("air") ? "true" : "false", "Иконки заполняются справа")
                 .p("showText", "число", Kind.BOOL, "false", "Подписать значение (стиль bar)")
@@ -188,8 +190,8 @@ public final class GuiSchema {
         type("choice_answers", "Окно · Варианты ответа", "Варианты меню выбора, столбиком сверху вниз: наведение мышью, клик, "
                         + "клавиши 1–9 и стрелки. Высота каждого — по тексту",
                 common(160, 120, "top_left").group("Варианты")
-                        .c("style", "стиль", "storytelling", List.of("storytelling", "flat", "image"),
-                                "storytelling — кнопки Spraute; flat — цветные плашки; image — свои картинки")
+                        .c("style", "стиль", "classic", List.of("classic", "flat", "image"),
+                                "classic — кнопки Spraute; flat — цветные плашки; image — свои картинки")
                         .p("gap", "промежуток", Kind.INT, "4", "")
                         .p("minHeight", "мин. высота", Kind.INT, "18", "")
                         .p("padding", "отступ текста", Kind.INT, "6", "")

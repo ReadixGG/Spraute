@@ -86,7 +86,7 @@ public final class CameraDirector {
     private static int fadeColor = 0xFF000000;
     private static float trauma, traumaDecay = 1;
     private static boolean locked, skippable;
-    /** What is hidden now: none, minecraft, storytelling, custom or all. */
+    /** What is hidden now: none, minecraft, classic, custom or all. */
     private static String hudHide = "none";
 
     public static boolean hidesMinecraft() {
@@ -94,7 +94,7 @@ public final class CameraDirector {
     }
 
     public static boolean hidesSpraute() {
-        return hudHide.equals("all") || hudHide.equals("storytelling");
+        return hudHide.equals("all") || hudHide.equals("classic");
     }
 
     public static boolean hidesCustom() {
@@ -149,7 +149,8 @@ public final class CameraDirector {
 
     /** Ticks of a flight over {@code len} blocks, Spraute's formula: fast for short hops, capped for long ones. */
     private static double flightSeconds(double len) {
-        return Math.max(1, (int) (len * Math.exp(-0.05 * len) * 5)) / 20.0;
+        double capped = Math.min(len, 20);
+        return Math.max(1, (int) (capped * Math.exp(-0.05 * capped) * 5)) / 20.0;
     }
 
     /**
@@ -166,13 +167,13 @@ public final class CameraDirector {
         if (wasActive) init.set(current);
         else {
             playerPose(init, 1);
-            Vec3 look = pl.getLookAngle().scale(0.25);
-            init.x += look.x;
-            init.y += look.y;
-            init.z += look.z;
+            Vec3 ahead = pl.getLookAngle().scale(0.25);
+            init.x += ahead.x;
+            init.y += ahead.y;
+            init.z += ahead.z;
         }
-        Vec3 horizontal = e.getLookAngle().multiply(1, 0, 1).normalize();
-        Vec3 angle = e.getLookAngle().scale(1.6);
+        Vec3 look = e.getViewVector(1), horizontal = look.multiply(1, 0, 1).normalize();
+        Vec3 angle = look.scale(1.6);
         float viewYRot = e.getViewYRot(0), viewXRot = e.getViewXRot(0);
         Vec3 side = horizontal.multiply(0.1, 0, 0.1).yRot((float) Math.toRadians(90));
         Vec3 eye = e.position().add(0, e.getEyeHeight(), 0);
@@ -815,14 +816,26 @@ public final class CameraDirector {
     @SubscribeEvent
     public static void onTick(TickEvent.ClientTickEvent e) {
         if (e.phase == TickEvent.Phase.END && locked && mode != Mode.FLY) holdPlayer();
+        if (e.phase == TickEvent.Phase.END) reportToServer();
     }
 
-    private static final ResourceLocation ST_HEALTH = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "health_overlay");
-    private static final ResourceLocation ST_COINS = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "currency_overlay");
+    private static boolean reported;
+    private static int reportIn;
+
+    /** The server knows where the camera is: for the end of a flight and for carrying the player along. */
+    private static void reportToServer() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.getConnection() == null) return;
+        boolean on = mode != Mode.NONE && mode != Mode.FLY;
+        if (!on && !reported) return;
+        if (on && --reportIn > 0) return;
+        reportIn = 5;
+        reported = on;
+        org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendToServer(new org.sprautestudio.st_addon_spraute.net.Packets.CameraPos(current.x, current.y, current.z, on));
+    }
 
     /** Spraute's HUD parts (its speech, titles, blinks and blackouts are story, not HUD). */
-    private static final java.util.Set<String> ST_HUD = java.util.Set.of("health_overlay", "currency_overlay", "medallion_overlay",
-            "game_tip_overlay", "item_name");
+    private static final java.util.Set<String> OWN_HUD = java.util.Set.of("health_overlay", "currency_overlay");
 
     /** With the HUD hidden only story overlays (speech, titles) stay. */
     @SubscribeEvent
@@ -835,7 +848,7 @@ public final class CameraDirector {
             boolean crosshair = p.equals("crosshair");
             if (crosshair ? mode != Mode.FLY || hidesMinecraft()
                     : hidesMinecraft() && !p.equals("title_text") && !p.equals("subtitles") && !p.equals("chat_panel")) e.setCanceled(true);
-        } else if (id.getNamespace().equals(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID) && hidesSpraute() && ST_HUD.contains(id.getPath())) {
+        } else if (id.getNamespace().equals(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID) && hidesSpraute() && OWN_HUD.contains(id.getPath())) {
             e.setCanceled(true);
         }
     }

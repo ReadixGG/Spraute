@@ -306,10 +306,15 @@ public final class Analyzer {
         }
     }
 
+    /** A label of the story, or one of the reserved ones: the very beginning and the very end. */
+    private boolean isLabel(String name) {
+        return result.labels.containsKey(name) || name.equals("начало") || name.equals("конец");
+    }
+
     private void statement(Stmt s) {
         if (s instanceof CommandStmt c) command(c);
         else if (s instanceof GotoStmt g) {
-            if (!result.labels.containsKey(g.name)) {
+            if (!isLabel(g.name)) {
                 diag(Diagnostic.Severity.ERROR, "Метка '" + g.name + "' не найдена", g.nameStart, g.nameEnd);
             }
         } else if (s instanceof SetStmt set) {
@@ -455,7 +460,7 @@ public final class Analyzer {
             case TEXT -> expr(e);
             case EXPR, BOOL -> expr(e);
             case LABEL -> {
-                if (e instanceof Ident id && !result.labels.containsKey(id.name)) error("Метка '" + id.name + "' не найдена", e);
+                if (e instanceof Ident id && !isLabel(id.name)) error("Метка '" + id.name + "' не найдена", e);
             }
             case SOUND, ITEM, EFFECT, ENTITY -> checkResource(e, p.type);
             case EMOTION -> checkEmotion(e);
@@ -465,7 +470,7 @@ public final class Analyzer {
             }
             case ANIM -> {
                 if (!(e instanceof StringLit s)) {
-                    error("Ожидался id анимации в кавычках, например \"st2/emotions/angry\"", e);
+                    error("Ожидался id анимации в кавычках, например \"entity/humanoid!attack\"", e);
                 } else if (s.value.isBlank()) {
                     error("Пустой id анимации", e);
                 } else if (registries.animations != null && !registries.animations.test(s.value)) {
@@ -586,7 +591,7 @@ public final class Analyzer {
             }
         }
         if (type == ParamType.ENTITY && s.value.startsWith("spraute:")) {
-            if (registries.models != null && !s.value.equals("spraute:npc") && !registries.models.test(s.value.substring(8)))
+            if (registries.models != null && !s.value.equals("spraute:npc") && !s.value.equals("spraute:npc_slim") && !registries.models.test(s.value.substring(8)))
                 warn("Сущности «" + s.value.substring(8) + "» нет в проекте (папка «Сущности»)", e);
             return;
         }

@@ -351,10 +351,12 @@ public class SprauteModelEntity extends AnimatedEntity {
         return l != null ? l.model() : null;
     }
 
+    /** The setting may name several clips ("walk_a;walk_b"): one is taken at random. */
     private Optional<Animation> movement(EntityLibrary.Look l, String setting, String fallbackName) {
         if (l.def() != null && setting != null && !setting.isBlank()) {
-            Optional<Animation> a = l.animation(setting);
-            if (a.isPresent()) return a;
+            java.util.List<Animation> found = new java.util.ArrayList<>();
+            for (String one : setting.split("[;,]")) l.animation(one.trim()).ifPresent(found::add);
+            if (!found.isEmpty()) return Optional.of(found.get(random.nextInt(found.size())));
         }
         return l.animation(fallbackName);
     }
@@ -389,6 +391,26 @@ public class SprauteModelEntity extends AnimatedEntity {
     }
 
     @Override
+    protected String movementKey() {
+        return model();
+    }
+
+    @Override
+    protected ConfiguredAnimation turnAnimation(boolean left) {
+        var a = org.sprautestudio.st_addon_spraute.runtime.Anims.gesture(this, left ? "turn_left" : "turn_right");
+        return a != null ? a.configure() : null;
+    }
+
+    @Override
+    protected ConfiguredAnimation blinkAnimation() {
+        EntityLibrary.Look l = look();
+        if (l == null) return null;
+        Optional<Animation> a = l.animation("blinking");
+        if (a.isEmpty()) a = l.animation("blink");
+        return a.map(Animation::configure).orElse(null);
+    }
+
+    @Override
     protected ConfiguredAnimation movementAnimation(MovementActionType type) {
         EntityLibrary.Look l = look();
         if (l == null) return null;
@@ -399,7 +421,14 @@ public class SprauteModelEntity extends AnimatedEntity {
             if (a.isPresent()) return a.get().configure();
         }
         switch (type) {
-            case WALKING, FAST_WALKING -> a = movement(l, d != null ? d.walk : "", "walk");
+            case WALKING -> a = movement(l, d != null ? d.walk : "", "walk");
+            case FAST_WALKING -> {
+                // its own clip if the model has one; else the walk, quicker
+                a = l.animation("fast_walk");
+                if (a.isPresent() && (d == null || d.walk.isBlank())) return a.get().configure();
+                a = movement(l, d != null ? d.walk : "", "walk");
+                if (a.isPresent()) return a.get().configure().speed(1.3f);
+            }
             case RUNNING -> {
                 a = movement(l, d != null ? d.run : "", "run");
                 if (a.isEmpty()) a = movement(l, d != null ? d.walk : "", "walk");

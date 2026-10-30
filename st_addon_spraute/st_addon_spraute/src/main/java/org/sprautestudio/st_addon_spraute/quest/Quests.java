@@ -283,7 +283,7 @@ public final class Quests {
     }
 
     private static void reward(ServerPlayer p, QuestDef.Reward r) {
-        if (r.coins > 0) Coins.add(r.coins);
+        if (r.coins > 0) Coins.add(p, r.coins);
         if (r.xp > 0) p.giveExperiencePoints(r.xp);
         for (QuestDef.Item i : r.items) {
             Item it = item(i.item);

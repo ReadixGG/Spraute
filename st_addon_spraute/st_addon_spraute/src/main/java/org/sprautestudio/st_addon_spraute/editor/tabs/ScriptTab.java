@@ -304,7 +304,7 @@ public class ScriptTab extends EditorTab {
 
     /**
      * The entity type of the character the caret's line is about: the first word of the line that is a declared
-     * character (anim alice "…" → alice's "storytelling:…"); null — none.
+     * character (anim alice "…" → alice's "st_addon_spraute:…"); null — none.
      */
     private String characterTypeOnLine() {
         String text = editor.text();

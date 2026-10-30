@@ -114,6 +114,7 @@ public final class Specs {
                 "Ждёт установки флага сюжета.");
         cmd("wait key", CAT_WAIT, "<key:key>",
                 "Ждёт нажатия клавиши игроком.");
+        cmd("wait dimension", CAT_WAIT, "<dim:text>", "Ждёт, пока игрок окажется в измерении.");
         cmd("wait trigger", CAT_WAIT, "",
                 "Ждёт команды /script trigger (или кнопки «Триггер» в панели сюжетов).");
         cmd("wait chat", CAT_WAIT, "<words:text...>",
@@ -130,7 +131,7 @@ public final class Specs {
                 "Ждёт, пока игрок войдёт в область между двумя углами.");
         cmd("wait exit", CAT_WAIT, "<from:loc> <to:loc>",
                 "Ждёт, пока игрок выйдет из области.");
-        cmd("wait visible", CAT_WAIT, "<who:char>",
+        cmd("wait visible", CAT_WAIT, "<who:char> [nosight]",
                 "Ждёт, пока игрок увидит персонажа.");
 
         // ------------------------------------------------------------- character
@@ -150,11 +151,11 @@ public final class Specs {
                         + "(с nowait — сразу дальше). speed — одна для всех персонажей: 1 — обычный шаг (2.6 бл/с), 0.5 — медленно, от 1.6 — быстрый шаг, от 2 — бег. loop — по кругу, pingpong — туда-обратно (бесконечно, сюжет не ждёт). from 3 — начать с 3-й точки, "
                         + "from 0 — с ближайшей. Конец пути — событие pathend.");
         cmd("stopwalk", CAT_CHARACTER, "<who:char>", "Останавливает персонажа, идущего по пути.");
-        cmd("look", CAT_CHARACTER, "<who:char> at <target:target> [always]",
+        cmd("look", CAT_CHARACTER, "<who:char> at <target:target> [always] [instant] [wait]",
                 "Персонаж смотрит на цель: player, другой персонаж, моб (\"minecraft:zombie\" или \"mob\" — ближайший) или точка.\n"
-                        + "С флагом always продолжает следить за целью, пока не скажете stoplook.");
+                        + "Цель держится, пока её не заменят или не снимут (stoplook). instant — повернуться сразу, wait — дождаться поворота.");
         cmd("stoplook", CAT_CHARACTER, "<who:char>",
-                "Персонаж перестаёт следить взглядом (после look ... always).");
+                "Персонаж перестаёт поворачиваться и остаётся смотреть туда, куда смотрел.");
         cmd("follow", CAT_CHARACTER, "<who:char> [target <target:target>] [speed <speed:number>] [distance <min:number> <max:number>] [noteleport]",
                 "Персонаж следует за целью: игрок (по умолчанию) или другой персонаж. distance — ближе min не подходит; "
                         + "дальше max (6) отставший персонаж телепортируется к игроку. noteleport — никогда не телепортироваться, только идти: "
@@ -163,8 +164,13 @@ public final class Specs {
                 "Скорость ходьбы персонажа.");
         cmd("wander", CAT_CHARACTER, "<who:char> [speed <speed:number>] [radius <radius:number>]",
                 "Персонаж бродит вокруг случайным образом.");
-        cmd("sit", CAT_CHARACTER, "<who:char>",
-                "Персонаж садится.");
+        cmd("sit", CAT_CHARACTER, "<who:char> [at <pos:target>]",
+                "Персонаж садится на невидимое сиденье; at — на заданную точку, поворот тела заблокирован.");
+        cmd("clearbehavior", CAT_CHARACTER, "<who:char> <type:text>",
+                "Снимает поведение типа: movement, look, combat, speech, action, interaction, emotion, complex.");
+        cmd("fly", CAT_CHARACTER, "<who:char> to <target:target> [speed <speed:number>]",
+                "Прямолинейное движение без физики: для летающих и особых тел.");
+        cmd("refuse", CAT_CHARACTER, "<who:char> [times <times:number>]", "Жест отказа.");
         cmd("stand", CAT_CHARACTER, "<who:char>",
                 "Персонаж встаёт.");
         cmd("name", CAT_CHARACTER, "<who:char> <name:text>",
@@ -177,14 +183,14 @@ public final class Specs {
                 "Отпускает персонажа из-под контроля сюжета.");
 
         // ------------------------------------------------------------ animations
-        cmd("anim", CAT_ANIM, "<who:char> <anim:anim> [layer <layer:layer>] [speed <speed:number>] [fade <fade:duration>] [times <times:int>] [loop] [hold] [wait]",
+        cmd("anim", CAT_ANIM, "<who:char> <anim:anim> [layer <layer:layer>] [speed <speed:number>] [fade <fade:duration>] [times <times:int>] [loop] [hold] [wait] [from <from:duration>]",
                 "Проигрывает анимацию на персонаже.\n"
                         + "layer — слой (по умолчанию action: всё тело, перекрывает стойку; 0–20 — накладываются поверх),\n"
                         + "speed — скорость (1 — обычная), fade — плавный переход, times — проиграть N раз и остановить (сюжет ждёт),\n"
                         + "loop — зациклить, hold — замереть на последнем кадре, wait — дождаться конца анимации.\n"
-                        + "Пример: anim alice \"st2/cathand\" layer 3 times 2 wait");
+                        + "Пример: anim alice \"entity/humanoid!attack\" layer 3 times 2 wait");
         cmd("face", CAT_ANIM, "<who:char> <anim:anim> [fade <fade:duration>]",
-                "Мимика: анимация на слое лица (emotion). Пример: face alice \"st2/emotions/angry\"");
+                "Мимика: анимация на слое лица (emotion). Пример: face alice \"entity/humanoid!attack\"");
         cmd("stopanim", CAT_ANIM, "<who:char> [layer <layer:layer>] [fade <fade:duration>]",
                 "Останавливает анимацию на слое (по умолчанию action).");
         cmd("clearanims", CAT_ANIM, "<who:char> [fade <fade:duration>]",
@@ -270,14 +276,19 @@ public final class Specs {
                 "Затемнение экрана: 1 — полностью, 0 — снять. color — цвет (\"#000000\", \"#FFFFFF\").");
         cmd("camera hud", CAT_CAMERA, "<value:bool>", "Показать (true) или спрятать (false) интерфейс игрока.");
         cmd("camera hide", CAT_CAMERA, "<what:text>",
-                "Какой интерфейс скрыть: \"all\" — весь, \"minecraft\" — хотбар, сердца, прицел, \"storytelling\" — HP и монеты Spraute, "
+                "Какой интерфейс скрыть: \"all\" — весь, \"minecraft\" — хотбар, сердца, прицел, \"classic\" — HP и монеты Spraute, "
                         + "\"custom\" — свои наложения (overlay), \"none\" — ничего. Речь и титры видны всегда.");
-        cmd("time set", CAT_PLAYER, "<value:expr>",
+        cmd("time set", CAT_PLAYER, "<value:expr> [day <day:expr>]",
                 "Время суток: число 0..23999 или day, noon, sunset, night, midnight, sunrise. День не сбивается: time set night.");
         cmd("time add", CAT_PLAYER, "<value:expr>", "Сдвигает время вперёд (тики, 1000 — около 50 секунд дня): time add 6000.");
         cmd("time speed", CAT_PLAYER, "<value:expr>", "Скорость дня: 1 — обычная, 3 — втрое быстрее, 0.2 — медленно. Сохраняется в настройках мира.");
         cmd("time freeze", CAT_PLAYER, "[at <value:expr>]", "Останавливает время (at — сначала поставить: time freeze at noon).");
-        cmd("time unfreeze", CAT_PLAYER, "", "Время снова идёт.");
+        cmd("time task", CAT_PLAYER, "<id:text> priority <priority:expr> speed <speed:expr> [until <until:expr>]",
+                "Задача хода времени: работает задача с наивысшим приоритетом; until — условие конца. Только при включённых часах мира.");
+        cmd("time taskstop", CAT_PLAYER, "<id:text>", "Убирает задачу хода времени.");
+        cmd("camera carry", CAT_CAMERA, "<value:expr>",
+                "Вынос камеры: игрок становится наблюдателем и движется с камерой, чтобы подгружались чанки; режим игры и место возвращаются в конце.");
+        cmd("time unfreeze", CAT_PLAYER, "[back]", "Время снова идёт.");
         cmd("shop open", CAT_GUI, "<name:shop> [with <who:target>]",
                 "Открывает магазин из папки «Магазины»: shop open \"лавка\" with alice. Покупки ловит on purchase \"лавка\" { event(\"offer\") }.");
         cmd("shop restock", CAT_GUI, "<name:shop>", "Возвращает весь запас товаров магазина.");
@@ -427,6 +438,8 @@ public final class Specs {
                 "Частицы Minecraft: \"minecraft:flame\", \"heart\", \"happy_villager\", \"end_rod\", \"cloud\", \"enchant\"... Пример: particles \"heart\" at alice count 8 spread 0.5");
         cmd("coins give", CAT_PLAYER, "<amount:expr>", "Даёт игроку монеты.");
         cmd("coins take", CAT_PLAYER, "<amount:expr>", "Забирает у игрока монеты (не меньше нуля).");
+        cmd("coins need", CAT_PLAYER, "<amount:expr>", "Показывает у монет «есть/нужно» (-1 — убрать).");
+        cmd("slots", CAT_PLAYER, "<count:expr> [offhand <offhand:text>]", "Открытых ячеек хотбара: 1–9. offhand — вторая рука: auto, off или on. В творческом режиме ограничений нет.");
         cmd("coins set", CAT_PLAYER, "<amount:expr>", "Задаёт число монет игрока.");
         cmd("coins drop", CAT_PLAYER, "<amount:expr> at <pos:target> [count <count:expr>]",
                 "Роняет монеты движка Spraute (их сферы), игрок их подбирает. count — на сколько сфер разделить.");
@@ -508,8 +521,7 @@ public final class Specs {
                 + "script 5001 \"Вступление\" autostart once — только при первом входе в этот мир.");
         KEYWORD_DOCS.put("character", "Объявляет персонажа:\ncharacter alice = \"spraute:npc\" name \"Алиса\" [speed 0.3] [skin \"...\"] [icon \"лицо\"] [portrait \"лицо\"]\n"
                 + "icon — картинка в окне речи (say), portrait — лицо в диалоге с выбором (choice).\n"
-                + "Картинки добавляются в папку проекта «Картинки»; есть и встроенные: generic_man, anu_icon, blue_man, lo_icon, sky_eye.\n"
-                + "character zeit = existing \"zeitheron\" — готовый персонаж ST.");
+                + "Картинки добавляются в папку проекта «Картинки»");
         KEYWORD_DOCS.put("location", "Объявляет точку: location camp = (100, 64, 200) [yaw 90] [pitch 0] [dim \"minecraft:overworld\"]");
         KEYWORD_DOCS.put("var", "Переменная сюжета: var count = 0");
         KEYWORD_DOCS.put("label", "Метка, на которую можно перейти через goto. Также видна в панели сюжетов (Перейти к метке).");
@@ -760,11 +772,7 @@ public final class Specs {
         };
     }
 
-    public static final List<String> EMOTIONS = List.of(
-            "CONFUSED", "ANGRY", "ANGRY_HALF", "CURIOUS", "CUTE", "DISGUST", "DISTRUST", "EMBARRASSMENT",
-            "FRIGHT", "GIGGLE_NEW_NOMOUTH", "HAPPY_NEW", "INSPIRATION", "INSPIRATION_2", "INSULT", "LAUGH",
-            "OFFENDED_LEFT", "PLAYFULNESS", "POSE_DISGUST", "PRIDE_NEW", "PSYCHO_NEW", "REALIZATION", "SAD1",
-            "SAD2", "SUS", "PONDERING_LEFT", "SIDE_SURPRISED_LEFT", "TOTAL_SHOCK", "INDIFFERENCE");
+    public static final List<String> EMOTIONS = org.sprautestudio.st_addon_spraute.core.anim.Emotions.NAMES;
 
     /** Spraute character entity types known to ship with the mod. */
     public static final List<String> ST_ENTITIES = List.of(

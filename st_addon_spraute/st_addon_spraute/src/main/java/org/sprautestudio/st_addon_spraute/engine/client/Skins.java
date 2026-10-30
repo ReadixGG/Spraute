@@ -104,13 +104,30 @@ public final class Skins {
         }
     }
 
+    /** The part of a rectangle a bar has filled: x, y, width, height. */
+    public static int[] filledPart(int x, int y, int w, int h, float fraction, String dir) {
+        float f = Math.max(0, Math.min(1, fraction));
+        return switch (dir == null ? "right" : dir) {
+            case "left" -> new int[]{x + w - Math.round(w * f), y, Math.round(w * f), h};
+            case "up" -> new int[]{x, y + h - Math.round(h * f), w, Math.round(h * f)};
+            case "down" -> new int[]{x, y, w, Math.round(h * f)};
+            default -> new int[]{x, y, Math.round(w * f), h};
+        };
+    }
+
     /** Left part of a skin, for bars: the visible width follows {@code fraction}. */
     public static void drawFill(GuiGraphics g, String project, EngineConfig.Skin skin, int x, int y, int w, int h, float fraction) {
+        drawFill(g, project, skin, x, y, w, h, fraction, "right");
+    }
+
+    /** A skin as a bar's fill: the part of it that shows follows {@code fraction}, growing the way {@code dir} says. */
+    public static void drawFill(GuiGraphics g, String project, EngineConfig.Skin skin, int x, int y, int w, int h, float fraction, String dir) {
         if (skin == null || !skin.isSet() || fraction <= 0) return;
         ResourceLocation rl = texture(project, skin);
-        int vis = Math.round(w * Math.min(1, fraction));
+        int[] part = filledPart(x, y, w, h, fraction, dir);
+        if (part[2] <= 0 || part[3] <= 0) return;
         if (skin.nine) {
-            draw(g, rl, skin, x, y, vis, h);
+            draw(g, rl, skin, part[0], part[1], part[2], part[3]);
             return;
         }
         // stretched: crop the texture instead of squeezing it
@@ -118,8 +135,21 @@ public final class Skins {
         if (s[0] <= 0) return;
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        int uw = Math.max(1, Math.round(s[0] * Math.min(1, fraction)));
-        g.blit(rl, x, y, vis, h, 0, 0, uw, s[1], s[0], s[1]);
+        float f = Math.min(1, fraction);
+        int uw = s[0], vh = s[1], u = 0, v = 0;
+        switch (dir == null ? "right" : dir) {
+            case "left" -> {
+                uw = Math.max(1, Math.round(s[0] * f));
+                u = s[0] - uw;
+            }
+            case "up" -> {
+                vh = Math.max(1, Math.round(s[1] * f));
+                v = s[1] - vh;
+            }
+            case "down" -> vh = Math.max(1, Math.round(s[1] * f));
+            default -> uw = Math.max(1, Math.round(s[0] * f));
+        }
+        g.blit(rl, part[0], part[1], part[2], part[3], u, v, uw, vh, s[0], s[1]);
     }
 
     /** A plain texture cropped from the left to {@code fraction} of its width. */

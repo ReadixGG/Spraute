@@ -185,6 +185,10 @@ public final class Mechanics {
     /** A key the player pressed (from the client): stories hear "keypress". */
     public static void keyPressed(ServerPlayer p, String key) {
         SprauteRuntime.env().ifPresent(env -> env.keyPressed(key));
+        if (key.equals("air.left")) {
+            GameEvents.post("leftair", p, new HashMap<>());
+            return;
+        }
         Map<String, Object> d = new HashMap<>();
         d.put("key", key);
         d.put("onground", p.onGround());

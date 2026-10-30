@@ -19,7 +19,7 @@ public abstract class MouseLockMixin {
     private double accumulatedDY;
 
     /** turnPlayer */
-    @Inject(method = "m_91523_", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = {"m_91523_", "turnPlayer"}, at = @At("HEAD"), cancellable = true, remap = false)
     private void spraute$lockView(CallbackInfo ci) {
         if (!org.sprautestudio.st_addon_spraute.cutscene.client.CameraDirector.locksView()) return;
         // what the mouse moved is dropped, so nothing jumps when the lock is lifted

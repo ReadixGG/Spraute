@@ -30,11 +30,11 @@ public final class ShopParts {
     }
 
     private static ResourceLocation tex(String name) {
-        return new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/shop/" + name + ".png");
+        return new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/store/" + name + ".png");
     }
 
-    private static final ResourceLocation CELL = tex("product_cell"), CELL_GLOW = tex("product_cell_glow"), LOCKED = tex("lot_locked"),
-            SOLD = tex("lot_sold"), BUY = tex("buy_button"), BUY_LIGHT = tex("buy_button_light"), SLIDER = tex("slider");
+    private static final ResourceLocation CELL = tex("cell"), CELL_GLOW = tex("cell_hot"), LOCKED = tex("cell_locked"),
+            SOLD = tex("cell_sold"), BUY = tex("buy"), BUY_LIGHT = tex("buy_hot"), SLIDER = tex("slider");
     private static final int[] STEPS = {-5, -1, 1, 5};
 
     /** The open shop (its data and choices are the panel's) and where the parts were drawn. */

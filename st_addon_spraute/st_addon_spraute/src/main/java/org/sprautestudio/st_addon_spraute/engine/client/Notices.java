@@ -1,10 +1,9 @@
 package org.sprautestudio.st_addon_spraute.engine.client;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.api.distmarker.Dist;
@@ -17,34 +16,41 @@ import net.minecraftforge.registries.ForgeRegistries;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.runtime.Images;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 
 /**
- * Notifications from a story: lines sliding in at the top left, one under another; the icon is a project
- * picture, a game texture, or an item.
+ * Notifications from a story, top left: a 16×16 icon (an item, a picture or nothing) and white text. Each comes out
+ * from above and sinks slowly, gone in five seconds; a new one starts at most every 0.6 s, and waits while a screen is open.
  */
 @Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
 public final class Notices {
     private Notices() {
     }
 
-    private static final int LIFE = 100, SLIDE = 10, H = 22, W = 180;
+    private static final int LIFE = 100, FADE = 20, EVERY = 12, ICON = 16;
+    private static final float TRAVEL = 150, START_Y = -16;
 
     private static final class Notice {
         final String text;
         final ResourceLocation icon;
         final ItemStack item;
+        final boolean sound;
         int age;
 
-        Notice(String text, ResourceLocation icon, ItemStack item) {
+        Notice(String text, ResourceLocation icon, ItemStack item, boolean sound) {
             this.text = text;
             this.icon = icon;
             this.item = item;
+            this.sound = sound;
         }
     }
 
+    private static final Deque<Notice> WAITING = new ArrayDeque<>();
     private static final List<Notice> SHOWN = new ArrayList<>();
+    private static int cooldown;
 
     public static void show(String text, String icon, String item, String project, boolean sound) {
         ItemStack stack = ItemStack.EMPTY;
@@ -55,8 +61,7 @@ public final class Notices {
         } else if (!icon.isEmpty()) {
             tex = texture(icon, project);
         }
-        SHOWN.add(new Notice(text, tex, stack));
-        if (sound) Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.EXPERIENCE_ORB_PICKUP, 1f));
+        WAITING.addLast(new Notice(text, tex, stack, sound));
     }
 
     /** "моя картинка" — a picture of the project; "minecraft:textures/item/diamond.png" — any texture of the game. */
@@ -71,8 +76,16 @@ public final class Notices {
 
     @SubscribeEvent
     public static void onTick(TickEvent.ClientTickEvent e) {
-        if (e.phase != TickEvent.Phase.END || SHOWN.isEmpty() || Minecraft.getInstance().isPaused()) return;
+        Minecraft mc = Minecraft.getInstance();
+        if (e.phase != TickEvent.Phase.END || mc.isPaused()) return;
         SHOWN.removeIf(n -> ++n.age > LIFE);
+        if (cooldown > 0) cooldown--;
+        if (cooldown == 0 && mc.screen == null && !WAITING.isEmpty()) {
+            Notice n = WAITING.pollFirst();
+            SHOWN.add(n);
+            cooldown = EVERY;
+            if (n.sound) ProjectSounds.playBuiltin("notice");
+        }
     }
 
     @SubscribeEvent
@@ -81,27 +94,32 @@ public final class Notices {
         Minecraft mc = Minecraft.getInstance();
         if (mc.options.hideGui) return;
         GuiGraphics g = e.getGuiGraphics();
-        int y = 6;
         for (Notice n : SHOWN) {
-            float t = n.age + e.getPartialTick();
-            float in = Math.min(1, t / SLIDE), out = Math.min(1, (LIFE - t) / SLIDE);
-            int x = Math.round(-W * (1 - Math.min(in, Math.max(0, out))));
-            g.fill(x, y, x + W, y + H, 0xD0101218);
-            int tx = x + 6;
+            float t = n.age + (mc.isPaused() ? 0 : e.getPartialTick());
+            float y = START_Y + TRAVEL * (1 - (1 - t / LIFE) * (1 - t / LIFE));
+            float alpha = Math.max(0, Math.min(1, (LIFE - t) / FADE));
+            if (alpha <= 0) continue;
+            g.pose().pushPose();
+            g.pose().translate(4, y, 0);
+            int tx = 0;
+            RenderSystem.enableBlend();
+            RenderSystem.setShaderColor(1, 1, 1, alpha);
             if (!n.item.isEmpty()) {
-                g.renderItem(n.item, x + 3, y + 3);
-                tx = x + 23;
+                g.renderItem(n.item, 0, 0);
+                tx = ICON + 4;
             } else if (n.icon != null) {
-                g.blit(n.icon, x + 3, y + 3, 0, 0, 16, 16, 16, 16);
-                tx = x + 23;
+                g.blit(n.icon, 0, 0, 0, 0, ICON, ICON, ICON, ICON);
+                tx = ICON + 4;
             }
-            g.drawString(mc.font, n.text, tx, y + 7, 0xFFFFFFFF, false);
-            y += H + 2;
+            RenderSystem.setShaderColor(1, 1, 1, 1);
+            g.drawString(mc.font, n.text, tx, (ICON - mc.font.lineHeight) / 2 + 1, Math.max(4, Math.round(alpha * 255)) << 24 | 0xFFFFFF, true);
+            g.pose().popPose();
         }
     }
 
     @SubscribeEvent
     public static void onLogout(ClientPlayerNetworkEvent.LoggingOut e) {
         SHOWN.clear();
+        WAITING.clear();
     }
 }

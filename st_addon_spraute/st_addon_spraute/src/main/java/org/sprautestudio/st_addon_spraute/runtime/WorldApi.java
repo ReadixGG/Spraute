@@ -242,6 +242,21 @@ public final class WorldApi {
             case "health", "hp" -> {
                 if (le != null) le.setHealth((float) Math.max(0, Eval.num(v)));
             }
+            case "lockbody" -> {
+                if (e instanceof org.sprautestudio.st_addon_spraute.core.entity.AnimatedEntity ae) ae.setBodyLocked(Eval.truthy(v));
+            }
+            case "lockhead" -> {
+                if (e instanceof org.sprautestudio.st_addon_spraute.core.entity.AnimatedEntity ae) ae.setHeadLocked(Eval.truthy(v));
+            }
+            case "noturn" -> {
+                if (e instanceof org.sprautestudio.st_addon_spraute.core.entity.AnimatedEntity ae) ae.setNoTurn(Eval.truthy(v));
+            }
+            case "holdchunk" -> {
+                if (e instanceof org.sprautestudio.st_addon_spraute.core.entity.AnimatedEntity ae) ae.setHoldsChunk(Eval.truthy(v));
+            }
+            case "blink" -> {
+                if (e instanceof org.sprautestudio.st_addon_spraute.core.entity.AnimatedEntity ae) ae.blinks = Eval.truthy(v);
+            }
             case "maxhealth", "maxhp" -> {
                 if (e instanceof org.sprautestudio.st_addon_spraute.core.entity.AnimatedEntity ae) {
                     ae.setMaxHealth((float) Math.max(1, Eval.num(v)));

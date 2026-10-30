@@ -20,7 +20,7 @@ import java.util.Map;
 
 /**
  * A story particle like an experience orb: floats, flies to a nearby player and is picked up
- * (event "orb"), or fades out after its lifetime (event "orbexpire"). It may give Eidos coins and
+ * (event "orb"), or fades out after its lifetime (event "orbexpire"). It may give coins and
  * experience. Decorative ones ("nopickup") only fly and fade.
  */
 public class SprauteOrb extends Entity {
@@ -127,7 +127,7 @@ public class SprauteOrb extends Entity {
     private void collect(Player p) {
         if (coins > 0) {
             try {
-                org.sprautestudio.st_addon_spraute.core.system.Coins.add(coins);
+                if (p instanceof ServerPlayer owner) org.sprautestudio.st_addon_spraute.core.system.Coins.add(owner, coins);
             } catch (Throwable ignored) {
             }
         }

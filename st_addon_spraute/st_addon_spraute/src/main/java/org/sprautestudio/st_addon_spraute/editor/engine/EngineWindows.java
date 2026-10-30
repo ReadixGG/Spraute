@@ -84,7 +84,7 @@ public final class EngineWindows {
         d.set("layout", layout);
         d.set("width", String.valueOf(w));
         d.set("height", String.valueOf(h));
-        d.set("background", "#00000000");
+        d.set("back", "#00000000");
         return d;
     }
 
@@ -104,7 +104,7 @@ public final class EngineWindows {
         s.level = 7;
         s.coins = 1250;
         s.selected = 1;
-        s.hotbarSize = cfg.slots ? 5 : 9;
+        s.hotbarSize = cfg.slots ? cfg.hotbarSize : 9;
         ItemStack[] items = {new ItemStack(Items.IRON_SWORD), new ItemStack(Items.BREAD, 12), new ItemStack(Items.TORCH, 48),
                 new ItemStack(Items.OAK_PLANKS, 64), new ItemStack(Items.MAP), new ItemStack(Items.APPLE, 3),
                 ItemStack.EMPTY, new ItemStack(Items.COMPASS), new ItemStack(Items.WATER_BUCKET)};
@@ -129,7 +129,7 @@ public final class EngineWindows {
             String anchor = v.isEmpty() && h.isEmpty() ? "center" : v.isEmpty() ? h : h.isEmpty() ? v : v + "_" + h;
             float fx = h.equals("left") ? 0 : h.equals("right") ? 1 : 0.5f, fy = v.equals("top") ? 0 : v.equals("bottom") ? 1 : 0.5f;
             doc.elements.add(el("hud_" + key, key, anchor, Math.round(r[0] - fx * sw + fx * r[2]), Math.round(r[1] - fy * sh + fy * r[3]), r[2], r[3],
-                    "style", p.style, "count", String.valueOf(p.count), "pad", String.valueOf(p.pad), "gap", String.valueOf(p.gap),
+                    "style", p.style, "count", String.valueOf(p.count), "pad", String.valueOf(p.pad), "direction", p.fillDir, "gap", String.valueOf(p.gap),
                     "reverse", String.valueOf(p.reverse), "showText", String.valueOf(p.text), "textColor", hex(p.textColor),
                     "back", p.back.image, "fill", p.fill.image, "frame", p.frame.image, "full", p.full.image, "half", p.half.image, "empty", p.empty.image));
         }
@@ -144,17 +144,17 @@ public final class EngineWindows {
         GuiDoc doc = doc("Меню выбора", "fit", 480, 270);
         var r = ChoiceLayout.rects(c, Minecraft.getInstance().font, 480, 270, List.of("Слышал.", "Их было двенадцать.", "Расскажи подробнее…"));
         int[] p = r.get("panel"), f = r.get("portrait"), n = r.get("name"), t = r.get("text"), a = r.get("answers");
-        doc.elements.add(el("image", "panel", "top_left", p[0], p[1], p[2], p[3], "image", img(c.panel, "gui/dialog/dialog_shadow")));
+        doc.elements.add(el("image", "panel", "top_left", p[0], p[1], p[2], p[3], "image", img(c.panel, "gui/talk/fade")));
         if (!c.show.equals("none")) doc.elements.add(el("speaker", "speaker", "top_left", f[0], f[1], f[2], f[3],
                 "framing", c.framing, "scale", String.valueOf(c.entityScale)));
         if (c.portrait.isSet()) doc.elements.add(el("image", "portrait", "top_left", f[0], f[1], f[2], f[3], "image", c.portrait.image));
-        if (c.nameLine) doc.elements.add(el("image", "nameplate", "top_left", n[0], n[1] + 12, 103, 3, "image", img(c.nameplate, "gui/dialog/dialog_name")));
+        if (c.nameLine) doc.elements.add(el("image", "nameplate", "top_left", n[0], n[1] + 12, 103, 3, "image", img(c.nameplate, "gui/talk/divider")));
         doc.elements.add(el("text", "name", "top_left", n[0], n[1], 104, 12, "text", "{name}", "align", "center", "color", hex(c.nameColor),
                 "wrap", "false"));
         doc.elements.add(el("text", "question", "top_left", t[0], t[1], t[2], t[3], "text", "{question}", "color", hex(c.textColor), "shadow", "false"));
         boolean own = c.button.isSet();
         doc.elements.add(el("choice_answers", "answers", "top_left", a[0], a[1], Math.max(a[2], 166), 160,
-                "style", own ? "image" : "storytelling", "image", own ? c.button.image : "", "hoverImage", c.buttonHover.isSet() ? c.buttonHover.image : "",
+                "style", own ? "image" : "classic", "image", own ? c.button.image : "", "hoverImage", c.buttonHover.isSet() ? c.buttonHover.image : "",
                 "textColor", hex(c.answerColor), "hoverTextColor", hex(c.answerHoverColor), "textScale", String.valueOf(c.answerTextScale),
                 "padding", "12", "minHeight", "32", "gap", "5"));
         return doc;
@@ -168,7 +168,7 @@ public final class EngineWindows {
         int w = t.width;
         GuiDoc.Element g = el("group", "toast", "top", 0, t.y - 12, w, 32, "appear", "slide_down", "appearTime", "0.3");
         g.children.add(el("panel", "back", "top_left", 0, 0, w, 30, "color", hex(t.background), "borderWidth", "0", "radius", "0", "shadow", "0"));
-        g.children.add(el("image", "line", "top_left", 0, 14, w, 16, "image", img(q.taskLine, "gui/quests/quest_task_line")));
+        g.children.add(el("image", "line", "top_left", 0, 14, w, 16, "image", img(q.taskLine, "gui/journal/task_strip")));
         int tx = 6;
         if (t.icon) {
             g.children.add(el("quest_icon", "icon", "top_left", 3, 2, 21, 23, "image", q.icons.isSet() ? q.icons.image : ""));
@@ -203,10 +203,10 @@ public final class EngineWindows {
     private static GuiDoc journal(EngineConfig cfg) {
         EngineConfig.Quests q = cfg.quests;
         GuiDoc doc = doc("Журнал квестов", "fit", 392, 230);
-        doc.set("background", hex(q.shadeColor));
+        doc.set("back", hex(q.shadeColor));
         int[] ol = q.off("list"), oc = q.off("card");
         GuiDoc.Element list = el("group", "left", "top_left", ol[0], ol[1], 144, 230, "appear", "slide_down", "appearTime", "0.4");
-        list.children.add(el("image", "list_back", "top_left", 0, 0, 144, 230, "image", img(q.list, "gui/quests/bg_2")));
+        list.children.add(el("image", "list_back", "top_left", 0, 0, 144, 230, "image", img(q.list, "gui/journal/list")));
         list.children.add(el("journal_tabs", "tabs", "top_left", 7, 5, 75, 23, "gap", "3",
                 "current", own(q.tabCurrent), "done", own(q.tabDone), "failed", own(q.tabFailed)));
         list.children.add(el("text", "tab_name", "top_left", 88, 13, 54, 8, "text", "{tab} · {count}", "scale", "0.75", "wrap", "false",
@@ -216,10 +216,10 @@ public final class EngineWindows {
                 "button", own(q.button), "buttonHover", own(q.buttonHover), "buttonOn", own(q.buttonOn), "iconSheet", own(q.icons)));
         doc.elements.add(list);
         GuiDoc.Element card = el("group", "right", "top_left", 150 + oc[0], 2 + oc[1], 240, 228, "appear", "slide_down", "appearTime", "0.4");
-        card.children.add(el("image", "card_back", "top_left", 0, 0, 240, 225, "image", img(q.card, "gui/quests/bg")));
+        card.children.add(el("image", "card_back", "top_left", 0, 0, 240, 225, "image", img(q.card, "gui/journal/card")));
         card.children.add(el("journal_title", "title", "top_left", 10, 7, 222, 30, "textColor", hex(q.textColor), "accentColor", hex(q.accentColor),
                 "hoverColor", hex(q.headerColor), "mutedColor", hex(q.mutedColor)));
-        card.children.add(el("image", "divider", "top_left", 10, 37, 129, 2, "image", img(q.divider, "gui/quests/quest_line")));
+        card.children.add(el("image", "divider", "top_left", 10, 37, 129, 2, "image", img(q.divider, "gui/journal/divider")));
         card.children.add(el("journal_page", "page", "top_left", 6, 42, 232, 163, "textColor", hex(q.textColor), "headerColor", hex(q.headerColor),
                 "accentColor", hex(q.accentColor), "doneColor", hex(q.doneColor), "failColor", hex(q.failColor), "taskLine", own(q.taskLine)));
         card.children.add(el("journal_state", "state", "top_left", 102, 211, 130, 10, "doneColor", hex(q.doneColor), "failColor", hex(q.failColor)));
@@ -233,12 +233,12 @@ public final class EngineWindows {
     private static GuiDoc shop(EngineConfig cfg) {
         EngineConfig.Shop s = cfg.shop;
         GuiDoc doc = doc("Магазин", "fit", 445, 262);
-        doc.set("background", "#A6191513");
+        doc.set("back", "#A6191513");
         int[] ow = s.offsets.getOrDefault("window", new int[]{0, 0}), ol = s.offsets.getOrDefault("list", new int[]{0, 0}),
                 oc = s.offsets.getOrDefault("card", new int[]{0, 0}), ot = s.offsets.getOrDefault("title", new int[]{0, 0}),
                 om = s.offsets.getOrDefault("money", new int[]{0, 0});
         GuiDoc.Element list = el("group", "goods_side", "top_left", ow[0] + ol[0], ow[1] + ol[1] + 25, 254, 212, "appear", "slide_down", "appearTime", "0.5");
-        list.children.add(el("image", "list_back", "top_left", 0, 0, 254, 212, "image", img(s.panel, "gui/shop/base_1")));
+        list.children.add(el("image", "list_back", "top_left", 0, 0, 254, 212, "image", img(s.panel, "gui/store/list")));
         list.children.add(el("shop_goods", "goods", "top_left", 38, 41, 182, 140, "priceColor", "#FFE2D7C4", "sellColor", hex(s.sellColor),
                 "mutedColor", hex(s.mutedColor), "cell", own(s.cell), "cellOn", own(s.cellOn), "locked", own(s.locked), "sold", own(s.sold)));
         list.children.add(el("shop_slider", "slider", "top_left", 239, 23, 9, 162, "image", own(s.slider)));
@@ -248,7 +248,7 @@ public final class EngineWindows {
         doc.elements.add(el("shop_money", "money", "top_left", ow[0] + om[0] + 148, ow[1] + om[1] + 6, 90, 13, "textColor", hex(s.priceColor),
                 "appear", "slide_down", "appearTime", "0.5"));
         GuiDoc.Element card = el("group", "card", "top_left", ow[0] + oc[0] + 269, ow[1] + oc[1], 176, 262, "appear", "slide_down", "appearTime", "0.5");
-        card.children.add(el("image", "card_back", "top_left", 0, 0, 176, 262, "image", img(s.detail, "gui/shop/base_2")));
+        card.children.add(el("image", "card_back", "top_left", 0, 0, 176, 262, "image", img(s.detail, "gui/store/card")));
         card.children.add(el("shop_item", "item", "top_left", 72, 55, 40, 32));
         card.children.add(el("shop_info", "info", "top_left", 27, 118, 145, 76, "priceColor", hex(s.priceColor), "sellColor", hex(s.sellColor)));
         card.children.add(el("shop_arrows", "arrows", "top_left", 48, 102, 82, 15,
@@ -266,8 +266,8 @@ public final class EngineWindows {
     private static GuiDoc chatlog(EngineConfig cfg) {
         GuiDoc doc = doc("История чата", "fit", 480, 270);
         int w = Math.round(270 * 1.1043478f);
-        doc.elements.add(el("image", "back", "center", 0, 0, w, 270, "image", img(cfg.chatLog.back, "gui/chatlog/bg")));
-        doc.elements.add(el("image", "frame", "center", 0, 0, w, 270, "image", img(cfg.chatLog.frame, "gui/chatlog/bgframe")));
+        doc.elements.add(el("image", "back", "center", 0, 0, w, 270, "image", img(cfg.chatLog.back, "gui/log/back")));
+        doc.elements.add(el("image", "frame", "center", 0, 0, w, 270, "image", img(cfg.chatLog.frame, "gui/log/frame")));
         return doc;
     }
 }

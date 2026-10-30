@@ -181,7 +181,7 @@ public class EngineTab extends EditorTab {
         s.level = 7;
         s.coins = 1250;
         s.selected = 1;
-        s.hotbarSize = cfg.slots ? 5 : 9;
+        s.hotbarSize = cfg.slots ? cfg.hotbarSize : 9;
         ItemStack[] items = {new ItemStack(Items.IRON_SWORD), new ItemStack(Items.BREAD, 12), new ItemStack(Items.TORCH, 48),
                 new ItemStack(Items.OAK_PLANKS, 64), new ItemStack(Items.MAP), new ItemStack(Items.APPLE, 3),
                 ItemStack.EMPTY, new ItemStack(Items.COMPASS), new ItemStack(Items.WATER_BUCKET)};
@@ -218,6 +218,17 @@ public class EngineTab extends EditorTab {
             if (!v && selected.equals("coins")) selected = "health";
             buildForm();
         });
+        form.toggle("Часы мира", "Своё время суток: долгий день, заморозка, счётчик дней. Выключено — обычная смена дня и ночи",
+                () -> cfg.time, v -> {
+                    cfg.time = v;
+                    buildForm();
+                });
+        form.toggle("Свой инвентарь", "Модель игрока и только разрешённые ячейки вместо обычного инвентаря", () -> cfg.inventory, v -> cfg.inventory = v);
+        form.toggle("Блокировка слотов", "Часть ячеек хотбара закрыта; в творческом режиме ограничений нет", () -> cfg.slots, v -> {
+            cfg.slots = v;
+            buildForm();
+        });
+        if (cfg.slots) form.decimal("Открытых ячеек", () -> cfg.hotbarSize, v -> cfg.hotbarSize = (int) Math.max(1, Math.min(9, v)));
         form.toggle("Скрывать чат", "Сообщения игроков не показываются в чате. Сюжет всё равно их получает: on chat",
                 () -> cfg.chat, v -> cfg.chat = v);
         form.header("Время суток");
@@ -229,7 +240,8 @@ public class EngineTab extends EditorTab {
                         buildForm();
                     });
         }
-        if (clock.manage) {
+        if (cfg.time) form.note("Время ведут часы мира; день длится 80 минут");
+        else if (clock.manage) {
             {
                 form.dropdown("Время стоит", "Зафиксировать время суток (день не идёт)", () -> FIXED_TIMES, () -> clock.fixed,
                         EngineTab::fixedTitle, v -> {
@@ -649,6 +661,13 @@ public class EngineTab extends EditorTab {
                 form.number("Ширина", () -> e.width, v -> e.width = Math.max(2, v));
                 form.number("Высота", () -> e.height, v -> e.height = Math.max(2, v));
                 form.number("Отступ заливки", () -> e.pad, v -> e.pad = Math.max(0, v));
+                form.dropdown("Куда заполняется", null, () -> List.of("right", "left", "up", "down"), () -> e.fillDir,
+                        v -> switch (v) {
+                            case "left" -> "Влево";
+                            case "up" -> "Снизу вверх";
+                            case "down" -> "Сверху вниз";
+                            default -> "Вправо";
+                        }, v -> e.fillDir = v);
                 form.skin("Фон", e.back);
                 form.skin("Заливка", e.fill);
                 form.skin("Рамка", e.frame);
@@ -679,7 +698,7 @@ public class EngineTab extends EditorTab {
                 form.skin("Подложка", e.back);
                 form.color("Цвет числа", () -> e.textColor, v -> e.textColor = v);
             }
-            case "storytelling" -> form.note("Широкая рамка, выделение и замки слотов из движка Spraute");
+            case "classic" -> form.note("Широкая рамка, выделение и замки слотов из движка Spraute");
             default -> form.note("Обычный вид игры. Выберите другой вид, чтобы поставить свои текстуры");
         }
     }

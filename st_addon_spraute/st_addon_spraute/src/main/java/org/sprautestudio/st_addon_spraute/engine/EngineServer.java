@@ -57,6 +57,7 @@ public final class EngineServer {
             return;
         }
         clockPending = false;
+        if (config.time) return;
         EngineConfig.Clock k = config.clock;
         if (!k.manage) return;
         boolean run = k.cycle && k.fixed < 0;
@@ -66,6 +67,10 @@ public final class EngineServer {
 
     /** Sets the time of day keeping the day number. */
     public static void setTimeOfDay(MinecraftServer server, long timeOfDay) {
+        if (config.time) {
+            org.sprautestudio.st_addon_spraute.core.system.WorldClock.setTimeOfDay(server, timeOfDay);
+            return;
+        }
         net.minecraft.server.level.ServerLevel level = server.overworld();
         if (level == null) return;
         long day = Math.floorDiv(level.getDayTime(), 24000L);
@@ -75,6 +80,10 @@ public final class EngineServer {
     }
 
     public static void addTime(MinecraftServer server, long ticks) {
+        if (config.time) {
+            org.sprautestudio.st_addon_spraute.core.system.WorldClock.add(server, ticks);
+            return;
+        }
         long now = server.overworld().getDayTime();
         for (net.minecraft.server.level.ServerLevel l : server.getAllLevels()) l.setDayTime(now + ticks);
         syncTime(server);
@@ -88,8 +97,9 @@ public final class EngineServer {
         }
     }
 
-    /** Every server tick: a faster or slower day. */
+    /** Every server tick: a faster or slower day, or the world's own clock. */
     public static void tick(MinecraftServer server) {
+        if (config.time && server.overworld() != null) org.sprautestudio.st_addon_spraute.core.system.WorldClock.tick(server);
         if (clockPending) {
             try {
                 applyClock(server);
@@ -115,6 +125,7 @@ public final class EngineServer {
     }
 
     public static void set(MinecraftServer server, EngineConfig c) {
+        if (config.time && !c.time) org.sprautestudio.st_addon_spraute.core.system.WorldClock.release(server);
         config = c;
         applyClock(server);
         Path f = file(server);

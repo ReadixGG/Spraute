@@ -45,6 +45,8 @@ public class SprauteScriptInstance extends ScriptInstance {
     final Map<String, Object> vars = new LinkedHashMap<>();
     final Map<String, Character<?>> characters = new HashMap<>();
     final Map<String, Ast.LocationDecl> locationDecls = new HashMap<>();
+    /** How strongly this story holds each character against other stories. */
+    final Map<String, Integer> priorities = new HashMap<>();
     /** Speech icon of each declared character. */
     final Map<String, String> speechIcons = new HashMap<>();
     /** Name colours in speech: character name (or "player") -> 0xRRGGBB. */
@@ -60,6 +62,28 @@ public class SprauteScriptInstance extends ScriptInstance {
     int lastAnswer;
     /** Number of the choice menu waiting for an answer (answers to older menus are ignored). */
     int choiceSeq;
+
+    /** Clips the speaker plays with each paragraph of the open dialog, and who plays them. */
+    private java.util.List<String> paragraphAnims = java.util.List.of();
+    private net.minecraft.world.entity.Entity dialogSpeaker;
+
+    void openDialog(net.minecraft.world.entity.Entity speaker, java.util.List<String> anims) {
+        dialogSpeaker = speaker;
+        paragraphAnims = anims;
+        playParagraph(0);
+    }
+
+    private void playParagraph(int i) {
+        if (dialogSpeaker == null || i < 0 || i >= paragraphAnims.size() || paragraphAnims.get(i).isBlank()) return;
+        org.sprautestudio.st_addon_spraute.fight.Fights.play(dialogSpeaker, paragraphAnims.get(i).trim(), false, false);
+    }
+
+    /** The player went on to the next paragraph. */
+    public static void paragraph(int scriptId, int choiceId, int index) {
+        SprauteRuntime.env().ifPresent(env -> {
+            if (env.scriptInstances.get(scriptId) instanceof SprauteScriptInstance s && s.choiceSeq == choiceId) s.playParagraph(index);
+        });
+    }
 
     /** An answer from the engine's choice menu. */
     public static void answer(int scriptId, int choiceId, int answer) {
@@ -130,6 +154,16 @@ public class SprauteScriptInstance extends ScriptInstance {
         builder.build(this::registerMainPerformer);
     }
 
+    @Override
+    public int priorityOf(Character<?> c) {
+        return priorities.getOrDefault(c.getId(), 0);
+    }
+
+    /** Whether this story is the one acting on the character's body. */
+    boolean controls(Character<?> c) {
+        return org.sprautestudio.st_addon_spraute.core.script.Characters.controls(this, c);
+    }
+
     private Character<?> createCharacter(Ast.CharacterDecl c) {
         try {
             if (c.existing != null) {
@@ -139,10 +173,9 @@ public class SprauteScriptInstance extends ScriptInstance {
                 return found;
             }
             String type = Eval.str(eval.eval(c.type));
-            if (type.equals("spraute:npc") || type.startsWith("storytelling:")) {
-                // the default body; stories written for Spraute's characters get it too
-                if (type.startsWith("storytelling:")) SprauteRuntime.get().report(getId(), "Персонаж " + c.name + ": сущности " + type + " больше нет, показана стандартная модель (spraute:npc)");
-                characterModels.put(c.name, org.sprautestudio.st_addon_spraute.runtime.models.EntityLibrary.BUILTIN);
+            if (type.equals("spraute:npc") || type.equals("spraute:npc_slim")) {
+                characterModels.put(c.name, type.equals("spraute:npc") ? org.sprautestudio.st_addon_spraute.runtime.models.EntityLibrary.BUILTIN
+                        : org.sprautestudio.st_addon_spraute.runtime.models.EntityLibrary.BUILTIN_SLIM);
                 type = org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID + ":model";
             } else if (type.startsWith("spraute:")) {
                 var et = org.sprautestudio.st_addon_spraute.runtime.models.EntityLibrary.find(deployed.project, type);
@@ -158,7 +191,9 @@ public class SprauteScriptInstance extends ScriptInstance {
             String display = c.displayName != null ? Eval.str(eval.eval(c.displayName)) : c.name;
             Double speed = c.speed != null ? Eval.num(eval.eval(c.speed)) : null;
             String skin = c.skin != null ? Eval.str(eval.eval(c.skin)) : null;
-            String refId = "spraute_" + getId() + "_" + c.name;
+            // an id of its own: stories that give the same id share the character
+            String refId = c.sharedId != null ? Eval.str(eval.eval(c.sharedId)) : "spraute_" + getId() + "_" + c.name;
+            priorities.put(refId, c.priority != null ? (int) Eval.num(eval.eval(c.priority)) : 0);
             String entityType = type;
             String key = refId + "|" + type + "|" + display + "|" + speed + "|" + skin;
             return SprauteRuntime.get().characterCache.computeIfAbsent(key, k -> {

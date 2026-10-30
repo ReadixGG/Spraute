@@ -29,7 +29,6 @@ public final class Colors {
         name(0xFF55FF, "pink", "розовый");
         name(0xFF55FF, "light_purple", "сиреневый");
         name(0xAA00AA, "purple", "фиолетовый");
-        name(0x42C7FF, "storytelling", "сторителлинг");
     }
 
     private static void name(int rgb, String... names) {

@@ -20,6 +20,9 @@ public final class EngineConfig {
     public boolean time;
     public boolean inventory;
     public boolean slots;
+    /** Open hotbar slots (1–9) while slots are limited; the second hand: auto, off or on. */
+    public int hotbarSize = 5;
+    public String offhand = "auto";
     /** Hide what players write in chat (Spraute's story mode). */
     public boolean chat;
 
@@ -211,11 +214,6 @@ public final class EngineConfig {
         public float speed = 1;
         /** Time of day the world stays at (0..23999), or -1. */
         public int fixed = -1;
-        /**
-         * Shaders (Oculus) see this time instead of the real one, or -1 — the real time. Spraute
-         * forces 7000 by default, so with shaders the world looked lit at night.
-         */
-        public int shaderTime = -1;
     }
 
     /** HUD parts in drawing order. */
@@ -237,7 +235,7 @@ public final class EngineConfig {
     /** Styles a part can be drawn in; "default" is the game's own look. */
     public static List<String> styles(String key) {
         return switch (key) {
-            case "hotbar" -> List.of("default", "storytelling", "slots");
+            case "hotbar" -> List.of("default", "classic", "slots");
             case "exp" -> List.of("default", "bar");
             case "coins" -> List.of("default", "icon");
             default -> List.of("default", "bar", "icons");
@@ -249,7 +247,7 @@ public final class EngineConfig {
             case "bar" -> "Полоска (фон, заливка, рамка)";
             case "icons" -> "Ряд иконок (полная, половина, пустая)";
             case "slots" -> "Свои слоты (свои текстуры)";
-            case "storytelling" -> "Хотбар Spraute";
+            case "classic" -> "Хотбар Spraute";
             case "icon" -> "Картинка и число";
             default -> "Стандартный";
         };
@@ -257,7 +255,7 @@ public final class EngineConfig {
 
     /** Styles drawn by the game itself (only moved, never redrawn). */
     public static boolean gameDrawn(String style) {
-        return style.equals("default") || style.equals("storytelling");
+        return style.equals("default") || style.equals("classic");
     }
 
     /** A texture drawn stretched or as a 9-slice (corners kept, edges and middle stretched). */
@@ -298,6 +296,8 @@ public final class EngineConfig {
         public int count = 10;
         /** Padding of a bar's fill; gap between icons or slots. */
         public int pad = 1, gap = 0;
+        /** Which way a bar fills: right, left, up, down. */
+        public String fillDir = "right";
         /** Icons fill from the right (like vanilla food). */
         public boolean reverse;
         public boolean text;
@@ -343,7 +343,7 @@ public final class EngineConfig {
 
     /** The story's choice menu. */
     public static final class Choice {
-        /** spraute — the engine's own menu; storytelling — Spraute's dialog window. */
+        /** spraute — the engine's own menu; classic — Spraute's dialog window. */
         public String style = "spraute";
         /** Who is drawn beside the question: speaker, player, mob or none. */
         public String show = "speaker";
@@ -486,10 +486,8 @@ public final class EngineConfig {
         hudJson = "";
         quests.fix();
         zoneTitle.fix();
-        // the systems that lived in the old engine
-        time = false;
-        inventory = false;
-        slots = false;
+        hotbarSize = Math.max(1, Math.min(9, hotbarSize));
+        if (offhand == null) offhand = "auto";
         shop.fix();
         clock.speed = Math.max(0.05f, Math.min(50, clock.speed));
         choice.fix();

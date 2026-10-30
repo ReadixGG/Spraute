@@ -20,16 +20,16 @@ public final class CutsceneDoc {
     /** Cinema bars: share of the screen height covered at the top and at the bottom. */
     public float bars = 0.11f;
     public boolean hideHud = true;
-    /** Which interface the cutscene hides: none, minecraft, storytelling, custom or all (null: from hideHud). */
+    /** Which interface the cutscene hides: none, minecraft, classic, custom or all (null: from hideHud). */
     public String hide;
 
-    public static final java.util.List<String> HIDE_MODES = java.util.List.of("all", "minecraft", "storytelling", "custom", "none");
+    public static final java.util.List<String> HIDE_MODES = java.util.List.of("all", "minecraft", "classic", "custom", "none");
 
     public static String hideTitle(String m) {
         return switch (m) {
             case "all" -> "весь интерфейс";
             case "minecraft" -> "Minecraft (хотбар, сердца, прицел…)";
-            case "storytelling" -> "Spraute (HP, монеты, подсказки)";
+            case "classic" -> "Spraute (HP, монеты, подсказки)";
             case "custom" -> "свои наложения (overlay)";
             default -> "ничего не скрывать";
         };

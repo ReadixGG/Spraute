@@ -42,10 +42,10 @@ public final class ChoiceLayout {
         return new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/" + path + ".png");
     }
 
-    private static final ResourceLocation SHADOW = st("gui/dialog/dialog_shadow"), NAMEPLATE = st("gui/dialog/dialog_name"),
-            TOP = st("gui/dialog/answer_top"), MID = st("gui/dialog/answer_mid"), BOTTOM = st("gui/dialog/answer_bottom"),
-            TOP_SEL = st("gui/dialog/answer_top_selected"), MID_SEL = st("gui/dialog/answer_mid_selected"),
-            BOTTOM_SEL = st("gui/dialog/answer_bottom_selected");
+    private static final ResourceLocation SHADOW = st("gui/talk/fade"), NAMEPLATE = st("gui/talk/divider"),
+            TOP = st("gui/talk/answer_top"), MID = st("gui/talk/answer_mid"), BOTTOM = st("gui/talk/answer_bottom"),
+            TOP_SEL = st("gui/talk/answer_top_hot"), MID_SEL = st("gui/talk/answer_mid_hot"),
+            BOTTOM_SEL = st("gui/talk/answer_bottom_hot");
 
     /** Spraute's sizes: button 166 wide with 16-pixel caps, text 15 from the left and 12 from the right. */
     private static final int BTN_W = 166, CAP = 16, TEXT_LEFT = 15, TEXT_RIGHT = 12, GAP = 5;
@@ -110,7 +110,16 @@ public final class ChoiceLayout {
 
     /** What is drawn: who, what is said and how far the text has been typed. */
     public record Content(String name, String question, int typed, List<String> answers, int selected, LivingEntity subject,
-                          float mouseX, float mouseY) {
+                          float mouseX, float mouseY, List<Boolean> locked, int textScroll, List<Boolean> centered, ResourceLocation portrait) {
+        public Content(String name, String question, int typed, List<String> answers, int selected, LivingEntity subject, float mouseX, float mouseY) {
+            this(name, question, typed, answers, selected, subject, mouseX, mouseY, List.of(), -1, List.of(), null);
+        }
+    }
+
+    /** Lines over the text area's height (the screen scrolls by this much at most). */
+    public static int textOverflow(EngineConfig.Choice c, Font font, int w, int h, List<String> answers, String text) {
+        int[] t = rects(c, font, w, h, answers).get("text");
+        return Math.max(0, font.split(Component.literal(text), t[2]).size() * 9 - t[3]);
     }
 
     public static void draw(GuiGraphics g, Font font, EngineConfig cfg, int w, int h, Content ct) {
@@ -128,7 +137,10 @@ public final class ChoiceLayout {
         int[] f = r.get("portrait");
         if (c.portrait.isSet()) Skins.draw(g, project, c.portrait, f[0], f[1], f[2], f[3]);
         LivingEntity e = ct.subject();
-        if (e != null && !c.show.equals("none")) {
+        if (ct.portrait() != null) {
+            RenderSystem.enableBlend();
+            g.blit(ct.portrait(), f[0], f[1], 0, 0, f[2], f[3], f[2], f[3]);
+        } else if (e != null && !c.show.equals("none")) {
             // the crop: what of the frame shows the figure
             int cl = Math.max(0, c.cropLeft), cr = Math.max(0, c.cropRight), ctp = Math.max(0, c.cropTop), cb = Math.max(0, c.cropBottom);
             int[] clip = ChatHeads.screenRect(g, f[0] + cl, f[1] + ctp, Math.max(1, f[2] - cl - cr), Math.max(1, f[3] - ctp - cb));
@@ -166,16 +178,24 @@ public final class ChoiceLayout {
         MutableComponent shown = Component.literal(q.substring(0, typed));
         if (typed < q.length()) shown.append(Component.literal("d").withStyle(ChatFormatting.OBFUSCATED));
         List<FormattedCharSequence> lines = font.split(shown, t[2]);
-        int scroll = Math.max(0, lines.size() * 9 - t[3]);
+        int most = Math.max(0, lines.size() * 9 - t[3]);
+        // new lines scroll into view by themselves; the wheel looks back
+        int scroll = ct.textScroll() < 0 ? most : Math.min(most, ct.textScroll());
         int[] clip = ChatHeads.screenRect(g, t[0], t[1], t[2] + 4, t[3]);
         g.enableScissor(clip[0], clip[1], clip[2], clip[3]);
         for (int i = 0; i < lines.size(); i++) g.drawString(font, lines.get(i), t[0], t[1] + 9 * i - scroll, c.textColor, false);
         g.disableScissor();
+        if (most > 0) {
+            int bar = Math.max(6, t[3] * t[3] / (lines.size() * 9));
+            int by = t[1] + (t[3] - bar) * scroll / most;
+            g.fill(t[0] + t[2] + 2, by, t[0] + t[2] + 4, by + bar, 0xA0FFFFFF);
+        }
 
         if (ct.selected() < -1) return;
         for (int i = 0; i < ct.answers().size(); i++) {
             int[] b = r.get("answer" + i);
-            boolean hot = i == ct.selected();
+            boolean off = i < ct.locked().size() && ct.locked().get(i);
+            boolean hot = i == ct.selected() && !off;
             EngineConfig.Skin skin = hot && c.buttonHover.isSet() ? c.buttonHover : c.button;
             if (skin.isSet()) Skins.draw(g, project, skin, b[0], b[1], b[2], b[3]);
             else {
@@ -184,13 +204,18 @@ public final class ChoiceLayout {
                 blit3(g, hot ? MID_SEL : MID, b[0], b[1] + CAP, b[2], mid, 8);
                 blit3(g, hot ? BOTTOM_SEL : BOTTOM, b[0], b[1] + CAP + mid, b[2], CAP, CAP);
             }
-            List<FormattedCharSequence> al = answerLines(c, font, ct.answers().get(i));
+            String answerText = ct.answers().get(i);
+            // a closed answer: crossed out while Shift is held
+            List<FormattedCharSequence> al = off && net.minecraft.client.gui.screens.Screen.hasShiftDown()
+                    ? font.split(Component.literal(answerText).withStyle(ChatFormatting.STRIKETHROUGH), Math.max(10, (int) ((answerW(c, font, answerText) - TEXT_LEFT - TEXT_RIGHT) / c.answerTextScale)))
+                    : answerLines(c, font, answerText);
             float ts = c.answerTextScale;
             for (int k = 0; k < al.size(); k++) {
                 g.pose().pushPose();
-                g.pose().translate(b[0] + TEXT_LEFT, b[1] + CAP - 1 + 9 * k * ts, 0);
+                boolean middle = i < ct.centered().size() && ct.centered().get(i);
+                g.pose().translate(middle ? b[0] + (b[2] - font.width(al.get(k)) * ts) / 2 : b[0] + TEXT_LEFT, b[1] + CAP - 1 + 9 * k * ts, 0);
                 g.pose().scale(ts, ts, 1);
-                g.drawString(font, al.get(k), 0, 0, hot ? c.answerHoverColor : c.answerColor, false);
+                g.drawString(font, al.get(k), 0, 0, off ? 0xFF808080 : hot ? c.answerHoverColor : c.answerColor, false);
                 g.pose().popPose();
             }
         }

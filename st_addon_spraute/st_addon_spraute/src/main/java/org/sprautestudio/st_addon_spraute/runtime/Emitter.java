@@ -374,7 +374,14 @@ final class Emitter {
                 } finally {
                     handlerWait = false;
                 }
-                statements(sub, on.body);
+                // a press of a key is an instant: speech in its handler must not hold the next press back until F8
+                boolean outer = keyHandler;
+                keyHandler = on.event.key.equals("wait key");
+                try {
+                    statements(sub, on.body);
+                } finally {
+                    keyHandler = outer;
+                }
                 sub.thenDelay(1);
                 sub.gotoLabel(loop, true);
             });
@@ -457,7 +464,7 @@ final class Emitter {
         b.thenClearMovement(ch);
         b.thenRun(guard(() -> {
             net.minecraft.world.entity.Entity e = script.optional((Character<?>) ch).orElse(null);
-            if (e == null) return;
+            if (e == null || !script.controls(ch)) return;
             var d = new org.sprautestudio.st_addon_spraute.path.PathDef();
             for (Location l : route.get()) if (l != null) d.points.add(new org.sprautestudio.st_addon_spraute.path.PathDef.Point(l.x, l.y, l.z));
             d.speed = Math.max(0.05, number(speedE, WALK_SPEED));
@@ -477,6 +484,7 @@ final class Emitter {
         String name = c.character;
         List<Expr> texts = new ArrayList<>();
         for (ChoiceOption o : c.options) texts.add(o.text);
+        Expr nodeEmotion = c.emotion;
         List<String> branches = new ArrayList<>();
         for (int i = 0; i < c.options.size(); i++) branches.add(freshLabel("opt" + (i + 1)));
         String end = freshLabel("choice_end");
@@ -489,10 +497,20 @@ final class Emitter {
             String modelKey = script.characterModels.get(name);
             if (modelKey != null && en instanceof org.sprautestudio.st_addon_spraute.runtime.models.SprauteModelEntity me
                     && !modelKey.equals(me.model())) me.setModel(modelKey);
-            List<String> answers = new ArrayList<>();
+            List<String> answers = new ArrayList<>(), emotions = new ArrayList<>();
+            List<Boolean> locked = new ArrayList<>(), centered = new ArrayList<>();
             for (Expr t : texts) answers.add(text(t));
+            for (ChoiceOption o : c.options) {
+                locked.add(o.locked != null && Eval.truthy(eval.eval(o.locked)));
+                emotions.add(o.emotion != null ? emotionName(o.emotion) : "");
+                centered.add(o.center);
+            }
+            var picture = script.portraits.get(name);
+            if (en != null) script.openDialog(en, c.anims != null ? List.of(text(c.anims).split(";")) : List.of());
+            String face = nodeEmotion != null ? emotionName(nodeEmotion) : "NEUTRAL";
+            if (en instanceof AnimatedEntity ae) Anims.showEmotion(ae, face);
             org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendTo(p, new org.sprautestudio.st_addon_spraute.net.Packets.ChoiceOpen(
-                    script.getId(), script.choiceSeq, owner.getName(), text(c.text), answers, en != null ? en.getId() : -1));
+                    script.getId(), script.choiceSeq, owner.getName(), text(c.text), answers, en != null ? en.getId() : -1, locked, emotions, face, centered, picture != null ? picture.toString() : ""));
         });
         b.thenWaitUntil(() -> script.lastAnswer != 0);
         b.gotoLabel(() -> {
@@ -531,14 +549,14 @@ final class Emitter {
                 if (c.arg("who") instanceof Ident sid && script.characters.containsKey(sid.name)) headSync(b, sid.name);
                 int slot = speakerSlot(b, c.arg("who"));
                 Expr text = c.arg("text");
-                boolean wait = c.arg("nowait") == null;
+                boolean wait = c.arg("nowait") == null && !keyHandler;
                 Supplier<Component> hint = wait && org.sprautestudio.st_addon_spraute.engine.EngineServer.config().chatLog.f8Hint
                         ? () -> Component.literal("▸ F8") : null;
                 b.thenSpeechMessage(slot, hint, (Supplier<Component>) () -> Component.literal(safeText(text)), wait);
             }
             case "think" -> {
                 Expr text = c.arg("text");
-                b.thenThink((Supplier<Component>) () -> Component.literal(safeText(text)), c.arg("nowait") == null);
+                b.thenThink((Supplier<Component>) () -> Component.literal(safeText(text)), c.arg("nowait") == null && !keyHandler);
             }
             case "clearchat" -> b.clearChat();
             case "title" -> {
@@ -579,7 +597,8 @@ final class Emitter {
             case "wait key" -> {
                 Expr k = c.arg("key");
                 String name = k instanceof Ident id ? id.name : text(k);
-                b.thenWaitForKey(name.toLowerCase(java.util.Locale.ROOT));
+                if (handlerWait) b.thenWaitForEachKey(name.toLowerCase(java.util.Locale.ROOT));
+                else b.thenWaitForKey(name.toLowerCase(java.util.Locale.ROOT));
             }
             case "wait trigger" -> b.thenWaitForTrigger();
             case "wait chat" -> {
@@ -623,7 +642,7 @@ final class Emitter {
             }
             case "wait enter" -> b.thenWhenPlayerEnterBox(box(c.arg("from"), c.arg("to")));
             case "wait exit" -> b.thenWhenPlayerExitBox(box(c.arg("from"), c.arg("to")));
-            case "wait visible" -> b.thenWaitCharacterVisible(character(c.arg("who")));
+            case "wait visible" -> b.thenWaitCharacterVisible(character(c.arg("who")), c.arg("nosight") == null);
 
             // characters
             case "spawn" -> {
@@ -673,6 +692,7 @@ final class Emitter {
                 b.thenRun(guard(() -> {
                     net.minecraft.world.entity.Entity e = script.optional((Character<?>) ch).orElse(null);
                     if (e == null) throw new SprauteRuntimeException("Персонажа нет в мире — сначала spawn");
+                    if (!script.controls(ch)) return;
                     String n = text(pathE);
                     String json = SprauteRuntime.get().gui(script.deployed.project, "path:" + n);
                     if (json == null) {
@@ -693,7 +713,7 @@ final class Emitter {
             }
             case "stopwalk" -> {
                 Character ch = character(c.arg("who"));
-                b.thenRun(() -> org.sprautestudio.st_addon_spraute.path.Walkers.stop((net.minecraft.world.entity.Entity) script.optional((Character<?>) ch).orElse(null)));
+                b.thenClearMovement(ch);
             }
             case "path" -> {
                 List<Expr> points = new ArrayList<>();
@@ -707,41 +727,11 @@ final class Emitter {
             }
             case "look" -> {
                 Character who = character(c.arg("who"));
-                Expr target = c.arg("target");
                 // aim at the eyes: an entity's position is at its feet
-                Supplier<Location> at = eyesSupplier(target);
-                if (c.arg("always") == null) {
-                    b.entityLookAt(who, at);
-                } else {
-                    // keep looking: a background branch re-aims every few ticks until stoplook
-                    String name = "__look_" + ((Ident) c.arg("who")).name;
-                    // a walker keeps its head on the target while its body goes its way
-                    b.thenRun(() -> org.sprautestudio.st_addon_spraute.path.Walkers.lookAt(
-                            (net.minecraft.world.entity.Entity) script.optional((Character<?>) who).orElse(null), () -> {
-                                Location l = at.get();
-                                return l == null ? null : new net.minecraft.world.phys.Vec3(l.x, l.y, l.z);
-                            }));
-                    branch(b, name, sub -> {
-                        String loop = freshLabel("look");
-                        sub.label(loop);
-                        sub.entityLookAt(who, at, true, false);
-                        sub.thenDelay(4);
-                        sub.gotoLabel(loop, true);
-                    });
-                }
+                b.entityLookAt(who, eyesSupplier(c.arg("target")), c.arg("instant") != null);
+                if (c.arg("wait") != null) b.thenWaitLook(who);
             }
-            case "stoplook" -> {
-                String name = "__look_" + ((Ident) c.arg("who")).name;
-                Character lw = character(c.arg("who"));
-                // a plain "look … at": its target is kept on the body
-                b.thenRun(() -> {
-                    if (script.optional((Character<?>) lw).orElse(null) instanceof AnimatedEntity ae) ae.setLookTarget(null);
-                });
-                b.thenRun(() -> org.sprautestudio.st_addon_spraute.path.Walkers.lookAt(
-                        (net.minecraft.world.entity.Entity) script.optional((Character<?>) lw).orElse(null), null));
-                b.removeParallelPerformer(name);
-                b.thenRun(() -> script.vars.put(runningFlag(name), false));
-            }
+            case "stoplook" -> b.entityStopLook(character(c.arg("who")));
             case "follow" -> {
                 Expr target = c.arg("target");
                 if (target instanceof Ident id && script.characters.containsKey(id.name)) {
@@ -761,7 +751,26 @@ final class Emitter {
             case "walkspeed" -> b.entityMoveSpeed(character(c.arg("who")), number(c.arg("speed"), 1.0));
             case "wander" -> b.thenEntityRandomWalk(character(c.arg("who")), number(c.arg("speed"), 1.0), 10,
                     number(c.arg("radius"), 8.0));
-            case "sit" -> b.entitySit(character(c.arg("who")));
+            case "sit" -> b.entitySit(character(c.arg("who")), c.arg("pos") != null ? locationSupplier(c.arg("pos")) : null);
+            case "clearbehavior" -> {
+                String t = text(c.arg("type")).toUpperCase(java.util.Locale.ROOT);
+                try {
+                    b.thenClearBehaviour(character(c.arg("who")), org.sprautestudio.st_addon_spraute.core.script.Behaviours.Type.valueOf(t));
+                } catch (IllegalArgumentException ex) {
+                    throw new SprauteRuntimeException("Нет такого типа поведения: " + t + " (movement, look, combat, speech, action, interaction, emotion, complex)");
+                }
+            }
+            case "fly" -> {
+                Supplier<Location> to = locationSupplier(c.arg("target"));
+                Character ch = character(c.arg("who"));
+                b.thenRun(guard(() -> {
+                    net.minecraft.world.entity.Entity e = script.optional((Character<?>) ch).orElse(null);
+                    if (e != null && script.controls(ch)) org.sprautestudio.st_addon_spraute.path.Walkers.fly(e, to.get(), number(c.arg("speed"), WALK_SPEED));
+                }));
+                b.thenWaitUntil(() -> !org.sprautestudio.st_addon_spraute.path.Walkers.walking((net.minecraft.world.entity.Entity) script.optional((Character<?>) ch).orElse(null)));
+            }
+            case "refuse" -> b.refuse(character(c.arg("who")), (int) number(c.arg("times"), 1));
+            case "wait dimension" -> b.thenWhenPlayerInDimension(id(c.arg("dim")));
             case "stand" -> b.entityStopSit(character(c.arg("who")));
             case "name" -> {
                 Expr name = c.arg("name");
@@ -945,6 +954,27 @@ final class Emitter {
                     timing(o, cc);
                     camera(o);
                 }));
+            }
+            case "slots" -> {
+                Expr countE = c.arg("count"), offE = c.arg("offhand");
+                b.thenRun(guard(() -> {
+                    var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+                    if (server == null) return;
+                    var cfg = org.sprautestudio.st_addon_spraute.engine.EngineServer.config().copy();
+                    cfg.slots = true;
+                    cfg.hotbarSize = (int) Math.max(1, Math.min(9, number(countE, 9)));
+                    if (offE != null) cfg.offhand = offE instanceof Ident oid ? oid.name : text(offE);
+                    org.sprautestudio.st_addon_spraute.engine.EngineServer.set(server, cfg);
+                }));
+            }
+            case "time task" -> timeTask(b, c);
+            case "time taskstop" -> {
+                Expr idE = c.arg("id");
+                b.thenRun(guard(() -> org.sprautestudio.st_addon_spraute.core.system.WorldClock.removeTask(text(idE))));
+            }
+            case "camera carry" -> {
+                Expr value = c.arg("value");
+                b.thenRun(guard(() -> org.sprautestudio.st_addon_spraute.core.system.CameraState.carry(SprauteRuntime.player(), Eval.truthy(eval.eval(value)))));
             }
             case "fight tune" -> {
                 Expr who = c.arg("who");
@@ -1364,6 +1394,22 @@ final class Emitter {
                 b.thenRun(guard(() -> {
                     var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
                     if (server == null) return;
+                    if (org.sprautestudio.st_addon_spraute.engine.EngineServer.config().time) {
+                        switch (kind) {
+                            case "set" -> {
+                                if (c.arg("day") != null) org.sprautestudio.st_addon_spraute.core.system.WorldClock.set(server, (long) number(c.arg("day"), 0), timeOfDay(value));
+                                else org.sprautestudio.st_addon_spraute.core.system.WorldClock.setTimeOfDay(server, timeOfDay(value));
+                            }
+                            case "add" -> org.sprautestudio.st_addon_spraute.core.system.WorldClock.add(server, (long) number(value, 0));
+                            case "speed" -> org.sprautestudio.st_addon_spraute.core.system.WorldClock.setFactor(server, number(value, 1));
+                            case "freeze" -> {
+                                if (value != null) org.sprautestudio.st_addon_spraute.core.system.WorldClock.setTimeOfDay(server, timeOfDay(value));
+                                org.sprautestudio.st_addon_spraute.core.system.WorldClock.freeze(server);
+                            }
+                            default -> org.sprautestudio.st_addon_spraute.core.system.WorldClock.unfreeze(server, c.arg("back") != null);
+                        }
+                        return;
+                    }
                     switch (kind) {
                         case "set" -> org.sprautestudio.st_addon_spraute.engine.EngineServer.setTimeOfDay(server, timeOfDay(value));
                         case "add" -> org.sprautestudio.st_addon_spraute.engine.EngineServer.addTime(server, (long) number(value, 0));
@@ -1431,7 +1477,7 @@ final class Emitter {
                 b.thenRun(guard(() -> {
                     String w = text(what).trim().toLowerCase(java.util.Locale.ROOT);
                     if (!org.sprautestudio.st_addon_spraute.cutscene.CutsceneDoc.HIDE_MODES.contains(w))
-                        throw new SprauteRuntimeException("camera hide: ожидалось all, minecraft, storytelling, custom или none, а не «" + w + "»");
+                        throw new SprauteRuntimeException("camera hide: ожидалось all, minecraft, classic, custom или none, а не «" + w + "»");
                     com.google.gson.JsonObject o = op("hud");
                     o.addProperty("value", w);
                     camera(o);
@@ -1512,16 +1558,16 @@ final class Emitter {
                     p.serverLevel().sendParticles(simple, at.x, at.y + 1, at.z, n, sp, sp, sp, speed != null ? number(speed, 0.02) : 0.02);
                 }));
             }
-            case "coins give", "coins take", "coins set" -> {
+            case "coins give", "coins take", "coins set", "coins need" -> {
                 Expr amount = c.arg("amount");
                 String k = c.key;
                 b.thenRun(guard(() -> {
                     int n = (int) Eval.num(eval.eval(amount));
                     switch (k) {
-                        case "coins give" -> org.sprautestudio.st_addon_spraute.core.system.Coins.add(n);
-                        case "coins take" -> org.sprautestudio.st_addon_spraute.core.system.Coins.set(
-                                Math.max(0, org.sprautestudio.st_addon_spraute.core.system.Coins.get() - n));
-                        default -> org.sprautestudio.st_addon_spraute.core.system.Coins.set(Math.max(0, n));
+                        case "coins give" -> org.sprautestudio.st_addon_spraute.core.system.Coins.add(SprauteRuntime.player(), n);
+                        case "coins take" -> org.sprautestudio.st_addon_spraute.core.system.Coins.add(SprauteRuntime.player(), -Math.min(n, org.sprautestudio.st_addon_spraute.core.system.Coins.get(SprauteRuntime.player())));
+                        case "coins need" -> org.sprautestudio.st_addon_spraute.core.system.Coins.need(SprauteRuntime.player(), n);
+                        default -> org.sprautestudio.st_addon_spraute.core.system.Coins.set(SprauteRuntime.player(), n);
                     }
                 }));
             }
@@ -1539,12 +1585,13 @@ final class Emitter {
                         if (part <= 0) continue;
                         var e = new org.sprautestudio.st_addon_spraute.runtime.orb.SprauteOrb(org.sprautestudio.st_addon_spraute.runtime.orb.Orbs.ORB.get(), p.serverLevel());
                         e.setKind("coins");
-                        e.setLook("item:minecraft:gold_nugget");
+                        // the bigger the sum, the bigger it looks
+                        e.setLook(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID + ":textures/gui/" + (part < 10 ? "coin.png" : part < 100 ? "coin_2.png" : "coin_3.png"));
                         e.setColor(0xFFFFFFFF);
-                        e.setSize(0.25f);
-                        e.setLife(6000);
+                        e.setSize(part < 10 ? 0.25f : part < 100 ? 0.32f : 0.4f);
+                        e.setLife(1000);
                         e.coins = part;
-                        e.radius = 6;
+                        e.radius = 10;
                         e.pickup = true;
                         e.setPos(at.x + (rnd.nextDouble() - 0.5), at.y + 0.5, at.z + (rnd.nextDouble() - 0.5));
                         p.serverLevel().addFreshEntity(e);
@@ -1830,7 +1877,7 @@ final class Emitter {
             } else {
                 b.thenRun(guard(() -> {
                     ResourceLocation rl = skinTexture(text(skinE));
-                    org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendToAll(new org.sprautestudio.st_addon_spraute.net.Packets.PlayerSkin(rl == null ? "" : rl.toString()));
+                    org.sprautestudio.st_addon_spraute.core.system.PlayerTexture.set(rl);
                 }));
             }
             return;
@@ -1845,7 +1892,9 @@ final class Emitter {
         }
         b.thenRun(guard(() -> {
             ResourceLocation rl = skinTexture(text(skinE));
-            if (script.optional((Character<?>) ch).orElse(null) instanceof AnimatedEntity ae) ae.setTextureOverride(rl);
+            if (script.optional((Character<?>) ch).isPresent()) org.sprautestudio.st_addon_spraute.core.script.Characters.state(script, ch, "texture", en -> {
+                if (en instanceof AnimatedEntity ae) ae.setTextureOverride(rl);
+            });
             else throw new SprauteRuntimeException("skin: персонаж " + id.name + " ещё не появился (spawn)");
         }));
     }
@@ -1854,6 +1903,11 @@ final class Emitter {
     private long timeOfDay(Expr e) {
         Object v = e instanceof Ident id ? id.name : eval.eval(e);
         if (v instanceof String s) {
+            // "hours:minutes" on a 24-hour face; the game's day starts at six in the morning
+            if (s.trim().matches("\\d{1,2}:\\d{2}")) {
+                String[] hm = s.trim().split(":");
+                return Math.floorMod((Integer.parseInt(hm[0]) - 6) * 1000L + Integer.parseInt(hm[1]) * 1000L / 60, 24000L);
+            }
             return switch (s.trim().toLowerCase()) {
                 case "sunrise", "dawn" -> 0;
                 case "day", "morning" -> 1000;
@@ -1888,6 +1942,8 @@ final class Emitter {
 
     /** Set while the event command of an "on" handler is emitted: its cursor keeps going, so no event is missed. */
     private boolean handlerWait;
+    /** Set while the body of an "on key" handler is emitted. */
+    private boolean keyHandler;
 
     private void waitEvent(ScriptPerformerBuilder b, org.sprautestudio.st_addon_spraute.lang.EventDefs.Def ev, Expr what) {
         // an event of Forge or a mod: start listening to it on Forge's bus
@@ -1944,6 +2000,20 @@ final class Emitter {
         };
     }
 
+    private void timeTask(ScriptPerformerBuilder b, CommandStmt c) {
+        Expr idE = c.arg("id"), prE = c.arg("priority"), spE = c.arg("speed"), unE = c.arg("until");
+        b.thenRun(guard(() -> {
+            java.util.function.BooleanSupplier until = unE == null ? null : () -> {
+                try {
+                    return Eval.truthy(eval.eval(unE));
+                } catch (SprauteRuntimeException ex) {
+                    return true;
+                }
+            };
+            org.sprautestudio.st_addon_spraute.core.system.WorldClock.addTask(text(idE), (int) number(prE, 1), number(spE, 1), until);
+        }));
+    }
+
     private void guiUpdate(ScriptPerformerBuilder b, Expr el, String prop, Expr value) {
         b.thenRun(guard(() -> sendGuiUpdate(text(el), prop, safeText(value))));
     }
@@ -1975,6 +2045,7 @@ final class Emitter {
         double speed = number(c.arg("speed"), 1);
         int times = c.arg("times") != null ? Math.max(1, (int) number(c.arg("times"), 1)) : 0;
         ConfiguredAnimation ca = a.configure().transitionTime(fadeSeconds(c, 0.25f));
+        if (c.arg("from") != null) ca.startTime(ticks(c.arg("from")) / 20f);
         if (speed != 1) ca.speed((float) speed);
         if (c.arg("loop") != null || times > 1) ca.loopMode(LoopMode.LOOP);
         else if (c.arg("hold") != null) ca.loopMode(LoopMode.HOLD_ON_LAST_FRAME);
@@ -2045,14 +2116,9 @@ final class Emitter {
 
     // ------------------------------------------------------------------- helpers
 
+    /** A step whose error stops the story: the environment reports it with the number and the cause. */
     private Runnable guard(Runnable r) {
-        return () -> {
-            try {
-                r.run();
-            } catch (SprauteRuntimeException e) {
-                SprauteRuntime.get().report(script.getId(), e.getMessage());
-            }
-        };
+        return r;
     }
 
     private int speakerSlot(ScriptPerformerBuilder b, Expr who) {
@@ -2245,6 +2311,10 @@ final class Emitter {
         Item item = ForgeRegistries.ITEMS.getValue(id(e));
         if (item == null) throw new SprauteRuntimeException("Предмет " + text(e) + " не найден");
         return new ItemStack(item, count);
+    }
+
+    private String emotionName(Expr e) {
+        return (e instanceof Ident id ? id.name : text(e)).toUpperCase(java.util.Locale.ROOT);
     }
 
     private int[] scriptIds(CommandStmt c) {

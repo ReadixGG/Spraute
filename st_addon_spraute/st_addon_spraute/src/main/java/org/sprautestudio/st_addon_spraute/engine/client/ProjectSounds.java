@@ -85,6 +85,17 @@ public final class ProjectSounds {
         if (rl != null) Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvent.createVariableRangeEvent(rl), 1f));
     }
 
+    /** A sound of the mod itself, as heard from the interface: it takes the player's volume settings like any other. */
+    public static void playBuiltin(String name) {
+        ResourceLocation file = new ResourceLocation(St_addon_spraute.MODID, "sounds/ui/" + name + ".wav");
+        Minecraft mc = Minecraft.getInstance();
+        try (java.io.InputStream in = mc.getResourceManager().open(file)) {
+            mc.getSoundManager().play(new Instance(new ResourceLocation(St_addon_spraute.MODID, "project_sound/builtin/" + name), in.readAllBytes(), true, 1, 1, false, false, 0, 0, 0));
+        } catch (IOException e) {
+            St_addon_spraute.LOGGER.warn("Spraute: no sound {}", file, e);
+        }
+    }
+
     /** Plays a project's sound; positional — at x, y, z in the world, else at the listener. */
     public static void play(String project, String name, double x, double y, double z, boolean positional, float volume, float pitch, boolean loop, String id) {
         Path f = file(project, name);

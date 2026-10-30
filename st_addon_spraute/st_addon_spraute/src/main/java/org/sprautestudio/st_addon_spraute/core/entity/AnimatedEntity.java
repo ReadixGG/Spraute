@@ -33,16 +33,33 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
     private static final EntityDataAccessor<String> TEXTURE = SynchedEntityData.defineId(AnimatedEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Boolean> SITTING = SynchedEntityData.defineId(AnimatedEntity.class, EntityDataSerializers.BOOLEAN);
 
-    /** Horizontal blocks per tick from which a body fast-walks and runs. */
-    private static final float FAST_WALK = 0.32f, RUN = 0.42f, STILL = 0.012f;
+    private static final EntityDataAccessor<String> LOOK = SynchedEntityData.defineId(AnimatedEntity.class, EntityDataSerializers.STRING);
+
+    /** Walking speed 1 in blocks a tick; a body shows a fast walk from 1.6 of it and a run from 2. */
+    private static final float SPEED_1 = (float) (org.sprautestudio.st_addon_spraute.path.Walkers.WALK_BPS / 20);
+    private static final float FAST_WALK = SPEED_1 * 1.6f, RUN = SPEED_1 * 2, STILL = 0.012f;
+    /** Blinks every 2.5 to 5.5 seconds. */
+    private static final int BLINK_MIN = 50, BLINK_MAX = 110;
+    private static final float LOOK_SETTLED = 10, TURN_MIN = 2.5f;
+    private static final int TURN_HOLD = 8;
+    private int turningShown, turnFor;
+    private boolean turnLeft;
+    /** Keeps its chunk loaded, by the story's wish. */
+    private boolean holdsChunk;
+    private long heldChunk = Long.MIN_VALUE;
 
     private final AnimationSystem animations = new AnimationSystem();
     private final Map<MovementActionType, ConfiguredAnimation> overrides = new EnumMap<>(MovementActionType.class);
     public boolean canDie;
     private boolean vulnerable;
     private String movementShown = "";
-    /** What the body looks at (server), null — nothing. */
+    /** What the body looks at (server), null — nothing. It stays until replaced or taken off. */
     private Supplier<Vec3> lookTarget;
+    private boolean lookInstant;
+    private boolean bodyLocked, headLocked, noTurn;
+    private float lockedBody, lockedHead;
+    public boolean blinks = true;
+    private int blinkIn = BLINK_MIN;
 
     protected AnimatedEntity(EntityType<? extends AnimatedEntity> type, Level level) {
         super(type, level);
@@ -56,6 +73,7 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
         entityData.define(MOVES, "");
         entityData.define(TEXTURE, "");
         entityData.define(SITTING, false);
+        entityData.define(LOOK, "");
     }
 
     @Override
@@ -79,8 +97,79 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
         vulnerable = v;
     }
 
-    public void setLookTarget(Supplier<Vec3> target) {
+    public void setLookTarget(Supplier<Vec3> target, boolean instant) {
+        // taken off: it stops turning and stays looking where it looked
+        if (target == null && lookTarget != null) {
+            yBodyRot = yHeadRot;
+            setYRot(yHeadRot);
+            entityData.set(LOOK, "");
+        }
         lookTarget = target;
+        lookInstant = instant;
+    }
+
+    /** Where the eyes are turned (client): null — nowhere in particular. */
+    public Vec3 lookPoint() {
+        String[] p = entityData.get(LOOK).split(",");
+        if (p.length != 3) return null;
+        try {
+            return new Vec3(Double.parseDouble(p[0]), Double.parseDouble(p[1]), Double.parseDouble(p[2]));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** The head has turned to the target (about 10°), or there is nothing to turn to. */
+    public boolean lookSettled() {
+        Vec3 at = lookTarget != null ? lookTarget.get() : null;
+        if (at == null) return true;
+        Vec3 d = at.subtract(getEyePosition());
+        float want = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+        return Math.abs(net.minecraft.util.Mth.wrapDegrees(want - yHeadRot)) <= LOOK_SETTLED;
+    }
+
+    public void setBodyLocked(boolean locked) {
+        bodyLocked = locked;
+        lockedBody = yBodyRot;
+    }
+
+    public void setHeadLocked(boolean locked) {
+        headLocked = locked;
+        lockedHead = yHeadRot;
+    }
+
+    public void setHoldsChunk(boolean v) {
+        holdsChunk = v;
+        if (!v) releaseChunk();
+    }
+
+    private void releaseChunk() {
+        if (heldChunk != Long.MIN_VALUE && level() instanceof net.minecraft.server.level.ServerLevel l) {
+            var at = new net.minecraft.world.level.ChunkPos(heldChunk);
+            l.setChunkForced(at.x, at.z, false);
+        }
+        heldChunk = Long.MIN_VALUE;
+    }
+
+    @Override
+    public void remove(RemovalReason reason) {
+        // only unloading with the world leaves the chunk as it is
+        if (reason != RemovalReason.UNLOADED_TO_CHUNK && reason != RemovalReason.UNLOADED_WITH_PLAYER) releaseChunk();
+        super.remove(reason);
+    }
+
+    public void setNoTurn(boolean v) {
+        noTurn = v;
+    }
+
+    /** It does not turn to the player when clicked. */
+    public boolean noTurn() {
+        return noTurn;
+    }
+
+    /** The clip it blinks with; subclasses give the body's own. */
+    protected ConfiguredAnimation blinkAnimation() {
+        return null;
     }
 
     public boolean isSitting() {
@@ -138,16 +227,57 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
         return (float) Math.sqrt(dx * dx + dz * dz);
     }
 
+    /** Changes when what the gaits play has to be picked anew; subclasses add what their look depends on. */
+    protected String movementKey() {
+        return "";
+    }
+
+    /** The clip of turning on the spot; subclasses give the body's own. */
+    protected ConfiguredAnimation turnAnimation(boolean left) {
+        return null;
+    }
+
+    /** Blocks a tick each gait's clip is made for: played slower or faster to match, the feet do not slide. */
+    private static float gaitPace(MovementActionType type) {
+        return switch (type) {
+            case WALKING -> SPEED_1;
+            case FAST_WALKING -> SPEED_1 * 1.75f;
+            case RUNNING -> SPEED_1 * 2.4f;
+            default -> 0;
+        };
+    }
+
+    private float gaitRate = 1, smoothSpeed;
+
     private void pickMovement() {
-        float v = getWalkingSpeed();
+        float v = smoothSpeed += (getWalkingSpeed() - smoothSpeed) * 0.4f;
         MovementActionType type = v < STILL ? MovementActionType.IDLE : v < FAST_WALK ? MovementActionType.WALKING
                 : v < RUN ? MovementActionType.FAST_WALKING : MovementActionType.RUNNING;
-        ConfiguredAnimation ca = animationFor(type);
-        String id = ca != null ? ca.animation().id() : "";
-        if (id.equals(movementShown)) return;
-        movementShown = id;
-        if (ca != null) startAnimation("movement", ca.loopMode(LoopMode.LOOP).transitionTime(0.2f));
-        else animations.stopAnimation("movement", 0.2f);
+        String key = type + "|" + entityData.get(MOVES) + "|" + movementKey() + "|" + isSitting();
+        if (!key.equals(movementShown)) {
+            movementShown = key;
+            ConfiguredAnimation ca = animationFor(type);
+            // a little difference in pace, so a crowd does not march in step
+            if (ca != null) startAnimation("movement", ca.loopMode(LoopMode.LOOP).transitionTime(0.2f).speed(ca.speed() * (0.95f + random.nextFloat() * 0.1f)));
+            else animations.stopAnimation("movement", 0.2f);
+        }
+        float pace = gaitPace(type);
+        float wanted = pace > 0 ? net.minecraft.util.Mth.clamp(v / pace, 0.55f, 1.7f) : 1;
+        gaitRate += (wanted - gaitRate) * 0.25f;
+        animations.setRate("movement", gaitRate);
+        // the feet step while the body turns on the spot; a short pause does not stop them
+        float delta = net.minecraft.util.Mth.wrapDegrees(yBodyRot - yBodyRotO);
+        if (type == MovementActionType.IDLE && Math.abs(delta) > TURN_MIN) {
+            turnLeft = delta < 0;
+            turnFor = TURN_HOLD;
+        } else if (turnFor > 0) turnFor--;
+        int turning = type != MovementActionType.IDLE || turnFor <= 0 ? 0 : turnLeft ? 1 : 2;
+        if (turning != turningShown) {
+            turningShown = turning;
+            ConfiguredAnimation turn = turning != 0 ? turnAnimation(turning == 1) : null;
+            if (turn != null) startAnimation("turn", turn.loopMode(LoopMode.LOOP).transitionTime(0.12f));
+            else animations.stopAnimation("turn", 0.2f);
+        }
     }
 
     // ================================================================== life
@@ -159,18 +289,41 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
             pickMovement();
             return;
         }
+        if (blinks && --blinkIn <= 0) {
+            blinkIn = BLINK_MIN + random.nextInt(BLINK_MAX - BLINK_MIN + 1);
+            ConfiguredAnimation blink = blinkAnimation();
+            if (blink != null) startAnimation("EYES", blink.transitionTime(0).loopMode(LoopMode.ONCE));
+        }
         if (animations.takeDirty()) entityData.set(ANIMS, animations.encode());
         if (lookTarget != null) {
-            Vec3 at = lookTarget.get();
-            if (at != null) getLookControl().setLookAt(at.x, at.y, at.z, 30, 30);
+            Vec3 at = null;
+            try {
+                at = lookTarget.get();
+            } catch (RuntimeException ignored) {
+                // a target that is gone just changes nothing
+            }
+            if (at != null) {
+                float speed = lookInstant ? 360 : 30;
+                getLookControl().setLookAt(at.x, at.y, at.z, speed, speed);
+                if (tickCount % 5 == 0) {
+                    String pos = at.x + "," + at.y + "," + at.z;
+                    if (!pos.equals(entityData.get(LOOK))) entityData.set(LOOK, pos);
+                }
+            }
         }
+        if (holdsChunk && level() instanceof net.minecraft.server.level.ServerLevel l && chunkPosition().toLong() != heldChunk) {
+            releaseChunk();
+            heldChunk = chunkPosition().toLong();
+            l.setChunkForced(chunkPosition().x, chunkPosition().z, true);
+        }
+        if (bodyLocked) yBodyRot = yBodyRotO = lockedBody;
+        if (headLocked) yHeadRot = yHeadRotO = lockedHead;
     }
 
     @Override
     public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
         super.onSyncedDataUpdated(key);
         if (ANIMS.equals(key) && level().isClientSide) animations.decode(entityData.get(ANIMS));
-        if (MOVES.equals(key)) movementShown = "\n";
     }
 
     @Override
@@ -200,6 +353,13 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
         tag.putBoolean("SprauteCanDie", canDie);
         tag.putBoolean("SprauteSitting", isSitting());
         tag.putString("SprauteTexture", entityData.get(TEXTURE));
+        tag.putString("SprauteAnims", animations.encodeSaved());
+        tag.putBoolean("SprauteBodyLock", bodyLocked);
+        tag.putBoolean("SprauteHeadLock", headLocked);
+        tag.putBoolean("SprauteNoTurn", noTurn);
+        tag.putBoolean("SprauteBlinks", blinks);
+        tag.putString("SprauteGaits", entityData.get(MOVES));
+        tag.putBoolean("SprauteChunk", holdsChunk);
     }
 
     @Override
@@ -209,5 +369,14 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
         canDie = tag.getBoolean("SprauteCanDie");
         setSitting(tag.getBoolean("SprauteSitting"));
         entityData.set(TEXTURE, tag.getString("SprauteTexture"));
+        animations.restore(tag.getString("SprauteAnims"));
+        bodyLocked = tag.getBoolean("SprauteBodyLock");
+        headLocked = tag.getBoolean("SprauteHeadLock");
+        noTurn = tag.getBoolean("SprauteNoTurn");
+        if (tag.contains("SprauteBlinks")) blinks = tag.getBoolean("SprauteBlinks");
+        entityData.set(MOVES, tag.getString("SprauteGaits"));
+        holdsChunk = tag.getBoolean("SprauteChunk");
+        lockedBody = yBodyRot;
+        lockedHead = yHeadRot;
     }
 }

@@ -176,6 +176,18 @@ public final class EventDefs {
         def("questfail", "квест провален", "Квест провален (quest fail).", ParamType.TEXT, "квест", List.of("quest"), "player", "quest");
         def("signal", "получен сигнал", "Своё событие: его посылает emit \"имя\" из любого сюжета. Значение — event(\"value\").",
                 ParamType.TEXT, "имя", List.of("name"), "name", "value", "from");
+        def("leftair", "игрок кликнул в воздух", "Левый клик в пустоту.", null, null, List.of(), "player");
+        def("cameraend", "полёт камеры закончился", "Камера долетела и остановилась.", null, null, List.of(), "x", "y", "z");
+        def("servertick", "тик сервера", "Каждый тик сервера.", null, null, List.of());
+        def("playertick", "тик игрока", "Каждый тик каждого игрока.", null, null, List.of(), "player");
+        def("newday", "новый игровой день", "Часы мира перешли через полночь. amount — номер дня.", null, null, List.of(), "amount");
+        def("scriptstart", "сюжет запущен", "Запустился сюжет. id — его номер.", ParamType.TEXT, "сюжет", List.of("id"), "id");
+        def("scriptstop", "сюжет остановлен", "Сюжет остановился. id — его номер.", ParamType.TEXT, "сюжет", List.of("id"), "id");
+        def("checkpoint", "пройдена точка сохранения", "Сюжет прошёл точку сохранения. id — её имя.", ParamType.TEXT, "точка", List.of("id"), "id");
+        def("charspawn", "персонаж появился", "Тело персонажа появилось в мире.", null, null, List.of(), "id", "name", "x", "y", "z");
+        def("charremove", "персонаж удалён", "Тело персонажа убрано из мира.", null, null, List.of(), "id", "name", "x", "y", "z");
+        def("behaviorstart", "поведение началось", "У персонажа началось поведение. type — его тип.", ParamType.TEXT, "тип", List.of("type"), "type", "name");
+        def("behaviorend", "поведение закончилось", "У персонажа закончилось поведение. type — его тип.", ParamType.TEXT, "тип", List.of("type"), "type", "name");
         def("explosion", "рядом взрыв", "Взрыв в 24 блоках от игрока.", null, null, List.of(), "player", "x", "y", "z");
     }
 

@@ -34,6 +34,8 @@ public final class EntityLibrary {
 
     /** The key of the default body, which every story has. */
     public static final String BUILTIN = "builtin/humanoid";
+    /** The same body with narrow arms. */
+    public static final String BUILTIN_SLIM = "builtin/humanoid_slim";
     public static final String BUILTIN_MODEL = St_addon_spraute.MODID + ":entity/humanoid";
     public static final String BUILTIN_TEXTURE = St_addon_spraute.MODID + ":textures/entity/humanoid.png";
 
@@ -190,8 +192,12 @@ public final class EntityLibrary {
     private static final ResourceLocation MISSING = new ResourceLocation("minecraft", "textures/misc/unknown_pack.png");
 
     public static Look look(String key) {
+        if (key != null && key.equals(BUILTIN_SLIM)) {
+            SpGeoModel geo = ModelLibrary.builtinGeometry("humanoid_slim");
+            return geo == null ? null : new Look(geo, ModelLibrary.builtinTexture(), null, null);
+        }
         if (key == null || key.isEmpty() || key.equals(BUILTIN)) {
-            SpGeoModel geo = ModelLibrary.builtinGeometry();
+            SpGeoModel geo = ModelLibrary.builtinGeometry("humanoid");
             return geo == null ? null : new Look(geo, ModelLibrary.builtinTexture(), null, null);
         }
         Type t = byKey(key);
@@ -200,15 +206,13 @@ public final class EntityLibrary {
             ModelLibrary.Model m = null;
             SpGeoModel geo;
             if (d.model.startsWith("st:")) {
-                geo = ModelLibrary.builtinGeometry();
+                geo = ModelLibrary.builtinGeometry(d.model.endsWith("_slim") ? "humanoid_slim" : "humanoid");
             } else {
                 m = ModelLibrary.find(t.project(), d.model);
                 geo = m != null ? m.geometry() : null;
             }
             ResourceLocation tex;
-            // skins of the old built-in townspeople are gone with them
-            if (d.texture.startsWith("st:storytelling:")) tex = ModelLibrary.builtinTexture();
-            else if (d.texture.startsWith("st:")) tex = ResourceLocation.tryParse(d.texture.substring(3));
+            if (d.texture.startsWith("st:")) tex = ResourceLocation.tryParse(d.texture.substring(3));
             else if (d.texture.startsWith("image:")) tex = Images.texture(t.project(), d.texture.substring(6));
             else tex = m != null && m.texture() != null ? m.textureId() : null;
             return geo == null ? null : new Look(geo, tex != null ? tex : MISSING, m, d);
@@ -220,6 +224,6 @@ public final class EntityLibrary {
 
     /** Built-in entity models (geometry ids), for the editor. */
     public static List<String> builtinModels() {
-        return List.of(BUILTIN_MODEL);
+        return List.of(BUILTIN_MODEL, BUILTIN_MODEL + "_slim");
     }
 }

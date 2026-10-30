@@ -315,7 +315,7 @@ public class GuiView extends Widget implements UI.CursorProvider {
         }
     }
 
-    private static final ResourceLocation QUEST_ICONS = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/quests/categories.png");
+    private static final ResourceLocation QUEST_ICONS = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/journal/icons.png");
 
     /** The quest notice's icon for its event: new / done / failed. */
     private void drawQuestIcon(Canvas c, Element e, int[] r, float op) {
@@ -334,9 +334,21 @@ public class GuiView extends Widget implements UI.CursorProvider {
         com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1, 1, 1, 1);
     }
 
+    /** The game's look of a part gives way when the same layout shows that part another way: it must not peek from under it. */
+    private boolean replaced(Element e, String key) {
+        if (!org.sprautestudio.st_addon_spraute.engine.EngineConfig.gameDrawn(e.get("style"))) return false;
+        for (Element o : doc.all()) {
+            if (o == e || !o.b("visible")) continue;
+            if (o.type.equals(e.type) && !org.sprautestudio.st_addon_spraute.engine.EngineConfig.gameDrawn(o.get("style"))) return true;
+            if (o.type.equals("progress") && o.get("bind").equals(key)) return true;
+        }
+        return false;
+    }
+
     /** A part of the player's HUD, drawn like the engine draws it, fitted into the element. */
     private void drawHud(Canvas c, Element e, int[] r, float op) {
         String key = e.type.substring(4);
+        if (replaced(e, key)) return;
         var s = hud();
         var cfg = org.sprautestudio.st_addon_spraute.engine.client.EngineClient.config();
         net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
@@ -347,6 +359,7 @@ public class GuiView extends Widget implements UI.CursorProvider {
         el.style = e.get("style");
         el.count = Math.max(1, e.i("count"));
         el.pad = e.i("pad");
+        el.fillDir = e.get("direction");
         el.gap = e.i("gap");
         el.reverse = e.b("reverse");
         el.text = e.b("showText");

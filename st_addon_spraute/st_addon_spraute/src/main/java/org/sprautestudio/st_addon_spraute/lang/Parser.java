@@ -258,6 +258,8 @@ public final class Parser {
                 case "color" -> d.color = primary();
                 case "hitbox" -> d.hitbox = primary();
                 case "health", "hp" -> d.health = unary();
+                case "priority" -> d.priority = unary();
+                case "id" -> d.sharedId = primary();
                 default -> throw fail("Неизвестный параметр персонажа '" + opt.text
                         + "' (есть: name, color, hitbox, health, speed, skin, icon, portrait, headscale, headx, heady, headyaw, headbone)", opt);
             }
@@ -672,6 +674,10 @@ public final class Parser {
             next();
             c.emotion = primary();
         }
+        if (peek().isWord("anims")) {
+            next();
+            c.anims = primary();
+        }
         expect(TokenType.LBRACE, "{ с вариантами ответа");
         skipNewlines();
         while (peek().type != TokenType.RBRACE) {
@@ -680,6 +686,18 @@ public final class Parser {
                 ChoiceOption o = new ChoiceOption();
                 int s = peek().start;
                 o.text = primary();
+                if (peek().isWord("locked")) {
+                    next();
+                    o.locked = primary();
+                }
+                if (peek().isWord("emotion")) {
+                    next();
+                    o.emotion = primary();
+                }
+                if (peek().isWord("center")) {
+                    next();
+                    o.center = true;
+                }
                 if (peek().isOp("->")) {
                     // "Ответ" -> label   shorthand
                     next();

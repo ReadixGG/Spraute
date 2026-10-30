@@ -53,7 +53,7 @@ public final class ModelLibrary {
     private static final Map<String, Model> MODELS = new LinkedHashMap<>();
     private static final Map<Path, Stamped<SpGeoModel>> GEOS = new HashMap<>();
     private static final Map<Path, Stamped<SpAnimationParser.AnimationSet>> ANIMS = new HashMap<>();
-    private static SpGeoModel builtin;
+    private static final Map<String, SpGeoModel> BUILTINS = new HashMap<>();
 
     private static long stamp(Path f) {
         try {
@@ -92,17 +92,19 @@ public final class ModelLibrary {
     }
 
     /** The default model every story can use, shipped in the mod. */
-    public static synchronized SpGeoModel builtinGeometry() {
-        if (builtin != null) return builtin;
+    public static synchronized SpGeoModel builtinGeometry(String name) {
+        SpGeoModel have = BUILTINS.get(name);
+        if (have != null) return have;
         try {
-            Path f = ModList.get().getModFileById(St_addon_spraute.MODID).getFile().findResource("assets", St_addon_spraute.MODID, "geo", "entity", "humanoid.geo.json");
+            Path f = ModList.get().getModFileById(St_addon_spraute.MODID).getFile().findResource("assets", St_addon_spraute.MODID, "geo", "entity", name + ".geo.json");
             try (InputStream in = Files.newInputStream(f)) {
-                builtin = SpGeoParser.parse(in);
+                have = SpGeoParser.parse(in);
+                BUILTINS.put(name, have);
             }
         } catch (IOException | RuntimeException e) {
-            St_addon_spraute.LOGGER.warn("Spraute: cannot load the default model", e);
+            St_addon_spraute.LOGGER.warn("Spraute: cannot load the model {}", name, e);
         }
-        return builtin;
+        return have;
     }
 
     public static ResourceLocation builtinTexture() {

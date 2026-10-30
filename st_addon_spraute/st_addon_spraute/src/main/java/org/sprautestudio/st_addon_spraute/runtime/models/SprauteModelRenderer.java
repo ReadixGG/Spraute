@@ -30,13 +30,24 @@ import java.util.WeakHashMap;
 /** Draws Spraute entities: the type's Bedrock model, posed by the body's animation layers. */
 public class SprauteModelRenderer extends EntityRenderer<SprauteModelEntity> {
     private static final ResourceLocation MISSING = new ResourceLocation("minecraft", "textures/misc/unknown_pack.png");
-    private static final String[] RIGHT = {"Right_placeholder", "RightItem", "right_item", "item_right", "RightHand", "right_hand", "hand_right"};
-    private static final String[] LEFT = {"Left_placeholder", "LeftItem", "left_item", "item_left", "LeftHand", "left_hand", "hand_left"};
+    private static final String[] RIGHT = {"RightHandItem", "Right_placeholder", "RightItem", "right_item", "item_right", "RightHand", "right_hand", "hand_right"};
+    private static final String[] LEFT = {"LeftHandItem", "Left_placeholder", "LeftItem", "left_item", "item_left", "LeftHand", "left_hand", "hand_left"};
     private static final String[] RIGHT_ARM = {"RightArm", "right_arm", "arm_right"};
     private static final String[] LEFT_ARM = {"LeftArm", "left_arm", "arm_left"};
 
-    private record Posed(SpGeoModel model, SpModelInstance instance) {
+    private static final class Posed {
+        final SpGeoModel model;
+        final SpModelInstance instance;
+        float pupilLeft, pupilRight;
+
+        Posed(SpGeoModel model, SpModelInstance instance) {
+            this.model = model;
+            this.instance = instance;
+        }
     }
+
+    /** How far from the middle of the head each eye is (blocks), the largest turn of an eye and how far a pupil shifts at it. */
+    private static final float EYE_OFFSET = 0.1f, EYE_TURN = 30, PUPIL_SHIFT = 0.3f, PUPIL_EASE = 0.2f;
 
     private static final Map<SprauteModelEntity, Posed> INSTANCES = new WeakHashMap<>();
     /** Set while a portrait is drawn: the rest pose, only these bones. */
@@ -61,13 +72,36 @@ public class SprauteModelRenderer extends EntityRenderer<SprauteModelEntity> {
         }
     }
 
-    private static SpModelInstance instance(SprauteModelEntity e, SpGeoModel model) {
+    private static Posed posed(SprauteModelEntity e, SpGeoModel model) {
         Posed p = INSTANCES.get(e);
         if (p == null || p.model != model) {
             p = new Posed(model, new SpModelInstance(model));
             INSTANCES.put(e, p);
         }
-        return p.instance;
+        return p;
+    }
+
+    /** Each eye turns to the target by itself; with no target they ease back to the middle. */
+    private static void pupils(SprauteModelEntity e, Posed p) {
+        var at = e.lookPoint();
+        float wantL = 0, wantR = 0;
+        if (at != null) {
+            float head = e.yHeadRot;
+            double side = Math.toRadians(head + 90);
+            wantL = eyeShift(e, at, head, Math.cos(side) * EYE_OFFSET, Math.sin(side) * EYE_OFFSET);
+            wantR = eyeShift(e, at, head, -Math.cos(side) * EYE_OFFSET, -Math.sin(side) * EYE_OFFSET);
+        }
+        p.pupilLeft += (wantL - p.pupilLeft) * PUPIL_EASE;
+        p.pupilRight += (wantR - p.pupilRight) * PUPIL_EASE;
+        SpVec3 l = p.instance.animPosition("LEye"), r = p.instance.animPosition("REye");
+        if (l != null) l.x += p.pupilLeft;
+        if (r != null) r.x += p.pupilRight;
+    }
+
+    private static float eyeShift(SprauteModelEntity e, net.minecraft.world.phys.Vec3 at, float head, double ox, double oz) {
+        double dx = at.x - (e.getX() + ox), dz = at.z - (e.getZ() + oz);
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        return Mth.clamp(Mth.wrapDegrees(yaw - head) / EYE_TURN, -1, 1) * PUPIL_SHIFT;
     }
 
     @Override
@@ -83,11 +117,13 @@ public class SprauteModelRenderer extends EntityRenderer<SprauteModelEntity> {
             // the body's feet: bones are measured from here (and the turned hitboxes drawn)
             e.renderBase = new Matrix4f(pose.last().pose());
             if (!portrait && Minecraft.getInstance().getEntityRenderDispatcher().shouldRenderHitBoxes()) drawShapes(e, pose, buffers);
-            SpModelInstance inst = instance(e, model);
+            Posed posed = posed(e, model);
+            SpModelInstance inst = posed.instance;
             inst.resetAnims();
             if (!portrait) {
                 e.getAnimationSystem().apply(inst);
                 turnHead(e, inst, partial);
+                pupils(e, posed);
             }
             inst.computeTransforms();
 

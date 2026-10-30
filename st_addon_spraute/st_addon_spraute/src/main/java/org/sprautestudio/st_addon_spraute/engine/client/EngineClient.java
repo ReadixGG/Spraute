@@ -22,8 +22,8 @@ import java.util.Map;
 public final class EngineClient {
     private EngineClient() {}
 
-    private static final ResourceLocation ST_HEALTH = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "health_overlay");
-    private static final ResourceLocation ST_CURRENCY = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "currency_overlay");
+    private static final ResourceLocation HEALTH_OVERLAY = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "health_overlay");
+    private static final ResourceLocation COINS_OVERLAY = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "currency_overlay");
 
     private static final Map<ResourceLocation, String> VANILLA = new HashMap<>();
 
@@ -107,8 +107,9 @@ public final class EngineClient {
         s.selected = p.getInventory().selected;
         for (int i = 0; i < 9; i++) s.hotbar[i] = p.getInventory().getItem(i);
         s.offhand = p.getOffhandItem();
-        s.hotbarSize = 9;
-        s.coins = org.sprautestudio.st_addon_spraute.core.system.Coins.get();
+        s.hotbarSize = org.sprautestudio.st_addon_spraute.core.client.SlotsClient.hotbarSize();
+        s.coins = org.sprautestudio.st_addon_spraute.core.system.Coins.shown();
+        s.coinsNeed = org.sprautestudio.st_addon_spraute.core.system.Coins.shownNeed();
         return s;
     }
 
@@ -116,8 +117,8 @@ public final class EngineClient {
     public static void onOverlay(RenderGuiOverlayEvent.Pre event) {
         ResourceLocation id = event.getOverlay().id();
         String key = VANILLA.get(id);
-        if (id.equals(ST_HEALTH)) key = "health";
-        if (id.equals(ST_CURRENCY)) key = "coins";
+        if (id.equals(HEALTH_OVERLAY)) key = "health";
+        if (id.equals(COINS_OVERLAY)) key = "coins";
         if (key == null) return;
         // a HUD laid out in the interface editor: it draws every part itself (HudOverlays), the game's are off
         if (hudLayout() != null) {
@@ -125,7 +126,7 @@ public final class EngineClient {
             return;
         }
         // hearts and the round bar take turns: the system switch decides which one is the health part
-        if (key.equals("health") && id.equals(ST_HEALTH) != config.health) {
+        if (key.equals("health") && id.equals(HEALTH_OVERLAY) != config.health) {
             event.setCanceled(true);
             return;
         }
@@ -136,6 +137,16 @@ public final class EngineClient {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null) return;
+        // a limited hotbar: only the open slots are drawn
+        if (key.equals("hotbar") && org.sprautestudio.st_addon_spraute.core.client.SlotsClient.hotbarSize() < 9 && !player.isSpectator()) {
+            event.setCanceled(true);
+            if (!mc.options.hideGui) {
+                int w = event.getWindow().getGuiScaledWidth(), h = event.getWindow().getGuiScaledHeight();
+                HudPainter.State st = state(player);
+                HudPainter.standard(event.getGuiGraphics(), mc.font, key, HudPainter.rect(config, key, w, h, st), st);
+            }
+            return;
+        }
         EngineConfig.Element e = config.element(key);
         if (!e.visible) {
             event.setCanceled(true);
@@ -190,13 +201,15 @@ public final class EngineClient {
     public static final class Overlays {
         @SubscribeEvent
         public static void register(net.minecraftforge.client.event.RegisterGuiOverlaysEvent e) {
-            e.registerAbove(VanillaGuiOverlay.PLAYER_HEALTH.id(), ST_HEALTH.getPath(), (gui, g, partial, w, h) -> draw(g, "health", w, h));
-            e.registerAbove(VanillaGuiOverlay.PLAYER_HEALTH.id(), ST_CURRENCY.getPath(), (gui, g, partial, w, h) -> draw(g, "coins", w, h));
+            e.registerAbove(VanillaGuiOverlay.PLAYER_HEALTH.id(), HEALTH_OVERLAY.getPath(), (gui, g, partial, w, h) -> draw(g, "health", w, h));
+            e.registerAbove(VanillaGuiOverlay.PLAYER_HEALTH.id(), COINS_OVERLAY.getPath(), (gui, g, partial, w, h) -> draw(g, "coins", w, h));
         }
 
         private static void draw(GuiGraphics g, String key, int w, int h) {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.player == null || mc.options.hideGui) return;
+            if (mc.player == null || mc.options.hideGui || mc.screen != null) return;
+            // what stands above the HUD keeps out of a fully covered screen
+            if (org.sprautestudio.st_addon_spraute.core.client.ScreenFx.fullyCovered()) return;
             HudPainter.State s = state(mc.player);
             if (shown(mc, key, s)) HudPainter.standard(g, mc.font, key, HudPainter.defaultRect(config, key, w, h, s), s);
         }

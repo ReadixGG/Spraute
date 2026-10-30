@@ -29,11 +29,11 @@ public class ShopPanel {
     private static final int LOTS_X = 40, LOTS_Y = 71, CLIP_X = 38, CLIP_Y = 66, CLIP_W = 182, CLIP_H = 140;
 
     private static ResourceLocation tex(String name) {
-        return new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/shop/" + name + ".png");
+        return new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/store/" + name + ".png");
     }
 
-    private static final ResourceLocation BASE_1 = tex("base_1"), BASE_2 = tex("base_2"), CELL = tex("product_cell"), CELL_GLOW = tex("product_cell_glow"),
-            LOCKED = tex("lot_locked"), SOLD = tex("lot_sold"), BUY = tex("buy_button"), BUY_LIGHT = tex("buy_button_light"), SLIDER = tex("slider");
+    private static final ResourceLocation BASE_1 = tex("list"), BASE_2 = tex("card"), CELL = tex("cell"), CELL_GLOW = tex("cell_hot"),
+            LOCKED = tex("cell_locked"), SOLD = tex("cell_sold"), BUY = tex("buy"), BUY_LIGHT = tex("buy_hot"), SLIDER = tex("slider");
     private static final int WHITE = 0xFFFFFFFF, GREEN = 0xFF55FF55, RED = 0xFFFF5555, TYPE = 0xFFE2D7C4;
 
     public ShopView view;

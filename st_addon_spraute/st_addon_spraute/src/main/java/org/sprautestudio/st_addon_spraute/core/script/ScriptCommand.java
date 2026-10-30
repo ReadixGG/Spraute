@@ -57,7 +57,8 @@ public final class ScriptCommand {
                 }))
                 .then(on("phase", (c, s) -> {
                     ScriptPerformer m = s.getMainPerformer();
-                    return "Метка: " + (m.getStage().isEmpty() ? "(начало)" : m.getStage()) + ", шаг " + m.getActionIndex() + " из " + m.getActionsAmount();
+                    int pct = m.getActionsAmount() == 0 ? 100 : m.getActionIndex() * 100 / m.getActionsAmount();
+                    return "Метка: " + (m.getStage().isEmpty() ? "(начало)" : m.getStage()) + ", шаг " + m.getActionIndex() + " из " + m.getActionsAmount() + " (" + pct + "%). " + m.describe();
                 }))
                 .then(on("actions", (c, s) -> {
                     ScriptPerformer m = s.getMainPerformer();
@@ -88,8 +89,8 @@ public final class ScriptCommand {
                             ScriptInstance s = env().scriptInstances.get(id(c));
                             if (s == null) return fail(c, "Сюжет #" + id(c) + " не запущен");
                             Player p = c.getSource().getEntity() instanceof Player pl ? pl : null;
-                            String name = StringArgumentType.getString(c, "name");
-                            return s.trigger(name, p) ? 1 : fail(c, "Триггера " + name + " нет");
+                            s.trigger(StringArgumentType.getString(c, "name"), p);
+                            return 1;
                         }))))
                 .then(Commands.literal("environment")
                         .executes(c -> say(c, "Загружено сюжетов: " + env().constructors.size() + ", запущено: " + env().scriptInstances.size()))

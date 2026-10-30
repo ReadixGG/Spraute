@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(AbstractClientPlayer.class)
 public abstract class PlayerSkinMixin {
     /** getSkinTextureLocation */
-    @Inject(method = "m_108560_", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = {"m_108560_", "getSkinTextureLocation"}, at = @At("HEAD"), cancellable = true, remap = false)
     private void spraute$skin(CallbackInfoReturnable<ResourceLocation> cir) {
         ResourceLocation own = org.sprautestudio.st_addon_spraute.core.client.PlayerSkins.override;
         if (own != null) cir.setReturnValue(own);

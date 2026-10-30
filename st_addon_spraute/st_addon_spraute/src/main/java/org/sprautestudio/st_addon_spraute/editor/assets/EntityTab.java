@@ -94,8 +94,8 @@ public class EntityTab extends EditorTab {
         });
         row("Скин", new Widget() {
             final Dropdown<String> dd = add(skinBox);
-            final Button fromMc = add(Button.icon(Icon.USER, "Из скина Minecraft (64×64): сделать текстуру Spraute 128×64 — "
-                    + "с двигающимися глазами, бровями и ртом", () -> org.sprautestudio.st_addon_spraute.editor.SprauteScreen.pickStSkin(name -> {
+            final Button fromMc = add(Button.icon(Icon.USER, "Из скина Minecraft (64×64): сделать текстуру персонажа 64×64 — "
+                    + "с двигающимися глазами, бровями и ртом", () -> org.sprautestudio.st_addon_spraute.editor.SprauteScreen.pickFaceSkin(name -> {
                 def.texture = "image:" + name;
                 changed();
             })));

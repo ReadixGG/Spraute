@@ -5,5 +5,7 @@
   "entity.st_addon_spraute.orb": "Story orb",
   "entity.st_addon_spraute.camera": "Camera",
   "key.st_addon_spraute.journal": "Quest journal",
-  "key.st_addon_spraute.speech_log": "Speech history"
+  "key.st_addon_spraute.chat_history": "Speech history",
+  "entity.st_addon_spraute.model": "Character",
+  "key.st_addon_spraute.advance": "Next (line, paragraph)"
 }

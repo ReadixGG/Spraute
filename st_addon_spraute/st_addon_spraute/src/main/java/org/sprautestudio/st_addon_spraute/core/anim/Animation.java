@@ -35,6 +35,10 @@ public final class Animation {
         return clip != null && clip.isLoop();
     }
 
+    public boolean holdsLast() {
+        return clip != null && clip.holdsLast;
+    }
+
     public ConfiguredAnimation configure() {
         return new ConfiguredAnimation(this);
     }

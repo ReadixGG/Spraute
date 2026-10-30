@@ -25,6 +25,11 @@ public final class ScriptFlags {
         flags.put(name, value);
     }
 
+    /** True once: the flag was there, and now it is gone. */
+    public boolean consume(String name) {
+        return flags.remove(name) != null;
+    }
+
     public void remove(String name) {
         flags.remove(name);
     }

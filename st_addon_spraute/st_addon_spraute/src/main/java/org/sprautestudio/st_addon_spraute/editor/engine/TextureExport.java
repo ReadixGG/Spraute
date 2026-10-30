@@ -32,37 +32,37 @@ public final class TextureExport {
 
     static {
         String q = "Журнал квестов/";
-        NAMES.put("quests/bg_2.png", q + "Список");
-        NAMES.put("quests/bg.png", q + "Карточка");
-        NAMES.put("quests/button.png", q + "Кнопка квеста — обычная, наведена, выбрана (сверху вниз)");
-        NAMES.put("quests/quest_task_line.png", q + "Полоса задачи (и плашка уведомления квеста)");
-        NAMES.put("quests/categories.png", q + "Значки — текущие, выполненные, проваленные (сверху обычные, снизу наведённые)");
-        NAMES.put("quests/quest_line.png", q + "Разделитель");
-        NAMES.put("quests/quests_current.png", q + "Вкладка «Текущие»");
-        NAMES.put("quests/quests_completed.png", q + "Вкладка «Выполненные»");
-        NAMES.put("quests/quests_failed.png", q + "Вкладка «Проваленные»");
+        NAMES.put("journal/list.png", q + "Список");
+        NAMES.put("journal/card.png", q + "Карточка");
+        NAMES.put("journal/entry.png", q + "Кнопка квеста — обычная, наведена, выбрана (сверху вниз)");
+        NAMES.put("journal/task_strip.png", q + "Полоса задачи (и плашка уведомления квеста)");
+        NAMES.put("journal/icons.png", q + "Значки — текущие, выполненные, проваленные (сверху обычные, снизу наведённые)");
+        NAMES.put("journal/divider.png", q + "Разделитель");
+        NAMES.put("journal/tab_current.png", q + "Вкладка «Текущие»");
+        NAMES.put("journal/tab_completed.png", q + "Вкладка «Выполненные»");
+        NAMES.put("journal/tab_failed.png", q + "Вкладка «Проваленные»");
         String s = "Магазин/";
-        NAMES.put("shop/base_1.png", s + "Список товаров");
-        NAMES.put("shop/base_2.png", s + "Карточка");
-        NAMES.put("shop/product_cell.png", s + "Ячейка");
-        NAMES.put("shop/product_cell_glow.png", s + "Ячейка выбрана");
-        NAMES.put("shop/buy_button.png", s + "Кнопка");
-        NAMES.put("shop/buy_button_light.png", s + "Кнопка наведена");
-        NAMES.put("shop/lot_locked.png", s + "Ячейка — закрыто");
-        NAMES.put("shop/lot_sold.png", s + "Ячейка — продано");
-        NAMES.put("shop/slider.png", s + "Ползунок");
+        NAMES.put("store/list.png", s + "Список товаров");
+        NAMES.put("store/card.png", s + "Карточка");
+        NAMES.put("store/cell.png", s + "Ячейка");
+        NAMES.put("store/cell_hot.png", s + "Ячейка выбрана");
+        NAMES.put("store/buy.png", s + "Кнопка");
+        NAMES.put("store/buy_hot.png", s + "Кнопка наведена");
+        NAMES.put("store/cell_locked.png", s + "Ячейка — закрыто");
+        NAMES.put("store/cell_sold.png", s + "Ячейка — продано");
+        NAMES.put("store/slider.png", s + "Ползунок");
         String d = "Окно выбора/";
-        NAMES.put("dialog/dialog_shadow.png", d + "Панель");
-        NAMES.put("dialog/dialog_name.png", d + "Полоска под именем");
-        NAMES.put("dialog/answer_top.png", d + "Кнопка — верх");
-        NAMES.put("dialog/answer_mid.png", d + "Кнопка — середина");
-        NAMES.put("dialog/answer_bottom.png", d + "Кнопка — низ");
-        NAMES.put("dialog/answer_top_selected.png", d + "Кнопка наведена — верх");
-        NAMES.put("dialog/answer_mid_selected.png", d + "Кнопка наведена — середина");
-        NAMES.put("dialog/answer_bottom_selected.png", d + "Кнопка наведена — низ");
+        NAMES.put("talk/fade.png", d + "Панель");
+        NAMES.put("talk/divider.png", d + "Полоска под именем");
+        NAMES.put("talk/answer_top.png", d + "Кнопка — верх");
+        NAMES.put("talk/answer_mid.png", d + "Кнопка — середина");
+        NAMES.put("talk/answer_bottom.png", d + "Кнопка — низ");
+        NAMES.put("talk/answer_top_hot.png", d + "Кнопка наведена — верх");
+        NAMES.put("talk/answer_mid_hot.png", d + "Кнопка наведена — середина");
+        NAMES.put("talk/answer_bottom_hot.png", d + "Кнопка наведена — низ");
         String c = "История чата/";
-        NAMES.put("chatlog/bg.png", c + "Фон");
-        NAMES.put("chatlog/bgframe.png", c + "Рамка");
+        NAMES.put("log/back.png", c + "Фон");
+        NAMES.put("log/frame.png", c + "Рамка");
     }
 
     private static final String README = """
@@ -79,7 +79,7 @@ public final class TextureExport {
             История чата/ ..... «История чата»
             Иконки говорящих/ . иконки окна речи (имя файла — это имя иконки)
             HUD Minecraft/ .... обычные сердца, опыт, хотбар — для стилей «как в Minecraft»
-            Прочее Spraute/ и Spraute/ — остальной интерфейс, как он лежит в модах, на случай если пригодится.
+            Прочее/ — остальной интерфейс, как он лежит в модах, на случай если пригодится.
             """;
 
     /** Width × height from a PNG's header, or "" when it cannot be read. */
@@ -104,7 +104,7 @@ public final class TextureExport {
         if (rl.getNamespace().equals("st_addon_spraute")) return "Spraute/" + rel.replace(".png", "");
         String named = NAMES.get(rel);
         if (named != null) return named;
-        if (rel.startsWith("shop/arrow_")) {
+        if (rel.startsWith("store/arrow_")) {
             // arrow_-5_glow.png → «Стрелка −5 наведена», как поле настроек
             String step = rel.substring(11).replace(".png", "");
             boolean glow = step.endsWith("_glow");

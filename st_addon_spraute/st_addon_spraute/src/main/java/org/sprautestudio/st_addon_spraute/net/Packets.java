@@ -181,24 +181,39 @@ public final class Packets {
     }
 
     /** Opens the engine's choice menu. entityId: the asking character (-1 — none). */
-    public record ChoiceOpen(int scriptId, int choiceId, String speaker, String question, List<String> answers, int entityId) {
+    public record ChoiceOpen(int scriptId, int choiceId, String speaker, String question, List<String> answers, int entityId,
+                             List<Boolean> locked, List<String> emotions, String emotion, List<Boolean> centered, String portrait) {
         public void write(FriendlyByteBuf buf) {
             buf.writeVarInt(scriptId);
             buf.writeVarInt(choiceId);
             buf.writeUtf(speaker, 256);
             buf.writeUtf(question, 8192);
             buf.writeVarInt(answers.size());
-            for (String a : answers) buf.writeUtf(a, 1024);
+            for (int i = 0; i < answers.size(); i++) {
+                buf.writeUtf(answers.get(i), 1024);
+                buf.writeBoolean(locked.get(i));
+                buf.writeUtf(emotions.get(i), 64);
+                buf.writeBoolean(centered.get(i));
+            }
             buf.writeVarInt(entityId + 1);
+            buf.writeUtf(emotion, 64);
+            buf.writeUtf(portrait, 512);
         }
 
         public static ChoiceOpen read(FriendlyByteBuf buf) {
             int s = buf.readVarInt(), c = buf.readVarInt();
             String sp = buf.readUtf(256), q = buf.readUtf(8192);
             int n = buf.readVarInt();
-            List<String> a = new java.util.ArrayList<>();
-            for (int i = 0; i < n; i++) a.add(buf.readUtf(1024));
-            return new ChoiceOpen(s, c, sp, q, a, buf.readVarInt() - 1);
+            List<String> answers = new ArrayList<>(), emotions = new ArrayList<>();
+            List<Boolean> locked = new ArrayList<>(), centered = new ArrayList<>();
+            for (int i = 0; i < n; i++) {
+                answers.add(buf.readUtf(1024));
+                locked.add(buf.readBoolean());
+                emotions.add(buf.readUtf(64));
+                centered.add(buf.readBoolean());
+            }
+            int entity = buf.readVarInt() - 1;
+            return new ChoiceOpen(s, c, sp, q, answers, entity, locked, emotions, buf.readUtf(64), centered, buf.readUtf(512));
         }
     }
 
@@ -534,6 +549,8 @@ public final class Packets {
         public boolean spraute, active, paused;
         public String stage = "";
         public int actionIndex, actionCount;
+        /** What the current step is doing, in words. */
+        public String doing = "";
         public final List<String> labels = new ArrayList<>();
 
         void write(FriendlyByteBuf buf) {
@@ -546,6 +563,7 @@ public final class Packets {
             buf.writeUtf(stage, 512);
             buf.writeVarInt(actionIndex);
             buf.writeVarInt(actionCount);
+            buf.writeUtf(doing, 512);
             buf.writeVarInt(labels.size());
             for (String l : labels) buf.writeUtf(l, 256);
         }
@@ -561,6 +579,7 @@ public final class Packets {
             e.stage = buf.readUtf(512);
             e.actionIndex = buf.readVarInt();
             e.actionCount = buf.readVarInt();
+            e.doing = buf.readUtf(512);
             int n = buf.readVarInt();
             for (int i = 0; i < n; i++) e.labels.add(buf.readUtf(256));
             return e;
@@ -621,7 +640,7 @@ public final class Packets {
     }
 
     /** A line of speech to show. */
-    public record Speech(int scriptId, String name, int color, String icon, String text, String hint, boolean think, boolean waits) {
+    public record Speech(int scriptId, String name, int color, String icon, String text, String hint, boolean think, boolean waits, boolean historyOnly) {
         public void write(FriendlyByteBuf buf) {
             buf.writeVarInt(scriptId);
             buf.writeUtf(name, 256);
@@ -631,20 +650,33 @@ public final class Packets {
             buf.writeUtf(hint, 64);
             buf.writeBoolean(think);
             buf.writeBoolean(waits);
+            buf.writeBoolean(historyOnly);
         }
 
         public static Speech read(FriendlyByteBuf buf) {
-            return new Speech(buf.readVarInt(), buf.readUtf(256), buf.readInt(), buf.readUtf(512), buf.readUtf(MAX_SOURCE), buf.readUtf(64), buf.readBoolean(), buf.readBoolean());
+            return new Speech(buf.readVarInt(), buf.readUtf(256), buf.readInt(), buf.readUtf(512), buf.readUtf(MAX_SOURCE), buf.readUtf(64), buf.readBoolean(), buf.readBoolean(), buf.readBoolean());
         }
     }
 
     /** The speech window and its history empty. */
-    public record SpeechClear() {
+    public record SpeechClear(int scriptId) {
         public void write(FriendlyByteBuf buf) {
+            buf.writeVarInt(scriptId);
         }
 
         public static SpeechClear read(FriendlyByteBuf buf) {
-            return new SpeechClear();
+            return new SpeechClear(buf.readVarInt());
+        }
+    }
+
+    /** The newest running story (-1 — none): the speech history shows its record. */
+    public record SpeechNewest(int scriptId) {
+        public void write(FriendlyByteBuf buf) {
+            buf.writeVarInt(scriptId + 1);
+        }
+
+        public static SpeechNewest read(FriendlyByteBuf buf) {
+            return new SpeechNewest(buf.readVarInt() - 1);
         }
     }
 
@@ -664,13 +696,14 @@ public final class Packets {
     }
 
     /** How much money the world has. */
-    public record CoinsSync(int value) {
+    public record CoinsSync(int value, int need) {
         public void write(FriendlyByteBuf buf) {
             buf.writeVarInt(value);
+            buf.writeVarInt(need + 1);
         }
 
         public static CoinsSync read(FriendlyByteBuf buf) {
-            return new CoinsSync(buf.readVarInt());
+            return new CoinsSync(buf.readVarInt(), buf.readVarInt() - 1);
         }
     }
 
@@ -682,6 +715,33 @@ public final class Packets {
 
         public static PlayerSkin read(FriendlyByteBuf buf) {
             return new PlayerSkin(buf.readUtf(512));
+        }
+    }
+
+    /** Where the client's camera is; the server follows it (chunks, the event of a flight's end). */
+    public record CameraPos(double x, double y, double z, boolean active) {
+        public void write(FriendlyByteBuf buf) {
+            buf.writeDouble(x);
+            buf.writeDouble(y);
+            buf.writeDouble(z);
+            buf.writeBoolean(active);
+        }
+
+        public static CameraPos read(FriendlyByteBuf buf) {
+            return new CameraPos(buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readBoolean());
+        }
+    }
+
+    /** The player went on to the next paragraph of a dialog. */
+    public record ChoiceParagraph(int scriptId, int choiceId, int index) {
+        public void write(FriendlyByteBuf buf) {
+            buf.writeVarInt(scriptId);
+            buf.writeVarInt(choiceId);
+            buf.writeVarInt(index);
+        }
+
+        public static ChoiceParagraph read(FriendlyByteBuf buf) {
+            return new ChoiceParagraph(buf.readVarInt(), buf.readVarInt(), buf.readVarInt());
         }
     }
 }

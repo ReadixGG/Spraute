@@ -104,8 +104,12 @@ public final class ClientHandlers {
         org.sprautestudio.st_addon_spraute.core.client.SpeechClient.receive(msg);
     }
 
-    public static void speechClear() {
-        org.sprautestudio.st_addon_spraute.core.client.SpeechClient.clear();
+    public static void speechClear(Packets.SpeechClear msg) {
+        org.sprautestudio.st_addon_spraute.core.client.SpeechClient.clear(msg.scriptId());
+    }
+
+    public static void speechNewest(Packets.SpeechNewest msg) {
+        org.sprautestudio.st_addon_spraute.core.client.SpeechClient.newest(msg.scriptId());
     }
 
     public static void screenFx(Packets.ScreenFx msg) {
@@ -113,7 +117,7 @@ public final class ClientHandlers {
     }
 
     public static void coins(Packets.CoinsSync msg) {
-        org.sprautestudio.st_addon_spraute.core.system.Coins.receive(msg.value());
+        org.sprautestudio.st_addon_spraute.core.system.Coins.receive(msg.value(), msg.need());
     }
 
     public static void playerSkin(Packets.PlayerSkin msg) {

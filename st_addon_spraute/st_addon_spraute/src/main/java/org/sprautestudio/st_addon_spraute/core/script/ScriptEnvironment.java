@@ -56,6 +56,9 @@ public final class ScriptEnvironment {
         try {
             ScriptInstance s = c.newInstance(this, id);
             scriptInstances.put(id, s);
+            org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendToAll(new org.sprautestudio.st_addon_spraute.net.Packets.SpeechClear(id));
+            scriptEvent("scriptstart", id);
+            announce();
             return s;
         } catch (InvocationTargetException e) {
             onError.accept(id, e.getCause() != null ? e.getCause() : e);
@@ -67,15 +70,50 @@ public final class ScriptEnvironment {
 
     public void stop(int id) {
         ScriptInstance s = scriptInstances.remove(id);
-        if (s != null) s.handleStop();
+        if (s == null) return;
+        s.stopPerformers();
+        s.handleStop();
+        Characters.release(id);
+        scriptEvent("scriptstop", id);
+        announce();
+    }
+
+    private void scriptEvent(String name, int id) {
+        Map<String, Object> d = new HashMap<>();
+        d.put("id", String.valueOf(id));
+        org.sprautestudio.st_addon_spraute.runtime.GameEvents.fire(name, null, d);
+    }
+
+    /** The newest running story: its record is the one the speech history shows. */
+    public int newest() {
+        int last = -1;
+        for (int id : scriptInstances.keySet()) last = id;
+        return last;
+    }
+
+    /** Tells the clients which story's record to show, with the record itself when asked. */
+    public void announce() {
+        org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendToAll(new org.sprautestudio.st_addon_spraute.net.Packets.SpeechNewest(newest()));
+    }
+
+    public void sendTo(net.minecraft.server.level.ServerPlayer p) {
+        int id = newest();
+        ScriptInstance s = scriptInstances.get(id);
+        org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendTo(p, new org.sprautestudio.st_addon_spraute.net.Packets.SpeechNewest(id));
+        if (s != null) for (ScriptInstance.Line l : s.journal) org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendTo(p,
+                new org.sprautestudio.st_addon_spraute.net.Packets.Speech(id, l.name(), l.color(), l.icon(), l.text(), "", l.think(), false, true));
     }
 
     public void stopAll() {
         for (int id : new ArrayList<>(scriptInstances.keySet())) stop(id);
     }
 
+    /** Stories go while a player is in the world; the flag is for running them on a test server with nobody on it. */
+    private static final boolean WITHOUT_PLAYERS = Boolean.getBoolean("spraute.tickWithoutPlayers");
+
     public void tick() {
         restore();
+        if (!WITHOUT_PLAYERS && server.getPlayerCount() == 0) return;
         for (ScriptInstance s : new ArrayList<>(scriptInstances.values())) {
             try {
                 s.tick();
@@ -107,7 +145,7 @@ public final class ScriptEnvironment {
         CompoundTag list = new CompoundTag();
         scriptInstances.forEach((id, s) -> {
             try {
-                list.put(String.valueOf(id), s.serializeNBT());
+                list.put(String.valueOf(id), s.saveState());
             } catch (RuntimeException e) {
                 St_addon_spraute.LOGGER.warn("Failed to save story {}", id, e);
             }
@@ -121,7 +159,7 @@ public final class ScriptEnvironment {
         }
     }
 
-    /** Reads what was running; the stories start with the first tick, when the deployed scripts are registered. */
+    /** Reads what was running; the stories go on from the first tick, when the deployed scripts are registered. */
     public void load() {
         Characters.clear();
         if (!Files.isRegularFile(file())) return;
@@ -140,10 +178,11 @@ public final class ScriptEnvironment {
         for (String k : list.getAllKeys()) {
             try {
                 ScriptInstance s = start(Integer.parseInt(k));
-                if (s != null) s.deserializeNBT(list.getCompound(k));
+                if (s != null) s.loadState(list.getCompound(k));
             } catch (RuntimeException e) {
                 St_addon_spraute.LOGGER.warn("Failed to restore story {}", k, e);
             }
         }
+        Characters.afterRestore(this);
     }
 }

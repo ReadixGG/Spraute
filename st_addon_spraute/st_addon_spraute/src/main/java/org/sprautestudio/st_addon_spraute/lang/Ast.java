@@ -64,7 +64,7 @@ public final class Ast {
         public Expr hitbox;
         /** Health given at spawn (max and current). */
         public Expr health;
-        /** Speech icon: a project picture or a built-in icon ("anu_icon"). */
+        /** Speech icon: a project picture or a built-in icon. */
         public Expr icon;
         /** Face shown in choice dialogs: a project picture or a built-in icon. */
         public Expr portrait;
@@ -72,6 +72,8 @@ public final class Ast {
         public Expr headScale;
         /** Shift of the head in the chat frame (percent of the frame) and its turn in degrees. */
         public Expr headX, headY, headYaw;
+        /** Priority against other stories holding the same character; the id they share it by. */
+        public Expr priority, sharedId;
         /** Bone of the model shown in chat: "auto" (the head), "all", or a bone name. */
         public Expr headBone;
     }
@@ -185,11 +187,17 @@ public final class Ast {
         public int characterStart, characterEnd;
         public Expr text;
         public Expr emotion;
+        /** Clips the speaker plays with each paragraph: "wave;bow". */
+        public Expr anims;
         public final List<ChoiceOption> options = new ArrayList<>();
     }
 
     public static final class ChoiceOption extends Node {
         public Expr text;
+        /** Shown but not pressed, when true; the face the portrait makes while the mouse is over it. */
+        public Expr locked, emotion;
+        /** The text in the middle of the button. */
+        public boolean center;
         public final List<Stmt> body = new ArrayList<>();
     }
 

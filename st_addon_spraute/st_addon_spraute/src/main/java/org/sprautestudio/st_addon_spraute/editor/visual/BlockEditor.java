@@ -1531,7 +1531,7 @@ public class BlockEditor extends Widget implements UI.CursorProvider {
         }
     }
 
-    /** The entity type of a declared character ("storytelling:…", "spraute:…"); null — unknown. */
+    /** The entity type of a declared character ("st_addon_spraute:…", "spraute:…"); null — unknown. */
     private String characterType(String name) {
         if (name == null || name.isBlank()) return null;
         String n = name.trim();

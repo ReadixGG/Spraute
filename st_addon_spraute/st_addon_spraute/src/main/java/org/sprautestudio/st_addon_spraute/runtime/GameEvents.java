@@ -62,7 +62,7 @@ public final class GameEvents {
         fire(type, player, data);
     }
 
-    static void fire(String type, Player player, Map<String, Object> data) {
+    public static void fire(String type, Player player, Map<String, Object> data) {
         if (player != null && !(player instanceof ServerPlayer)) return; // server side only
         if (player != null) data.putIfAbsent("player", player.getGameProfile().getName());
         SprauteRuntime.env().ifPresent(env -> {
@@ -486,7 +486,7 @@ public final class GameEvents {
 
     // ------------------------------------------------------------------ polled states
 
-    private static int lastEidos = Integer.MIN_VALUE;
+    private static int lastCoins = Integer.MIN_VALUE;
 
     /** Last seen state per player: sneaking, sprinting, in water, burning, low health, hotbar slot, biome. */
     private static final Map<UUID, Object[]> STATE = new HashMap<>();
@@ -540,15 +540,15 @@ public final class GameEvents {
         }
         lastDayTime = t;
         try {
-            int eidos = org.sprautestudio.st_addon_spraute.core.system.Coins.get();
-            if (lastEidos != Integer.MIN_VALUE && eidos != lastEidos) {
+            int coins = org.sprautestudio.st_addon_spraute.core.system.Coins.get(SprauteRuntime.player());
+            if (lastCoins != Integer.MIN_VALUE && coins != lastCoins) {
                 Map<String, Object> d = data();
-                d.put("amount", (double) (eidos - lastEidos));
-                d.put("level", (double) eidos);
+                d.put("amount", (double) (coins - lastCoins));
+                d.put("level", (double) coins);
                 var players = server.getPlayerList().getPlayers();
                 fire("coins", players.isEmpty() ? null : players.get(0), d);
             }
-            lastEidos = eidos;
+            lastCoins = coins;
         } catch (Throwable ignored) {
         }
         // custom-model characters get their model as soon as they appear
@@ -578,6 +578,6 @@ public final class GameEvents {
         STATE.clear();
         lastDayTime = -1;
         lastRain = null;
-        lastEidos = Integer.MIN_VALUE;
+        lastCoins = Integer.MIN_VALUE;
     }
 }
