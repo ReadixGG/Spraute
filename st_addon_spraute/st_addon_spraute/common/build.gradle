@@ -1,0 +1,17 @@
+// The engine in Minecraft. Compiled against the game alone: code that names a loader does not build here,
+// and neither does a method a loader adds to the game's classes. That is the point of this module.
+plugins {
+    id 'java-library'
+    id 'org.spongepowered.gradle.vanilla' version '0.2.1-SNAPSHOT'
+}
+
+minecraft {
+    version(minecraft_version)
+}
+
+dependencies {
+    compileOnly project(':core')
+    compileOnly "org.spongepowered:mixin:${mixin_version}"
+    // JavaScript of stories: the Nashorn engine loaders ship with the game
+    compileOnly "org.openjdk.nashorn:nashorn-core:${nashorn_version}"
+}

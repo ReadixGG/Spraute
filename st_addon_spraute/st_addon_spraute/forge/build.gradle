@@ -1,0 +1,127 @@
+buildscript {
+    repositories {
+        // These repositories are only for Gradle plugins
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
+    }
+}
+
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'
+}
+
+apply plugin: 'org.spongepowered.mixin'
+
+// Without these the modules are not configured yet, and their sourceSets would silently be this project's own
+evaluationDependsOn(':core')
+evaluationDependsOn(':common')
+
+base {
+    archivesName = mod_id
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory rootProject.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+
+        client {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            // -PquickWorld=name: straight into a world, for checking without the menus
+            if (project.hasProperty('quickWorld')) args '--quickPlaySingleplayer', project.quickWorld
+        }
+
+        server {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            // a dev server has nobody on it: stories run anyway
+            property 'spraute.tickWithoutPlayers', 'true'
+            args '--nogui'
+        }
+
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+    }
+}
+
+mixin {
+    add sourceSets.main, "${mod_id}.refmap.json"
+    config "${mod_id}.mixins.json"
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    annotationProcessor "org.spongepowered:mixin:${mixin_version}:processor"
+    compileOnly "org.openjdk.nashorn:nashorn-core:${nashorn_version}"
+}
+
+// The mod's jar holds the engine's code as its own: it is compiled here, against this loader's game
+tasks.named('compileJava', JavaCompile).configure {
+    source project(':core').sourceSets.main.java
+    source project(':common').sourceSets.main.java
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    from project(':common').sourceSets.main.resources
+
+    var replaceProperties = [minecraft_version   : minecraft_version, minecraft_version_range: minecraft_version_range,
+                             forge_version       : forge_version, forge_version_range: forge_version_range,
+                             loader_version_range: loader_version_range,
+                             mod_id              : mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
+                             mod_authors         : mod_authors, mod_description: mod_description,]
+
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    destinationDirectory = rootProject.layout.buildDirectory.dir('libs')
+    manifest {
+        attributes(["Specification-Title"     : mod_id,
+                    "Specification-Vendor"    : mod_authors,
+                    "Specification-Version"   : "1",
+                    "Implementation-Title"    : project.name,
+                    "Implementation-Version"  : project.jar.archiveVersion,
+                    "Implementation-Vendor"   : mod_authors,
+                    "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+                    "MixinConfigs"            : "${mod_id}.mixins.json"])
+    }
+    finalizedBy 'reobfJar'
+}
+
+// A jar without the engine still builds, and only falls apart in the game
+def checkJar = tasks.register('checkJar') {
+    dependsOn 'reobfJar'
+    def jarFile = tasks.named('jar', Jar).flatMap { it.archiveFile }
+    doLast {
+        def tree = zipTree(jarFile)
+        ['org/sprautestudio/st_addon_spraute/lang/Analyzer.class',
+         'org/sprautestudio/st_addon_spraute/St_addon_spraute.class',
+         'org/sprautestudio/st_addon_spraute/platform/forge/ForgeMod.class',
+         'META-INF/mods.toml',
+         "${mod_id}.mixins.json".toString()].each { name ->
+            if (tree.matching { include name }.files.isEmpty()) throw new GradleException("The jar has no ${name}")
+        }
+    }
+}
+tasks.named('build').configure { dependsOn checkJar }
