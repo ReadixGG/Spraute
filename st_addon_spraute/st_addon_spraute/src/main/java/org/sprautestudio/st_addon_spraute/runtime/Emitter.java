@@ -1451,6 +1451,14 @@ final class Emitter {
                 Expr pos = c.arg("pos"), block = c.arg("block");
                 b.thenRun(guard(() -> WorldApi.setBlock(positionSafe(pos), text(block))));
             }
+            case "use" -> {
+                Expr who = c.arg("who"), pos = c.arg("pos");
+                b.thenRun(guard(() -> {
+                    net.minecraft.world.entity.Entity e = entityOf(who);
+                    if (e == null) throw new SprauteRuntimeException("use: некому использовать блок, персонажа нет в мире");
+                    WorldApi.useBlock(e, positionSafe(pos));
+                }));
+            }
             case "setprop" -> {
                 Expr pos = c.arg("pos"), prop = c.arg("prop"), value = c.arg("value");
                 b.thenRun(guard(() -> WorldApi.setProp(positionSafe(pos), text(prop), eval.eval(value))));

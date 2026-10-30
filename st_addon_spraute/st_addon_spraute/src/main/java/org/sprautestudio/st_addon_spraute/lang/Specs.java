@@ -389,6 +389,9 @@ public final class Specs {
                 "Призывает сущность. into — переменная, куда положить её (если там список — добавит в него): summon \"minecraft:zombie\" at (0, 64, 0) into enemies.");
         cmd("setblock", CAT_PLAYER, "<pos:target> <block:text>",
                 "Ставит блок со свойствами, как /setblock: setblock (1, 64, 2) \"minecraft:lever[facing=south,powered=true]\".");
+        cmd("use", CAT_PLAYER, "<who:target> at <pos:target>",
+                "Использует блок, как правый клик: дверь, рычаг, кнопка, сундук, кровать. Может и игрок, и персонаж: use anselm at (1, 64, 2), use player at door. "
+                        + "Персонаж держит то, что у него в руке, и не должен стоять рядом. Блоки с окном, как сундук, откроются только игроку. Событие useblock не срабатывает.");
         cmd("setprop", CAT_PLAYER, "<pos:target> <prop:text> <value:expr>",
                 "Меняет одно свойство блока, который уже стоит: setprop (1, 64, 2) \"facing\" \"south\", setprop door \"open\" true.");
         cmd("emit", CAT_LOGIC, "<name:text> [with <value:expr>]",

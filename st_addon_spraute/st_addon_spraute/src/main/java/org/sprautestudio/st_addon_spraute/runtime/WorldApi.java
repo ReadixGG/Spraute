@@ -570,6 +570,40 @@ public final class WorldApi {
     }
 
     /** setprop pos "facing" "south": changes one state of the block that is there. */
+    private static final com.mojang.authlib.GameProfile USER = new com.mojang.authlib.GameProfile(java.util.UUID.nameUUIDFromBytes("spraute:use".getBytes()), "[Spraute]");
+
+    /** A right click on a block by a player or a character. */
+    public static void useBlock(Entity who, Object at) {
+        ServerLevel level = who.level() instanceof ServerLevel l ? l : level();
+        BlockPos p = pos(at);
+        BlockState s = level.getBlockState(p);
+        if (s.isAir()) return;
+        Vec3 from = who.getEyePosition();
+        Vec3 middle = Vec3.atCenterOf(p);
+        var face = net.minecraft.core.Direction.getNearest(from.x - middle.x, from.y - middle.y, from.z - middle.z);
+        var hit = new net.minecraft.world.phys.BlockHitResult(middle, face, p, false);
+        var hand = net.minecraft.world.InteractionHand.MAIN_HAND;
+        if (who instanceof LivingEntity le) le.swing(hand, true);
+        // a block plays its sound to everyone but the one who clicked: his client is supposed to have played it for him.
+        // Here no client clicked, so what only moves in the world is clicked by a stand-in, and the player hears it too.
+        var block = s.getBlock();
+        boolean worldOnly = block instanceof net.minecraft.world.level.block.DoorBlock || block instanceof net.minecraft.world.level.block.TrapDoorBlock
+                || block instanceof net.minecraft.world.level.block.FenceGateBlock || block instanceof net.minecraft.world.level.block.ButtonBlock
+                || block instanceof net.minecraft.world.level.block.LeverBlock;
+        if (who instanceof ServerPlayer player && !worldOnly) {
+            s.use(level, player, hand, hit);
+            return;
+        }
+        var user = net.minecraftforge.common.util.FakePlayerFactory.get(level, USER);
+        user.moveTo(who.getX(), who.getY(), who.getZ(), who.getYRot(), who.getXRot());
+        user.setItemInHand(hand, who instanceof LivingEntity le ? le.getMainHandItem().copy() : ItemStack.EMPTY);
+        try {
+            s.use(level, user, hand, hit);
+        } finally {
+            user.setItemInHand(hand, ItemStack.EMPTY);
+        }
+    }
+
     public static void setProp(Object at, String prop, Object value) {
         ServerLevel level = level();
         BlockPos p = pos(at);
