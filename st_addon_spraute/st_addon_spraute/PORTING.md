@@ -68,7 +68,7 @@ private static void onAttack(Hooks.LivingAttack e) {
 
 1. Создать модуль рядом с `forge/` и добавить его в `settings.gradle`. Исходники `core` и `common` подключаются так же, как в `forge/build.gradle`.
 2. Реализовать `Platform` и `ClientPlatform`.
-3. Вызывать `Hook.fire(...)` из событий загрузчика: всего 76 событий, образец в `ForgeEvents` и `ForgeClientEvents`. Если у загрузчика нет приоритетов, есть `fire(event)`, он пройдёт их все по порядку.
+3. Вызывать `Hook.fire(...)` из событий загрузчика: всего 75 событий, образец в `ForgeEvents` и `ForgeClientEvents`. Если у загрузчика нет приоритетов, есть `fire(event)`, он пройдёт их все по порядку.
 4. На старте: `Platform.install(...)`, на клиенте `ClientPlatform.install(...)`, затем `St_addon_spraute.init()`, и только потом подключение событий: слушатели регистрируются внутри `init()`.
 
 ### Что потребует отдельной работы
