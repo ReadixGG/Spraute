@@ -158,7 +158,8 @@ public final class BlockTypes {
             Map.entry("dimension", "измерение %p0"), Map.entry("weather", "погода"), Map.entry("biome", "биом в %p0"),
             Map.entry("light", "свет в %p0"), Map.entry("sky", "видно небо из %p0 ?"), Map.entry("posof", "позиция %p0"),
             Map.entry("charname", "имя %p0"), Map.entry("targetof", "цель %p0"),
-            Map.entry("players", "все игроки"), Map.entry("playercount", "сколько игроков"));
+            Map.entry("players", "все игроки"), Map.entry("playercount", "сколько игроков"),
+            Map.entry("playerbyname", "игрок с ником %p0"), Map.entry("online", "игрок %p0 в сети ?"));
 
     private static final Map<String, String> PARAM_LABELS = Map.ofEntries(
             Map.entry("who", "кто"), Map.entry("text", "текст"), Map.entry("slot", "слот"), Map.entry("time", "время"),

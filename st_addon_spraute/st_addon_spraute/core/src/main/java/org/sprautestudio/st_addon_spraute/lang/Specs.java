@@ -625,6 +625,8 @@ public final class Specs {
         fn("abs", "abs(x)", "число", "Модуль числа.");
         fn("players", "players()", "список", "Все игроки, которые видят этот сюжет: for p in players() { as p { give \"minecraft:bread\" } }.");
         fn("playercount", "playercount()", "число", "Сколько игроков видит этот сюжет.");
+        fn("playerbyname", "playerbyname(\"ник\")", "сущность", "Игрок с этим ником на всём сервере, \"\" — такого нет в сети: var p = playerbyname(\"Readix\"); if p { as p { give \"minecraft:bread\" } }.");
+        fn("online", "online(\"ник\")", "да/нет", "В сети ли игрок с этим ником.");
         fn("day", "day()", "число", "Номер текущего дня мира (с 0).");
         fn("bought", "bought(shop, offer)", "число", "Сколько раз купили (продали) товар: bought(\"лавка\", \"sword\").");
         fn("stock", "stock(shop, offer)", "число", "Сколько товара осталось (-1 — без конца).");

@@ -289,6 +289,12 @@ public final class Eval {
             }
             case "playercount":
                 return (double) SprauteRuntime.audience().size();
+            case "playerbyname": {
+                ServerPlayer p = playerNamed(str(eval(a.get(0))));
+                return p != null ? new EntityRef(p) : "";
+            }
+            case "online":
+                return playerNamed(str(eval(a.get(0)))) != null;
             case "day": {
                 ServerPlayer p = SprauteRuntime.player();
                 return p != null ? (double) Math.floorDiv(p.level().getDayTime(), 24000L) : 0.0;

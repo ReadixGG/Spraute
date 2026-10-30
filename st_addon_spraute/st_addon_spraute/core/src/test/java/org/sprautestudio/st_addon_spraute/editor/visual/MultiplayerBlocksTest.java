@@ -30,7 +30,7 @@ class MultiplayerBlocksTest {
 
     @Test
     void theBlocksExist() {
-        for (String type : List.of("as", "val:actor", "fn:players", "fn:playercount")) assertNotNull(BlockTypes.get(type), type);
+        for (String type : List.of("as", "val:actor", "fn:players", "fn:playercount", "fn:playerbyname", "fn:online")) assertNotNull(BlockTypes.get(type), type);
     }
 
     @Test
@@ -59,4 +59,19 @@ class MultiplayerBlocksTest {
     void theWordsAreExplained() {
         for (String word : List.of("solo", "autostart", "once", "as", "actor")) assertTrue(Specs.keywordDocs().containsKey(word), word);
     }
+
+    @Test
+    void aPlayerByNameIsValidCode() {
+        Analyzer.Result r = Analyzer.analyze("""
+                script 7102 "Ник"
+                var p = playerbyname("Readix")
+                if p and online("Readix") {
+                    as p {
+                        give "minecraft:bread"
+                    }
+                }
+                """);
+        assertFalse(r.hasErrors(), () -> r.diagnostics.toString());
+    }
 }
+
