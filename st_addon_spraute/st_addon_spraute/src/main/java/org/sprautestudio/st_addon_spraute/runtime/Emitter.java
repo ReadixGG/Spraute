@@ -21,10 +21,9 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.sprautestudio.st_addon_spraute.lang.Ast.*;
 import org.sprautestudio.st_addon_spraute.lang.Specs;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -969,7 +968,7 @@ final class Emitter {
             case "slots" -> {
                 Expr countE = c.arg("count"), offE = c.arg("offhand");
                 b.thenRun(guard(() -> {
-                    var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+                    var server = Platform.get().server();
                     if (server == null) return;
                     var cfg = org.sprautestudio.st_addon_spraute.engine.EngineServer.config().copy();
                     cfg.slots = true;
@@ -1403,7 +1402,7 @@ final class Emitter {
                 Expr value = c.arg("value");
                 String kind = c.key.substring(5);
                 b.thenRun(guard(() -> {
-                    var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+                    var server = Platform.get().server();
                     if (server == null) return;
                     if (org.sprautestudio.st_addon_spraute.engine.EngineServer.config().time) {
                         switch (kind) {
@@ -1689,7 +1688,7 @@ final class Emitter {
             // player & world
             case "teleport" -> b.teleportPlayer(locationSupplier(c.arg("pos")));
             case "effect" -> {
-                MobEffect effect = ForgeRegistries.MOB_EFFECTS.getValue(id(c.arg("effect")));
+                MobEffect effect = net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT.get(id(c.arg("effect")));
                 if (effect == null) throw new SprauteRuntimeException("Эффект " + text(c.arg("effect")) + " не найден");
                 b.thenAddEffect(new MobEffectInstance(effect, ticks(c.arg("time")), (int) number(c.arg("level"), 0)));
             }
@@ -1698,11 +1697,11 @@ final class Emitter {
                 Expr at0 = c.arg("pos"), volE = c.arg("volume"), pitchE = c.arg("pitch"), sidE = c.arg("id");
                 boolean loopS = c.arg("loop") != null;
                 String project = script.deployed.project == null ? "" : script.deployed.project;
-                java.nio.file.Path own = project.isEmpty() ? null : net.minecraftforge.fml.loading.FMLPaths.GAMEDIR.get().resolve("spraute").resolve("projects").resolve(project).resolve("sounds");
+                java.nio.file.Path own = project.isEmpty() ? null : Platform.get().gameDir().resolve("spraute").resolve("projects").resolve(project).resolve("sounds");
                 boolean projectSound = !sname.contains(":") && own != null
                         && (java.nio.file.Files.isRegularFile(own.resolve(sname + ".ogg")) || java.nio.file.Files.isRegularFile(own.resolve(sname + ".wav")));
                 ResourceLocation srl = projectSound ? null : ResourceLocation.tryParse(sname.contains(":") ? sname : "minecraft:" + sname);
-                SoundEvent sound = srl == null ? null : ForgeRegistries.SOUND_EVENTS.getValue(srl);
+                SoundEvent sound = srl == null ? null : net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.get(srl);
                 if (sound == null || projectSound) {
                     // the project's own: the clients play the file
                     b.thenRun(guard(() -> {
@@ -1756,7 +1755,7 @@ final class Emitter {
             case "command" -> {
                 Expr cmd = c.arg("command");
                 b.thenRun(guard(() -> {
-                    MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+                    MinecraftServer server = Platform.get().server();
                     if (server == null) return;
                     String line = safeText(cmd);
                     if (line.startsWith("/")) line = line.substring(1);
@@ -1966,7 +1965,7 @@ final class Emitter {
 
     private void waitEvent(ScriptPerformerBuilder b, org.sprautestudio.st_addon_spraute.lang.EventDefs.Def ev, Expr what) {
         // an event of Forge or a mod: start listening to it on Forge's bus
-        if (ev.name().equals("forge") && what != null) b.thenRun(guard(() -> ForgeBridge.listen(text(what))));
+        if (ev.name().equals("forge") && what != null) b.thenRun(guard(() -> Platform.get().listenLoaderEvent(text(what))));
         waitLog(b, ev.name(), () -> eventFilter(ev, what));
     }
 
@@ -2091,7 +2090,7 @@ final class Emitter {
         Boolean ok = ANIMATED_TYPES.get(key);
         if (ok == null) {
             ok = true;
-            MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+            MinecraftServer server = Platform.get().server();
             if (server != null) {
                 try {
                     net.minecraft.world.entity.Entity probe = type.create(server.overworld());

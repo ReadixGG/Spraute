@@ -1,17 +1,14 @@
 package org.sprautestudio.st_addon_spraute.content;
 
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.editor.project.Project;
 import org.sprautestudio.st_addon_spraute.editor.project.Workspace;
 import org.sprautestudio.st_addon_spraute.net.Packets;
 import org.sprautestudio.st_addon_spraute.net.SprauteNetwork;
 import org.sprautestudio.st_addon_spraute.runtime.Images;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -27,8 +24,12 @@ import java.util.List;
 import java.util.Map;
 
 /** The client's side of a project's files: uploading the author's, and keeping a copy of the server's while connected to it. */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
 public final class ContentClient {
+    public static void registerHooks() {
+        ClientHooks.CLIENT_TICK.add(ContentClient::onTick);
+        ClientHooks.LOGGING_OUT.add(ContentClient::onLogout);
+    }
+
     private ContentClient() {
     }
 
@@ -187,9 +188,8 @@ public final class ContentClient {
 
     // ------------------------------------------------------------------ going
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ClientTickEvent e) {
-        if (e.phase != TickEvent.Phase.END) return;
+    public static void onTick(ClientHooks.ClientTick e) {
+        if (e.phase != TickPhase.END) return;
         if (Minecraft.getInstance().getConnection() == null) return;
         for (int i = 0; i < PIECES_PER_TICK && !UP.isEmpty(); i++) SprauteNetwork.sendToServer(UP.poll());
         // a server that never answers must not hold a deploy back for ever
@@ -204,8 +204,7 @@ public final class ContentClient {
         }
     }
 
-    @SubscribeEvent
-    public static void onLogout(ClientPlayerNetworkEvent.LoggingOut e) {
+    public static void onLogout(ClientHooks.LoggingOut e) {
         boolean had = !ACTIVE.isEmpty();
         ACTIVE.clear();
         MISSING.clear();

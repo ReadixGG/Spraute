@@ -5,7 +5,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraftforge.server.ServerLifecycleHooks;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
 
 import java.util.UUID;
 
@@ -33,7 +33,7 @@ public final class EntityRef {
     public Entity get() {
         if (cache != null && !cache.isRemoved()) return cache;
         cache = null;
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = Platform.get().server();
         if (server == null) return null;
         for (ServerLevel level : server.getAllLevels()) {
             Entity e = level.getEntity(uuid);

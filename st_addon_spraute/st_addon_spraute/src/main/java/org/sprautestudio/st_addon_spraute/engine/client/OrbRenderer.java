@@ -14,15 +14,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.EntityRenderersEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.runtime.orb.Orbs;
 import org.sprautestudio.st_addon_spraute.runtime.orb.SprauteOrb;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
 
 /** Draws story orbs: a glowing sprite facing the camera (a picture or the tinted experience orb), or a spinning item. */
 public class OrbRenderer extends EntityRenderer<SprauteOrb> {
@@ -33,10 +30,12 @@ public class OrbRenderer extends EntityRenderer<SprauteOrb> {
         shadowRadius = 0.08f;
     }
 
-    @Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static final class Registration {
-        @SubscribeEvent
-        public static void renderers(EntityRenderersEvent.RegisterRenderers e) {
+        public static void registerHooks() {
+            ClientHooks.REGISTER_RENDERERS.add(Registration::renderers);
+        }
+
+        public static void renderers(ClientHooks.RegisterRenderers e) {
             e.registerEntityRenderer(Orbs.ORB.get(), OrbRenderer::new);
             e.registerEntityRenderer(Orbs.CAMERA.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
             e.registerEntityRenderer(Orbs.MODEL.get(), org.sprautestudio.st_addon_spraute.runtime.models.SprauteModelRenderer::new);

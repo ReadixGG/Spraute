@@ -1,4 +1,4 @@
-package org.sprautestudio.st_addon_spraute.runtime.models;
+package org.sprautestudio.st_addon_spraute.platform.forge;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
@@ -11,26 +11,44 @@ import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.entity.PartEntity;
+import org.sprautestudio.st_addon_spraute.runtime.models.BodyPart;
+import org.sprautestudio.st_addon_spraute.runtime.models.SprauteModelEntity;
 
-/**
- * One extra hitbox of a Spraute character (a head, a tail, a weak spot), like the parts of the ender
- * dragon: the game picks it for hands, arrows and casts on its own, and hits on it go to the body with
- * the part's name and damage multiplier. Not saved and not sent: both sides build the same parts.
- */
-public class SprautePart extends PartEntity<SprauteModelEntity> {
-    final int index;
+/** A character's extra hitbox as Forge has it. */
+final class ForgePart extends PartEntity<SprauteModelEntity> implements BodyPart {
+    private final int index;
     private EntityDimensions size = EntityDimensions.scalable(0.01f, 0.01f);
-    /** Placed by the body this tick (a part of a type without that many parts stays off). */
-    boolean active;
+    private boolean active;
 
-    public SprautePart(SprauteModelEntity body, int index) {
+    ForgePart(SprauteModelEntity body, int index) {
         super(body);
         this.index = index;
         this.noPhysics = true;
         refreshDimensions();
     }
 
-    void resize(float w, float h) {
+    @Override
+    public SprauteModelEntity body() {
+        return getParent();
+    }
+
+    @Override
+    public int index() {
+        return index;
+    }
+
+    @Override
+    public boolean active() {
+        return active;
+    }
+
+    @Override
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    @Override
+    public void resize(float w, float h) {
         if (Math.abs(size.width - w) < 1e-4 && Math.abs(size.height - h) < 1e-4) return;
         size = EntityDimensions.scalable(w, h);
         refreshDimensions();

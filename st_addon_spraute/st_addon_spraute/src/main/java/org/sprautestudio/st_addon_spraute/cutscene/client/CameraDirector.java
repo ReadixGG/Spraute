@@ -9,17 +9,6 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.client.event.InputEvent;
-import net.minecraftforge.client.event.MovementInputUpdateEvent;
-import net.minecraftforge.client.event.RenderGuiEvent;
-import net.minecraftforge.client.event.RenderGuiOverlayEvent;
-import net.minecraftforge.client.event.RenderHandEvent;
-import net.minecraftforge.client.event.ViewportEvent;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.cutscene.CutsceneDoc;
@@ -29,6 +18,8 @@ import org.sprautestudio.st_addon_spraute.net.Packets;
 import org.sprautestudio.st_addon_spraute.net.SprauteNetwork;
 import org.sprautestudio.st_addon_spraute.runtime.orb.CameraEntity;
 import org.sprautestudio.st_addon_spraute.runtime.orb.Orbs;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,8 +30,22 @@ import java.util.function.BiConsumer;
  * camera commands from stories (move, look, follow, orbit, fov, roll, shake), plus the cinema
  * presentation — bars, fades, hidden HUD, locked controls and skipping.
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
 public final class CameraDirector {
+    public static void registerHooks() {
+        ClientHooks.RENDER_PLAYER.add(CameraDirector::hideNearPlayer);
+        ClientHooks.RENDER_TICK.add(CameraDirector::onRenderTick);
+        ClientHooks.CAMERA_ANGLES.add(CameraDirector::onAngles);
+        ClientHooks.COMPUTE_FOV.add(CameraDirector::onFov);
+        ClientHooks.RENDER_HAND.add(CameraDirector::onHand);
+        ClientHooks.MOVEMENT_INPUT.add(CameraDirector::onInput);
+        ClientHooks.INTERACTION_KEY.add(CameraDirector::onInteract);
+        ClientHooks.KEY.add(CameraDirector::onKey);
+        ClientHooks.CLIENT_TICK.add(CameraDirector::onTick);
+        ClientHooks.RENDER_HUD_PART.add(CameraDirector::onOverlay);
+        ClientHooks.RENDER_GUI.add(CameraDirector::onGui);
+        ClientHooks.LOGGING_OUT.add(CameraDirector::onLogout);
+    }
+
     private CameraDirector() {}
 
     private enum Mode { NONE, FREE, FOLLOW, ORBIT, SCENE, RETURN, FLY, DIALOG }
@@ -210,8 +215,7 @@ public final class CameraDirector {
      * While the camera is its own (a dialog, a cutscene, coming back), the game draws the player's body;
      * near the end of a flight back the camera passes through the head. Close to it the body is not drawn.
      */
-    @SubscribeEvent
-    public static void hideNearPlayer(net.minecraftforge.client.event.RenderPlayerEvent.Pre e) {
+    public static void hideNearPlayer(ClientHooks.RenderPlayer e) {
         if (mode == Mode.NONE || mode == Mode.FLY) return;
         Minecraft mc = Minecraft.getInstance();
         if (e.getEntity() != mc.player) return;
@@ -586,9 +590,8 @@ public final class CameraDirector {
         return id < 0 || mc.level == null ? null : mc.level.getEntity(id);
     }
 
-    @SubscribeEvent
-    public static void onRenderTick(TickEvent.RenderTickEvent e) {
-        if (e.phase != TickEvent.Phase.START) return;
+    public static void onRenderTick(ClientHooks.RenderTick e) {
+        if (e.phase != TickPhase.START) return;
         double t = now();
         float dt = (float) Math.min(0.1, t - lastFrame / 1e9);
         lastFrame = System.nanoTime();
@@ -769,27 +772,23 @@ public final class CameraDirector {
         p.xRotO = lockPitch;
     }
 
-    @SubscribeEvent
-    public static void onAngles(ViewportEvent.ComputeCameraAngles e) {
+    public static void onAngles(ClientHooks.CameraAngles e) {
         if (mode == Mode.NONE) return;
         e.setYaw(shown.yaw);
         e.setPitch(shown.pitch);
         e.setRoll(shown.roll);
     }
 
-    @SubscribeEvent
-    public static void onFov(ViewportEvent.ComputeFov e) {
+    public static void onFov(ClientHooks.ComputeFov e) {
         if (mode != Mode.NONE) e.setFOV(Math.max(5, Math.min(170, shown.fov)));
         else if (fovAdd.value() != 0) e.setFOV(e.getFOV() + fovAdd.value());
     }
 
-    @SubscribeEvent
-    public static void onHand(RenderHandEvent e) {
+    public static void onHand(ClientHooks.RenderHand e) {
         if (mode != Mode.NONE) e.setCanceled(true);
     }
 
-    @SubscribeEvent
-    public static void onInput(MovementInputUpdateEvent e) {
+    public static void onInput(ClientHooks.MovementInput e) {
         if (!locked) return;
         var in = e.getInput();
         in.forwardImpulse = 0;
@@ -799,24 +798,21 @@ public final class CameraDirector {
         in.shiftKeyDown = false;
     }
 
-    @SubscribeEvent
-    public static void onInteract(InputEvent.InteractionKeyMappingTriggered e) {
+    public static void onInteract(ClientHooks.InteractionKey e) {
         if (locked) {
             e.setCanceled(true);
             e.setSwingHand(false);
         }
     }
 
-    @SubscribeEvent
-    public static void onKey(InputEvent.Key e) {
+    public static void onKey(ClientHooks.Key e) {
         if (mode != Mode.SCENE || !skippable || e.getAction() != GLFW.GLFW_PRESS || Minecraft.getInstance().screen != null) return;
         if (e.getKey() == GLFW.GLFW_KEY_SPACE || e.getKey() == GLFW.GLFW_KEY_ENTER) endScene(true);
     }
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ClientTickEvent e) {
-        if (e.phase == TickEvent.Phase.END && locked && mode != Mode.FLY) holdPlayer();
-        if (e.phase == TickEvent.Phase.END) reportToServer();
+    public static void onTick(ClientHooks.ClientTick e) {
+        if (e.phase == TickPhase.END && locked && mode != Mode.FLY) holdPlayer();
+        if (e.phase == TickPhase.END) reportToServer();
     }
 
     private static boolean reported;
@@ -838,11 +834,10 @@ public final class CameraDirector {
     private static final java.util.Set<String> OWN_HUD = java.util.Set.of("health_overlay", "currency_overlay");
 
     /** With the HUD hidden only story overlays (speech, titles) stay. */
-    @SubscribeEvent
-    public static void onOverlay(RenderGuiOverlayEvent.Pre e) {
+    public static void onOverlay(ClientHooks.RenderHudPart e) {
         boolean cinema = mode != Mode.NONE;
         if (hudHide.equals("none") && !cinema) return;
-        ResourceLocation id = e.getOverlay().id();
+        ResourceLocation id = e.id();
         if (id.getNamespace().equals("minecraft")) {
             String p = id.getPath();
             boolean crosshair = p.equals("crosshair");
@@ -853,8 +848,7 @@ public final class CameraDirector {
         }
     }
 
-    @SubscribeEvent
-    public static void onGui(RenderGuiEvent.Post e) {
+    public static void onGui(ClientHooks.RenderGui e) {
         GuiGraphics g = e.getGuiGraphics();
         int w = e.getWindow().getGuiScaledWidth(), h = e.getWindow().getGuiScaledHeight();
         Minecraft mc = Minecraft.getInstance();
@@ -884,8 +878,7 @@ public final class CameraDirector {
         }
     }
 
-    @SubscribeEvent
-    public static void onLogout(ClientPlayerNetworkEvent.LoggingOut e) {
+    public static void onLogout(ClientHooks.LoggingOut e) {
         scene = null;
         deactivate();
         bars.set(0);

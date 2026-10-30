@@ -8,16 +8,12 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.RegisterClientCommandsEvent;
-import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
-import net.minecraftforge.client.settings.KeyConflictContext;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.editor.project.Workspace;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
+import org.sprautestudio.st_addon_spraute.platform.ClientPlatform;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.List;
 
@@ -28,8 +24,7 @@ import java.util.List;
 public final class ClientEvents {
     private ClientEvents() {}
 
-    public static final KeyMapping OPEN_EDITOR = new KeyMapping("key.st_addon_spraute.open", KeyConflictContext.IN_GAME,
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, "key.categories.st_addon_spraute");
+    public static final KeyMapping OPEN_EDITOR = ClientPlatform.get().gameKey("key.st_addon_spraute.open", GLFW.GLFW_KEY_N, "key.categories.st_addon_spraute");
 
     private static boolean openNextTick;
     private static boolean hintShown;
@@ -53,20 +48,26 @@ public final class ClientEvents {
         return OPEN_EDITOR.getTranslatedKeyMessage();
     }
 
-    @Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static final class ModBus {
-        @SubscribeEvent
-        public static void registerKeys(RegisterKeyMappingsEvent event) {
+        public static void registerHooks() {
+            ClientHooks.REGISTER_KEYS.add(ModBus::registerKeys);
+        }
+
+        public static void registerKeys(ClientHooks.RegisterKeys event) {
             event.register(OPEN_EDITOR);
             event.register(org.sprautestudio.st_addon_spraute.editor.cutscene.CutsceneRecorder.FRAME);
         }
     }
 
-    @Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
     public static final class ForgeBus {
-        @SubscribeEvent
-        public static void clientTick(TickEvent.ClientTickEvent event) {
-            if (event.phase != TickEvent.Phase.END) return;
+        public static void registerHooks() {
+            ClientHooks.CLIENT_TICK.add(ForgeBus::clientTick);
+            ClientHooks.LOGGING_IN.add(ForgeBus::loggedIn);
+            ClientHooks.CLIENT_COMMANDS.add(ForgeBus::clientCommands);
+        }
+
+        public static void clientTick(ClientHooks.ClientTick event) {
+            if (event.phase != TickPhase.END) return;
             Minecraft mc = Minecraft.getInstance();
             if (openNextTick) {
                 openNextTick = false;
@@ -85,15 +86,13 @@ public final class ClientEvents {
             }
         }
 
-        @SubscribeEvent
-        public static void loggedIn(net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingIn event) {
+        public static void loggedIn(ClientHooks.LoggingIn event) {
             // stories may run without the editor ever being opened: load every project's pictures
             org.sprautestudio.st_addon_spraute.editor.assets.ProjectImages.registerAll();
             org.sprautestudio.st_addon_spraute.runtime.models.ModelLibrary.scan();
         }
 
-        @SubscribeEvent
-        public static void clientCommands(RegisterClientCommandsEvent event) {
+        public static void clientCommands(ClientHooks.ClientCommands event) {
             event.getDispatcher().register(Commands.literal("editor")
                     .executes(ctx -> {
                         openNextTick = true; // the chat screen closes after the command, open afterwards

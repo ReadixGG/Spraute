@@ -1,4 +1,4 @@
-package org.sprautestudio.st_addon_spraute.runtime;
+package org.sprautestudio.st_addon_spraute.platform.forge;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -15,6 +15,9 @@ import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.GenericEvent;
 import net.minecraftforge.server.ServerLifecycleHooks;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
+import org.sprautestudio.st_addon_spraute.runtime.EntityRef;
+import org.sprautestudio.st_addon_spraute.runtime.GameEvents;
+import org.sprautestudio.st_addon_spraute.runtime.SprauteRuntimeException;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -26,7 +29,7 @@ import java.util.*;
  * server) its data — what its getters give: entities, blocks, items, numbers, texts — becomes the
  * fields of the story event "forge" (event("entity"), event("amount")…).
  */
-public final class ForgeBridge {
+final class ForgeBridge {
     private ForgeBridge() {
     }
 

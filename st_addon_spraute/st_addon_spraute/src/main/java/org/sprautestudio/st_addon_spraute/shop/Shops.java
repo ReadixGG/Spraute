@@ -13,7 +13,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.storage.LevelResource;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.lang.Ast;
 import org.sprautestudio.st_addon_spraute.lang.Parser;
@@ -23,6 +22,7 @@ import org.sprautestudio.st_addon_spraute.runtime.Eval;
 import org.sprautestudio.st_addon_spraute.runtime.GameEvents;
 import org.sprautestudio.st_addon_spraute.runtime.SprauteRuntime;
 import org.sprautestudio.st_addon_spraute.runtime.SprauteScriptInstance;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -69,7 +69,7 @@ public final class Shops {
     }
 
     private static Path file() {
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         return s == null ? null : s.getWorldPath(LevelResource.ROOT).resolve("spraute").resolve("shops.json");
     }
 
@@ -105,7 +105,7 @@ public final class Shops {
     }
 
     private static long today() {
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         return s == null ? 0 : Math.floorDiv(s.overworld().getDayTime(), 24000L);
     }
 

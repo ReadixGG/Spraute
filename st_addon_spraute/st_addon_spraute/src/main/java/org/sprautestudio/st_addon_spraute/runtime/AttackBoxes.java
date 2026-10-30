@@ -7,10 +7,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
@@ -18,8 +14,11 @@ import org.sprautestudio.st_addon_spraute.net.Packets;
 import org.sprautestudio.st_addon_spraute.net.SprauteNetwork;
 import org.sprautestudio.st_addon_spraute.runtime.models.EntityLibrary;
 import org.sprautestudio.st_addon_spraute.runtime.models.PartShape;
-import org.sprautestudio.st_addon_spraute.runtime.models.SprautePart;
+import org.sprautestudio.st_addon_spraute.runtime.models.BodyPart;
 import org.sprautestudio.st_addon_spraute.runtime.models.SprauteModelEntity;
+import org.sprautestudio.st_addon_spraute.platform.Hooks;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,8 +33,11 @@ import java.util.UUID;
  * Attacks by hitboxes: a box in front of a body (turned with it) or a part of a spraute model (riding its
  * bone) hurts whoever it touches while the blow lasts — everyone once. Parts can also hurt on contact.
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID)
 public final class AttackBoxes {
+    public static void registerHooks() {
+        Hooks.SERVER_TICK.add(AttackBoxes::onTick);
+    }
+
     private AttackBoxes() {
     }
 
@@ -75,7 +77,7 @@ public final class AttackBoxes {
     private static final Map<String, Integer> CONTACT_READY = new HashMap<>();
 
     private static int now() {
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         return s != null ? s.getTickCount() : 0;
     }
 
@@ -151,7 +153,7 @@ public final class AttackBoxes {
     }
 
     private static boolean own(Entity body, Entity other) {
-        return other == body || other instanceof SprautePart p && p.getParent() == body;
+        return other == body || other instanceof BodyPart p && p.body() == body;
     }
 
     private static void hurt(ServerLevel lv, Entity by, Entity victim, float damage, double push) {
@@ -181,7 +183,7 @@ public final class AttackBoxes {
     }
 
     private static Entity find(UUID id) {
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         if (s == null) return null;
         for (ServerLevel lv : s.getAllLevels()) {
             Entity e = lv.getEntity(id);
@@ -190,9 +192,8 @@ public final class AttackBoxes {
         return null;
     }
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ServerTickEvent ev) {
-        if (ev.phase != TickEvent.Phase.END || ATTACKS.isEmpty()) return;
+    public static void onTick(Hooks.ServerTick ev) {
+        if (ev.phase != TickPhase.END || ATTACKS.isEmpty()) return;
         int n = now();
         for (Iterator<Attack> it = ATTACKS.iterator(); it.hasNext(); ) {
             Attack a = it.next();

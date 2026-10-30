@@ -6,13 +6,13 @@ import org.sprautestudio.st_addon_spraute.core.script.ScriptEnvironment;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.LevelResource;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.lang.Analyzer;
 import org.sprautestudio.st_addon_spraute.lang.Ast;
 import org.sprautestudio.st_addon_spraute.lang.Diagnostic;
 import org.sprautestudio.st_addon_spraute.net.Packets;
 import org.sprautestudio.st_addon_spraute.net.SprauteNetwork;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -74,7 +74,7 @@ public final class SprauteRuntime {
     // ------------------------------------------------------------------ players
 
     public static MinecraftServer server() {
-        return ServerLifecycleHooks.getCurrentServer();
+        return Platform.get().server();
     }
 
     public static List<ServerPlayer> players() {
@@ -179,7 +179,7 @@ public final class SprauteRuntime {
 
     /** The world opened: its stories. */
     public void openEnvironment(MinecraftServer server) {
-        if (net.minecraftforge.fml.loading.FMLEnvironment.dist.isDedicatedServer()) org.sprautestudio.st_addon_spraute.runtime.models.ModelLibrary.scan();
+        if (!Platform.get().isClient()) org.sprautestudio.st_addon_spraute.runtime.models.ModelLibrary.scan();
         environment = new ScriptEnvironment(server);
         environment.load();
     }
@@ -443,7 +443,7 @@ public final class SprauteRuntime {
         // the engine's HUD is one of these interfaces: changed, it reaches the players now
         // the engine's windows are some of these interfaces: changed, they reach the players now
         var cfg = org.sprautestudio.st_addon_spraute.engine.EngineServer.config();
-        var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        var server = Platform.get().server();
         if (server != null && project.equals(cfg.project)) {
             org.sprautestudio.st_addon_spraute.engine.EngineConfig c = null;
             for (var en : cfg.layouts.entrySet()) {

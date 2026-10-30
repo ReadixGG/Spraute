@@ -2,18 +2,19 @@ package org.sprautestudio.st_addon_spraute.core.client;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.InputEvent;
-import net.minecraftforge.client.event.ScreenEvent;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.engine.client.EngineClient;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 /** Limits of the hotbar and the second hand, by the engine settings; creative and spectator players have none. */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
 public final class SlotsClient {
+    public static void registerHooks() {
+        ClientHooks.CLIENT_TICK.add(SlotsClient::onTick);
+        ClientHooks.MOUSE_SCROLL.add(SlotsClient::onScroll);
+        ClientHooks.SCREEN_OPENING.add(SlotsClient::onOpen);
+    }
+
     private SlotsClient() {
     }
 
@@ -32,11 +33,10 @@ public final class SlotsClient {
         return !EngineClient.config().offhand.equals("off");
     }
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ClientTickEvent e) {
+    public static void onTick(ClientHooks.ClientTick e) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
-        if (e.phase == TickEvent.Phase.START) {
+        if (e.phase == TickPhase.START) {
             // before the game reads its keys: the hands are not swapped
             if (!offhandAllowed()) while (mc.options.keySwapOffhand.consumeClick()) ;
             return;
@@ -48,8 +48,7 @@ public final class SlotsClient {
     }
 
     /** The wheel goes round the open slots only. */
-    @SubscribeEvent
-    public static void onScroll(InputEvent.MouseScrollingEvent e) {
+    public static void onScroll(ClientHooks.MouseScroll e) {
         Minecraft mc = Minecraft.getInstance();
         int size = hotbarSize();
         if (size >= 9 || mc.player == null || mc.screen != null || e.getScrollDelta() == 0) return;
@@ -60,8 +59,7 @@ public final class SlotsClient {
     }
 
     /** The own inventory screen, when the settings ask for it. */
-    @SubscribeEvent
-    public static void onOpen(ScreenEvent.Opening e) {
+    public static void onOpen(ClientHooks.ScreenOpening e) {
         if (e.getNewScreen() instanceof InventoryScreen && EngineClient.config().inventory) e.setNewScreen(new SlotInventoryScreen());
     }
 }

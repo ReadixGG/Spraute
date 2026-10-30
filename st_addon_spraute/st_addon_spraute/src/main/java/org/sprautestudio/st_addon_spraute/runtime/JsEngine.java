@@ -11,10 +11,10 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.storage.LevelResource;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.openjdk.nashorn.api.scripting.ClassFilter;
 import org.openjdk.nashorn.api.scripting.NashornScriptEngineFactory;
 import org.openjdk.nashorn.api.scripting.ScriptObjectMirror;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
 
 import javax.script.Bindings;
 import javax.script.ScriptContext;
@@ -43,7 +43,7 @@ public final class JsEngine {
     // ================================================================== the switch
 
     private static Path settings() {
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         return s == null ? null : s.getWorldPath(LevelResource.ROOT).resolve("spraute").resolve("js_unsafe");
     }
 
@@ -271,7 +271,7 @@ public final class JsEngine {
         /** The game's server object — only with Java allowed. */
         public Object getServer() {
             if (!unsafe()) throw new SecurityException("world.server — только при /sprautejs unsafe on");
-            return ServerLifecycleHooks.getCurrentServer();
+            return Platform.get().server();
         }
     }
 

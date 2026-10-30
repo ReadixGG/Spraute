@@ -11,18 +11,13 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
-import net.minecraftforge.client.event.RenderGuiEvent;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.cutscene.client.CameraDirector;
 import org.sprautestudio.st_addon_spraute.engine.client.ChatHeads;
 import org.sprautestudio.st_addon_spraute.engine.client.EngineClient;
 import org.sprautestudio.st_addon_spraute.net.Packets;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,8 +28,13 @@ import java.util.Map;
  * The speech plate: the current line at the bottom of the screen. It comes at once, stays about ten seconds and
  * fades; a new line replaces it. The story's waiting on F8 is the server's business and does not touch the plate.
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
 public final class SpeechClient {
+    public static void registerHooks() {
+        ClientHooks.CLIENT_TICK.add(SpeechClient::onTick);
+        ClientHooks.RENDER_GUI.add(SpeechClient::onRender);
+        ClientHooks.LOGGING_OUT.add(SpeechClient::onLogout);
+    }
+
     private SpeechClient() {
     }
 
@@ -55,10 +55,12 @@ public final class SpeechClient {
     public static final KeyMapping ADVANCE = new KeyMapping("key.st_addon_spraute.advance", InputConstants.KEY_F8, "key.categories.st_addon_spraute");
     private static final KeyMapping LOG_KEY = new KeyMapping("key.st_addon_spraute.chat_history", InputConstants.KEY_J, "key.categories.st_addon_spraute");
 
-    @Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
     public static final class Keys {
-        @SubscribeEvent
-        public static void register(RegisterKeyMappingsEvent e) {
+        public static void registerHooks() {
+            ClientHooks.REGISTER_KEYS.add(Keys::register);
+        }
+
+        public static void register(ClientHooks.RegisterKeys e) {
             e.register(LOG_KEY);
             e.register(ADVANCE);
         }
@@ -93,9 +95,8 @@ public final class SpeechClient {
         return new ResourceLocation(St_addon_spraute.MODID, "textures/gui/chat/" + (icon == null || icon.isEmpty() ? "generic_man" : icon) + ".png");
     }
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ClientTickEvent e) {
-        if (e.phase != TickEvent.Phase.END) return;
+    public static void onTick(ClientHooks.ClientTick e) {
+        if (e.phase != TickPhase.END) return;
         Minecraft mc = Minecraft.getInstance();
         // the timer goes on behind an open screen
         if (current != null && ++age > STAY_TICKS + FADE_TICKS) current = null;
@@ -147,8 +148,7 @@ public final class SpeechClient {
         return Math.max(ICON, font.split(message(l), Math.max(40, maxW - ICON - PAD * 3)).size() * font.lineHeight) + PAD * 2;
     }
 
-    @SubscribeEvent
-    public static void onRender(RenderGuiEvent.Post e) {
+    public static void onRender(ClientHooks.RenderGui e) {
         Minecraft mc = Minecraft.getInstance();
         if (current == null || mc.options.hideGui || mc.screen != null) return;
         GuiGraphics g = e.getGuiGraphics();
@@ -166,8 +166,7 @@ public final class SpeechClient {
         plate(g, mc.font, current, g.guiWidth() / 2, y - cfg.speechShift, maxW, BACK_ALPHA, alpha);
     }
 
-    @SubscribeEvent
-    public static void onLogout(ClientPlayerNetworkEvent.LoggingOut e) {
+    public static void onLogout(ClientHooks.LoggingOut e) {
         PlayerSkins.clear();
         current = null;
         HISTORY.clear();

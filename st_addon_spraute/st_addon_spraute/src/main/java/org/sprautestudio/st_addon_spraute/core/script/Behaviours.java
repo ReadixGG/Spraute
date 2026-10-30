@@ -5,16 +5,12 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.entity.EntityJoinLevelEvent;
-import net.minecraftforge.event.entity.living.LivingDeathEvent;
-import net.minecraftforge.event.entity.player.PlayerInteractEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.path.Walkers;
 import org.sprautestudio.st_addon_spraute.runtime.GameEvents;
 import org.sprautestudio.st_addon_spraute.runtime.SprauteRuntime;
+import org.sprautestudio.st_addon_spraute.platform.Hooks;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -29,8 +25,15 @@ import java.util.function.Supplier;
  * What characters keep doing on their own between story lines. One behaviour of each type at a time: a new one
  * replaces the old. Starts and ends are events for the stories. Also the clicks stories wait for.
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID)
 public final class Behaviours {
+    public static void registerHooks() {
+        Hooks.ENTITY_INTERACT.add(Behaviours::onEntityClick);
+        Hooks.RIGHT_CLICK_BLOCK.add(Behaviours::onBlockClick);
+        Hooks.ENTITY_JOIN.add(Behaviours::onJoin);
+        Hooks.LIVING_DEATH.add(Behaviours::onDeath);
+        Hooks.SERVER_TICK.add(Behaviours::onTick);
+    }
+
     private Behaviours() {
     }
 
@@ -169,30 +172,25 @@ public final class Behaviours {
         return BLOCK_CLICKS.getOrDefault(pos, 0L);
     }
 
-    @SubscribeEvent
-    public static void onEntityClick(PlayerInteractEvent.EntityInteract e) {
+    public static void onEntityClick(Hooks.EntityInteract e) {
         if (!e.getLevel().isClientSide && e.getHand() == net.minecraft.world.InteractionHand.MAIN_HAND) ENTITY_CLICKS.merge(e.getTarget().getUUID(), 1L, Long::sum);
     }
 
-    @SubscribeEvent
-    public static void onBlockClick(PlayerInteractEvent.RightClickBlock e) {
+    public static void onBlockClick(Hooks.RightClickBlock e) {
         if (!e.getLevel().isClientSide && e.getHand() == net.minecraft.world.InteractionHand.MAIN_HAND) BLOCK_CLICKS.merge(e.getPos(), 1L, Long::sum);
     }
 
     /** A saved body nobody claims, or an old copy of one made anew: it does not come back. */
-    @SubscribeEvent
-    public static void onJoin(EntityJoinLevelEvent e) {
+    public static void onJoin(Hooks.EntityJoin e) {
         if (!e.getLevel().isClientSide && SprauteRuntime.env().isPresent() && !Characters.belongs(e.getEntity())) e.setCanceled(true);
     }
 
-    @SubscribeEvent
-    public static void onDeath(LivingDeathEvent e) {
+    public static void onDeath(Hooks.LivingDeath e) {
         if (!e.getEntity().level().isClientSide) Characters.died(e.getEntity());
     }
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ServerTickEvent e) {
-        if (e.phase != TickEvent.Phase.END) return;
+    public static void onTick(Hooks.ServerTick e) {
+        if (e.phase != TickPhase.END) return;
         Characters.tick(e.getServer());
         for (Map<Type, Running> m : new ArrayList<>(RUNNING.values())) {
             for (Running r : new ArrayList<>(m.values())) {

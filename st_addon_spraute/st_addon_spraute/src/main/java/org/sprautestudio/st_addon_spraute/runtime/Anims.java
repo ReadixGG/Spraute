@@ -1,11 +1,11 @@
 package org.sprautestudio.st_addon_spraute.runtime;
 
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.fml.ModList;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.core.anim.Animation;
 import org.sprautestudio.st_addon_spraute.core.entity.AnimatedEntity;
 import org.sprautestudio.st_addon_spraute.core.parser.SpAnimationParser;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -55,7 +55,7 @@ public final class Anims {
         if (files != null) return files;
         Map<ResourceLocation, SpAnimationParser.AnimationSet> out = new LinkedHashMap<>();
         try {
-            Path root = ModList.get().getModFileById(St_addon_spraute.MODID).getFile().findResource("assets", St_addon_spraute.MODID, "animations");
+            Path root = Platform.get().modResource("assets", St_addon_spraute.MODID, "animations");
             if (Files.isDirectory(root)) {
                 try (Stream<Path> walk = Files.walk(root)) {
                     for (Path f : (Iterable<Path>) walk.filter(p -> p.getFileName().toString().endsWith(".animation.json")).sorted()::iterator) {

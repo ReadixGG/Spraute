@@ -26,11 +26,11 @@ public class SprauteModelEntity extends AnimatedEntity {
 
     /** Most extra hitboxes a type can have. Every body keeps this many parts; those its type does not use stay off. */
     public static final int MAX_PARTS = 8;
-    private final SprautePart[] parts = new SprautePart[MAX_PARTS];
+    private final BodyPart[] parts = new BodyPart[MAX_PARTS];
 
     public SprauteModelEntity(EntityType<? extends AnimatedEntity> type, Level level) {
         super(type, level);
-        for (int i = 0; i < MAX_PARTS; i++) parts[i] = new SprautePart(this, i);
+        for (int i = 0; i < MAX_PARTS; i++) parts[i] = org.sprautestudio.st_addon_spraute.platform.Platform.get().bodyPart(this, i);
         // the parts take the ids right after the body (as the ender dragon's do), so the client finds them by id
         setId(idCounter().getAndAdd(MAX_PARTS + 1) + 1);
     }
@@ -38,8 +38,18 @@ public class SprauteModelEntity extends AnimatedEntity {
     private static java.util.concurrent.atomic.AtomicInteger counter;
 
     private static java.util.concurrent.atomic.AtomicInteger idCounter() {
-        if (counter == null) counter = net.minecraftforge.fml.util.ObfuscationReflectionHelper.getPrivateValue(
-                net.minecraft.world.entity.Entity.class, null, "f_19843_");
+        if (counter == null) {
+            // the game's only counter of this type on Entity: found by type, its name differs between mappings
+            for (java.lang.reflect.Field f : net.minecraft.world.entity.Entity.class.getDeclaredFields()) {
+                if (f.getType() != java.util.concurrent.atomic.AtomicInteger.class || !java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+                try {
+                    f.setAccessible(true);
+                    counter = (java.util.concurrent.atomic.AtomicInteger) f.get(null);
+                } catch (ReflectiveOperationException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+        }
         return counter;
     }
 
@@ -52,16 +62,10 @@ public class SprauteModelEntity extends AnimatedEntity {
     @Override
     public void setId(int id) {
         super.setId(id);
-        for (int i = 0; i < MAX_PARTS; i++) if (parts[i] != null) parts[i].setId(id + i + 1);
+        for (int i = 0; i < MAX_PARTS; i++) if (parts[i] != null) parts[i].entity().setId(id + i + 1);
     }
 
-    @Override
-    public boolean isMultipartEntity() {
-        return true;
-    }
-
-    @Override
-    public net.minecraftforge.entity.PartEntity<?>[] getParts() {
+    protected BodyPart[] bodyParts() {
         return parts;
     }
 
@@ -94,7 +98,7 @@ public class SprauteModelEntity extends AnimatedEntity {
     /** The part's hitbox now, or null when there is no such part. */
     public net.minecraft.world.phys.AABB partBox(String name) {
         java.util.List<EntityLibrary.Def.Part> defs = partDefs();
-        for (int i = 0; i < defs.size() && i < MAX_PARTS; i++) if (defs.get(i).name.equals(name)) return parts[i].getBoundingBox();
+        for (int i = 0; i < defs.size() && i < MAX_PARTS; i++) if (defs.get(i).name.equals(name)) return parts[i].entity().getBoundingBox();
         return null;
     }
 
@@ -174,7 +178,8 @@ public class SprauteModelEntity extends AnimatedEntity {
         java.util.List<EntityLibrary.Def.Part> defs = partDefs();
         float s = lookScale();
         for (int i = 0; i < MAX_PARTS; i++) {
-            SprautePart part = parts[i];
+            BodyPart bodyPart = parts[i];
+            net.minecraft.world.entity.Entity part = bodyPart.entity();
             EntityLibrary.Def.Part d = i < defs.size() ? defs.get(i) : null;
             part.xo = part.getX();
             part.yo = part.getY();
@@ -183,18 +188,18 @@ public class SprauteModelEntity extends AnimatedEntity {
             part.yOld = part.getY();
             part.zOld = part.getZ();
             if (d == null || !d.enabled || off(d.name)) {
-                part.active = false;
+                bodyPart.setActive(false);
                 shapes[i] = null;
-                part.resize(0.01f, 0.01f);
+                bodyPart.resize(0.01f, 0.01f);
                 part.setPos(getX(), getY(), getZ());
                 continue;
             }
-            part.active = true;
+            bodyPart.setActive(true);
             PartShape sh = PartShape.of(d, s, yBodyRot, freshPose(d.bone));
             shapes[i] = sh;
             // the game picks by an upright box: the one around the turned box
             net.minecraft.world.phys.AABB b = sh.bounds(getX(), getY(), getZ());
-            part.resize((float) Math.max(0.02, Math.max(b.getXsize(), b.getZsize())), (float) Math.max(0.02, b.getYsize()));
+            bodyPart.resize((float) Math.max(0.02, Math.max(b.getXsize(), b.getZsize())), (float) Math.max(0.02, b.getYsize()));
             part.setPos((b.minX + b.maxX) / 2, b.minY, (b.minZ + b.maxZ) / 2);
         }
     }
@@ -226,7 +231,7 @@ public class SprauteModelEntity extends AnimatedEntity {
         int best = -2;
         double bestT = Double.MAX_VALUE;
         for (int i = 0; i < MAX_PARTS; i++) {
-            if (shapes[i] == null || !parts[i].active) continue;
+            if (shapes[i] == null || !parts[i].active()) continue;
             double t = shapes[i].hit(line[0], line[1]);
             if (t >= 0 && t < bestT) {
                 bestT = t;
@@ -244,19 +249,19 @@ public class SprauteModelEntity extends AnimatedEntity {
     }
 
     /** A blow that landed on a part: remembered, told to the stories, multiplied and passed to the body. */
-    boolean hurtPart(SprautePart part, net.minecraft.world.damagesource.DamageSource source, float amount) {
+    public boolean hurtPart(BodyPart part, net.minecraft.world.damagesource.DamageSource source, float amount) {
         java.util.List<EntityLibrary.Def.Part> defs = partDefs();
-        if (part.index >= defs.size()) return false;
+        if (part.index() >= defs.size()) return false;
         // the game picked the upright box around a turned part: which box the blow really met
-        int real = level().isClientSide ? part.index : firstHit(source);
+        int real = level().isClientSide ? part.index() : firstHit(source);
         if (real == -1) return hurt(source, amount);
         if (real >= 0 && real < defs.size()) part = parts[real];
-        String name = defs.get(part.index).name;
+        String name = defs.get(part.index()).name;
         float dmg = amount * partDamage(name);
-        report(name, source, dmg, part.getBoundingBox().getCenter());
+        report(name, source, dmg, part.entity().getBoundingBox().getCenter());
         if (dmg <= 0) {
             // a part that takes no harm still flinches the blow off with a sound
-            level().playSound(null, part.getX(), part.getY(), part.getZ(), net.minecraft.sounds.SoundEvents.SHIELD_BLOCK,
+            level().playSound(null, part.entity().getX(), part.entity().getY(), part.entity().getZ(), net.minecraft.sounds.SoundEvents.SHIELD_BLOCK,
                     net.minecraft.sounds.SoundSource.HOSTILE, 0.8f, 1.2f);
             return false;
         }

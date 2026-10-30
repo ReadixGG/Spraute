@@ -28,7 +28,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.server.ServerLifecycleHooks;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,7 +47,7 @@ public final class WorldApi {
     public static ServerLevel level() {
         ServerPlayer p = SprauteRuntime.player();
         if (p != null) return p.serverLevel();
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         if (s == null) throw new SprauteRuntimeException("Мир не загружен");
         return s.overworld();
     }
@@ -595,7 +595,7 @@ public final class WorldApi {
             s.use(level, player, hand, hit);
             return;
         }
-        var user = net.minecraftforge.common.util.FakePlayerFactory.get(level, USER);
+        var user = Platform.get().fakePlayer(level, USER);
         user.moveTo(who.getX(), who.getY(), who.getZ(), who.getYRot(), who.getXRot());
         user.setItemInHand(hand, who instanceof LivingEntity le ? le.getMainHandItem().copy() : ItemStack.EMPTY);
         try {

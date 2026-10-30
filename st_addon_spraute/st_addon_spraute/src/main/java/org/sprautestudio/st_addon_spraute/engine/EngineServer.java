@@ -4,10 +4,10 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.storage.LevelResource;
-import net.minecraftforge.network.PacketDistributor;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.net.Packets;
 import org.sprautestudio.st_addon_spraute.net.SprauteNetwork;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -135,7 +135,7 @@ public final class EngineServer {
         } catch (IOException e) {
             St_addon_spraute.LOGGER.warn("Spraute: cannot save {}", f, e);
         }
-        SprauteNetwork.CHANNEL.send(PacketDistributor.ALL.noArg(), new Packets.EngineSync(c.toJson()));
+        SprauteNetwork.sendToEveryone(new Packets.EngineSync(c.toJson()));
     }
 
     public static boolean enabled(String system) {
@@ -152,7 +152,7 @@ public final class EngineServer {
 
     /** Switches one system from a story; saved and synced like the IDE settings. */
     public static void setSystem(String system, boolean on) {
-        MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = Platform.get().server();
         if (server == null || enabled(system) == on) return;
         EngineConfig c = config.copy();
         switch (system.toLowerCase()) {

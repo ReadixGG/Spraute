@@ -11,16 +11,13 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.client.event.RenderGuiEvent;
-import net.minecraftforge.client.event.RenderLevelStageEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.joml.Matrix4f;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.engine.EngineConfig;
 import org.sprautestudio.st_addon_spraute.zone.ZoneDef;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
+import org.sprautestudio.st_addon_spraute.platform.Hooks;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -30,8 +27,14 @@ import java.util.function.Supplier;
  * The player's side of the zones: the zone's name shown big when they come in, and — in the editor
  * mode — the outlines of the project's zones in the world, so the author sees where they are.
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
 public final class ZoneClient {
+    public static void registerHooks() {
+        Hooks.PLAYER_TICK.add(ZoneClient::wallTick);
+        ClientHooks.LOGGING_OUT.add(ZoneClient::logout);
+        ClientHooks.RENDER_GUI.add(ZoneClient::render);
+        ClientHooks.RENDER_LEVEL.add(ZoneClient::renderLevel);
+    }
+
     private ZoneClient() {
     }
 
@@ -58,10 +61,9 @@ public final class ZoneClient {
      * A zone wall stops the player like a real wall: the step that would cross it is undone on the
      * axis that crosses (so you slide along it), before the frame is drawn. A teleport goes through.
      */
-    @SubscribeEvent
-    public static void wallTick(net.minecraftforge.event.TickEvent.PlayerTickEvent e) {
+    public static void wallTick(Hooks.PlayerTick e) {
         Minecraft mc = Minecraft.getInstance();
-        if (e.phase != net.minecraftforge.event.TickEvent.Phase.END || e.player != mc.player || mc.player == null || mc.level == null) return;
+        if (e.phase != TickPhase.END || e.player != mc.player || mc.player == null || mc.level == null) return;
         var p = mc.player;
         Vec3 now = p.position();
         if (lastPos == null || lastPos.distanceToSqr(now) > 9 || p.isSpectator()) {
@@ -92,16 +94,14 @@ public final class ZoneClient {
         lastPos = now;
     }
 
-    @SubscribeEvent
-    public static void logout(ClientPlayerNetworkEvent.LoggingOut e) {
+    public static void logout(ClientHooks.LoggingOut e) {
         lastPos = null;
         titleAt = 0;
         shown = new LinkedHashMap<>();
         org.sprautestudio.st_addon_spraute.hitbox.Hitboxes.CLIENT.clear();
     }
 
-    @SubscribeEvent
-    public static void render(RenderGuiEvent.Post e) {
+    public static void render(ClientHooks.RenderGui e) {
         if (titleAt == 0) return;
         EngineConfig cfg = org.sprautestudio.st_addon_spraute.engine.client.EngineClient.config();
         long t = System.currentTimeMillis() - titleAt;
@@ -229,9 +229,8 @@ public final class ZoneClient {
         return false;
     }
 
-    @SubscribeEvent
-    public static void renderLevel(RenderLevelStageEvent e) {
-        if (e.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES || !visible()) return;
+    public static void renderLevel(ClientHooks.RenderLevel e) {
+        if (e.getStage() != ClientHooks.LevelStage.AFTER_PARTICLES || !visible()) return;
         boolean editing = org.sprautestudio.st_addon_spraute.editor.zone.ZoneWorldEditor.active();
         if (!editing && Minecraft.getInstance().options.hideGui) return;
         Map<String, ZoneDef> zones = zones();

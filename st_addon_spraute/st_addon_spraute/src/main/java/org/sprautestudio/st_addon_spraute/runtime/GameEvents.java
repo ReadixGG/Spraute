@@ -10,37 +10,11 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.entity.EntityMountEvent;
-import net.minecraftforge.event.entity.item.ItemTossEvent;
-import net.minecraftforge.event.entity.living.AnimalTameEvent;
-import net.minecraftforge.event.entity.living.BabyEntitySpawnEvent;
-import net.minecraftforge.event.entity.living.LivingDeathEvent;
-import net.minecraftforge.event.entity.living.LivingEntityUseItemEvent;
-import net.minecraftforge.event.entity.living.LivingEquipmentChangeEvent;
-import net.minecraftforge.event.entity.living.LivingEvent;
-import net.minecraftforge.event.entity.living.LivingFallEvent;
-import net.minecraftforge.event.entity.living.LivingHurtEvent;
-import net.minecraftforge.event.entity.living.MobEffectEvent;
-import net.minecraftforge.event.entity.player.AdvancementEvent;
-import net.minecraftforge.event.entity.player.ArrowLooseEvent;
-import net.minecraftforge.event.entity.player.AttackEntityEvent;
-import net.minecraftforge.event.entity.player.BonemealEvent;
-import net.minecraftforge.event.entity.player.FillBucketEvent;
-import net.minecraftforge.event.entity.player.ItemFishedEvent;
-import net.minecraftforge.event.entity.player.PlayerContainerEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.event.entity.player.PlayerInteractEvent;
-import net.minecraftforge.event.entity.player.PlayerSleepInBedEvent;
-import net.minecraftforge.event.entity.player.PlayerWakeUpEvent;
-import net.minecraftforge.event.entity.player.PlayerXpEvent;
-import net.minecraftforge.event.entity.player.TradeWithVillagerEvent;
-import net.minecraftforge.event.level.BlockEvent;
-import net.minecraftforge.event.level.ExplosionEvent;
-import net.minecraftforge.eventbus.api.EventPriority;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
+import org.sprautestudio.st_addon_spraute.platform.Hooks;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
+import org.sprautestudio.st_addon_spraute.platform.Priority;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -51,8 +25,50 @@ import java.util.UUID;
  * Turns game happenings into story events. Every running Spraute story gets each event with its
  * data; {@code wait <event>} and {@code on <event>} pick them up from the story's event log.
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID)
 public final class GameEvents {
+    public static void registerHooks() {
+        Hooks.SERVER_CHAT.add(Priority.HIGHEST, GameEvents::onChat);
+        Hooks.BLOCK_BREAK.add(Priority.LOWEST, GameEvents::onBreak);
+        Hooks.BLOCK_PLACE.add(Priority.LOWEST, GameEvents::onPlace);
+        Hooks.LEFT_CLICK_BLOCK.add(Priority.LOWEST, GameEvents::onPunch);
+        Hooks.RIGHT_CLICK_BLOCK.add(Priority.LOWEST, GameEvents::onUseBlock);
+        Hooks.BONEMEAL.add(Priority.LOWEST, GameEvents::onBonemeal);
+        Hooks.FILL_BUCKET.add(Priority.LOWEST, GameEvents::onBucket);
+        Hooks.ENTITY_INTERACT.add(Priority.LOWEST, GameEvents::onInteract);
+        Hooks.ATTACK_ENTITY.add(Priority.LOWEST, GameEvents::onAttack);
+        Hooks.LIVING_DEATH.add(Priority.LOWEST, GameEvents::onDeath);
+        Hooks.LIVING_HURT.add(Priority.LOWEST, GameEvents::onHurt);
+        Hooks.PLAYER_RESPAWN.add(GameEvents::onRespawn);
+        Hooks.ANIMAL_TAME.add(Priority.LOWEST, GameEvents::onTame);
+        Hooks.BABY_SPAWN.add(Priority.LOWEST, GameEvents::onBreed);
+        Hooks.ENTITY_MOUNT.add(Priority.LOWEST, GameEvents::onMount);
+        Hooks.TRADE.add(GameEvents::onTrade);
+        Hooks.ITEM_PICKUP.add(GameEvents::onPickup);
+        Hooks.ITEM_TOSS.add(Priority.LOWEST, GameEvents::onToss);
+        Hooks.RIGHT_CLICK_ITEM.add(Priority.LOWEST, GameEvents::onUse);
+        Hooks.USE_ITEM_FINISH.add(GameEvents::onEat);
+        Hooks.ITEM_CRAFTED.add(GameEvents::onCraft);
+        Hooks.ITEM_SMELTED.add(GameEvents::onSmelt);
+        Hooks.EQUIPMENT_CHANGE.add(GameEvents::onEquip);
+        Hooks.ARROW_LOOSE.add(GameEvents::onShoot);
+        Hooks.ITEM_FISHED.add(GameEvents::onFish);
+        Hooks.CONTAINER_OPEN.add(GameEvents::onOpen);
+        Hooks.CONTAINER_CLOSE.add(GameEvents::onClose);
+        Hooks.LIVING_JUMP.add(GameEvents::onJump);
+        Hooks.LIVING_FALL.add(GameEvents::onFall);
+        Hooks.SLEEP_IN_BED.add(GameEvents::onSleep);
+        Hooks.WAKE_UP.add(GameEvents::onWake);
+        Hooks.XP_LEVEL_CHANGE.add(GameEvents::onLevel);
+        Hooks.XP_PICKUP.add(GameEvents::onXp);
+        Hooks.EFFECT_ADDED.add(GameEvents::onEffect);
+        Hooks.ADVANCEMENT_EARN.add(GameEvents::onAdvancement);
+        Hooks.PLAYER_LOGGED_IN.add(GameEvents::onJoin);
+        Hooks.CHANGED_DIMENSION.add(GameEvents::onDimension);
+        Hooks.EXPLOSION_DETONATE.add(GameEvents::onExplosion);
+        Hooks.PLAYER_TICK.add(GameEvents::onPlayerTick);
+        Hooks.SERVER_TICK.add(GameEvents::onServerTick);
+    }
+
     private GameEvents() {}
 
     // ------------------------------------------------------------------ dispatch
@@ -125,8 +141,7 @@ public final class GameEvents {
      * Spraute cancels every chat message and never passes it to its own chat waits, so chat is
      * read here (cancelled messages included) and handed to stories as the "chat" event.
      */
-    @SubscribeEvent(priority = EventPriority.HIGHEST, receiveCanceled = true)
-    public static void onChat(net.minecraftforge.event.ServerChatEvent e) {
+    public static void onChat(Hooks.ServerChat e) {
         Map<String, Object> d = data();
         d.put("text", e.getRawText());
         fire("chat", e.getPlayer(), d);
@@ -134,8 +149,7 @@ public final class GameEvents {
 
     // ------------------------------------------------------------------ blocks
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onBreak(BlockEvent.BreakEvent e) {
+    public static void onBreak(Hooks.BlockBreak e) {
         if (e.isCanceled()) return;
         Map<String, Object> d = at(data(), e.getPos());
         d.put("block", id(e.getState()));
@@ -143,25 +157,22 @@ public final class GameEvents {
         fire("break", e.getPlayer(), d);
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onPlace(BlockEvent.EntityPlaceEvent e) {
+    public static void onPlace(Hooks.BlockPlace e) {
         if (e.isCanceled() || !(e.getEntity() instanceof Player p)) return;
         Map<String, Object> d = at(data(), e.getPos());
         d.put("block", id(e.getPlacedBlock()));
         fire("place", p, d);
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onPunch(PlayerInteractEvent.LeftClickBlock e) {
-        if (e.getAction() != PlayerInteractEvent.LeftClickBlock.Action.START) return;
+    public static void onPunch(Hooks.LeftClickBlock e) {
+        if (!e.isStart()) return;
         Map<String, Object> d = at(data(), e.getPos());
         d.put("block", id(e.getLevel().getBlockState(e.getPos())));
         d.put("item", id(e.getItemStack()));
         fire("punch", e.getEntity(), d);
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onUseBlock(PlayerInteractEvent.RightClickBlock e) {
+    public static void onUseBlock(Hooks.RightClickBlock e) {
         if (e.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND) return;
         Map<String, Object> d = at(data(), e.getPos());
         d.put("block", id(e.getLevel().getBlockState(e.getPos())));
@@ -169,15 +180,13 @@ public final class GameEvents {
         fire("useblock", e.getEntity(), d);
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onBonemeal(BonemealEvent e) {
+    public static void onBonemeal(Hooks.Bonemeal e) {
         Map<String, Object> d = at(data(), e.getPos());
         d.put("block", id(e.getBlock()));
         fire("bonemeal", e.getEntity(), d);
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onBucket(FillBucketEvent e) {
+    public static void onBucket(Hooks.FillBucket e) {
         Map<String, Object> d = at(data(), e.getEntity().blockPosition());
         d.put("item", id(e.getEmptyBucket()));
         fire("bucket", e.getEntity(), d);
@@ -185,16 +194,14 @@ public final class GameEvents {
 
     // ------------------------------------------------------------------ creatures
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onInteract(PlayerInteractEvent.EntityInteract e) {
+    public static void onInteract(Hooks.EntityInteract e) {
         if (e.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND) return;
         Map<String, Object> d = at(entity(data(), e.getTarget()), e.getTarget());
         d.put("item", id(e.getItemStack()));
         fire("interact", e.getEntity(), d);
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onAttack(AttackEntityEvent e) {
+    public static void onAttack(Hooks.AttackEntity e) {
         if (e.isCanceled()) return;
         Map<String, Object> d = at(entity(data(), e.getTarget()), e.getTarget());
         d.put("item", id(e.getEntity().getMainHandItem()));
@@ -204,8 +211,7 @@ public final class GameEvents {
     /** Deaths already told (Forge may announce one death twice): entity -> server tick. */
     private static final Map<java.util.UUID, Integer> DEATHS = new java.util.HashMap<>();
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onDeath(LivingDeathEvent e) {
+    public static void onDeath(Hooks.LivingDeath e) {
         if (e.isCanceled() || e.getEntity().level().isClientSide) return;
         int now = Mechanics.now();
         Integer told = DEATHS.get(e.getEntity().getUUID());
@@ -244,8 +250,7 @@ public final class GameEvents {
         d.put("__killer", killer);
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onHurt(LivingHurtEvent e) {
+    public static void onHurt(Hooks.LivingHurt e) {
         if (e.isCanceled() || !(e.getEntity() instanceof Player p)) return;
         Map<String, Object> d = at(entity(data(), e.getSource().getEntity()), p);
         d.put("amount", (double) e.getAmount());
@@ -253,31 +258,26 @@ public final class GameEvents {
         fire("hurt", p, d);
     }
 
-    @SubscribeEvent
-    public static void onRespawn(PlayerEvent.PlayerRespawnEvent e) {
+    public static void onRespawn(Hooks.PlayerRespawn e) {
         fire("respawn", e.getEntity(), at(data(), e.getEntity()));
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onTame(AnimalTameEvent e) {
+    public static void onTame(Hooks.AnimalTame e) {
         if (e.isCanceled()) return;
         fire("tame", e.getTamer(), at(entity(data(), e.getAnimal()), e.getAnimal()));
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onBreed(BabyEntitySpawnEvent e) {
+    public static void onBreed(Hooks.BabySpawn e) {
         if (e.isCanceled() || e.getChild() == null) return;
         fire("breed", e.getCausedByPlayer(), at(entity(data(), e.getChild()), e.getChild()));
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onMount(EntityMountEvent e) {
+    public static void onMount(Hooks.EntityMount e) {
         if (e.isCanceled() || !(e.getEntityMounting() instanceof Player p)) return;
         fire(e.isMounting() ? "mount" : "dismount", p, entity(data(), e.getEntityBeingMounted()));
     }
 
-    @SubscribeEvent
-    public static void onTrade(TradeWithVillagerEvent e) {
+    public static void onTrade(Hooks.Trade e) {
         Map<String, Object> d = entity(data(), e.getAbstractVillager());
         d.put("item", id(e.getMerchantOffer().getResult()));
         d.put("count", (double) e.getMerchantOffer().getResult().getCount());
@@ -286,16 +286,14 @@ public final class GameEvents {
 
     // ------------------------------------------------------------------ items
 
-    @SubscribeEvent
-    public static void onPickup(PlayerEvent.ItemPickupEvent e) {
+    public static void onPickup(Hooks.ItemPickup e) {
         Map<String, Object> d = data();
         d.put("item", id(e.getStack()));
         d.put("count", (double) e.getStack().getCount());
         fire("pickup", e.getEntity(), d);
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onToss(ItemTossEvent e) {
+    public static void onToss(Hooks.ItemToss e) {
         if (e.isCanceled()) return;
         ItemStack st = e.getEntity().getItem();
         Map<String, Object> d = data();
@@ -304,39 +302,34 @@ public final class GameEvents {
         fire("drop", e.getPlayer(), d);
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onUse(PlayerInteractEvent.RightClickItem e) {
+    public static void onUse(Hooks.RightClickItem e) {
         Map<String, Object> d = data();
         d.put("item", id(e.getItemStack()));
         fire("use", e.getEntity(), d);
     }
 
-    @SubscribeEvent
-    public static void onEat(LivingEntityUseItemEvent.Finish e) {
+    public static void onEat(Hooks.UseItemFinish e) {
         if (!(e.getEntity() instanceof Player p)) return;
         Map<String, Object> d = data();
         d.put("item", id(e.getItem()));
         fire("eat", p, d);
     }
 
-    @SubscribeEvent
-    public static void onCraft(PlayerEvent.ItemCraftedEvent e) {
+    public static void onCraft(Hooks.ItemCrafted e) {
         Map<String, Object> d = data();
         d.put("item", id(e.getCrafting()));
         d.put("count", (double) e.getCrafting().getCount());
         fire("craft", e.getEntity(), d);
     }
 
-    @SubscribeEvent
-    public static void onSmelt(PlayerEvent.ItemSmeltedEvent e) {
+    public static void onSmelt(Hooks.ItemSmelted e) {
         Map<String, Object> d = data();
         d.put("item", id(e.getSmelting()));
         d.put("count", (double) e.getSmelting().getCount());
         fire("smelt", e.getEntity(), d);
     }
 
-    @SubscribeEvent
-    public static void onEquip(LivingEquipmentChangeEvent e) {
+    public static void onEquip(Hooks.EquipmentChange e) {
         if (!(e.getEntity() instanceof Player p) || e.getTo().isEmpty()) return;
         // hotbar switching is reported as "select"
         if (e.getSlot() == EquipmentSlot.MAINHAND) return;
@@ -346,16 +339,14 @@ public final class GameEvents {
         fire("equip", p, d);
     }
 
-    @SubscribeEvent
-    public static void onShoot(ArrowLooseEvent e) {
+    public static void onShoot(Hooks.ArrowLoose e) {
         Map<String, Object> d = data();
         d.put("item", id(e.getBow()));
         d.put("amount", (double) e.getCharge());
         fire("shoot", e.getEntity(), d);
     }
 
-    @SubscribeEvent
-    public static void onFish(ItemFishedEvent e) {
+    public static void onFish(Hooks.ItemFished e) {
         for (ItemStack st : e.getDrops()) {
             Map<String, Object> d = data();
             d.put("item", id(st));
@@ -364,15 +355,13 @@ public final class GameEvents {
         }
     }
 
-    @SubscribeEvent
-    public static void onOpen(PlayerContainerEvent.Open e) {
+    public static void onOpen(Hooks.ContainerOpen e) {
         Map<String, Object> d = data();
         d.put("id", menuId(e.getContainer()));
         fire("opencontainer", e.getEntity(), d);
     }
 
-    @SubscribeEvent
-    public static void onClose(PlayerContainerEvent.Close e) {
+    public static void onClose(Hooks.ContainerClose e) {
         Map<String, Object> d = data();
         d.put("id", menuId(e.getContainer()));
         fire("closecontainer", e.getEntity(), d);
@@ -389,45 +378,38 @@ public final class GameEvents {
 
     // ------------------------------------------------------------------ the player
 
-    @SubscribeEvent
-    public static void onJump(LivingEvent.LivingJumpEvent e) {
+    public static void onJump(Hooks.LivingJump e) {
         if (e.getEntity() instanceof Player p) fire("jump", p, at(data(), p));
     }
 
-    @SubscribeEvent
-    public static void onFall(LivingFallEvent e) {
+    public static void onFall(Hooks.LivingFall e) {
         if (!(e.getEntity() instanceof Player p) || e.getDistance() <= 3) return;
         Map<String, Object> d = at(data(), p);
         d.put("amount", (double) Math.round(e.getDistance() * 10) / 10.0);
         fire("fall", p, d);
     }
 
-    @SubscribeEvent
-    public static void onSleep(PlayerSleepInBedEvent e) {
+    public static void onSleep(Hooks.SleepInBed e) {
         fire("sleep", e.getEntity(), at(data(), e.getPos()));
     }
 
-    @SubscribeEvent
-    public static void onWake(PlayerWakeUpEvent e) {
+    public static void onWake(Hooks.WakeUp e) {
         fire("wake", e.getEntity(), data());
     }
 
-    @SubscribeEvent
-    public static void onLevel(PlayerXpEvent.LevelChange e) {
+    public static void onLevel(Hooks.XpLevelChange e) {
         Map<String, Object> d = data();
         d.put("level", (double) (e.getEntity().experienceLevel + e.getLevels()));
         fire("levelup", e.getEntity(), d);
     }
 
-    @SubscribeEvent
-    public static void onXp(PlayerXpEvent.PickupXp e) {
+    public static void onXp(Hooks.XpPickup e) {
         Map<String, Object> d = data();
         d.put("amount", (double) e.getOrb().getValue());
         fire("xp", e.getEntity(), d);
     }
 
-    @SubscribeEvent
-    public static void onEffect(MobEffectEvent.Added e) {
+    public static void onEffect(Hooks.EffectAdded e) {
         if (!(e.getEntity() instanceof Player p)) return;
         Map<String, Object> d = data();
         var key = BuiltInRegistries.MOB_EFFECT.getKey(e.getEffectInstance().getEffect());
@@ -436,29 +418,25 @@ public final class GameEvents {
         fire("effect", p, d);
     }
 
-    @SubscribeEvent
-    public static void onAdvancement(AdvancementEvent.AdvancementEarnEvent e) {
+    public static void onAdvancement(Hooks.AdvancementEarn e) {
         Map<String, Object> d = data();
         d.put("id", e.getAdvancement().getId().toString());
         fire("advancement", e.getEntity(), d);
     }
 
-    @SubscribeEvent
-    public static void onJoin(PlayerEvent.PlayerLoggedInEvent e) {
+    public static void onJoin(Hooks.PlayerLoggedIn e) {
         fire("join", e.getEntity(), data());
         if (e.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) SprauteRuntime.get().playerJoined(sp);
     }
 
-    @SubscribeEvent
-    public static void onDimension(PlayerEvent.PlayerChangedDimensionEvent e) {
+    public static void onDimension(Hooks.ChangedDimension e) {
         Map<String, Object> d = data();
         d.put("from", e.getFrom().location().toString());
         d.put("to", e.getTo().location().toString());
         fire("dimension", e.getEntity(), d);
     }
 
-    @SubscribeEvent
-    public static void onExplosion(ExplosionEvent.Detonate e) {
+    public static void onExplosion(Hooks.ExplosionDetonate e) {
         var pos = e.getExplosion().getPosition();
         for (Player p : e.getLevel().players()) {
             if (p.position().distanceTo(pos) > 24) continue;
@@ -500,9 +478,8 @@ public final class GameEvents {
     private static long lastDayTime = -1;
     private static Boolean lastRain;
 
-    @SubscribeEvent
-    public static void onPlayerTick(TickEvent.PlayerTickEvent e) {
-        if (e.phase != TickEvent.Phase.END || !(e.player instanceof ServerPlayer p)) return;
+    public static void onPlayerTick(Hooks.PlayerTick e) {
+        if (e.phase != TickPhase.END || !(e.player instanceof ServerPlayer p)) return;
         String biome = p.level().getBiome(p.blockPosition()).unwrapKey().map(k -> k.location().toString()).orElse("");
         boolean low = p.getHealth() < p.getMaxHealth() / 3f;
         Object[] now = {p.isShiftKeyDown(), p.isSprinting(), p.isInWater(), p.isOnFire(), low, p.getInventory().selected, biome};
@@ -531,10 +508,9 @@ public final class GameEvents {
         }
     }
 
-    @SubscribeEvent
-    public static void onServerTick(TickEvent.ServerTickEvent e) {
-        if (e.phase != TickEvent.Phase.END) return;
-        var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+    public static void onServerTick(Hooks.ServerTick e) {
+        if (e.phase != TickPhase.END) return;
+        var server = Platform.get().server();
         if (server == null) return;
         org.sprautestudio.st_addon_spraute.engine.EngineServer.tick(server);
         SprauteRuntime.get().tickAutostart();

@@ -8,12 +8,12 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.net.Packets;
 import org.sprautestudio.st_addon_spraute.net.SprauteNetwork;
 import org.sprautestudio.st_addon_spraute.runtime.GameEvents;
 import org.sprautestudio.st_addon_spraute.runtime.SprauteRuntime;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -104,7 +104,7 @@ public final class Zones {
     // ------------------------------------------------------------------ storage
 
     private static Path file() {
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         return s == null ? null : s.getWorldPath(LevelResource.ROOT).resolve("spraute").resolve("zones.json");
     }
 

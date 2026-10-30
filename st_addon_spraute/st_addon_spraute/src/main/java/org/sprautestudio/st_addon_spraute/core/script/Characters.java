@@ -11,9 +11,9 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.sprautestudio.st_addon_spraute.core.entity.AnimatedEntity;
 import org.sprautestudio.st_addon_spraute.core.world.Location;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -84,7 +84,7 @@ public final class Characters {
     }
 
     private static Entity bodyOf(Entry e) {
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         if (e.body == null || s == null) return null;
         for (ServerLevel l : s.getAllLevels()) {
             Entity b = l.getEntity(e.body);
@@ -144,7 +144,7 @@ public final class Characters {
 
     /** Sends the body to the point or makes a new one; a new one gets the claim's whole state. */
     private static void put(Entry e, Location at, Claim cl) {
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         if (s == null) return;
         ServerLevel level = s.getLevel(at.dimension);
         if (level == null) level = s.overworld();

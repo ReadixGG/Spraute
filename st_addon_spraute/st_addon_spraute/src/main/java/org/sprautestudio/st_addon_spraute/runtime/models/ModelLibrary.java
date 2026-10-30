@@ -1,15 +1,13 @@
 package org.sprautestudio.st_addon_spraute.runtime.models;
 
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.ModList;
-import net.minecraftforge.fml.loading.FMLEnvironment;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.core.anim.Animation;
 import org.sprautestudio.st_addon_spraute.core.model.SpGeoModel;
 import org.sprautestudio.st_addon_spraute.core.parser.SpAnimationParser;
 import org.sprautestudio.st_addon_spraute.core.parser.SpGeoParser;
 import org.sprautestudio.st_addon_spraute.runtime.Images;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -96,7 +94,7 @@ public final class ModelLibrary {
         SpGeoModel have = BUILTINS.get(name);
         if (have != null) return have;
         try {
-            Path f = ModList.get().getModFileById(St_addon_spraute.MODID).getFile().findResource("assets", St_addon_spraute.MODID, "geo", "entity", name + ".geo.json");
+            Path f = Platform.get().modResource("assets", St_addon_spraute.MODID, "geo", "entity", name + ".geo.json");
             try (InputStream in = Files.newInputStream(f)) {
                 have = SpGeoParser.parse(in);
                 BUILTINS.put(name, have);
@@ -117,7 +115,7 @@ public final class ModelLibrary {
     private static List<Path> projectDirs() {
         List<Path> out = new ArrayList<>();
         Path root = null;
-        if (FMLEnvironment.dist == Dist.CLIENT) {
+        if (Platform.get().isClient()) {
             try {
                 root = org.sprautestudio.st_addon_spraute.editor.project.Workspace.projectsDir();
             } catch (Throwable t) {
@@ -134,7 +132,7 @@ public final class ModelLibrary {
             }
         }
         // later ones win: on someone else's server, their project and not a local one of the same name
-        if (FMLEnvironment.dist == Dist.CLIENT) out.addAll(ClientModels.serverProjects());
+        if (Platform.get().isClient()) out.addAll(ClientModels.serverProjects());
         return out;
     }
 
@@ -158,7 +156,7 @@ public final class ModelLibrary {
         MODELS.clear();
         MODELS.putAll(found);
         EntityLibrary.scan(dirs);
-        if (FMLEnvironment.dist == Dist.CLIENT) ClientModels.registerTextures(found.values());
+        if (Platform.get().isClient()) ClientModels.registerTextures(found.values());
     }
 
     public static String projectNameOf(Path dir) {

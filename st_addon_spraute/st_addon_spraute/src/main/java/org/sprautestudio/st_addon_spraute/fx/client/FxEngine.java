@@ -15,18 +15,12 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.client.event.RenderGuiEvent;
-import net.minecraftforge.client.event.RenderLevelStageEvent;
-import net.minecraftforge.client.event.ViewportEvent;
-import net.minecraftforge.eventbus.api.EventPriority;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.fx.FxDef;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
+import org.sprautestudio.st_addon_spraute.platform.Priority;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -41,8 +35,15 @@ import java.util.Random;
  * camera-facing, stretched, lying or beam sprites in one batch per texture and blend; screen
  * flashes and camera shake on top. Effects follow an entity when played with one.
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
 public final class FxEngine {
+    public static void registerHooks() {
+        ClientHooks.RENDER_LEVEL.add(FxEngine::onRenderLevel);
+        ClientHooks.CAMERA_ANGLES.add(Priority.LOWEST, FxEngine::onAnglesFinal);
+        ClientHooks.RENDER_GUI.add(FxEngine::onGui);
+        ClientHooks.CAMERA_ANGLES.add(Priority.LOW, FxEngine::onAngles);
+        ClientHooks.LOGGING_OUT.add(FxEngine::onLogout);
+    }
+
     private FxEngine() {
     }
 
@@ -431,10 +432,9 @@ public final class FxEngine {
     private record Sprite(Inst in, LayerState s, P p, double dist) {
     }
 
-    @SubscribeEvent
-    public static void onRenderLevel(RenderLevelStageEvent e) {
+    public static void onRenderLevel(ClientHooks.RenderLevel e) {
         // after clouds and weather: drawn earlier, the clouds (written later) would cover the particles
-        if (e.getStage() != RenderLevelStageEvent.Stage.AFTER_WEATHER) return;
+        if (e.getStage() != ClientHooks.LevelStage.AFTER_WEATHER) return;
         long now = System.nanoTime();
         float dt = (float) Math.min(0.1, (now - lastFrame) / 1e9);
         lastFrame = now;
@@ -475,8 +475,7 @@ public final class FxEngine {
     private static float viewYaw, viewPitch, viewRoll;
 
     /** The final camera angles of this frame (after cutscenes and others changed them). */
-    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.LOWEST)
-    public static void onAnglesFinal(net.minecraftforge.client.event.ViewportEvent.ComputeCameraAngles e) {
+    public static void onAnglesFinal(ClientHooks.CameraAngles e) {
         viewYaw = e.getYaw();
         viewPitch = e.getPitch();
         viewRoll = e.getRoll();
@@ -798,8 +797,7 @@ public final class FxEngine {
         return Math.min(1, best);
     }
 
-    @SubscribeEvent
-    public static void onGui(RenderGuiEvent.Post e) {
+    public static void onGui(ClientHooks.RenderGui e) {
         if (INSTANCES.isEmpty()) return;
         float[] rgb = new float[3];
         float a = screen("flash", rgb);
@@ -810,8 +808,7 @@ public final class FxEngine {
     }
 
     /** Runs after the cutscene camera so the shake adds to it. */
-    @SubscribeEvent(priority = EventPriority.LOW)
-    public static void onAngles(ViewportEvent.ComputeCameraAngles e) {
+    public static void onAngles(ClientHooks.CameraAngles e) {
         if (INSTANCES.isEmpty()) return;
         float s = screen("shake", null);
         if (s <= 0.001f) return;
@@ -822,8 +819,7 @@ public final class FxEngine {
         e.setRoll(e.getRoll() + (float) (Math.sin(t * 0.91 + 5) + Math.sin(t * 2.2) * 0.5) * 2.5f * k);
     }
 
-    @SubscribeEvent
-    public static void onLogout(ClientPlayerNetworkEvent.LoggingOut e) {
+    public static void onLogout(ClientHooks.LoggingOut e) {
         INSTANCES.clear();
         total = 0;
     }

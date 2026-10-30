@@ -15,12 +15,12 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.sprautestudio.st_addon_spraute.editor.ClientState;
 import org.sprautestudio.st_addon_spraute.editor.project.Project;
 import org.sprautestudio.st_addon_spraute.editor.project.Workspace;
 import org.sprautestudio.st_addon_spraute.lang.*;
 import org.sprautestudio.st_addon_spraute.net.Packets;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -106,7 +106,7 @@ public final class McpTools {
     }
 
     static <T> T onServer(Supplier<T> s) {
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = Platform.get().server();
         if (server == null) throw new IllegalStateException("Мир не открыт (нужна одиночная игра или свой сервер)");
         try {
             return server.submit(s).get(20, TimeUnit.SECONDS);
@@ -116,7 +116,7 @@ public final class McpTools {
     }
 
     static ServerPlayer player() {
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = Platform.get().server();
         if (server == null || server.getPlayerList().getPlayers().isEmpty()) throw new IllegalStateException("Игрока нет в мире");
         return server.getPlayerList().getPlayers().get(0);
     }
@@ -190,7 +190,7 @@ public final class McpTools {
                     Map<String, Object> o = new LinkedHashMap<>();
                     Minecraft mc = Minecraft.getInstance();
                     o.put("world_open", mc.level != null);
-                    o.put("singleplayer_server", ServerLifecycleHooks.getCurrentServer() != null);
+                    o.put("singleplayer_server", Platform.get().server() != null);
                     if (mc.player != null) {
                         o.put("player", mc.player.getGameProfile().getName());
                         o.put("pos", List.of(Math.round(mc.player.getX() * 10) / 10.0, Math.round(mc.player.getY() * 10) / 10.0, Math.round(mc.player.getZ() * 10) / 10.0));

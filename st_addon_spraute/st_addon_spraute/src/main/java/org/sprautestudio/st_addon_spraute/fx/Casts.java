@@ -11,15 +11,13 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.net.Packets;
 import org.sprautestudio.st_addon_spraute.net.SprauteNetwork;
 import org.sprautestudio.st_addon_spraute.runtime.GameEvents;
 import org.sprautestudio.st_addon_spraute.runtime.SprauteRuntime;
+import org.sprautestudio.st_addon_spraute.platform.Hooks;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.*;
 
@@ -28,8 +26,11 @@ import java.util.*;
  * it tick by tick and looks what it meets (creatures, then blocks); the players' side flies the same
  * effect by itself. On a hit: damage, a push, the impact effect, and the "casthit" event for stories.
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID)
 public final class Casts {
+    public static void registerHooks() {
+        Hooks.SERVER_TICK.add(Casts::onTick);
+    }
+
     private Casts() {
     }
 
@@ -71,9 +72,8 @@ public final class Casts {
         FLYING.clear();
     }
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ServerTickEvent e) {
-        if (e.phase != TickEvent.Phase.END || FLYING.isEmpty()) return;
+    public static void onTick(Hooks.ServerTick e) {
+        if (e.phase != TickPhase.END || FLYING.isEmpty()) return;
         for (Iterator<Cast> it = FLYING.iterator(); it.hasNext(); ) {
             Cast c = it.next();
             try {

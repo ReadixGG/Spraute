@@ -11,30 +11,30 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.client.event.RenderGuiEvent;
-import net.minecraftforge.client.settings.KeyConflictContext;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.net.Packets;
 import org.sprautestudio.st_addon_spraute.net.SprauteNetwork;
 import org.sprautestudio.st_addon_spraute.quest.QuestJournal;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
+import org.sprautestudio.st_addon_spraute.platform.ClientPlatform;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 /**
  * The player's side of the quests: the journal (J), the followed quest in the corner of the screen
  * and the notices "Новый квест", "Квест выполнен".
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
 public final class QuestClient {
+    public static void registerHooks() {
+        ClientHooks.CLIENT_TICK.add(QuestClient::tick);
+        ClientHooks.LOGGING_OUT.add(QuestClient::logout);
+        ClientHooks.RENDER_GUI.add(QuestClient::render);
+    }
+
     private QuestClient() {
     }
 
-    public static final KeyMapping JOURNAL = new KeyMapping("key.st_addon_spraute.journal", KeyConflictContext.IN_GAME,
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J, "key.categories.st_addon_spraute");
+    public static final KeyMapping JOURNAL = ClientPlatform.get().gameKey("key.st_addon_spraute.journal", GLFW.GLFW_KEY_J, "key.categories.st_addon_spraute");
 
     private static final ResourceLocation TASK_LINE = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/journal/task_strip.png");
     private static final ResourceLocation CATEGORIES = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "textures/gui/journal/icons.png");
@@ -99,36 +99,35 @@ public final class QuestClient {
     }
 
     public static void track(String key) {
-        SprauteNetwork.CHANNEL.sendToServer(new Packets.QuestTrack(key));
+        SprauteNetwork.sendToServer(new Packets.QuestTrack(key));
     }
 
-    @Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static final class ModBus {
-        @SubscribeEvent
-        public static void keys(net.minecraftforge.client.event.RegisterKeyMappingsEvent e) {
+        public static void registerHooks() {
+            ClientHooks.REGISTER_KEYS.add(ModBus::keys);
+        }
+
+        public static void keys(ClientHooks.RegisterKeys e) {
             e.register(JOURNAL);
         }
     }
 
-    @SubscribeEvent
-    public static void tick(TickEvent.ClientTickEvent e) {
-        if (e.phase != TickEvent.Phase.END) return;
+    public static void tick(ClientHooks.ClientTick e) {
+        if (e.phase != TickPhase.END) return;
         Minecraft mc = Minecraft.getInstance();
         while (JOURNAL.consumeClick()) {
             if (mc.screen == null && mc.player != null) mc.setScreen(new QuestScreen(journal));
         }
     }
 
-    @SubscribeEvent
-    public static void logout(ClientPlayerNetworkEvent.LoggingOut e) {
+    public static void logout(ClientHooks.LoggingOut e) {
         journal = new QuestJournal();
         toastAt = 0;
     }
 
     // ------------------------------------------------------------------ on the screen
 
-    @SubscribeEvent
-    public static void render(RenderGuiEvent.Post e) {
+    public static void render(ClientHooks.RenderGui e) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.options.hideGui || mc.screen instanceof QuestScreen || org.sprautestudio.st_addon_spraute.cutscene.client.CameraDirector.hidesCustom()) return;
         GuiGraphics g = e.getGuiGraphics();

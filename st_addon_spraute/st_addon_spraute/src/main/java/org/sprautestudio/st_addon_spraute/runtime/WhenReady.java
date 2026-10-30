@@ -1,10 +1,9 @@
 package org.sprautestudio.st_addon_spraute.runtime;
 
 import net.minecraft.world.entity.Entity;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
+import org.sprautestudio.st_addon_spraute.platform.Hooks;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -13,8 +12,11 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /** Runs something on an entity once it is in the world (a character spawned a tick ago); gives up after 5 s. */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID)
 public final class WhenReady {
+    public static void registerHooks() {
+        Hooks.SERVER_TICK.add(WhenReady::onTick);
+    }
+
     private WhenReady() {
     }
 
@@ -26,9 +28,8 @@ public final class WhenReady {
         PENDING.add(new Pending(entity, action, new int[]{100}));
     }
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ServerTickEvent ev) {
-        if (ev.phase != TickEvent.Phase.END || PENDING.isEmpty()) return;
+    public static void onTick(Hooks.ServerTick ev) {
+        if (ev.phase != TickPhase.END || PENDING.isEmpty()) return;
         for (Iterator<Pending> it = new ArrayList<>(PENDING).iterator(); it.hasNext(); ) {
             Pending p = it.next();
             Entity e;

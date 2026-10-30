@@ -5,21 +5,21 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.FluidTags;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.client.event.RenderGuiOverlayEvent;
-import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.engine.EngineConfig;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
 
 import java.util.HashMap;
 import java.util.Map;
 
 /** Hides, moves or redraws HUD parts according to the world's engine settings. */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
 public final class EngineClient {
+    public static void registerHooks() {
+        ClientHooks.LOGGING_OUT.add(EngineClient::onLogout);
+        ClientHooks.RENDER_HUD_PART.add(EngineClient::onOverlay);
+        ClientHooks.CHAT_FROM_PLAYER.add(EngineClient::onChat);
+    }
+
     private EngineClient() {}
 
     private static final ResourceLocation HEALTH_OVERLAY = new ResourceLocation(org.sprautestudio.st_addon_spraute.St_addon_spraute.MODID, "health_overlay");
@@ -28,12 +28,12 @@ public final class EngineClient {
     private static final Map<ResourceLocation, String> VANILLA = new HashMap<>();
 
     static {
-        VANILLA.put(VanillaGuiOverlay.PLAYER_HEALTH.id(), "health");
-        VANILLA.put(VanillaGuiOverlay.ARMOR_LEVEL.id(), "armor");
-        VANILLA.put(VanillaGuiOverlay.FOOD_LEVEL.id(), "food");
-        VANILLA.put(VanillaGuiOverlay.AIR_LEVEL.id(), "air");
-        VANILLA.put(VanillaGuiOverlay.EXPERIENCE_BAR.id(), "exp");
-        VANILLA.put(VanillaGuiOverlay.HOTBAR.id(), "hotbar");
+        VANILLA.put(ClientHooks.HudParts.PLAYER_HEALTH, "health");
+        VANILLA.put(ClientHooks.HudParts.ARMOR_LEVEL, "armor");
+        VANILLA.put(ClientHooks.HudParts.FOOD_LEVEL, "food");
+        VANILLA.put(ClientHooks.HudParts.AIR_LEVEL, "air");
+        VANILLA.put(ClientHooks.HudParts.EXPERIENCE_BAR, "exp");
+        VANILLA.put(ClientHooks.HudParts.HOTBAR, "hotbar");
     }
 
     private static EngineConfig config = new EngineConfig();
@@ -46,8 +46,7 @@ public final class EngineClient {
         config = EngineConfig.fromJson(json);
     }
 
-    @SubscribeEvent
-    public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
+    public static void onLogout(ClientHooks.LoggingOut event) {
         config = EngineConfig.fromJson("{}");
     }
 
@@ -113,9 +112,8 @@ public final class EngineClient {
         return s;
     }
 
-    @SubscribeEvent
-    public static void onOverlay(RenderGuiOverlayEvent.Pre event) {
-        ResourceLocation id = event.getOverlay().id();
+    public static void onOverlay(ClientHooks.RenderHudPart event) {
+        ResourceLocation id = event.id();
         String key = VANILLA.get(id);
         if (id.equals(HEALTH_OVERLAY)) key = "health";
         if (id.equals(COINS_OVERLAY)) key = "coins";
@@ -161,7 +159,7 @@ public final class EngineClient {
             HudPainter.custom(g, mc.font, config, key, HudPainter.rect(config, key, sw, sh, s), s);
             return;
         }
-        if (e.customPos && mc.gui instanceof net.minecraftforge.client.gui.overlay.ForgeGui fg) {
+        if (e.customPos && event.canDrawOriginal()) {
             int[] d = HudPainter.shift(config, key, sw, sh, s);
             if (d[0] != 0 || d[1] != 0) {
                 // draw it ourselves, moved; leaving the pose pushed until Post would leak when anyone cancels in between
@@ -169,7 +167,7 @@ public final class EngineClient {
                 g.pose().pushPose();
                 g.pose().translate(d[0], d[1], 0);
                 try {
-                    event.getOverlay().overlay().render(fg, g, event.getPartialTick(), sw, sh);
+                    event.drawOriginal(sw, sh);
                 } finally {
                     g.pose().popPose();
                 }
@@ -191,18 +189,19 @@ public final class EngineClient {
     }
 
     /** "Hide chat": what players write is not shown (the story still gets it). */
-    @SubscribeEvent
-    public static void onChat(net.minecraftforge.client.event.ClientChatReceivedEvent.Player event) {
+    public static void onChat(ClientHooks.ChatFromPlayer event) {
         if (config.chat) event.setCanceled(true);
     }
 
     /** The engine's own HUD parts: the round health bar and the money. */
-    @Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
     public static final class Overlays {
-        @SubscribeEvent
-        public static void register(net.minecraftforge.client.event.RegisterGuiOverlaysEvent e) {
-            e.registerAbove(VanillaGuiOverlay.PLAYER_HEALTH.id(), HEALTH_OVERLAY.getPath(), (gui, g, partial, w, h) -> draw(g, "health", w, h));
-            e.registerAbove(VanillaGuiOverlay.PLAYER_HEALTH.id(), COINS_OVERLAY.getPath(), (gui, g, partial, w, h) -> draw(g, "coins", w, h));
+        public static void registerHooks() {
+            ClientHooks.REGISTER_HUD.add(Overlays::register);
+        }
+
+        public static void register(ClientHooks.RegisterHud e) {
+            e.registerAbove(ClientHooks.HudParts.PLAYER_HEALTH, HEALTH_OVERLAY.getPath(), (g, partial, w, h) -> draw(g, "health", w, h));
+            e.registerAbove(ClientHooks.HudParts.PLAYER_HEALTH, COINS_OVERLAY.getPath(), (g, partial, w, h) -> draw(g, "coins", w, h));
         }
 
         private static void draw(GuiGraphics g, String key, int w, int h) {

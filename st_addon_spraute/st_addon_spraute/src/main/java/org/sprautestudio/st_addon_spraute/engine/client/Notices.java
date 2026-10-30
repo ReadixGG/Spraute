@@ -6,15 +6,10 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.client.event.RenderGuiEvent;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.registries.ForgeRegistries;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.runtime.Images;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -25,8 +20,13 @@ import java.util.List;
  * Notifications from a story, top left: a 16×16 icon (an item, a picture or nothing) and white text. Each comes out
  * from above and sinks slowly, gone in five seconds; a new one starts at most every 0.6 s, and waits while a screen is open.
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
 public final class Notices {
+    public static void registerHooks() {
+        ClientHooks.CLIENT_TICK.add(Notices::onTick);
+        ClientHooks.RENDER_GUI.add(Notices::render);
+        ClientHooks.LOGGING_OUT.add(Notices::onLogout);
+    }
+
     private Notices() {
     }
 
@@ -73,10 +73,9 @@ public final class Notices {
         return Images.texture(project, icon);
     }
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ClientTickEvent e) {
+    public static void onTick(ClientHooks.ClientTick e) {
         Minecraft mc = Minecraft.getInstance();
-        if (e.phase != TickEvent.Phase.END || mc.isPaused()) return;
+        if (e.phase != TickPhase.END || mc.isPaused()) return;
         SHOWN.removeIf(n -> ++n.age > LIFE);
         if (cooldown > 0) cooldown--;
         if (cooldown == 0 && mc.screen == null && !WAITING.isEmpty()) {
@@ -87,8 +86,7 @@ public final class Notices {
         }
     }
 
-    @SubscribeEvent
-    public static void render(RenderGuiEvent.Post e) {
+    public static void render(ClientHooks.RenderGui e) {
         if (SHOWN.isEmpty()) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.options.hideGui) return;
@@ -116,8 +114,7 @@ public final class Notices {
         }
     }
 
-    @SubscribeEvent
-    public static void onLogout(ClientPlayerNetworkEvent.LoggingOut e) {
+    public static void onLogout(ClientHooks.LoggingOut e) {
         SHOWN.clear();
         WAITING.clear();
     }

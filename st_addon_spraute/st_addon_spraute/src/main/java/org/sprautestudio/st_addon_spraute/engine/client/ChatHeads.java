@@ -14,15 +14,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.runtime.Images;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -82,10 +79,12 @@ public final class ChatHeads {
         }
     }
 
-    @Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static final class Setup {
-        @SubscribeEvent
-        public static void clientSetup(FMLClientSetupEvent e) {
+        public static void registerHooks() {
+            ClientHooks.CLIENT_SETUP.add(Setup::clientSetup);
+        }
+
+        public static void clientSetup(ClientHooks.ClientSetup e) {
             var ws = org.sprautestudio.st_addon_spraute.editor.project.Workspace.settings();
             if (ws.mcp) org.sprautestudio.st_addon_spraute.mcp.McpServer.start(ws.mcpPort);
         }

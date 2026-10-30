@@ -5,9 +5,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.saveddata.SavedData;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.sprautestudio.st_addon_spraute.net.Packets;
 import org.sprautestudio.st_addon_spraute.net.SprauteNetwork;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
 
 /** The story's texture for the player, kept with the world. */
 public final class PlayerTexture {
@@ -36,7 +36,7 @@ public final class PlayerTexture {
 
     /** Null texture: back to the player's own. Everyone sees it on that player. */
     public static void set(ServerPlayer p, ResourceLocation texture) {
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         if (s == null || p == null) return;
         Saved d = saved(s);
         String id = p.getUUID().toString();

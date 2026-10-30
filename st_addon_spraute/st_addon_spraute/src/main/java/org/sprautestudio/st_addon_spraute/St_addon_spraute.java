@@ -1,43 +1,41 @@
 package org.sprautestudio.st_addon_spraute;
 
 import com.mojang.logging.LogUtils;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.RegisterCommandsEvent;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.server.ServerAboutToStartEvent;
-import net.minecraftforge.event.server.ServerStartedEvent;
-import net.minecraftforge.event.server.ServerStoppedEvent;
-import net.minecraftforge.eventbus.api.EventPriority;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
 import org.sprautestudio.st_addon_spraute.engine.EngineServer;
 import org.sprautestudio.st_addon_spraute.net.SprauteNetwork;
+import org.sprautestudio.st_addon_spraute.platform.Hooks;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
+import org.sprautestudio.st_addon_spraute.platform.Priority;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 import org.sprautestudio.st_addon_spraute.runtime.SprauteRuntime;
 
-@Mod(St_addon_spraute.MODID)
-public class St_addon_spraute {
+/** The engine: everything a loader starts by calling {@link #init()} once its {@code Platform} is installed. */
+public final class St_addon_spraute {
     public static final String MODID = "st_addon_spraute";
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    public St_addon_spraute() {
-        org.sprautestudio.st_addon_spraute.runtime.ItemSpec.install();
-        org.sprautestudio.st_addon_spraute.core.anim.AnimationSystem.setLibrary(org.sprautestudio.st_addon_spraute.runtime.Anims::resolve);
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::commonSetup);
-        org.sprautestudio.st_addon_spraute.runtime.orb.Orbs.register(FMLJavaModLoadingContext.get().getModEventBus());
-        MinecraftForge.EVENT_BUS.addListener(this::onServerAboutToStart);
-        MinecraftForge.EVENT_BUS.addListener(this::onServerStarted);
-        MinecraftForge.EVENT_BUS.addListener(this::onServerStopping);
-        MinecraftForge.EVENT_BUS.addListener(this::onLevelSave);
-        MinecraftForge.EVENT_BUS.addListener(this::onServerStopped);
-        MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, this::onRegisterCommands);
-        MinecraftForge.EVENT_BUS.addListener(this::onServerTick);
-        MinecraftForge.EVENT_BUS.addListener(this::onPlayerLogin);
-        MinecraftForge.EVENT_BUS.addListener(this::onPlayerLogout);
+    private St_addon_spraute() {
     }
 
-    private void onPlayerLogin(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
+    public static void init() {
+        org.sprautestudio.st_addon_spraute.runtime.ItemSpec.install();
+        org.sprautestudio.st_addon_spraute.core.anim.AnimationSystem.setLibrary(org.sprautestudio.st_addon_spraute.runtime.Anims::resolve);
+        org.sprautestudio.st_addon_spraute.runtime.orb.Orbs.init();
+        Hooks.COMMON_SETUP.add(e -> SprauteNetwork.register());
+        Hooks.SERVER_ABOUT_TO_START.add(St_addon_spraute::onServerAboutToStart);
+        Hooks.SERVER_STOPPING.add(St_addon_spraute::onServerStopping);
+        Hooks.LEVEL_SAVE.add(St_addon_spraute::onLevelSave);
+        Hooks.SERVER_STOPPED.add(St_addon_spraute::onServerStopped);
+        Hooks.REGISTER_COMMANDS.add(Priority.LOWEST, St_addon_spraute::onRegisterCommands);
+        Hooks.SERVER_TICK.add(St_addon_spraute::onServerTick);
+        Hooks.PLAYER_LOGGED_IN.add(St_addon_spraute::onPlayerLogin);
+        Hooks.PLAYER_LOGGED_OUT.add(St_addon_spraute::onPlayerLogout);
+        Modules.common();
+        if (Platform.get().isClient()) ClientModules.client();
+    }
+
+    private static void onPlayerLogin(Hooks.PlayerLoggedIn event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) {
             EngineServer.sync(sp);
             org.sprautestudio.st_addon_spraute.core.system.Coins.sync(sp, -2);
@@ -46,17 +44,13 @@ public class St_addon_spraute {
         }
     }
 
-    private void onPlayerLogout(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
+    private static void onPlayerLogout(Hooks.PlayerLoggedOut event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) {
             org.sprautestudio.st_addon_spraute.core.system.CameraState.left(sp);
         }
     }
 
-    private void commonSetup(FMLCommonSetupEvent event) {
-        event.enqueueWork(SprauteNetwork::register);
-    }
-
-    private void onServerAboutToStart(ServerAboutToStartEvent event) {
+    private static void onServerAboutToStart(Hooks.ServerAboutToStart event) {
         SprauteRuntime.installErrorHook();
         org.sprautestudio.st_addon_spraute.runtime.models.ModelLibrary.scan();
         EngineServer.load(event.getServer());
@@ -65,21 +59,18 @@ public class St_addon_spraute {
         SprauteRuntime.env().ifPresent(SprauteRuntime.get()::registerInEnv);
     }
 
-    private void onServerStarted(ServerStartedEvent event) {
-    }
-
-    private void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event) {
+    private static void onServerStopping(Hooks.ServerStopping event) {
         SprauteRuntime.env().ifPresent(org.sprautestudio.st_addon_spraute.core.script.ScriptEnvironment::save);
     }
 
     /** The world is saved: so is what runs in it. */
-    private void onLevelSave(net.minecraftforge.event.level.LevelEvent.Save event) {
+    private static void onLevelSave(Hooks.LevelSave event) {
         if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel l && l.dimension() == net.minecraft.world.level.Level.OVERWORLD) {
             SprauteRuntime.env().ifPresent(org.sprautestudio.st_addon_spraute.core.script.ScriptEnvironment::save);
         }
     }
 
-    private void onServerStopped(ServerStoppedEvent event) {
+    private static void onServerStopped(Hooks.ServerStopped event) {
         SprauteRuntime.get().clear();
         SprauteRuntime.get().closeEnvironment();
         org.sprautestudio.st_addon_spraute.core.script.Behaviours.unload();
@@ -100,7 +91,7 @@ public class St_addon_spraute {
         org.sprautestudio.st_addon_spraute.runtime.GameEvents.reset();
     }
 
-    private void onRegisterCommands(RegisterCommandsEvent event) {
+    private static void onRegisterCommands(Hooks.RegisterCommands event) {
         org.sprautestudio.st_addon_spraute.core.script.ScriptCommand.register(event.getDispatcher());
         // the world's operator decides whether stories' JavaScript may use Java (files, other mods' classes…)
         event.getDispatcher().register(net.minecraft.commands.Commands.literal("sprautejs").requires(s -> s.hasPermission(4))
@@ -125,10 +116,10 @@ public class St_addon_spraute {
                         })));
     }
 
-    private boolean tickEvents;
+    private static boolean tickEvents;
 
-    private void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) return;
+    private static void onServerTick(Hooks.ServerTick event) {
+        if (event.phase != TickPhase.END) return;
         SprauteRuntime.env().ifPresent(org.sprautestudio.st_addon_spraute.core.script.ScriptEnvironment::tick);
         org.sprautestudio.st_addon_spraute.content.ProjectContent.tick(event.getServer());
         // only when some story listens: a tick is a lot of events

@@ -2,27 +2,28 @@ package org.sprautestudio.st_addon_spraute.runtime;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.InputEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.net.Packets;
 import org.sprautestudio.st_addon_spraute.net.SprauteNetwork;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
 
 /**
  * Tells the server which keys the player presses in the game (not in menus), so stories can answer
  * "keypress": "jump", "sneak", "sprint" for those actions (whatever key they are on), else the key's
  * own name ("r", "f", "g", "1"…).
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
 public final class KeyReporter {
+    public static void registerHooks() {
+        ClientHooks.KEY.add(KeyReporter::onKey);
+        ClientHooks.MOUSE_BUTTON.add(KeyReporter::onMouse);
+        ClientHooks.LEFT_CLICK_EMPTY.add(KeyReporter::onLeftAir);
+    }
+
     private KeyReporter() {
     }
 
-    @SubscribeEvent
-    public static void onKey(InputEvent.Key e) {
+    public static void onKey(ClientHooks.Key e) {
         if (e.getAction() != GLFW.GLFW_PRESS) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.screen != null || mc.getConnection() == null) return;
@@ -40,8 +41,7 @@ public final class KeyReporter {
     }
 
     /** Mouse buttons, for "keypress": mouse.left, mouse.right, mouse.middle. */
-    @SubscribeEvent
-    public static void onMouse(InputEvent.MouseButton.Pre e) {
+    public static void onMouse(ClientHooks.MouseButton e) {
         Minecraft mc = Minecraft.getInstance();
         if (e.getAction() != GLFW.GLFW_PRESS || mc.player == null || mc.screen != null || mc.getConnection() == null) return;
         String name = switch (e.getButton()) {
@@ -54,8 +54,7 @@ public final class KeyReporter {
     }
 
     /** A left click at nothing is known to the client only. */
-    @SubscribeEvent
-    public static void onLeftAir(net.minecraftforge.event.entity.player.PlayerInteractEvent.LeftClickEmpty e) {
+    public static void onLeftAir(ClientHooks.LeftClickEmpty e) {
         SprauteNetwork.sendToServer(new Packets.KeyPress("air.left"));
     }
 }

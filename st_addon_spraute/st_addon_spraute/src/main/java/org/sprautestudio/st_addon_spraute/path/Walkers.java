@@ -5,12 +5,11 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.runtime.GameEvents;
 import org.sprautestudio.st_addon_spraute.runtime.SprauteRuntime;
+import org.sprautestudio.st_addon_spraute.platform.Hooks;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.*;
 
@@ -26,8 +25,11 @@ import java.util.*;
  * block (slabs, stairs) are walked up, not jumped. One stuck for a few seconds is put onto its point.
  * At the end of a walk the stories get the event pathend.
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID)
 public final class Walkers {
+    public static void registerHooks() {
+        Hooks.SERVER_TICK.add(Walkers::onTick);
+    }
+
     private Walkers() {
     }
 
@@ -155,9 +157,8 @@ public final class Walkers {
         LOOKS.clear();
     }
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ServerTickEvent ev) {
-        if (ev.phase != TickEvent.Phase.END || WALKS.isEmpty()) return;
+    public static void onTick(Hooks.ServerTick ev) {
+        if (ev.phase != TickPhase.END || WALKS.isEmpty()) return;
         for (Walk w : new ArrayList<>(WALKS.values())) {
             if (w.e.isRemoved() || !w.e.isAlive()) {
                 WALKS.remove(w.e.getUUID());

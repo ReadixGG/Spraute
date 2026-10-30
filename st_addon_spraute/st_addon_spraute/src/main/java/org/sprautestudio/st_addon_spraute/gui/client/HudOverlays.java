@@ -1,16 +1,12 @@
 package org.sprautestudio.st_addon_spraute.gui.client;
 
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.client.event.RenderGuiEvent;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.gui.GuiDoc;
 import org.sprautestudio.st_addon_spraute.net.Packets;
 import org.sprautestudio.st_addon_spraute.ui.Canvas;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -20,8 +16,13 @@ import java.util.Map;
  * the HUD, they never take the mouse or the keyboard. Changes from the story ({@code gui text},
  * {@code gui move}...) reach them like an open interface.
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
 public final class HudOverlays {
+    public static void registerHooks() {
+        ClientHooks.RENDER_GUI.add(HudOverlays::onRender);
+        ClientHooks.CLIENT_TICK.add(HudOverlays::onTick);
+        ClientHooks.LOGGING_OUT.add(HudOverlays::onLogout);
+    }
+
     private HudOverlays() {}
 
     private record Shown(int scriptId, String name, GuiView view) {}
@@ -49,8 +50,7 @@ public final class HudOverlays {
         for (Shown s : SHOWN.values()) if (s.scriptId == msg.scriptId()) s.view.update(msg.element(), msg.prop(), msg.value());
     }
 
-    @SubscribeEvent
-    public static void onRender(RenderGuiEvent.Post event) {
+    public static void onRender(ClientHooks.RenderGui event) {
         draw(event.getGuiGraphics(), event.getWindow());
     }
 
@@ -85,13 +85,11 @@ public final class HudOverlays {
         }
     }
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ClientTickEvent event) {
-        if (event.phase == TickEvent.Phase.END) for (Shown s : SHOWN.values()) s.view.tick();
+    public static void onTick(ClientHooks.ClientTick event) {
+        if (event.phase == TickPhase.END) for (Shown s : SHOWN.values()) s.view.tick();
     }
 
-    @SubscribeEvent
-    public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
+    public static void onLogout(ClientHooks.LoggingOut event) {
         SHOWN.clear();
     }
 }

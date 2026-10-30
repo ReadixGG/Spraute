@@ -2,19 +2,19 @@ package org.sprautestudio.st_addon_spraute.core.client;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.client.event.RenderGuiEvent;
-import net.minecraftforge.client.event.RenderGuiOverlayEvent;
-import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 /** Blackouts, flashes, closing eyes and a colour over the whole screen, on a timer of their own. */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
 public final class ScreenFx {
+    public static void registerHooks() {
+        ClientHooks.CLIENT_TICK.add(ScreenFx::onTick);
+        ClientHooks.RENDER_HUD_PART.add(ScreenFx::underChat);
+        ClientHooks.RENDER_GUI.add(ScreenFx::onRender);
+        ClientHooks.LOGGING_OUT.add(ScreenFx::onLogout);
+    }
+
     private ScreenFx() {
     }
 
@@ -49,9 +49,8 @@ public final class ScreenFx {
         return 0;
     }
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ClientTickEvent e) {
-        if (e.phase != TickEvent.Phase.END || kind.isEmpty()) return;
+    public static void onTick(ClientHooks.ClientTick e) {
+        if (e.phase != TickPhase.END || kind.isEmpty()) return;
         if (++age > in + hold + out) kind = "";
     }
 
@@ -72,21 +71,18 @@ public final class ScreenFx {
     }
 
     /** The variant under the chat: speech stays readable over it. */
-    @SubscribeEvent
-    public static void underChat(RenderGuiOverlayEvent.Pre e) {
-        if (e.getOverlay() == VanillaGuiOverlay.CHAT_PANEL.type() && kind.equals("pulse_under")) fill(e.getGuiGraphics(), e.getPartialTick());
+    public static void underChat(ClientHooks.RenderHudPart e) {
+        if (e.id().equals(ClientHooks.HudParts.CHAT_PANEL) && kind.equals("pulse_under")) fill(e.getGuiGraphics(), e.getPartialTick());
     }
 
-    @SubscribeEvent
-    public static void onRender(RenderGuiEvent.Post e) {
+    public static void onRender(ClientHooks.RenderGui e) {
         if (Minecraft.getInstance().screen != null && kind.isEmpty() && tint == 0) return;
         GuiGraphics g = e.getGuiGraphics();
         if ((tint >>> 24) != 0) g.fill(0, 0, g.guiWidth(), g.guiHeight(), tint);
         if (!kind.equals("pulse_under")) fill(g, e.getPartialTick());
     }
 
-    @SubscribeEvent
-    public static void onLogout(ClientPlayerNetworkEvent.LoggingOut e) {
+    public static void onLogout(ClientHooks.LoggingOut e) {
         kind = "";
         tint = 0;
     }

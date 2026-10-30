@@ -18,8 +18,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.Scoreboard;
-import net.minecraftforge.fml.ModList;
-import net.minecraftforge.server.ServerLifecycleHooks;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -191,7 +190,7 @@ public final class Bridges {
     // ================================================================== commands and mods
 
     private static MinecraftServer server() {
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         if (s == null) throw new SprauteRuntimeException("Мир не запущен");
         return s;
     }
@@ -234,6 +233,6 @@ public final class Bridges {
     }
 
     public static boolean hasMod(String id) {
-        return ModList.get().isLoaded(id.trim().toLowerCase());
+        return Platform.get().isModLoaded(id.trim().toLowerCase());
     }
 }

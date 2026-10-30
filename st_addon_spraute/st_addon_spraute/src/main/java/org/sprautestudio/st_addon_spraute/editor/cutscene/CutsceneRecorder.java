@@ -4,26 +4,26 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.RenderGuiEvent;
-import net.minecraftforge.client.settings.KeyConflictContext;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.editor.ClientEvents;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
+import org.sprautestudio.st_addon_spraute.platform.ClientPlatform;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 /**
  * Recording a cutscene in the game: the editor is closed, the author flies around and presses the
  * frame key (K) wherever the camera should be; the editor key brings the editor back.
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
 public final class CutsceneRecorder {
+    public static void registerHooks() {
+        ClientHooks.CLIENT_TICK.add(CutsceneRecorder::onTick);
+        ClientHooks.RENDER_GUI.add(CutsceneRecorder::onGui);
+    }
+
     private CutsceneRecorder() {}
 
-    public static final KeyMapping FRAME = new KeyMapping("key.st_addon_spraute.cutscene_frame", KeyConflictContext.IN_GAME,
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.st_addon_spraute");
+    public static final KeyMapping FRAME = ClientPlatform.get().gameKey("key.st_addon_spraute.cutscene_frame", GLFW.GLFW_KEY_K, "key.categories.st_addon_spraute");
 
     private static CutsceneTab tab;
 
@@ -35,9 +35,8 @@ public final class CutsceneRecorder {
         return tab != null;
     }
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ClientTickEvent e) {
-        if (e.phase != TickEvent.Phase.END) return;
+    public static void onTick(ClientHooks.ClientTick e) {
+        if (e.phase != TickPhase.END) return;
         Minecraft mc = Minecraft.getInstance();
         if (tab == null) {
             if (CutsceneWorldEditor.active()) return;
@@ -58,8 +57,7 @@ public final class CutsceneRecorder {
         }
     }
 
-    @SubscribeEvent
-    public static void onGui(RenderGuiEvent.Post e) {
+    public static void onGui(ClientHooks.RenderGui e) {
         if (tab == null) return;
         Minecraft mc = Minecraft.getInstance();
         var g = e.getGuiGraphics();

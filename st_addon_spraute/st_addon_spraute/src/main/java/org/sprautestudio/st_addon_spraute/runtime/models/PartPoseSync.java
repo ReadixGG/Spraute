@@ -2,13 +2,11 @@ package org.sprautestudio.st_addon_spraute.runtime.models;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.net.Packets;
 import org.sprautestudio.st_addon_spraute.net.SprauteNetwork;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,16 +15,18 @@ import java.util.List;
  * Tells the server where the bones that carry hitbox parts are: only the client animates bones, but arrows
  * and casts hit on the server. Every other tick, for bodies near the player that have such parts.
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
 public final class PartPoseSync {
+    public static void registerHooks() {
+        ClientHooks.CLIENT_TICK.add(PartPoseSync::onTick);
+    }
+
     private PartPoseSync() {
     }
 
     private static int tick;
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ClientTickEvent e) {
-        if (e.phase != TickEvent.Phase.END || ++tick % 2 != 0) return;
+    public static void onTick(ClientHooks.ClientTick e) {
+        if (e.phase != TickPhase.END || ++tick % 2 != 0) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || mc.getConnection() == null) return;
         long now = System.currentTimeMillis();

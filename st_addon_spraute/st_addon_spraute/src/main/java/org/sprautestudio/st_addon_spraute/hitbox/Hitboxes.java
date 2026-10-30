@@ -2,17 +2,12 @@ package org.sprautestudio.st_addon_spraute.hitbox;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.entity.EntityJoinLevelEvent;
-import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
-import net.minecraftforge.event.entity.living.LivingAttackEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.eventbus.api.EventPriority;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.net.Packets;
 import org.sprautestudio.st_addon_spraute.net.SprauteNetwork;
+import org.sprautestudio.st_addon_spraute.platform.Hooks;
+import org.sprautestudio.st_addon_spraute.platform.Priority;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -27,8 +22,15 @@ import java.util.function.Supplier;
  * survives saving) and sent to the players, since collisions are also worked out on their side.
  * The game's checks read it through small mixins (EntityHitboxMixin, LivingEntityHitboxMixin).
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID)
 public final class Hitboxes {
+    public static void registerHooks() {
+        Hooks.SERVER_TICK.add(Hitboxes::onTick);
+        Hooks.ENTITY_JOIN.add(Hitboxes::onJoin);
+        Hooks.ENTITY_LEAVE.add(Hitboxes::onLeave);
+        Hooks.START_TRACKING.add(Hitboxes::onTrack);
+        Hooks.LIVING_ATTACK.add(Priority.HIGH, Hitboxes::onAttack);
+    }
+
     private Hitboxes() {
     }
 
@@ -99,9 +101,8 @@ public final class Hitboxes {
         PENDING.add(new Pending(entity, words, new int[]{100}));
     }
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ServerTickEvent ev) {
-        if (ev.phase != TickEvent.Phase.END || PENDING.isEmpty()) return;
+    public static void onTick(Hooks.ServerTick ev) {
+        if (ev.phase != TickPhase.END || PENDING.isEmpty()) return;
         for (Iterator<Pending> it = PENDING.iterator(); it.hasNext(); ) {
             Pending p = it.next();
             Entity e;
@@ -122,8 +123,7 @@ public final class Hitboxes {
 
     // ------------------------------------------------------------------ keeping it
 
-    @SubscribeEvent
-    public static void onJoin(EntityJoinLevelEvent ev) {
+    public static void onJoin(Hooks.EntityJoin ev) {
         if (ev.getLevel().isClientSide) return;
         Entity e = ev.getEntity();
         if (!e.getPersistentData().contains(TAG)) return;
@@ -131,22 +131,19 @@ public final class Hitboxes {
         if (f != 0) SERVER.put(e.getId(), f);
     }
 
-    @SubscribeEvent
-    public static void onLeave(EntityLeaveLevelEvent ev) {
+    public static void onLeave(Hooks.EntityLeave ev) {
         if (ev.getLevel().isClientSide) CLIENT.remove(ev.getEntity().getId());
         else SERVER.remove(ev.getEntity().getId());
     }
 
-    @SubscribeEvent
-    public static void onTrack(PlayerEvent.StartTracking ev) {
+    public static void onTrack(Hooks.StartTracking ev) {
         if (!(ev.getEntity() instanceof ServerPlayer p)) return;
         Integer f = SERVER.get(ev.getTarget().getId());
         if (f != null && f != 0) SprauteNetwork.sendTo(p, new Packets.HitboxSync(ev.getTarget().getId(), f));
     }
 
     /** "nodamage": hits don't land at all (even on entities that would take them). */
-    @SubscribeEvent(priority = EventPriority.HIGH)
-    public static void onAttack(LivingAttackEvent ev) {
+    public static void onAttack(Hooks.LivingAttack ev) {
         if (ev.getEntity().level().isClientSide || SERVER.isEmpty()) return;
         if ((flags(ev.getEntity()) & NODAMAGE) != 0 && !ev.getSource().is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) ev.setCanceled(true);
     }

@@ -11,13 +11,6 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.InputEvent;
-import net.minecraftforge.client.event.RenderGuiEvent;
-import net.minecraftforge.client.event.RenderLevelStageEvent;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.cutscene.CutsceneDoc;
@@ -25,6 +18,8 @@ import org.sprautestudio.st_addon_spraute.cutscene.client.CameraDirector;
 import org.sprautestudio.st_addon_spraute.editor.ClientEvents;
 import org.sprautestudio.st_addon_spraute.editor.SprauteScreen;
 import org.sprautestudio.st_addon_spraute.zone.ZoneDef;
+import org.sprautestudio.st_addon_spraute.platform.ClientHooks;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,8 +30,16 @@ import java.util.List;
  * left click grabs a handle and it follows the aim along its axis until the next click; G carries the
  * whole zone with the aim. The IDE key goes back to the editor.
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID, value = Dist.CLIENT)
 public final class ZoneWorldEditor {
+    public static void registerHooks() {
+        ClientHooks.CLIENT_TICK.add(ZoneWorldEditor::onTick);
+        ClientHooks.MOUSE_BUTTON.add(ZoneWorldEditor::onMouse);
+        ClientHooks.KEY.add(ZoneWorldEditor::onKey);
+        ClientHooks.MOUSE_SCROLL.add(ZoneWorldEditor::onScroll);
+        ClientHooks.RENDER_LEVEL.add(ZoneWorldEditor::onRenderLevel);
+        ClientHooks.RENDER_GUI.add(ZoneWorldEditor::onGui);
+    }
+
     private ZoneWorldEditor() {
     }
 
@@ -243,9 +246,8 @@ public final class ZoneWorldEditor {
 
     // ================================================================== ticking and input
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ClientTickEvent e) {
-        if (e.phase != TickEvent.Phase.END || tab == null) return;
+    public static void onTick(ClientHooks.ClientTick e) {
+        if (e.phase != TickPhase.END || tab == null) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.screen instanceof SprauteScreen || !CameraDirector.flying()) {
             stop();
@@ -257,8 +259,7 @@ public final class ZoneWorldEditor {
         hover = grabbed != null ? grabbed : aimedHandle(d);
     }
 
-    @SubscribeEvent
-    public static void onMouse(InputEvent.MouseButton.Pre e) {
+    public static void onMouse(ClientHooks.MouseButton e) {
         if (tab == null || Minecraft.getInstance().screen != null) return;
         ZoneDef d = tab.doc();
         if (e.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
@@ -317,8 +318,7 @@ public final class ZoneWorldEditor {
         }
     }
 
-    @SubscribeEvent
-    public static void onKey(InputEvent.Key e) {
+    public static void onKey(ClientHooks.Key e) {
         if (tab == null || e.getAction() != GLFW.GLFW_PRESS || Minecraft.getInstance().screen != null) return;
         boolean shift = (e.getModifiers() & GLFW.GLFW_MOD_SHIFT) != 0, ctrl = (e.getModifiers() & GLFW.GLFW_MOD_CONTROL) != 0;
         ZoneDef d = tab.doc();
@@ -429,8 +429,7 @@ public final class ZoneWorldEditor {
         }
     }
 
-    @SubscribeEvent
-    public static void onScroll(InputEvent.MouseScrollingEvent e) {
+    public static void onScroll(ClientHooks.MouseScroll e) {
         if (tab == null || Minecraft.getInstance().screen != null) return;
         CameraDirector.flySpeed = Math.max(0.5, Math.min(64, CameraDirector.flySpeed * (e.getScrollDelta() > 0 ? 1.25 : 0.8)));
         say("Скорость полёта: " + Math.round(CameraDirector.flySpeed * 10) / 10.0);
@@ -439,9 +438,8 @@ public final class ZoneWorldEditor {
 
     // ================================================================== drawing
 
-    @SubscribeEvent
-    public static void onRenderLevel(RenderLevelStageEvent e) {
-        if (tab == null || e.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
+    public static void onRenderLevel(ClientHooks.RenderLevel e) {
+        if (tab == null || e.getStage() != ClientHooks.LevelStage.AFTER_PARTICLES) return;
         Minecraft mc = Minecraft.getInstance();
         ZoneDef d = tab.doc();
         Vec3 cam = e.getCamera().getPosition();
@@ -510,8 +508,7 @@ public final class ZoneWorldEditor {
         vc.vertex(p.pose(), (float) x2, (float) y2, (float) z2).color(r, g, b, a).normal(p.normal(), dx, dy, dz).endVertex();
     }
 
-    @SubscribeEvent
-    public static void onGui(RenderGuiEvent.Post e) {
+    public static void onGui(ClientHooks.RenderGui e) {
         if (tab == null) return;
         Minecraft mc = Minecraft.getInstance();
         var g = e.getGuiGraphics();

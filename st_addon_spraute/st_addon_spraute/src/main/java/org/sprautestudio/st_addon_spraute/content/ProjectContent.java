@@ -3,13 +3,12 @@ package org.sprautestudio.st_addon_spraute.content;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.LevelResource;
-import net.minecraftforge.fml.loading.FMLEnvironment;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.net.Packets;
 import org.sprautestudio.st_addon_spraute.net.SprauteNetwork;
 import org.sprautestudio.st_addon_spraute.runtime.Images;
 import org.sprautestudio.st_addon_spraute.runtime.SprauteRuntime;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -111,7 +110,7 @@ public final class ProjectContent {
 
     /** Where the server keeps the projects; null with no server. */
     public static Path root() {
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         return s == null ? null : s.getWorldPath(LevelResource.ROOT).resolve("spraute").resolve("content");
     }
 
@@ -206,7 +205,7 @@ public final class ProjectContent {
 
     /** The content changed: a dedicated server reads it itself, and every player gets the new list. */
     private static void publish() {
-        if (FMLEnvironment.dist.isDedicatedServer()) org.sprautestudio.st_addon_spraute.runtime.models.ModelLibrary.scan();
+        if (!Platform.get().isClient()) org.sprautestudio.st_addon_spraute.runtime.models.ModelLibrary.scan();
         for (ServerPlayer p : SprauteRuntime.players()) sendIndex(p);
     }
 

@@ -14,12 +14,10 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.event.entity.living.LivingFallEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
+import org.sprautestudio.st_addon_spraute.platform.Hooks;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
+import org.sprautestudio.st_addon_spraute.platform.Priority;
 
 import java.util.*;
 
@@ -27,13 +25,18 @@ import java.util.*;
  * Building blocks for movement and spell mechanics: no fall damage for a while, shockwaves, explosions,
  * lightning, bars at the top of the screen, cooldowns and key presses from the players.
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID)
 public final class Mechanics {
+    public static void registerHooks() {
+        Hooks.LIVING_DEATH.add(Priority.HIGHEST, Mechanics::onDeathUndying);
+        Hooks.LIVING_FALL.add(Mechanics::onFall);
+        Hooks.PLAYER_LOGGED_OUT.add(Mechanics::onLogout);
+    }
+
     private Mechanics() {
     }
 
     public static int now() {
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         return s == null ? 0 : s.getTickCount();
     }
 
@@ -65,8 +68,7 @@ public final class Mechanics {
         return UNDYING.contains(e.getUUID());
     }
 
-    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.HIGHEST)
-    public static void onDeathUndying(net.minecraftforge.event.entity.living.LivingDeathEvent e) {
+    public static void onDeathUndying(Hooks.LivingDeath e) {
         LivingEntity le = e.getEntity();
         if (le.level().isClientSide || !UNDYING.contains(le.getUUID())) return;
         e.setCanceled(true);
@@ -91,8 +93,7 @@ public final class Mechanics {
         return until == null ? 0 : Math.max(0, (until - now()) / 20.0);
     }
 
-    @SubscribeEvent
-    public static void onFall(LivingFallEvent e) {
+    public static void onFall(Hooks.LivingFall e) {
         if (FALL_SAFE.isEmpty()) return;
         Integer until = FALL_SAFE.get(e.getEntity().getUUID());
         if (until == null) return;
@@ -198,8 +199,7 @@ public final class Mechanics {
         GameEvents.post("keypress", p, d);
     }
 
-    @SubscribeEvent
-    public static void onLogout(PlayerEvent.PlayerLoggedOutEvent e) {
+    public static void onLogout(Hooks.PlayerLoggedOut e) {
         for (ServerBossEvent b : BARS.values()) if (e.getEntity() instanceof ServerPlayer sp) b.removePlayer(sp);
     }
 

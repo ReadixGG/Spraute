@@ -18,14 +18,13 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.fight.Fights;
 import org.sprautestudio.st_addon_spraute.net.Packets;
 import org.sprautestudio.st_addon_spraute.net.SprauteNetwork;
+import org.sprautestudio.st_addon_spraute.platform.Hooks;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.*;
 
@@ -35,8 +34,11 @@ import java.util.*;
  * strikes with a warning mark, beams that burn along a line, and boss bars that follow a body's
  * health by themselves. While a move drives a fighter, its fight waits (Fights.hold).
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID)
 public final class BossMoves {
+    public static void registerHooks() {
+        Hooks.SERVER_TICK.add(BossMoves::onTick);
+    }
+
     private BossMoves() {
     }
 
@@ -50,12 +52,12 @@ public final class BossMoves {
     }
 
     private static int now() {
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         return s == null ? 0 : s.getTickCount();
     }
 
     private static Entity find(UUID id) {
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         if (s == null) return null;
         for (ServerLevel lv : s.getAllLevels()) {
             Entity e = lv.getEntity(id);
@@ -547,9 +549,8 @@ public final class BossMoves {
 
     // ================================================================== the tick
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ServerTickEvent ev) {
-        if (ev.phase != TickEvent.Phase.END) return;
+    public static void onTick(Hooks.ServerTick ev) {
+        if (ev.phase != TickPhase.END) return;
         try {
             if (!MOVES.isEmpty()) {
                 for (Iterator<Map.Entry<UUID, Move>> it = MOVES.entrySet().iterator(); it.hasNext(); ) {

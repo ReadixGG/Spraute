@@ -17,12 +17,6 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.entity.living.LivingAttackEvent;
-import net.minecraftforge.eventbus.api.EventPriority;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
 import org.sprautestudio.st_addon_spraute.runtime.Anims;
 import org.sprautestudio.st_addon_spraute.runtime.GameEvents;
@@ -30,6 +24,10 @@ import org.sprautestudio.st_addon_spraute.runtime.SprauteRuntime;
 import org.sprautestudio.st_addon_spraute.core.anim.Animation;
 import org.sprautestudio.st_addon_spraute.core.anim.ConfiguredAnimation;
 import org.sprautestudio.st_addon_spraute.core.anim.LoopMode;
+import org.sprautestudio.st_addon_spraute.platform.Hooks;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
+import org.sprautestudio.st_addon_spraute.platform.Priority;
+import org.sprautestudio.st_addon_spraute.platform.TickPhase;
 
 import java.util.*;
 
@@ -40,8 +38,14 @@ import java.util.*;
  * Its own hits go through the game (players and other mobs are hurt as usual); hits on it are
  * taken here, so even an invulnerable story character can fight.
  */
-@Mod.EventBusSubscriber(modid = St_addon_spraute.MODID)
 public final class Fights {
+    public static void registerHooks() {
+        Hooks.ENTITY_LEAVE.add(Fights::onLeave);
+        Hooks.ENTITY_JOIN.add(Fights::onJoin);
+        Hooks.SERVER_TICK.add(Fights::onTick);
+        Hooks.LIVING_ATTACK.add(Priority.HIGH, Fights::onAttack);
+    }
+
     private Fights() {
     }
 
@@ -94,16 +98,14 @@ public final class Fights {
         return GONE.contains(id);
     }
 
-    @SubscribeEvent
-    public static void onLeave(net.minecraftforge.event.entity.EntityLeaveLevelEvent ev) {
+    public static void onLeave(Hooks.EntityLeave ev) {
         Entity e = ev.getEntity();
         if (e.level().isClientSide) return;
         Entity.RemovalReason why = e.getRemovalReason();
         if (why != null && why.shouldDestroy()) GONE.add(e.getUUID());
     }
 
-    @SubscribeEvent
-    public static void onJoin(net.minecraftforge.event.entity.EntityJoinLevelEvent ev) {
+    public static void onJoin(Hooks.EntityJoin ev) {
         if (!ev.getLevel().isClientSide) GONE.remove(ev.getEntity().getUUID());
     }
     /** Beaten fighters (entity -> name), kept for questions and "wait defeated". */
@@ -155,7 +157,7 @@ public final class Fights {
 
     /** The story stopped: its fights end too. */
     public static void stopScript(int scriptId) {
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         for (Iterator<Fighter> it = FIGHTERS.values().iterator(); it.hasNext(); ) {
             Fighter f = it.next();
             if (f.scriptId != scriptId) continue;
@@ -203,7 +205,7 @@ public final class Fights {
     public static void hold(Entity e, int ticks) {
         Fighter f = FIGHTERS.get(e.getUUID());
         if (f == null) return;
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         f.heldUntil = ticks <= 0 || s == null ? 0 : s.getTickCount() + ticks;
         if (ticks > 0 && e instanceof Mob m) m.getNavigation().stop();
     }
@@ -301,9 +303,8 @@ public final class Fights {
         return null;
     }
 
-    @SubscribeEvent
-    public static void onTick(TickEvent.ServerTickEvent ev) {
-        if (ev.phase != TickEvent.Phase.END) return;
+    public static void onTick(Hooks.ServerTick ev) {
+        if (ev.phase != TickPhase.END) return;
         if (!VANISH.isEmpty()) {
             for (Iterator<Map.Entry<Entity, Integer>> it = VANISH.entrySet().iterator(); it.hasNext(); ) {
                 Map.Entry<Entity, Integer> v = it.next();
@@ -318,7 +319,7 @@ public final class Fights {
             }
         }
         if (FIGHTERS.isEmpty()) return;
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         if (s == null) return;
         for (Fighter f : new ArrayList<>(FIGHTERS.values())) {
             Entity e = find(s, f.id);
@@ -528,8 +529,7 @@ public final class Fights {
 
     // ================================================================== being hit
 
-    @SubscribeEvent(priority = EventPriority.HIGH)
-    public static void onAttack(LivingAttackEvent ev) {
+    public static void onAttack(Hooks.LivingAttack ev) {
         LivingEntity e = ev.getEntity();
         if (e.level().isClientSide) return;
         Fighter f = FIGHTERS.get(e.getUUID());

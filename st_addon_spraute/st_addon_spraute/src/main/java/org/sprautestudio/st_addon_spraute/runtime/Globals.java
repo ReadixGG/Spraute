@@ -3,8 +3,8 @@ package org.sprautestudio.st_addon_spraute.runtime;
 import com.google.gson.*;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.sprautestudio.st_addon_spraute.St_addon_spraute;
+import org.sprautestudio.st_addon_spraute.platform.Platform;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -25,7 +25,7 @@ public final class Globals {
     private static Map<String, Object> values;
 
     private static Path file() {
-        MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer s = Platform.get().server();
         return s == null ? null : s.getWorldPath(LevelResource.ROOT).resolve("spraute").resolve("globals.json");
     }
 
