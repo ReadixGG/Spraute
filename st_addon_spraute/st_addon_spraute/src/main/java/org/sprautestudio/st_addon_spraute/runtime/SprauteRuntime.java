@@ -64,7 +64,7 @@ public final class SprauteRuntime {
     private SprauteRuntime() {}
 
     public Deployed deployed(int id) {
-        return deployed.get(id);
+        return deployed.get(org.sprautestudio.st_addon_spraute.core.script.ScriptEnvironment.baseId(id));
     }
 
     public Map<Integer, Deployed> all() {
@@ -82,10 +82,88 @@ public final class SprauteRuntime {
         return s == null ? List.of() : s.getPlayerList().getPlayers();
     }
 
-    /** The story's protagonist: the first player on the server. */
+    private static final ThreadLocal<ScriptInstance> CURRENT = new ThreadLocal<>();
+    /** The player an "as" block is about, in the step running now. */
+    private static final ThreadLocal<java.util.UUID> AS = new ThreadLocal<>();
+
+    /** The story whose step runs now on this thread: player() and the audience are its. */
+    public static ScriptInstance enter(ScriptInstance s) {
+        ScriptInstance before = CURRENT.get();
+        if (s == null) CURRENT.remove();
+        else CURRENT.set(s);
+        return before;
+    }
+
+    public static java.util.UUID getAs() {
+        return AS.get();
+    }
+
+    public static void setAs(java.util.UUID player) {
+        if (player == null) AS.remove();
+        else AS.set(player);
+    }
+
+    private static ServerPlayer online(java.util.UUID id) {
+        MinecraftServer s = server();
+        return s == null || id == null ? null : s.getPlayerList().getPlayer(id);
+    }
+
+    /** The player a story is about: the one in its "as" block, else its protagonist; outside a story, the first on the server. */
     public static ServerPlayer player() {
+        ServerPlayer as = online(AS.get());
+        if (as != null) return as;
+        ScriptInstance s = CURRENT.get();
+        if (s != null) return s.protagonist();
         List<ServerPlayer> list = players();
         return list.isEmpty() ? null : list.get(0);
+    }
+
+    /** The protagonist of a story by its id, for what runs outside its steps (fights, casts). */
+    public static ServerPlayer playerOf(int scriptId) {
+        ScriptInstance s = env().map(e -> e.scriptInstances.get(scriptId)).orElse(null);
+        if (s != null) return s.protagonist();
+        List<ServerPlayer> list = players();
+        return list.isEmpty() ? null : list.get(0);
+    }
+
+    private static List<ServerPlayer> only(ServerPlayer p) {
+        return p == null ? List.of() : List.of(p);
+    }
+
+    /** Who sees and hears the story running now: one player in an "as" block or a solo story, else everybody. */
+    public static List<ServerPlayer> audience() {
+        ServerPlayer as = online(AS.get());
+        if (as != null) return List.of(as);
+        ScriptInstance s = CURRENT.get();
+        return s != null && s.solo() ? only(s.protagonist()) : players();
+    }
+
+    /** The same for a story by its id, for what runs outside its steps. */
+    public static List<ServerPlayer> audience(int scriptId) {
+        ScriptInstance s = env().map(e -> e.scriptInstances.get(scriptId)).orElse(null);
+        return s != null && s.solo() ? only(s.protagonist()) : players();
+    }
+
+    public static final String SOLO_TAG = "spraute_solo:";
+
+    /** A solo story's entity is seen by its player alone. */
+    public static void markOwned(net.minecraft.world.entity.Entity e, ScriptInstance s) {
+        if (s != null && s.solo() && s.owner != null) e.addTag(SOLO_TAG + s.owner);
+    }
+
+    public static void markOwned(net.minecraft.world.entity.Entity e) {
+        markOwned(e, CURRENT.get());
+    }
+
+    /** Whose alone this entity is; null — everybody's. */
+    public static String ownerOf(net.minecraft.world.entity.Entity e) {
+        for (String t : e.getTags()) if (t.startsWith(SOLO_TAG)) return t.substring(SOLO_TAG.length());
+        return null;
+    }
+
+    public static boolean sees(net.minecraft.world.entity.Entity e, ServerPlayer p) {
+        String owner = ownerOf(e);
+        return owner == null || owner.equals(p.getUUID().toString());
     }
 
     public static boolean canEdit(ServerPlayer player) {
@@ -101,6 +179,7 @@ public final class SprauteRuntime {
 
     /** The world opened: its stories. */
     public void openEnvironment(MinecraftServer server) {
+        if (net.minecraftforge.fml.loading.FMLEnvironment.dist.isDedicatedServer()) org.sprautestudio.st_addon_spraute.runtime.models.ModelLibrary.scan();
         environment = new ScriptEnvironment(server);
         environment.load();
     }
@@ -269,6 +348,7 @@ public final class SprauteRuntime {
         if (s != null) autostartAt.put(player.getUUID(), s.getTickCount() + 40);
         org.sprautestudio.st_addon_spraute.quest.Quests.sync(player, false);
         org.sprautestudio.st_addon_spraute.zone.Zones.syncTo(player);
+        org.sprautestudio.st_addon_spraute.content.ProjectContent.sendIndex(player);
     }
 
     public void tickAutostart() {
@@ -286,48 +366,40 @@ public final class SprauteRuntime {
     private void autostart(ServerPlayer player) {
         Optional<ScriptEnvironment> envOpt = env();
         if (envOpt.isEmpty()) return;
-        java.util.Set<Integer> done = autostartDone();
+        java.util.Set<String> done = autostartDone();
         boolean changed = false;
         for (Deployed d : deployed.values()) {
             Ast.Header h = d.program.header;
             if (h == null || !h.autostart) continue;
-            if (envOpt.get().scriptInstances.get(d.id) != null) continue; // already running
-            if (h.once && done.contains(d.id)) continue;
+            String mark = h.solo ? d.id + ":" + player.getUUID() : String.valueOf(d.id);
+            if (envOpt.get().instanceFor(d.id, player) != null) continue; // already running
+            if (h.once && done.contains(mark)) continue;
             MinecraftServer s = server();
             s.getCommands().performPrefixedCommand(player.createCommandSourceStack().withPermission(4).withSuppressedOutput(), "script start " + d.id);
             log(d.id, "Автозапуск: «" + d.title + "»");
-            if (done.add(d.id)) changed = true;
+            if (done.add(mark)) changed = true;
         }
         if (changed) saveAutostartDone(done);
     }
 
-    private java.util.Set<Integer> autostartDone() {
-        java.util.Set<Integer> out = new java.util.TreeSet<>();
+    private java.util.Set<String> autostartDone() {
+        java.util.Set<String> out = new java.util.TreeSet<>();
         Path dir = storageDir();
         if (dir == null) return out;
         try {
             Path f = dir.resolve("autostarted.txt");
-            if (Files.exists(f)) {
-                for (String line : Files.readAllLines(f, StandardCharsets.UTF_8)) {
-                    try {
-                        out.add(Integer.parseInt(line.trim()));
-                    } catch (NumberFormatException ignored) {
-                    }
-                }
-            }
+            if (Files.exists(f)) for (String line : Files.readAllLines(f, StandardCharsets.UTF_8)) if (!line.isBlank()) out.add(line.trim());
         } catch (IOException ignored) {
         }
         return out;
     }
 
-    private void saveAutostartDone(java.util.Set<Integer> done) {
+    private void saveAutostartDone(java.util.Set<String> done) {
         Path dir = storageDir();
         if (dir == null) return;
         try {
             Files.createDirectories(dir);
-            StringBuilder sb = new StringBuilder();
-            for (int id : done) sb.append(id).append('\n');
-            Files.writeString(dir.resolve("autostarted.txt"), sb.toString(), StandardCharsets.UTF_8);
+            Files.writeString(dir.resolve("autostarted.txt"), String.join("\n", done) + "\n", StandardCharsets.UTF_8);
         } catch (IOException ignored) {
         }
     }
@@ -423,6 +495,8 @@ public final class SprauteRuntime {
         env().ifPresent(env -> {
             ScriptInstance si = env.scriptInstances.get(msg.scriptId());
             if (!(si instanceof SprauteScriptInstance s)) return;
+            // an interface opened for one player answers to that player alone
+            if (msg.gui().equals(s.openGui) && s.guiPlayer != null && !s.guiPlayer.equals(player.getUUID())) return;
             if (msg.inputs() != null) s.guiInputs.putAll(msg.inputs());
             if (msg.kind().equals("click")) {
                 s.lastButton = msg.element();
@@ -482,7 +556,7 @@ public final class SprauteRuntime {
                     e.title = c.getDeclaringClass().getSimpleName();
                     e.project = "";
                 }
-                ScriptInstance inst = env.scriptInstances.get(id);
+                ScriptInstance inst = env.anyInstance(id);
                 if (inst != null) {
                     e.active = true;
                     e.paused = inst.isPaused();

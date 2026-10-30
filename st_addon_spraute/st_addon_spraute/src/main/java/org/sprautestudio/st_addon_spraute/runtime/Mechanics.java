@@ -168,7 +168,7 @@ public final class Mechanics {
             b.setColor(c);
         }
         b.setProgress((float) Math.max(0, Math.min(1, max <= 0 ? 0 : value / max)));
-        for (ServerPlayer p : SprauteRuntime.players()) if (!b.getPlayers().contains(p)) b.addPlayer(p);
+        for (ServerPlayer p : SprauteRuntime.audience()) if (!b.getPlayers().contains(p)) b.addPlayer(p);
     }
 
     public static void hideBar(String id) {
@@ -177,14 +177,14 @@ public final class Mechanics {
     }
 
     public static void actionbar(String text) {
-        for (ServerPlayer p : SprauteRuntime.players()) p.displayClientMessage(Component.literal(text), true);
+        for (ServerPlayer p : SprauteRuntime.audience()) p.displayClientMessage(Component.literal(text), true);
     }
 
     // ------------------------------------------------------------------ keys
 
     /** A key the player pressed (from the client): stories hear "keypress". */
     public static void keyPressed(ServerPlayer p, String key) {
-        SprauteRuntime.env().ifPresent(env -> env.keyPressed(key));
+        SprauteRuntime.env().ifPresent(env -> env.keyPressed(p.getUUID(), key));
         if (key.equals("air.left")) {
             GameEvents.post("leftair", p, new HashMap<>());
             return;

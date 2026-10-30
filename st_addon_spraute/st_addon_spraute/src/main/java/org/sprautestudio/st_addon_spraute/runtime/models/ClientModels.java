@@ -19,6 +19,11 @@ final class ClientModels {
 
     private static final Map<Path, Long> LOADED = new HashMap<>();
 
+    /** The folders of the projects the server this client is on gave it. */
+    static Collection<Path> serverProjects() {
+        return org.sprautestudio.st_addon_spraute.content.ContentClient.activeDirs();
+    }
+
     static void registerTextures(Collection<ModelLibrary.Model> models) {
         for (ModelLibrary.Model m : models) {
             Path f = m.texture();

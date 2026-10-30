@@ -521,6 +521,7 @@ public final class Specs {
         // -------------------------------------------------------------- keywords
         KEYWORD_DOCS.put("script", "Заголовок файла: script <id> \"Название\". Id — уникальный номер сюжета.\n"
                 + "script 5001 \"Вступление\" autostart — сюжет сам запускается, когда игрок заходит в мир (если он ещё не идёт).\n"
+                + "script 5001 \"Вступление\" solo — у каждого игрока своя копия сюжета: своё продвижение и свои персонажи, которых видит только он. Без solo сюжет один на всех: его видят все, а player — тот, кто его запустил.\n"
                 + "script 5001 \"Вступление\" autostart once — только при первом входе в этот мир.");
         KEYWORD_DOCS.put("character", "Объявляет персонажа:\ncharacter alice = \"spraute:npc\" name \"Алиса\" [speed 0.3] [skin \"...\"] [icon \"лицо\"] [portrait \"лицо\"]\n"
                 + "icon — картинка в окне речи (say), portrait — лицо в диалоге с выбором (choice).\n"
@@ -556,6 +557,8 @@ public final class Specs {
         KEYWORD_DOCS.put("async", "Асинхронно — не ждать завершения:\nasync { ... }          — фоновая ветка\nasync walk { ... }     — ветка с именем (для await/cancel)\nasync call f() as job  — функция в фоне");
         KEYWORD_DOCS.put("await", "Ждать завершения асинхронных веток: await walk, job");
         KEYWORD_DOCS.put("cancel", "Остановить асинхронную ветку: cancel walk");
+        KEYWORD_DOCS.put("as", "Блок про конкретного игрока: as actor { give \"minecraft:bread\" } или for p in players() { as p { quest start \"поход\" } }.\n"
+                + "Внутри player — этот игрок, и всё показанное (say, gui, camera, title) видит только он. actor — игрок, вызвавший обрабатываемое событие.");
         KEYWORD_DOCS.put("on", "Обработчик события — работает в фоне и срабатывает каждый раз:\non button \"yes\" { ... }\non key H { ... }\non click alice { ... }\n"
                 + "Событием может быть любая команда wait: button, guiclose, key, click, chat, near, flag, trigger...\nСтавьте обработчики в начало сюжета.");
         KEYWORD_DOCS.put("switch", "Выбор по значению:\nswitch button() {\n    \"yes\" { ... }\n    \"no\", \"cancel\" { ... }\n    else { ... }\n}");
@@ -615,6 +618,8 @@ public final class Specs {
         fn("min", "min(a, b)", "число", "Минимум.");
         fn("max", "max(a, b)", "число", "Максимум.");
         fn("abs", "abs(x)", "число", "Модуль числа.");
+        fn("players", "players()", "список", "Все игроки, которые видят этот сюжет: for p in players() { as p { give \"minecraft:bread\" } }.");
+        fn("playercount", "playercount()", "число", "Сколько игроков видит этот сюжет.");
         fn("day", "day()", "число", "Номер текущего дня мира (с 0).");
         fn("bought", "bought(shop, offer)", "число", "Сколько раз купили (продали) товар: bought(\"лавка\", \"sword\").");
         fn("stock", "stock(shop, offer)", "число", "Сколько товара осталось (-1 — без конца).");

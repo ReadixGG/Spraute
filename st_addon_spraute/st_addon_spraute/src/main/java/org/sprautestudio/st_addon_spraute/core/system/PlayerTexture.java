@@ -15,17 +15,17 @@ public final class PlayerTexture {
     }
 
     private static final class Saved extends SavedData {
-        String texture = "";
+        final java.util.Map<String, String> textures = new java.util.HashMap<>();
 
         @Override
         public CompoundTag save(CompoundTag tag) {
-            tag.putString("texture", texture);
+            textures.forEach(tag::putString);
             return tag;
         }
 
         static Saved load(CompoundTag tag) {
             Saved s = new Saved();
-            s.texture = tag.getString("texture");
+            for (String k : tag.getAllKeys()) if (!k.equals("texture")) s.textures.put(k, tag.getString(k));
             return s;
         }
     }
@@ -34,17 +34,20 @@ public final class PlayerTexture {
         return s.overworld().getDataStorage().computeIfAbsent(Saved::load, Saved::new, "spraute_player_texture");
     }
 
-    /** Null: back to the player's own. */
-    public static void set(ResourceLocation texture) {
+    /** Null texture: back to the player's own. Everyone sees it on that player. */
+    public static void set(ServerPlayer p, ResourceLocation texture) {
         MinecraftServer s = ServerLifecycleHooks.getCurrentServer();
-        if (s == null) return;
+        if (s == null || p == null) return;
         Saved d = saved(s);
-        d.texture = texture == null ? "" : texture.toString();
+        String id = p.getUUID().toString();
+        if (texture == null) d.textures.remove(id);
+        else d.textures.put(id, texture.toString());
         d.setDirty();
-        SprauteNetwork.sendToAll(new Packets.PlayerSkin(d.texture));
+        SprauteNetwork.sendToAll(new Packets.PlayerSkin(id, texture == null ? "" : texture.toString()));
     }
 
+    /** A player came: everyone's story skins. */
     public static void sendTo(ServerPlayer p) {
-        SprauteNetwork.sendTo(p, new Packets.PlayerSkin(saved(p.server).texture));
+        saved(p.server).textures.forEach((id, tex) -> SprauteNetwork.sendTo(p, new Packets.PlayerSkin(id, tex)));
     }
 }

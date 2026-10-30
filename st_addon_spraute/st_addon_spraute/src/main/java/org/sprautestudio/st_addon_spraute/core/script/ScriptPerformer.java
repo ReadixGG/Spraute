@@ -46,7 +46,11 @@ public final class ScriptPerformer {
         passing.clear();
     }
 
+    /** The player of the "as" block this performer is in; null — none. */
+    public java.util.UUID asPlayer;
+
     public void tick() {
+        org.sprautestudio.st_addon_spraute.runtime.SprauteRuntime.setAs(asPlayer);
         passing.removeIf(ScriptPerformerAction::update);
         for (int i = 0; i < STEPS_PER_TICK && index < actions.size(); i++) {
             ScriptPerformerAction a = actions.get(index);

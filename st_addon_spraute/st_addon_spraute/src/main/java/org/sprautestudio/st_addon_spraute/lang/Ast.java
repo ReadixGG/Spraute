@@ -47,6 +47,8 @@ public final class Ast {
         public String title = "";
         /** script 5001 "…" autostart [once]: started by itself when a player enters the world. */
         public boolean autostart, once;
+        /** script 5001 "…" solo: each player runs their own copy, and sees only their own. */
+        public boolean solo;
         public int idStart, idEnd;
     }
 
@@ -127,6 +129,12 @@ public final class Ast {
     public static final class StopStmt extends Stmt {}
 
     /** {@code for x in list { }}: x takes each item (keys of a dictionary, 0..n-1 of a number). */
+    /** {@code as actor { ... }}: inside, "player" and everything shown is about this player. */
+    public static final class AsStmt extends Stmt {
+        public Expr who;
+        public final List<Stmt> body = new ArrayList<>();
+    }
+
     public static final class ForStmt extends Stmt {
         public String var;
         public int varStart, varEnd;

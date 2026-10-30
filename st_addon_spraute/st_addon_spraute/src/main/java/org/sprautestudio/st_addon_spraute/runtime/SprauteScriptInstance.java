@@ -86,10 +86,45 @@ public class SprauteScriptInstance extends ScriptInstance {
     }
 
     /** An answer from the engine's choice menu. */
-    public static void answer(int scriptId, int choiceId, int answer) {
+    public static void answer(net.minecraft.server.level.ServerPlayer from, int scriptId, int choiceId, int answer) {
         SprauteRuntime.env().ifPresent(env -> {
-            if (env.scriptInstances.get(scriptId) instanceof SprauteScriptInstance s && s.choiceSeq == choiceId && s.lastAnswer == 0) s.lastAnswer = answer;
+            if (env.scriptInstances.get(scriptId) instanceof SprauteScriptInstance s && s.choiceSeq == choiceId && s.lastAnswer == 0
+                    && from != null && from.getUUID().equals(s.choicePlayer)) s.lastAnswer = answer;
         });
+    }
+
+    /** Who a choice menu and an interface are open for: only they answer. */
+    java.util.UUID choicePlayer, guiPlayer;
+    /** What shows on the screen now, for a player who comes in the middle. */
+    private final Map<String, String> overlays = new LinkedHashMap<>();
+    private final Map<String, String> cameraNow = new LinkedHashMap<>();
+
+    void overlayShown(String name, String json) {
+        overlays.put(name, json);
+    }
+
+    void overlayHidden(String name) {
+        if (name.isEmpty()) overlays.clear();
+        else overlays.remove(name);
+    }
+
+    /** Lasting settings of the camera; a flight or a fade is over by the time anyone would come. */
+    void cameraOp(com.google.gson.JsonObject o) {
+        String op = o.get("op").getAsString();
+        if (op.equals("hud") || op.equals("bars") || op.equals("lock")) cameraNow.put(op, o.toString());
+    }
+
+    @Override
+    public void catchUp(net.minecraft.server.level.ServerPlayer p) {
+        overlays.forEach((name, json) -> org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendTo(p,
+                new org.sprautestudio.st_addon_spraute.net.Packets.OverlayShow(getId(), deployed.project, name, json)));
+        cameraNow.values().forEach(json -> org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendTo(p,
+                new org.sprautestudio.st_addon_spraute.net.Packets.CameraOp(getId(), json)));
+    }
+
+    @Override
+    public boolean solo() {
+        return deployed.program.header != null && deployed.program.header.solo;
     }
     /** GUI state: open interface, last pressed button, counters for waits and text-field values. */
     String openGui;

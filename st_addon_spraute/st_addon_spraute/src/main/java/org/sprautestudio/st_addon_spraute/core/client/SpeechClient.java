@@ -168,6 +168,7 @@ public final class SpeechClient {
 
     @SubscribeEvent
     public static void onLogout(ClientPlayerNetworkEvent.LoggingOut e) {
+        PlayerSkins.clear();
         current = null;
         HISTORY.clear();
         newest = -1;

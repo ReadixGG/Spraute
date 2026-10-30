@@ -374,7 +374,6 @@ public final class Walkers {
         data.put("y", Math.floor(w.e.getY()));
         data.put("z", Math.floor(w.e.getZ()));
         if (w.name.isEmpty()) return; // move / path, not a path of the project
-        ServerPlayer p = SprauteRuntime.player();
-        GameEvents.post("pathend", p, data);
+        GameEvents.post("pathend", null, data);
     }
 }

@@ -105,12 +105,14 @@ public final class ClientState {
             addLocal(Packets.Log.ERROR, "Spraute", "Нет подключения к миру");
             return;
         }
-        SprauteNetwork.sendToServer(new Packets.Deploy(project, source, start, guis));
+        // the project's models and pictures first: a story must not start without them
+        org.sprautestudio.st_addon_spraute.content.ContentClient.upload(project, () -> SprauteNetwork.sendToServer(new Packets.Deploy(project, source, start, guis)));
     }
 
     /** Sends the project's interfaces, shops, quests, zones… to the world (after saving one). */
     public void sources(String project, java.util.Map<String, String> guis) {
         if (net.minecraft.client.Minecraft.getInstance().getConnection() == null) return;
+        org.sprautestudio.st_addon_spraute.content.ContentClient.upload(project, null);
         SprauteNetwork.sendToServer(new Packets.SourcesSet(project, guis));
     }
 

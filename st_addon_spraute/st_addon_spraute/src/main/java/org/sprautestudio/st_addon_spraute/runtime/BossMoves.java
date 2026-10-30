@@ -46,7 +46,7 @@ public final class BossMoves {
 
     private static void play(Fx fx, Vec3 at) {
         if (fx == null || fx.json == null) return;
-        SprauteNetwork.sendToAll(new Packets.FxPlay("", fx.project, fx.json, at.x, at.y, at.z, -1, fx.scale, fx.scriptId));
+        SprauteNetwork.sendToAudience(fx.scriptId, new Packets.FxPlay("", fx.project, fx.json, at.x, at.y, at.z, -1, fx.scale, fx.scriptId));
     }
 
     private static int now() {
@@ -499,7 +499,7 @@ public final class BossMoves {
         hideBar(e);
         String name = title != null && !title.isBlank() ? title : e.getName().getString();
         ServerBossEvent ev = new ServerBossEvent(Component.literal(name), color(color), overlay(style));
-        for (ServerPlayer p : SprauteRuntime.players()) ev.addPlayer(p);
+        for (ServerPlayer p : SprauteRuntime.audience(scriptId)) ev.addPlayer(p);
         ev.setProgress((float) frac(e));
         BARS.put(e.getUUID(), new Bar(ev, scriptId));
     }

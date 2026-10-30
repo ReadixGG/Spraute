@@ -18,52 +18,66 @@ public final class CameraState {
 
     private static final double MOVED = 0.01;
 
-    private static boolean active, moving;
-    private static Vec3 position = Vec3.ZERO;
-    private static GameType carriedFrom;
-    private static Vec3 carriedAt;
-
-    public static boolean active() {
-        return active;
+    private static final class State {
+        boolean active, moving;
+        Vec3 position = Vec3.ZERO;
+        GameType carriedFrom;
+        Vec3 carriedAt;
     }
 
-    public static Vec3 position() {
-        return position;
+    private static final Map<java.util.UUID, State> STATES = new HashMap<>();
+
+    private static State state(ServerPlayer p) {
+        return STATES.computeIfAbsent(p.getUUID(), k -> new State());
+    }
+
+    public static boolean active(ServerPlayer p) {
+        return p != null && state(p).active;
+    }
+
+    public static Vec3 position(ServerPlayer p) {
+        return p == null ? Vec3.ZERO : state(p).position;
     }
 
     public static void report(ServerPlayer p, double x, double y, double z, boolean on) {
+        State st = state(p);
         Vec3 now = new Vec3(x, y, z);
-        boolean moved = on && now.distanceToSqr(position) > MOVED;
-        if (moving && !moved) {
+        boolean moved = on && now.distanceToSqr(st.position) > MOVED;
+        if (st.moving && !moved) {
             Map<String, Object> d = new HashMap<>();
             d.put("x", x);
             d.put("y", y);
             d.put("z", z);
             GameEvents.fire("cameraend", p, d);
         }
-        moving = moved;
-        active = on;
-        position = now;
-        if (carriedFrom == null) return;
+        st.moving = moved;
+        st.active = on;
+        st.position = now;
+        if (st.carriedFrom == null) return;
         if (on) p.teleportTo(x, y, z);
         else carry(p, false);
     }
 
     public static void carry(ServerPlayer p, boolean on) {
         if (p == null) return;
-        if (on && carriedFrom == null) {
-            carriedFrom = p.gameMode.getGameModeForPlayer();
-            carriedAt = p.position();
+        State st = state(p);
+        if (on && st.carriedFrom == null) {
+            st.carriedFrom = p.gameMode.getGameModeForPlayer();
+            st.carriedAt = p.position();
             p.setGameMode(GameType.SPECTATOR);
-        } else if (!on && carriedFrom != null) {
-            p.setGameMode(carriedFrom);
-            p.teleportTo(carriedAt.x, carriedAt.y, carriedAt.z);
-            carriedFrom = null;
+        } else if (!on && st.carriedFrom != null) {
+            p.setGameMode(st.carriedFrom);
+            p.teleportTo(st.carriedAt.x, st.carriedAt.y, st.carriedAt.z);
+            st.carriedFrom = null;
         }
     }
 
+    public static void left(ServerPlayer p) {
+        carry(p, false);
+        STATES.remove(p.getUUID());
+    }
+
     public static void unload() {
-        active = moving = false;
-        carriedFrom = null;
+        STATES.clear();
     }
 }

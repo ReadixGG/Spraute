@@ -211,6 +211,10 @@ public final class Parser {
         h.idStart = id.start;
         h.idEnd = id.end;
         if (peek().type == TokenType.STRING) h.title = (String) next().value;
+        if (peek().isWord("solo")) {
+            next();
+            h.solo = true;
+        }
         if (peek().isWord("autostart")) {
             next();
             h.autostart = true;
@@ -218,6 +222,10 @@ public final class Parser {
                 next();
                 h.once = true;
             }
+        }
+        if (peek().isWord("solo")) {
+            next();
+            h.solo = true;
         }
         expectEnd();
         if (program.header != null) error("Заголовок script уже объявлен", kw.start, kw.end);
@@ -356,6 +364,13 @@ public final class Parser {
             r.count = expression();
             r.body.addAll(block());
             return r.at(t.start, prev().end);
+        }
+        if (t.isWord("as")) {
+            next();
+            AsStmt a = new AsStmt();
+            a.who = expression();
+            a.body.addAll(block());
+            return a.at(t.start, prev().end);
         }
         if (t.isWord("for")) {
             next();

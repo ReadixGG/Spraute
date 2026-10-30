@@ -113,32 +113,43 @@ public final class ModelLibrary {
 
     // ================================================================== scanning
 
-    /** Where the projects are (client workspace); null on a dedicated server. */
-    private static Path projectsDir() {
-        if (FMLEnvironment.dist != Dist.CLIENT) return null;
-        try {
-            return org.sprautestudio.st_addon_spraute.editor.project.Workspace.projectsDir();
-        } catch (Throwable t) {
-            return null;
+    /** The folders of all projects known here: the workspace's and what the server gave; on a dedicated server, what authors uploaded. */
+    private static List<Path> projectDirs() {
+        List<Path> out = new ArrayList<>();
+        Path root = null;
+        if (FMLEnvironment.dist == Dist.CLIENT) {
+            try {
+                root = org.sprautestudio.st_addon_spraute.editor.project.Workspace.projectsDir();
+            } catch (Throwable t) {
+                root = null;
+            }
+        } else {
+            root = org.sprautestudio.st_addon_spraute.content.ProjectContent.root();
         }
+        if (root != null && Files.isDirectory(root)) {
+            try (Stream<Path> projects = Files.list(root)) {
+                projects.filter(Files::isDirectory).sorted().forEach(out::add);
+            } catch (IOException e) {
+                St_addon_spraute.LOGGER.warn("Spraute: cannot scan models", e);
+            }
+        }
+        // later ones win: on someone else's server, their project and not a local one of the same name
+        if (FMLEnvironment.dist == Dist.CLIENT) out.addAll(ClientModels.serverProjects());
+        return out;
     }
 
     /** Re-reads every project's models. */
     public static synchronized void scan() {
-        Path root = projectsDir();
+        List<Path> dirs = projectDirs();
         Map<String, Model> found = new LinkedHashMap<>();
-        if (root != null && Files.isDirectory(root)) {
-            try (Stream<Path> projects = Files.list(root)) {
-                for (Path pd : (Iterable<Path>) projects.filter(Files::isDirectory).sorted()::iterator) {
-                    String project = projectName(pd);
-                    Path md = pd.resolve("models");
-                    if (!Files.isDirectory(md)) continue;
-                    try (Stream<Path> models = Files.list(md)) {
-                        for (Path d : (Iterable<Path>) models.filter(Files::isDirectory).sorted()::iterator) {
-                            Model m = model(project, d);
-                            if (m != null) found.put(m.key(), m);
-                        }
-                    }
+        for (Path pd : dirs) {
+            String project = projectName(pd);
+            Path md = pd.resolve("models");
+            if (!Files.isDirectory(md)) continue;
+            try (Stream<Path> models = Files.list(md)) {
+                for (Path d : (Iterable<Path>) models.filter(Files::isDirectory).sorted()::iterator) {
+                    Model m = model(project, d);
+                    if (m != null) found.put(m.key(), m);
                 }
             } catch (IOException e) {
                 St_addon_spraute.LOGGER.warn("Spraute: cannot scan models", e);
@@ -146,7 +157,7 @@ public final class ModelLibrary {
         }
         MODELS.clear();
         MODELS.putAll(found);
-        EntityLibrary.scan(root);
+        EntityLibrary.scan(dirs);
         if (FMLEnvironment.dist == Dist.CLIENT) ClientModels.registerTextures(found.values());
     }
 
@@ -155,11 +166,13 @@ public final class ModelLibrary {
     }
 
     private static String projectName(Path dir) {
+        // read here and not through the editor's classes, which a dedicated server does not have
         try {
-            return org.sprautestudio.st_addon_spraute.editor.project.Project.openReadOnly(dir).name();
-        } catch (Throwable t) {
-            return dir.getFileName().toString();
+            var json = new com.google.gson.Gson().fromJson(Files.readString(dir.resolve("project.json")), com.google.gson.JsonObject.class);
+            if (json != null && json.has("name")) return json.get("name").getAsString();
+        } catch (Exception ignored) {
         }
+        return dir.getFileName().toString();
     }
 
     private static Model model(String project, Path d) throws IOException {

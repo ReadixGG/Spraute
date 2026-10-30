@@ -121,6 +121,6 @@ public final class ClientHandlers {
     }
 
     public static void playerSkin(Packets.PlayerSkin msg) {
-        org.sprautestudio.st_addon_spraute.core.client.PlayerSkins.override = msg.texture().isEmpty() ? null : net.minecraft.resources.ResourceLocation.tryParse(msg.texture());
+        org.sprautestudio.st_addon_spraute.core.client.PlayerSkins.set(msg.player(), msg.texture());
     }
 }

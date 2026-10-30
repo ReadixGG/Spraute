@@ -13,7 +13,7 @@ public abstract class PlayerSkinMixin {
     /** getSkinTextureLocation */
     @Inject(method = {"m_108560_", "getSkinTextureLocation"}, at = @At("HEAD"), cancellable = true, remap = false)
     private void spraute$skin(CallbackInfoReturnable<ResourceLocation> cir) {
-        ResourceLocation own = org.sprautestudio.st_addon_spraute.core.client.PlayerSkins.override;
+        ResourceLocation own = org.sprautestudio.st_addon_spraute.core.client.PlayerSkins.of(((net.minecraft.world.entity.Entity) (Object) this).getUUID());
         if (own != null) cir.setReturnValue(own);
     }
 }

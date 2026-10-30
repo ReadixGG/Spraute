@@ -110,6 +110,15 @@ public final class ScriptPerformerBuilder {
         append(p -> new Run(p, r));
     }
 
+    /** From here on this performer's steps are about this player; null — the story's own again. */
+    public void thenAs(Supplier<ServerPlayer> who) {
+        append(p -> new Run(p, () -> {
+            ServerPlayer player = who.get();
+            p.asPlayer = player != null ? player.getUUID() : null;
+            SprauteRuntime.setAs(p.asPlayer);
+        }));
+    }
+
     public void label(String name) {
         if (name.equals(ScriptPerformer.LABEL_START) || name.equals(ScriptPerformer.LABEL_END))
             throw new IllegalArgumentException("Имя метки «" + name + "» зарезервировано");
@@ -211,16 +220,16 @@ public final class ScriptPerformerBuilder {
 
     public void thenWaitForKey(String key) {
         long[] from = {0};
-        waitWith("Ждёт нажатия " + key.toUpperCase(java.util.Locale.ROOT), () -> from[0] = script.env.keyCount(key), () -> script.env.keyCount(key) > from[0]);
+        waitWith("Ждёт нажатия " + key.toUpperCase(java.util.Locale.ROOT), () -> from[0] = script.keyCount(key), () -> script.keyCount(key) > from[0]);
     }
 
     /** For a handler: each press is taken once, also those made while its body was running. */
     public void thenWaitForEachKey(String key) {
         long[] seen = {-1};
         waitWith("Ждёт нажатия " + key.toUpperCase(java.util.Locale.ROOT), () -> {
-            if (seen[0] < 0) seen[0] = script.env.keyCount(key);
+            if (seen[0] < 0) seen[0] = script.keyCount(key);
         }, () -> {
-            if (script.env.keyCount(key) <= seen[0]) return false;
+            if (script.keyCount(key) <= seen[0]) return false;
             seen[0]++;
             return true;
         });
@@ -329,7 +338,7 @@ public final class ScriptPerformerBuilder {
 
     public void thenTitle(Title t) {
         thenRun(() -> {
-            for (ServerPlayer p : SprauteRuntime.players()) {
+            for (ServerPlayer p : SprauteRuntime.audience()) {
                 p.connection.send(new ClientboundSetTitlesAnimationPacket(t.fadeIn(), t.stay(), t.fadeOut()));
                 if (!t.subtitle().isEmpty()) p.connection.send(new ClientboundSetSubtitleTextPacket(Component.literal(t.subtitle())));
                 p.connection.send(new ClientboundSetTitleTextPacket(Component.literal(t.text())));
@@ -340,13 +349,13 @@ public final class ScriptPerformerBuilder {
     /** A line in the chat. */
     public void sendWebMessage(String text, boolean ignored) {
         thenRun(() -> {
-            for (ServerPlayer p : SprauteRuntime.players()) p.sendSystemMessage(Component.literal(text));
+            for (ServerPlayer p : SprauteRuntime.audience()) p.sendSystemMessage(Component.literal(text));
         });
     }
 
     public void sendWebWarning(String text) {
         thenRun(() -> {
-            for (ServerPlayer p : SprauteRuntime.players()) p.sendSystemMessage(Component.literal(text).withStyle(net.minecraft.ChatFormatting.YELLOW));
+            for (ServerPlayer p : SprauteRuntime.audience()) p.sendSystemMessage(Component.literal(text).withStyle(net.minecraft.ChatFormatting.YELLOW));
         });
     }
 
@@ -610,11 +619,11 @@ public final class ScriptPerformerBuilder {
     }
 
     public void playerTextureOverride(ResourceLocation texture) {
-        thenRun(() -> SprauteNetwork.sendToAll(new Packets.PlayerSkin(texture.toString())));
+        thenRun(() -> org.sprautestudio.st_addon_spraute.core.system.PlayerTexture.set(SprauteRuntime.player(), texture));
     }
 
     public void playerTextureReset() {
-        thenRun(() -> SprauteNetwork.sendToAll(new Packets.PlayerSkin("")));
+        thenRun(() -> org.sprautestudio.st_addon_spraute.core.system.PlayerTexture.set(SprauteRuntime.player(), null));
     }
 
     private void screen(String kind, int a, int b, int c, int argb) {

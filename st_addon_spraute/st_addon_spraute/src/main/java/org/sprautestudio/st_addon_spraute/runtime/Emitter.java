@@ -283,6 +283,16 @@ final class Emitter {
             loops.pop();
             b.gotoLabel(start, true);
             b.label(end);
+        } else if (s instanceof AsStmt as) {
+            b.thenAs(() -> {
+                Object who = eval.ref(as.who);
+                net.minecraft.world.entity.Entity e = who instanceof EntityRef r ? r.get() : null;
+                ServerPlayer p = e instanceof ServerPlayer sp ? sp : who instanceof String name ? eval.playerNamed(name) : null;
+                if (p == null) throw new SprauteRuntimeException("as: нужен игрок, а не " + who);
+                return p;
+            });
+            statements(b, as.body);
+            b.thenAs(() -> null);
         } else if (s instanceof ForStmt f) {
             int n = labelCounter++;
             String items = "__for_" + n, idx = "__fori_" + n;
@@ -382,6 +392,7 @@ final class Emitter {
                 } finally {
                     keyHandler = outer;
                 }
+                sub.thenAs(() -> null);
                 sub.thenDelay(1);
                 sub.gotoLabel(loop, true);
             });
@@ -493,6 +504,7 @@ final class Emitter {
             script.choiceSeq++;
             ServerPlayer p = SprauteRuntime.player();
             if (p == null) return;
+            script.choicePlayer = p.getUUID();
             net.minecraft.world.entity.Entity en = script.optional(owner).orElse(null);
             String modelKey = script.characterModels.get(name);
             if (modelKey != null && en instanceof org.sprautestudio.st_addon_spraute.runtime.models.SprauteModelEntity me
@@ -569,7 +581,7 @@ final class Emitter {
                 Expr text = c.arg("text");
                 b.thenRun(guard(() -> {
                     Component msg = Component.literal(safeText(text));
-                    for (ServerPlayer p : SprauteRuntime.players()) p.sendSystemMessage(msg);
+                    for (ServerPlayer p : SprauteRuntime.audience()) p.sendSystemMessage(msg);
                 }));
             }
             case "web" -> b.sendWebMessage(text(c.arg("text")), false);
@@ -805,6 +817,7 @@ final class Emitter {
                     script.openGui = n;
                     script.guiInputs.clear();
                     ServerPlayer p = SprauteRuntime.player();
+                    script.guiPlayer = p != null ? p.getUUID() : null;
                     if (p != null) org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendTo(p,
                             new org.sprautestudio.st_addon_spraute.net.Packets.GuiOpen(script.getId(), script.deployed.project, n, json));
                     GuiSlots.opened(script, org.sprautestudio.st_addon_spraute.gui.GuiDoc.fromJson(json), p);
@@ -827,17 +840,16 @@ final class Emitter {
                     String n = text(name);
                     String json = SprauteRuntime.get().gui(script.deployed.project, n);
                     if (json == null) throw new SprauteRuntimeException("Интерфейс «" + n + "» не найден в проекте. Загрузите сюжет ещё раз (F5)");
-                    ServerPlayer p = SprauteRuntime.player();
-                    if (p != null) org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendTo(p,
-                            new org.sprautestudio.st_addon_spraute.net.Packets.OverlayShow(script.getId(), script.deployed.project, n, json));
+                    script.overlayShown(n, json);
+                    org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendToAll(new org.sprautestudio.st_addon_spraute.net.Packets.OverlayShow(script.getId(), script.deployed.project, n, json));
                 }));
             }
             case "overlay hide" -> {
                 Expr name = c.arg("name");
                 b.thenRun(guard(() -> {
-                    ServerPlayer p = SprauteRuntime.player();
-                    if (p != null) org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendTo(p,
-                            new org.sprautestudio.st_addon_spraute.net.Packets.OverlayHide(script.getId(), name == null ? "" : text(name)));
+                    String n = name == null ? "" : text(name);
+                    script.overlayHidden(n);
+                    org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendToAll(new org.sprautestudio.st_addon_spraute.net.Packets.OverlayHide(script.getId(), n));
                 }));
             }
             case "gui move", "gui resize" -> {
@@ -875,8 +887,7 @@ final class Emitter {
                     }
                     Location at = pos != null ? positionSafe(pos) : new Location(p);
                     script.cutscene = n;
-                    org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendTo(p,
-                            new org.sprautestudio.st_addon_spraute.net.Packets.CameraPlay(script.getId(), n, json, at.x, at.y, at.z, looks));
+                    org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendToAll(new org.sprautestudio.st_addon_spraute.net.Packets.CameraPlay(script.getId(), n, json, at.x, at.y, at.z, looks));
                 }));
                 if (wait) {
                     waitLog(b, "cutscene", () -> d -> playing[0].equals(d.get("id")));
@@ -1833,9 +1844,8 @@ final class Emitter {
     }
 
     private void camera(com.google.gson.JsonObject o) {
-        ServerPlayer p = SprauteRuntime.player();
-        if (p != null) org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendTo(p,
-                new org.sprautestudio.st_addon_spraute.net.Packets.CameraOp(script.getId(), o.toString()));
+        script.cameraOp(o);
+        org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendToAll(new org.sprautestudio.st_addon_spraute.net.Packets.CameraOp(script.getId(), o.toString()));
     }
 
     /** time and ease of a camera command. */
@@ -1885,7 +1895,7 @@ final class Emitter {
             } else {
                 b.thenRun(guard(() -> {
                     ResourceLocation rl = skinTexture(text(skinE));
-                    org.sprautestudio.st_addon_spraute.core.system.PlayerTexture.set(rl);
+                    org.sprautestudio.st_addon_spraute.core.system.PlayerTexture.set(SprauteRuntime.player(), rl);
                 }));
             }
             return;
@@ -1933,6 +1943,7 @@ final class Emitter {
     private net.minecraft.world.entity.Entity entityOf(Expr e) {
         if (e instanceof Ident id) {
             if (id.name.equals("player")) return SprauteRuntime.player();
+            if (id.name.equals("actor") && !script.vars.containsKey("actor")) return eval.actor();
             Character<?> ch = script.characters.get(id.name);
             if (ch != null) return script.optional(ch).orElse(null);
             if (script.vars.get(id.name) instanceof EntityRef r) return r.get();
@@ -2176,8 +2187,7 @@ final class Emitter {
             if (modelKey != null && en instanceof org.sprautestudio.st_addon_spraute.runtime.models.SprauteModelEntity me
                     && !modelKey.equals(me.model())) me.setModel(modelKey);
             // gone or far away, the head is still drawn: from the last look the client saw, or from the model
-            if (p != null && (en != null || modelKey != null)) org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendTo(p,
-                    new org.sprautestudio.st_addon_spraute.net.Packets.SpeechHead(script.getId(), Images.slug(name), en != null ? en.getId() : -1,
+            if (en != null || modelKey != null) org.sprautestudio.st_addon_spraute.net.SprauteNetwork.sendToAll(new org.sprautestudio.st_addon_spraute.net.Packets.SpeechHead(script.getId(), Images.slug(name), en != null ? en.getId() : -1,
                             modelKey != null ? modelKey : ""));
         });
     }

@@ -86,6 +86,7 @@ public final class WorldApi {
         Entity e = et.create(level);
         if (e == null) throw new SprauteRuntimeException("Сущность " + type + " нельзя создать");
         e.moveTo(p.x, p.y, p.z, level.random.nextFloat() * 360, 0);
+        SprauteRuntime.markOwned(e);
         if (e instanceof Mob m) {
             m.finalizeSpawn(level, level.getCurrentDifficultyAt(BlockPos.containing(p)), MobSpawnType.COMMAND, null, null);
             m.setPersistenceRequired();

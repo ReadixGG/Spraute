@@ -32,6 +32,7 @@ public class St_addon_spraute {
         MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, this::onRegisterCommands);
         MinecraftForge.EVENT_BUS.addListener(this::onServerTick);
         MinecraftForge.EVENT_BUS.addListener(this::onPlayerLogin);
+        MinecraftForge.EVENT_BUS.addListener(this::onPlayerLogout);
     }
 
     private void onPlayerLogin(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
@@ -40,6 +41,12 @@ public class St_addon_spraute {
             org.sprautestudio.st_addon_spraute.core.system.Coins.sync(sp, -2);
             org.sprautestudio.st_addon_spraute.core.system.PlayerTexture.sendTo(sp);
             SprauteRuntime.env().ifPresent(env -> env.sendTo(sp));
+        }
+    }
+
+    private void onPlayerLogout(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) {
+            org.sprautestudio.st_addon_spraute.core.system.CameraState.left(sp);
         }
     }
 
@@ -76,6 +83,7 @@ public class St_addon_spraute {
         org.sprautestudio.st_addon_spraute.core.script.Behaviours.unload();
         org.sprautestudio.st_addon_spraute.core.system.WorldClock.unload();
         org.sprautestudio.st_addon_spraute.core.system.CameraState.unload();
+        org.sprautestudio.st_addon_spraute.content.ProjectContent.unload();
         EngineServer.unload();
         org.sprautestudio.st_addon_spraute.shop.Shops.unload();
         org.sprautestudio.st_addon_spraute.quest.Quests.unload();
@@ -120,6 +128,7 @@ public class St_addon_spraute {
     private void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         SprauteRuntime.env().ifPresent(org.sprautestudio.st_addon_spraute.core.script.ScriptEnvironment::tick);
+        org.sprautestudio.st_addon_spraute.content.ProjectContent.tick(event.getServer());
         // only when some story listens: a tick is a lot of events
         if (event.getServer().getTickCount() % 100 == 0) {
             tickEvents = false;

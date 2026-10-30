@@ -72,21 +72,21 @@ public final class ScriptCommand {
                 })))
                 .then(Commands.literal("goto").then(Commands.argument(ID, IntegerArgumentType.integer())
                         .then(Commands.argument("label", StringArgumentType.word()).executes(c -> {
-                            ScriptInstance s = env().scriptInstances.get(id(c));
+                            ScriptInstance s = env().anyInstance(id(c));
                             String label = StringArgumentType.getString(c, "label");
                             if (s == null) return fail(c, "Сюжет #" + id(c) + " не запущен");
                             return s.goTo(label) ? say(c, "Сюжет #" + id(c) + ": переход к " + label) : fail(c, "Метка " + label + " не найдена");
                         }))))
                 .then(Commands.literal("jump").then(Commands.argument(ID, IntegerArgumentType.integer())
                         .then(Commands.argument("step", IntegerArgumentType.integer(0)).executes(c -> {
-                            ScriptInstance s = env().scriptInstances.get(id(c));
+                            ScriptInstance s = env().anyInstance(id(c));
                             if (s == null) return fail(c, "Сюжет #" + id(c) + " не запущен");
                             s.getMainPerformer().jumpToIndex(IntegerArgumentType.getInteger(c, "step"));
                             return 1;
                         }))))
                 .then(Commands.literal("trigger").then(Commands.argument(ID, IntegerArgumentType.integer())
                         .then(Commands.argument("name", StringArgumentType.word()).executes(c -> {
-                            ScriptInstance s = env().scriptInstances.get(id(c));
+                            ScriptInstance s = env().anyInstance(id(c));
                             if (s == null) return fail(c, "Сюжет #" + id(c) + " не запущен");
                             Player p = c.getSource().getEntity() instanceof Player pl ? pl : null;
                             s.trigger(StringArgumentType.getString(c, "name"), p);
@@ -103,7 +103,7 @@ public final class ScriptCommand {
 
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> on(String name, Query q) {
         return Commands.literal(name).then(Commands.argument(ID, IntegerArgumentType.integer()).executes(c -> {
-            ScriptInstance s = env().scriptInstances.get(id(c));
+            ScriptInstance s = env().anyInstance(id(c));
             if (s == null) return fail(c, "Сюжет #" + id(c) + " не запущен");
             return say(c, q.run(c, s));
         }));
@@ -126,8 +126,12 @@ public final class ScriptCommand {
     }
 
     private static int start(CommandContext<CommandSourceStack> c, int id, String label) {
-        ScriptInstance s = env().start(id);
-        if (s == null) return fail(c, "Сюжет #" + id + " не найден");
+        ScriptInstance s = env().startFor(id, c.getSource().getEntity() instanceof net.minecraft.server.level.ServerPlayer p ? p : null);
+        if (s == null) {
+            var d = org.sprautestudio.st_addon_spraute.runtime.SprauteRuntime.get().deployed(id);
+            if (d != null && d.program.header != null && d.program.header.solo) return fail(c, "Сюжет #" + id + " у каждого игрока свой: его запускает игрок, а не консоль");
+            return fail(c, "Сюжет #" + id + " не найден");
+        }
         if (label != null && !s.goTo(label)) return fail(c, "Метка " + label + " не найдена");
         return say(c, "Сюжет #" + id + " запущен");
     }

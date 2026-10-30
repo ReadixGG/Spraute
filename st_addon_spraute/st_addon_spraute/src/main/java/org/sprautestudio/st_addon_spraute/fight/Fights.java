@@ -135,7 +135,7 @@ public final class Fights {
         FIGHTERS.put(e.getUUID(), f);
         if (def.bossBar) {
             f.bar = new ServerBossEvent(Component.literal(def.bossName.isEmpty() ? name : def.bossName), BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS);
-            for (ServerPlayer p : SprauteRuntime.players()) f.bar.addPlayer(p);
+            for (ServerPlayer p : SprauteRuntime.audience(scriptId)) f.bar.addPlayer(p);
         }
         stance(e, f);
         post("fightstart", f, Map.of());
@@ -342,8 +342,14 @@ public final class Fights {
 
     private static LivingEntity target(MinecraftServer s, Fighter f) {
         if (f.target == null) {
-            ServerPlayer p = SprauteRuntime.player();
-            return p;
+            // the nearest of those the fight is for
+            ServerPlayer best = null;
+            Entity self = find(s, f.id);
+            for (ServerPlayer p : SprauteRuntime.audience(f.scriptId)) {
+                if (p.isSpectator() || !p.isAlive() || self != null && p.level() != self.level()) continue;
+                if (best == null || self != null && p.distanceToSqr(self) < best.distanceToSqr(self)) best = p;
+            }
+            return best;
         }
         Entity t = find(s, f.target);
         return t instanceof LivingEntity l ? l : null;
@@ -400,7 +406,7 @@ public final class Fights {
     private static void tick(MinecraftServer s, PathfinderMob e, Fighter f) {
         if (f.bar != null) {
             f.bar.setProgress(Math.max(0, f.hp / f.def.health));
-            for (ServerPlayer p : SprauteRuntime.players()) if (!f.bar.getPlayers().contains(p)) f.bar.addPlayer(p);
+            for (ServerPlayer p : SprauteRuntime.audience(f.scriptId)) if (!f.bar.getPlayers().contains(p)) f.bar.addPlayer(p);
         }
         if (f.state == State.DOWN) return;
         LivingEntity t = target(s, f);
@@ -609,7 +615,7 @@ public final class Fights {
                 d.put("x", e.getX());
                 d.put("y", e.getY());
                 d.put("z", e.getZ());
-                GameEvents.post("npcdeath", SprauteRuntime.player(), d);
+                GameEvents.post("npcdeath", SprauteRuntime.playerOf(f.scriptId), d);
                 VANISH.put(e, Math.max(10, len) + 10);
             }
             case "stand" -> {
@@ -637,6 +643,6 @@ public final class Fights {
         Map<String, Object> d = new HashMap<>(extra);
         d.put("who", f.name);
         d.putIfAbsent("hp", Math.round(Math.max(0, f.hp) * 10) / 10.0);
-        GameEvents.post(type, SprauteRuntime.player(), d);
+        GameEvents.post(type, SprauteRuntime.playerOf(f.scriptId), d);
     }
 }

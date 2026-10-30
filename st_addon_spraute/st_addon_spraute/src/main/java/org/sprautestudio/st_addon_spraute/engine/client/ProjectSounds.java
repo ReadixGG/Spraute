@@ -49,6 +49,8 @@ public final class ProjectSounds {
     /** The project's folder by its name. */
     private static Path projectDir(String project) {
         if (project == null || project.isEmpty()) return null;
+        Path fromServer = org.sprautestudio.st_addon_spraute.content.ContentClient.dir(project);
+        if (fromServer != null) return fromServer;
         Path direct = Workspace.projectsDir().resolve(project);
         if (Files.isDirectory(direct)) return direct;
         return DIRS.computeIfAbsent(project, n -> {

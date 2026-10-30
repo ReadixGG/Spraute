@@ -58,7 +58,7 @@ public final class Casts {
     /** Launches: the effect starts flying on every player's screen. */
     public static void launch(Cast c, String fxJson) {
         FLYING.add(c);
-        SprauteNetwork.sendToAll(new Packets.FxLaunch(c.fxId, c.project, fxJson, c.pos.x, c.pos.y, c.pos.z, c.vel.x, c.vel.y, c.vel.z,
+        SprauteNetwork.sendToAudience(c.scriptId, new Packets.FxLaunch(c.fxId, c.project, fxJson, c.pos.x, c.pos.y, c.pos.z, c.vel.x, c.vel.y, c.vel.z,
                 c.gravity, c.scale, c.scriptId));
     }
 
@@ -89,7 +89,7 @@ public final class Casts {
     private static boolean step(Cast c) {
         Vec3 from = c.pos, to = from.add(c.vel);
         // blocks first: how far it gets this tick
-        Entity ctx = c.owner != null ? c.owner : SprauteRuntime.player();
+        Entity ctx = c.owner != null ? c.owner : SprauteRuntime.playerOf(c.scriptId);
         BlockHitResult bh = ctx == null ? null : c.level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, ctx));
         Vec3 end = bh != null && bh.getType() == HitResult.Type.BLOCK ? bh.getLocation() : to;
         // creatures along the way, nearest first
@@ -142,11 +142,11 @@ public final class Casts {
     }
 
     private static void impact(Cast c, Vec3 at) {
-        SprauteNetwork.sendToAll(new Packets.FxPlay("", c.project, c.impactJson, at.x, at.y, at.z, -1, c.scale, c.scriptId));
+        SprauteNetwork.sendToAudience(c.scriptId, new Packets.FxPlay("", c.project, c.impactJson, at.x, at.y, at.z, -1, c.scale, c.scriptId));
     }
 
     private static void finish(Cast c, Vec3 at) {
-        SprauteNetwork.sendToAll(new Packets.FxStop(c.fxId, -1));
+        SprauteNetwork.sendToAudience(c.scriptId, new Packets.FxStop(c.fxId, -1));
         if (at != null && !c.impactJson.isEmpty()) impact(c, at);
     }
 
@@ -169,7 +169,7 @@ public final class Casts {
             d.put("name", "");
         }
         d.put("block", block != null ? String.valueOf(BuiltInRegistries.BLOCK.getKey(c.level.getBlockState(block).getBlock())) : "");
-        GameEvents.post("casthit", SprauteRuntime.player(), d);
+        GameEvents.post("casthit", SprauteRuntime.playerOf(c.scriptId), d);
     }
 
     public static boolean flying(String id) {

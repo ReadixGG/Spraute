@@ -42,9 +42,38 @@ public abstract class ScriptInstance {
     public record Line(String name, int color, String icon, String text, boolean think) {
     }
 
+    /** The player the story is about; they may be away. Null: no one yet. */
+    public java.util.UUID owner;
+
     protected ScriptInstance(ScriptEnvironment env, int id) {
         this.env = env;
         this.id = id;
+        this.owner = env.startingFor;
+    }
+
+    /** Each player has their own copy of the story, seen by them alone. */
+    public boolean solo() {
+        return false;
+    }
+
+    /** The story's player: its owner; when they left a shared story, whoever is on the server. */
+    public net.minecraft.server.level.ServerPlayer protagonist() {
+        var players = env.server().getPlayerList();
+        var p = owner != null ? players.getPlayer(owner) : null;
+        if (p != null || solo()) return p;
+        return players.getPlayers().isEmpty() ? null : players.getPlayers().get(0);
+    }
+
+    /** A key's presses that count for this story: its player's in a solo story or an "as" block, anybody's in a shared one. */
+    long keyCount(String key) {
+        java.util.UUID as = org.sprautestudio.st_addon_spraute.runtime.SprauteRuntime.getAs();
+        if (as != null) return env.keyCount(as, key);
+        if (solo() && owner != null) return env.keyCount(owner, key);
+        return env.keyCount(key);
+    }
+
+    /** A player came to the running story: what it shows on the screen now. */
+    public void catchUp(net.minecraft.server.level.ServerPlayer p) {
     }
 
     public int getId() {
@@ -213,6 +242,7 @@ public abstract class ScriptInstance {
     /** What goes into the world's save: the record of what was said and the last checkpoint. */
     CompoundTag saveState() {
         CompoundTag tag = new CompoundTag();
+        if (owner != null) tag.putUUID("owner", owner);
         if (checkpoint != null) tag.put("checkpoint", checkpoint);
         ListTag lines = new ListTag();
         for (Line l : journal) {

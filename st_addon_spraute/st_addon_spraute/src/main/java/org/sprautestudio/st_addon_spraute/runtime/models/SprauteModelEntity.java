@@ -43,6 +43,12 @@ public class SprauteModelEntity extends AnimatedEntity {
         return counter;
     }
 
+    /** A solo story's character is sent to its player alone. */
+    @Override
+    public boolean broadcastToPlayer(net.minecraft.server.level.ServerPlayer p) {
+        return org.sprautestudio.st_addon_spraute.runtime.SprauteRuntime.sees(this, p) && super.broadcastToPlayer(p);
+    }
+
     @Override
     public void setId(int id) {
         super.setId(id);
@@ -276,7 +282,7 @@ public class SprauteModelEntity extends AnimatedEntity {
         d.put("y", Math.floor(at.y));
         d.put("z", Math.floor(at.z));
         d.put("__entity", this);
-        org.sprautestudio.st_addon_spraute.runtime.GameEvents.post("parthit", org.sprautestudio.st_addon_spraute.runtime.SprauteRuntime.player(), d);
+        org.sprautestudio.st_addon_spraute.runtime.GameEvents.post("parthit", by instanceof net.minecraft.world.entity.player.Player byPlayer ? byPlayer : null, d);
     }
 
     @Override

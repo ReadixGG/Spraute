@@ -125,24 +125,20 @@ public final class EntityLibrary {
 
     private static final Map<String, Type> TYPES = new LinkedHashMap<>();
 
-    /** Reads the entity types of every project (called with the model scan). */
-    static void scan(Path root) {
+    /** Reads the entity types of these project folders (called with the model scan). */
+    static void scan(List<Path> projects) {
         Map<String, Type> found = new LinkedHashMap<>();
-        if (root != null && Files.isDirectory(root)) {
-            try (Stream<Path> projects = Files.list(root)) {
-                for (Path pd : (Iterable<Path>) projects.filter(Files::isDirectory).sorted()::iterator) {
-                    Path ed = pd.resolve("entities");
-                    if (!Files.isDirectory(ed)) continue;
-                    String project = ModelLibrary.projectNameOf(pd);
-                    try (Stream<Path> files = Files.list(ed)) {
-                        for (Path f : (Iterable<Path>) files.filter(p -> p.toString().endsWith(".sent")).sorted()::iterator) {
-                            String name = f.getFileName().toString();
-                            name = name.substring(0, name.length() - 5);
-                            try {
-                                found.put(project + "/" + name, new Type(project, name, f, Def.fromJson(Files.readString(f, StandardCharsets.UTF_8))));
-                            } catch (IOException ignored) {
-                            }
-                        }
+        for (Path pd : projects) {
+            Path ed = pd.resolve("entities");
+            if (!Files.isDirectory(ed)) continue;
+            String project = ModelLibrary.projectNameOf(pd);
+            try (Stream<Path> files = Files.list(ed)) {
+                for (Path f : (Iterable<Path>) files.filter(p -> p.toString().endsWith(".sent")).sorted()::iterator) {
+                    String name = f.getFileName().toString();
+                    name = name.substring(0, name.length() - 5);
+                    try {
+                        found.put(project + "/" + name, new Type(project, name, f, Def.fromJson(Files.readString(f, StandardCharsets.UTF_8))));
+                    } catch (IOException ignored) {
                     }
                 }
             } catch (IOException e) {

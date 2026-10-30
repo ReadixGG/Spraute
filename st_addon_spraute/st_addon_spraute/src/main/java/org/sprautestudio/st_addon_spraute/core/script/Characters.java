@@ -185,6 +185,7 @@ public final class Characters {
         b.setCustomName(Component.literal(c.getName()));
         b.setCustomNameVisible(false);
         b.getPersistentData().putString(TAG, e.id);
+        if (cl != null) org.sprautestudio.st_addon_spraute.runtime.SprauteRuntime.env().ifPresent(env -> org.sprautestudio.st_addon_spraute.runtime.SprauteRuntime.markOwned(b, env.scriptInstances.get(cl.script)));
         if (b instanceof AnimatedEntity ae && c.texture() != null) ae.setTextureOverride(c.texture());
         if (b instanceof LivingEntity le && c.speed() != null) {
             var a = le.getAttribute(Attributes.MOVEMENT_SPEED);

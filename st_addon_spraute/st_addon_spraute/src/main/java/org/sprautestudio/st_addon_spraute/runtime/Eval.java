@@ -71,8 +71,8 @@ public final class Eval {
      */
     public Object ref(Expr e) {
         if (e instanceof Ident id) {
-            if (id.name.equals("player")) {
-                ServerPlayer p = SprauteRuntime.player();
+            if (id.name.equals("player") || id.name.equals("actor") && !script.vars.containsKey("actor")) {
+                ServerPlayer p = id.name.equals("actor") ? actor() : SprauteRuntime.player();
                 if (p == null) throw new SprauteRuntimeException("Игрока нет в мире");
                 return new EntityRef(p);
             }
@@ -87,12 +87,29 @@ public final class Eval {
         return eval(e);
     }
 
+    /** An online player by name; null — no such player. */
+    public ServerPlayer playerNamed(String name) {
+        var server = SprauteRuntime.server();
+        return server == null ? null : server.getPlayerList().getPlayerByName(name);
+    }
+
+    /** The player who caused the event being handled; with no such event, the story's own. */
+    public ServerPlayer actor() {
+        Object who = script.event.get("__player");
+        if (who instanceof ServerPlayer p && !p.hasDisconnected()) return p;
+        return SprauteRuntime.player();
+    }
+
     private Object ident(String name) {
         if (name.equals("player")) {
             ServerPlayer p = SprauteRuntime.player();
             return p != null ? p.getGameProfile().getName() : "";
         }
         if (script.vars.containsKey(name)) return script.vars.get(name);
+        if (name.equals("actor")) {
+            ServerPlayer p = actor();
+            return p != null ? p.getGameProfile().getName() : "";
+        }
         if (script.characters.containsKey(name)) return script.characters.get(name).getName();
         if (script.locationDecls.containsKey(name)) return script.location(name).toString();
         throw new SprauteRuntimeException("Неизвестное имя '" + name + "'");
@@ -225,9 +242,9 @@ public final class Eval {
                 return v == null ? "" : v;
             }
             case "cameraactive":
-                return org.sprautestudio.st_addon_spraute.core.system.CameraState.active();
+                return org.sprautestudio.st_addon_spraute.core.system.CameraState.active(SprauteRuntime.player());
             case "camerapos":
-                return WorldApi.list(org.sprautestudio.st_addon_spraute.core.system.CameraState.position());
+                return WorldApi.list(org.sprautestudio.st_addon_spraute.core.system.CameraState.position(SprauteRuntime.player()));
             case "timeday": {
                 var server = SprauteRuntime.server();
                 return server == null ? 0.0 : (double) org.sprautestudio.st_addon_spraute.core.system.WorldClock.day(server);
@@ -265,6 +282,13 @@ public final class Eval {
             }
             case "len":
                 return Values.property(eval(a.get(0)), "len");
+            case "players": {
+                java.util.List<Object> list = new java.util.ArrayList<>();
+                for (ServerPlayer p : SprauteRuntime.audience()) list.add(new EntityRef(p));
+                return list;
+            }
+            case "playercount":
+                return (double) SprauteRuntime.audience().size();
             case "day": {
                 ServerPlayer p = SprauteRuntime.player();
                 return p != null ? (double) Math.floorDiv(p.level().getDayTime(), 24000L) : 0.0;
@@ -534,7 +558,7 @@ public final class Eval {
                 return true;
             case "message": {
                 net.minecraft.network.chat.Component msg = net.minecraft.network.chat.Component.literal(str(eval(a.get(0))));
-                for (ServerPlayer p : SprauteRuntime.players()) p.sendSystemMessage(msg);
+                for (ServerPlayer p : SprauteRuntime.audience()) p.sendSystemMessage(msg);
                 return true;
             }
             case "actionbar":
@@ -608,7 +632,7 @@ public final class Eval {
             case "running":
                 return truthy(script.vars.get(Emitter.runningFlag(str(eval(a.get(0))))));
             case "active":
-                return script.env.scriptInstances.containsKey((int) num(eval(a.get(0))));
+                return script.env.anyInstance((int) num(eval(a.get(0)))) != null;
             case "playername": {
                 ServerPlayer p = SprauteRuntime.player();
                 return p != null ? p.getGameProfile().getName() : "";
@@ -662,8 +686,8 @@ public final class Eval {
 
     public Location position(Expr e) {
         if (e instanceof Ident id) {
-            if (id.name.equals("player")) {
-                ServerPlayer p = SprauteRuntime.player();
+            if (id.name.equals("player") || id.name.equals("actor") && !script.vars.containsKey("actor")) {
+                ServerPlayer p = id.name.equals("actor") ? actor() : SprauteRuntime.player();
                 return p != null ? new Location(p) : null;
             }
             if (script.locationDecls.containsKey(id.name)) return script.location(id.name);
@@ -714,6 +738,7 @@ public final class Eval {
         Entity en = null;
         if (e instanceof Ident id) {
             if (id.name.equals("player")) en = SprauteRuntime.player();
+            else if (id.name.equals("actor") && !script.vars.containsKey("actor")) en = actor();
             else if (script.characters.containsKey(id.name)) en = script.optional(script.characters.get(id.name)).orElse(null);
             else if (script.vars.get(id.name) instanceof EntityRef r) en = r.get();
         } else if (e instanceof StringLit s) {

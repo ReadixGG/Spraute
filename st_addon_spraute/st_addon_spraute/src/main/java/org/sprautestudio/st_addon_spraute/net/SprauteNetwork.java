@@ -26,7 +26,7 @@ import java.util.function.Supplier;
 public final class SprauteNetwork {
     private SprauteNetwork() {}
 
-    private static final String PROTOCOL = "1";
+    private static final String PROTOCOL = "2";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(St_addon_spraute.MODID, "main"),
             () -> PROTOCOL,
@@ -154,8 +154,32 @@ public final class SprauteNetwork {
                 (msg, ctx) -> client(ctx, () -> () -> ClientHandlers.screenFx(msg)), Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(id++, Packets.CoinsSync.class, Packets.CoinsSync::write, Packets.CoinsSync::read,
                 (msg, ctx) -> client(ctx, () -> () -> ClientHandlers.coins(msg)), Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, Packets.BigPart.class, Packets.BigPart::write, Packets.BigPart::read,
+                SprauteNetwork::handleBig, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(id++, Packets.ContentOffer.class, Packets.ContentOffer::write, Packets.ContentOffer::read,
+                (msg, ctx) -> server(ctx, player -> org.sprautestudio.st_addon_spraute.content.ProjectContent.offer(player, msg)), Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(id++, Packets.ContentWant.class, Packets.ContentWant::write, Packets.ContentWant::read,
+                (msg, ctx) -> client(ctx, () -> () -> org.sprautestudio.st_addon_spraute.content.ContentClient.wanted(msg)), Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, Packets.ContentIndex.class, Packets.ContentIndex::write, Packets.ContentIndex::read,
+                (msg, ctx) -> client(ctx, () -> () -> org.sprautestudio.st_addon_spraute.content.ContentClient.index(msg)), Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, Packets.ContentRequest.class, Packets.ContentRequest::write, Packets.ContentRequest::read, (msg, ctx) -> {
+            ServerPlayer p = ctx.get().getSender();
+            ctx.get().enqueueWork(() -> {
+                if (p != null) org.sprautestudio.st_addon_spraute.content.ProjectContent.requested(p, msg);
+            });
+            ctx.get().setPacketHandled(true);
+        }, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(id++, Packets.ContentData.class, Packets.ContentData::write, Packets.ContentData::read, SprauteNetwork::content);
         CHANNEL.registerMessage(id++, Packets.PlayerSkin.class, Packets.PlayerSkin::write, Packets.PlayerSkin::read,
                 (msg, ctx) -> client(ctx, () -> () -> ClientHandlers.playerSkin(msg)), Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+    }
+
+    private static void content(Packets.ContentData msg, Supplier<NetworkEvent.Context> ctx) {
+        if (ctx.get().getDirection().getReceptionSide().isClient()) {
+            client(ctx, () -> () -> org.sprautestudio.st_addon_spraute.content.ContentClient.received(msg));
+        } else {
+            server(ctx, player -> org.sprautestudio.st_addon_spraute.content.ProjectContent.received(player, msg));
+        }
     }
 
     /** Cutscene progress from the player watching it: any player, no editing rights needed. */
@@ -187,25 +211,83 @@ public final class SprauteNetwork {
 
     /** The player's answer: any player, no editing rights needed. */
     private static void handleChoiceAnswer(Packets.ChoiceAnswer msg, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> org.sprautestudio.st_addon_spraute.runtime.SprauteScriptInstance.answer(msg.scriptId(), msg.choiceId(), msg.answer()));
+        ServerPlayer from = ctx.get().getSender();
+        ctx.get().enqueueWork(() -> org.sprautestudio.st_addon_spraute.runtime.SprauteScriptInstance.answer(from, msg.scriptId(), msg.choiceId(), msg.answer()));
         ctx.get().setPacketHandled(true);
     }
 
     private static void handleEngineSet(Packets.EngineSet msg, Supplier<NetworkEvent.Context> ctx) {
-        server(ctx, player -> {
+        server(ctx, player -> engineSet(player, msg));
+    }
+
+    private static void engineSet(ServerPlayer player, Packets.EngineSet msg) {
+        {
             org.sprautestudio.st_addon_spraute.engine.EngineServer.set(player.getServer(),
                     org.sprautestudio.st_addon_spraute.engine.EngineConfig.fromJson(msg.json()));
             sendTo(player, new Packets.Log(Packets.Log.SUCCESS, "Spraute", "Настройки движка применены в мире"));
-        });
+        }
     }
 
     /** To every player on the server (effects are seen by everyone). */
+    /** To everyone who sees the story running now; outside a story, to everyone. */
     public static void sendToAll(Object msg) {
-        CHANNEL.send(PacketDistributor.ALL.noArg(), msg);
+        for (ServerPlayer p : SprauteRuntime.audience()) sendTo(p, msg);
     }
 
+    /** To everyone who sees that story, for what runs outside its steps. */
+    public static void sendToAudience(int scriptId, Object msg) {
+        for (ServerPlayer p : SprauteRuntime.audience(scriptId)) sendTo(p, msg);
+    }
+
+    /** The game takes at most 32 KB in a packet to the server: a story or the engine's settings can be more, and go in pieces. */
+    private static final int PART = 30000;
+    private static final int MAX_BIG = 32 << 20;
+    private static int nextTransfer;
+
     public static void sendToServer(Object msg) {
-        CHANNEL.sendToServer(msg);
+        int kind = msg instanceof Packets.Deploy ? 0 : msg instanceof Packets.SourcesSet ? 1 : msg instanceof Packets.EngineSet ? 2 : msg instanceof Packets.ContentOffer ? 3 : -1;
+        if (kind < 0) {
+            CHANNEL.sendToServer(msg);
+            return;
+        }
+        net.minecraft.network.FriendlyByteBuf buf = new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.buffer());
+        switch (kind) {
+            case 0 -> ((Packets.Deploy) msg).write(buf);
+            case 1 -> ((Packets.SourcesSet) msg).write(buf);
+            case 2 -> ((Packets.EngineSet) msg).write(buf);
+            default -> ((Packets.ContentOffer) msg).write(buf);
+        }
+        byte[] all = new byte[buf.readableBytes()];
+        buf.readBytes(all);
+        int total = Math.max(1, (all.length + PART - 1) / PART), transfer = nextTransfer++;
+        for (int i = 0; i < total; i++) {
+            CHANNEL.sendToServer(new Packets.BigPart(transfer, kind, i, total, java.util.Arrays.copyOfRange(all, i * PART, Math.min(all.length, (i + 1) * PART))));
+        }
+    }
+
+    private static final java.util.Map<String, java.io.ByteArrayOutputStream> BIG = new java.util.HashMap<>();
+
+    private static void handleBig(Packets.BigPart msg, Supplier<NetworkEvent.Context> ctx) {
+        server(ctx, player -> {
+            String key = player.getUUID() + "/" + msg.transfer();
+            java.io.ByteArrayOutputStream part = BIG.computeIfAbsent(key, k -> new java.io.ByteArrayOutputStream());
+            part.writeBytes(msg.data());
+            if (part.size() > MAX_BIG) {
+                BIG.remove(key);
+                return;
+            }
+            if (msg.part() + 1 < msg.total()) return;
+            BIG.remove(key);
+            net.minecraft.network.FriendlyByteBuf buf = new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.wrappedBuffer(part.toByteArray()));
+            switch (msg.kind()) {
+                case 0 -> deploy(player, Packets.Deploy.read(buf));
+                case 1 -> sourcesSet(player, Packets.SourcesSet.read(buf));
+                case 2 -> engineSet(player, Packets.EngineSet.read(buf));
+                case 3 -> org.sprautestudio.st_addon_spraute.content.ProjectContent.offer(player, Packets.ContentOffer.read(buf));
+                default -> {
+                }
+            }
+        });
     }
 
     public static void sendTo(ServerPlayer player, Object msg) {
@@ -234,14 +316,20 @@ public final class SprauteNetwork {
     // ------------------------------------------------------------------ server
 
     private static void handleSourcesSet(Packets.SourcesSet msg, Supplier<NetworkEvent.Context> ctx) {
-        server(ctx, player -> {
-            SprauteRuntime.get().putGuis(msg.project(), msg.guis());
-            org.sprautestudio.st_addon_spraute.zone.Zones.sourcesSaved(msg.project());
-        });
+        server(ctx, player -> sourcesSet(player, msg));
+    }
+
+    private static void sourcesSet(ServerPlayer player, Packets.SourcesSet msg) {
+        SprauteRuntime.get().putGuis(msg.project(), msg.guis());
+        org.sprautestudio.st_addon_spraute.zone.Zones.sourcesSaved(msg.project());
     }
 
     private static void handleDeploy(Packets.Deploy msg, Supplier<NetworkEvent.Context> ctx) {
-        server(ctx, player -> {
+        server(ctx, player -> deploy(player, msg));
+    }
+
+    private static void deploy(ServerPlayer player, Packets.Deploy msg) {
+        {
             SprauteRuntime.get().putGuis(msg.project(), msg.guis());
             SprauteRuntime.DeployResult r = SprauteRuntime.get().deploy(msg.project(), msg.source());
             sendTo(player, new Packets.DeployResult(r.ok(), r.id(), r.messages()));
@@ -251,7 +339,7 @@ public final class SprauteNetwork {
                 runCommand(player, "script start " + r.id());
             }
             sendTo(player, SprauteRuntime.get().status());
-        });
+        }
     }
 
     private static void handleUndeploy(Packets.Undeploy msg, Supplier<NetworkEvent.Context> ctx) {

@@ -708,13 +708,104 @@ public final class Packets {
     }
 
     /** The texture the player is drawn with ("" — their own skin). */
-    public record PlayerSkin(String texture) {
+    public record PlayerSkin(String player, String texture) {
         public void write(FriendlyByteBuf buf) {
+            buf.writeUtf(player, 64);
             buf.writeUtf(texture, 512);
         }
 
         public static PlayerSkin read(FriendlyByteBuf buf) {
-            return new PlayerSkin(buf.readUtf(512));
+            return new PlayerSkin(buf.readUtf(64), buf.readUtf(512));
+        }
+    }
+
+    private static void writeLines(FriendlyByteBuf buf, List<String> lines) {
+        buf.writeVarInt(lines.size());
+        for (String l : lines) buf.writeUtf(l, 1024);
+    }
+
+    private static List<String> readLines(FriendlyByteBuf buf) {
+        int n = buf.readVarInt();
+        List<String> out = new java.util.ArrayList<>(Math.min(n, 4096));
+        for (int i = 0; i < n; i++) out.add(buf.readUtf(1024));
+        return out;
+    }
+
+    /** A piece of a message too big for one packet to the server. */
+    public record BigPart(int transfer, int kind, int part, int total, byte[] data) {
+        public void write(FriendlyByteBuf buf) {
+            buf.writeVarInt(transfer);
+            buf.writeByte(kind);
+            buf.writeVarInt(part);
+            buf.writeVarInt(total);
+            buf.writeByteArray(data);
+        }
+
+        public static BigPart read(FriendlyByteBuf buf) {
+            return new BigPart(buf.readVarInt(), buf.readByte(), buf.readVarInt(), buf.readVarInt(), buf.readByteArray(1 << 16));
+        }
+    }
+
+    /** The author's project as it is now: a line per file. */
+    public record ContentOffer(String project, List<String> entries) {
+        public void write(FriendlyByteBuf buf) {
+            buf.writeUtf(project, 256);
+            writeLines(buf, entries);
+        }
+
+        public static ContentOffer read(FriendlyByteBuf buf) {
+            return new ContentOffer(buf.readUtf(256), readLines(buf));
+        }
+    }
+
+    /** The files the server wants from the author; none — it has them all. */
+    public record ContentWant(String project, List<String> paths) {
+        public void write(FriendlyByteBuf buf) {
+            buf.writeUtf(project, 256);
+            writeLines(buf, paths);
+        }
+
+        public static ContentWant read(FriendlyByteBuf buf) {
+            return new ContentWant(buf.readUtf(256), readLines(buf));
+        }
+    }
+
+    /** The server's list of a project's files. */
+    public record ContentIndex(String project, List<String> entries) {
+        public void write(FriendlyByteBuf buf) {
+            buf.writeUtf(project, 256);
+            writeLines(buf, entries);
+        }
+
+        public static ContentIndex read(FriendlyByteBuf buf) {
+            return new ContentIndex(buf.readUtf(256), readLines(buf));
+        }
+    }
+
+    /** The files a player lacks. */
+    public record ContentRequest(String project, List<String> paths) {
+        public void write(FriendlyByteBuf buf) {
+            buf.writeUtf(project, 256);
+            writeLines(buf, paths);
+        }
+
+        public static ContentRequest read(FriendlyByteBuf buf) {
+            return new ContentRequest(buf.readUtf(256), readLines(buf));
+        }
+    }
+
+    /** A piece of a file, either way. */
+    public record ContentData(String project, String path, int index, int total, byte[] data) {
+        public void write(FriendlyByteBuf buf) {
+            buf.writeUtf(project, 256);
+            buf.writeUtf(path, 1024);
+            buf.writeVarInt(index);
+            buf.writeVarInt(total);
+            buf.writeByteArray(data);
+        }
+
+        public static ContentData read(FriendlyByteBuf buf) {
+            return new ContentData(buf.readUtf(256), buf.readUtf(1024), buf.readVarInt(), buf.readVarInt(), buf.readByteArray(1 << 20));
         }
     }
 

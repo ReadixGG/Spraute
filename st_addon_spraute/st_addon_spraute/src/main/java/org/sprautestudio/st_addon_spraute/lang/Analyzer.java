@@ -95,6 +95,11 @@ public final class Analyzer {
         this.registries = registries == null ? new Registries() : registries;
     }
 
+    /** Names that are a player in any story: its own, and the one who caused the event being handled. */
+    private static boolean isPlayerWord(String name) {
+        return name.equals("player") || name.equals("actor");
+    }
+
     public static Result analyze(String src) {
         return analyze(src, null);
     }
@@ -277,6 +282,8 @@ public final class Analyzer {
                 collectLabels(e.body);
             } else if (s instanceof ChoiceStmt c) {
                 for (ChoiceOption o : c.options) collectLabels(o.body);
+            } else if (s instanceof AsStmt as) {
+                collectLabels(as.body);
             } else if (s instanceof ParallelStmt ps) {
                 branch(ps.name, ps.start, ps.end);
                 collectLabels(ps.body);
@@ -318,7 +325,7 @@ public final class Analyzer {
                 diag(Diagnostic.Severity.ERROR, "Метка '" + g.name + "' не найдена", g.nameStart, g.nameEnd);
             }
         } else if (s instanceof SetStmt set) {
-            boolean entityProp = set.prop != null && (set.name.equals("player") || result.characters.containsKey(set.name));
+            boolean entityProp = set.prop != null && (isPlayerWord(set.name) || result.characters.containsKey(set.name));
             if (!result.vars.containsKey(set.name) && !entityProp) {
                 diag(Diagnostic.Severity.ERROR, "Переменная '" + set.name + "' не объявлена (добавьте var " + set.name + " = 0)", set.nameStart, set.nameEnd);
             }
@@ -338,7 +345,7 @@ public final class Analyzer {
         } else if (s instanceof BreakStmt || s instanceof ContinueStmt) {
             if (loopDepth == 0) error((s instanceof BreakStmt ? "break" : "continue") + " можно писать только внутри for, while или repeat", s);
         } else if (s instanceof MethodStmt ms) {
-            if (!result.vars.containsKey(ms.target) && !ms.target.equals("player") && !result.characters.containsKey(ms.target)) {
+            if (!result.vars.containsKey(ms.target) && !isPlayerWord(ms.target) && !result.characters.containsKey(ms.target)) {
                 diag(Diagnostic.Severity.ERROR, "Переменная '" + ms.target + "' не объявлена (добавьте var " + ms.target + " = [])", ms.targetStart, ms.targetEnd);
             }
             for (Expr a : ms.args) expr(a);
@@ -366,6 +373,9 @@ public final class Analyzer {
                 expr(o.text);
                 statements(o.body);
             }
+        } else if (s instanceof AsStmt as) {
+            expr(as.who);
+            statements(as.body);
         } else if (s instanceof ParallelStmt ps) {
             statements(ps.body);
         } else if (s instanceof CallStmt c) {
@@ -427,7 +437,7 @@ public final class Analyzer {
             case LOC -> checkLocation(e);
             case TARGET -> {
                 if (e instanceof Ident id) {
-                    if (!id.name.equals("player") && !result.characters.containsKey(id.name) && !result.locations.containsKey(id.name)
+                    if (!isPlayerWord(id.name) && !result.characters.containsKey(id.name) && !result.locations.containsKey(id.name)
                             && !result.vars.containsKey(id.name)) {
                         error("'" + id.name + "' — не персонаж, не точка, не переменная и не player", e);
                     }
@@ -439,7 +449,7 @@ public final class Analyzer {
             }
             case SPEAKER -> {
                 if (e instanceof Ident id) {
-                    if (!id.name.equals("player") && !result.characters.containsKey(id.name) && !result.vars.containsKey(id.name)) {
+                    if (!isPlayerWord(id.name) && !result.characters.containsKey(id.name) && !result.vars.containsKey(id.name)) {
                         error("Говорящий '" + id.name + "' не найден. Укажите слот (0/1), персонажа, player или имя в кавычках", e);
                     }
                 } else if (e instanceof NumberLit n) {
@@ -624,7 +634,7 @@ public final class Analyzer {
         if (e == null) return;
         if (e instanceof Ident id) {
             String n = id.name;
-            if (n.equals("player")) return;
+            if (isPlayerWord(n)) return;
             if (result.vars.containsKey(n) || result.characters.containsKey(n) || result.locations.containsKey(n)) return;
             if (Specs.function(n) != null) {
                 error("'" + n + "' — функция, вызывайте так: " + Specs.function(n).signature(), e);
@@ -684,7 +694,7 @@ public final class Analyzer {
             String name = m.group(1).trim();
             if (name.isEmpty()) continue;
             String base = name.split("[(.\\[ ]", 2)[0];
-            if (!result.vars.containsKey(base) && Specs.function(base) == null && !base.equals("player")) {
+            if (!result.vars.containsKey(base) && Specs.function(base) == null && !isPlayerWord(base)) {
                 warn("В строке подставляется неизвестное имя '{" + name + "}'", s);
             }
         }

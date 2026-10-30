@@ -214,7 +214,7 @@ public final class AttackBoxes {
                 hurt(lv, e, v, a.damage, a.push);
                 if (a.impact != null && a.impact.json() != null) {
                     Vec3 at = v.getBoundingBox().getCenter();
-                    SprauteNetwork.sendToAll(new Packets.FxPlay("", a.impact.project(), a.impact.json(), at.x, at.y, at.z, -1, a.impact.scale(), a.impact.scriptId()));
+                    SprauteNetwork.sendToAudience(a.impact.scriptId(), new Packets.FxPlay("", a.impact.project(), a.impact.json(), at.x, at.y, at.z, -1, a.impact.scale(), a.impact.scriptId()));
                 }
             }
         }

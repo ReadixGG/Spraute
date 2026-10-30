@@ -64,10 +64,18 @@ public final class GameEvents {
 
     public static void fire(String type, Player player, Map<String, Object> data) {
         if (player != null && !(player instanceof ServerPlayer)) return; // server side only
-        if (player != null) data.putIfAbsent("player", player.getGameProfile().getName());
+        if (player != null) {
+            data.putIfAbsent("player", player.getGameProfile().getName());
+            data.putIfAbsent("__player", player);
+        }
+        String ownerOfEntity = data.get("__entity") instanceof net.minecraft.world.entity.Entity e ? SprauteRuntime.ownerOf(e) : null;
         SprauteRuntime.env().ifPresent(env -> {
             for (ScriptInstance si : env.scriptInstances.values()) {
-                if (si instanceof SprauteScriptInstance s) s.events.add(type, data, s);
+                if (!(si instanceof SprauteScriptInstance s)) continue;
+                // a solo story hears its own player and its own entities
+                if (s.solo() && player != null && !player.getUUID().equals(s.owner)) continue;
+                if (ownerOfEntity != null && !(s.solo() && ownerOfEntity.equals(String.valueOf(s.owner)))) continue;
+                s.events.add(type, data, s);
             }
         });
     }
@@ -219,7 +227,7 @@ public final class GameEvents {
             Map<String, Object> d = at(entity(data(), e.getEntity()), e.getEntity());
             d.put("source", e.getSource().getMsgId());
             putKiller(d, killer);
-            fire("npcdeath", player(killer) != null ? player(killer) : SprauteRuntime.player(), d);
+            fire("npcdeath", player(killer), d);
         }
     }
 
@@ -471,11 +479,10 @@ public final class GameEvents {
             case "mark" -> "cutscenemark";
             default -> "cutscene";
         };
-        if (type.equals("cutscene")) {
-            SprauteRuntime.env().ifPresent(env -> {
-                if (env.scriptInstances.get(scriptId) instanceof SprauteScriptInstance s && s.cutscene.equals(name)) s.cutscene = "";
-            });
-        }
+        // everyone watches, but the story goes on with its own player
+        var story = SprauteRuntime.env().map(env -> env.scriptInstances.get(scriptId)).orElse(null);
+        if (story != null && story.protagonist() != player) return;
+        if (type.equals("cutscene") && story instanceof SprauteScriptInstance s && s.cutscene.equals(name)) s.cutscene = "";
         fire(type, player, d);
     }
 
@@ -486,7 +493,7 @@ public final class GameEvents {
 
     // ------------------------------------------------------------------ polled states
 
-    private static int lastCoins = Integer.MIN_VALUE;
+    private static final Map<java.util.UUID, Integer> LAST_COINS = new java.util.HashMap<>();
 
     /** Last seen state per player: sneaking, sprinting, in water, burning, low health, hotbar slot, biome. */
     private static final Map<UUID, Object[]> STATE = new HashMap<>();
@@ -540,15 +547,16 @@ public final class GameEvents {
         }
         lastDayTime = t;
         try {
-            int coins = org.sprautestudio.st_addon_spraute.core.system.Coins.get(SprauteRuntime.player());
-            if (lastCoins != Integer.MIN_VALUE && coins != lastCoins) {
-                Map<String, Object> d = data();
-                d.put("amount", (double) (coins - lastCoins));
-                d.put("level", (double) coins);
-                var players = server.getPlayerList().getPlayers();
-                fire("coins", players.isEmpty() ? null : players.get(0), d);
+            for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+                int coins = org.sprautestudio.st_addon_spraute.core.system.Coins.get(p);
+                Integer last = LAST_COINS.put(p.getUUID(), coins);
+                if (last != null && coins != last) {
+                    Map<String, Object> d = data();
+                    d.put("amount", (double) (coins - last));
+                    d.put("level", (double) coins);
+                    fire("coins", p, d);
+                }
             }
-            lastCoins = coins;
         } catch (Throwable ignored) {
         }
         // custom-model characters get their model as soon as they appear
@@ -578,6 +586,6 @@ public final class GameEvents {
         STATE.clear();
         lastDayTime = -1;
         lastRain = null;
-        lastCoins = Integer.MIN_VALUE;
+        LAST_COINS.clear();
     }
 }
