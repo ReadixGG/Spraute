@@ -42,7 +42,7 @@ public final class SpeechClient {
     }
 
     private static final int STAY_TICKS = 200, FADE_TICKS = 15;
-    private static final int ICON = 20, PAD = 4, BOTTOM = 50, BOTTOM_CINEMA = 25, BACK_ALPHA = 0x80;
+    private static final int ICON = 20, PAD = 4, BOTTOM = 50, BOTTOM_CINEMA = 25, TOP = 24, BACK_ALPHA = 0x80;
     private static final float MAX_WIDTH = 0.6f;
     private static final int MAX_HISTORY = 500, DEFAULT_NAME_COLOR = 0xFFD25A;
 
@@ -157,8 +157,13 @@ public final class SpeechClient {
         if (alpha <= 0) return;
         int maxW = Math.round(g.guiWidth() * MAX_WIDTH);
         int h = plateHeight(mc.font, current, maxW);
-        int bottom = CameraDirector.active() && CameraDirector.hidesMinecraft() ? BOTTOM_CINEMA : BOTTOM;
-        plate(g, mc.font, current, g.guiWidth() / 2, g.guiHeight() - bottom - h, maxW, BACK_ALPHA, alpha);
+        var cfg = EngineClient.config().chatLog;
+        int y = switch (cfg.speechPlace == null ? "bottom" : cfg.speechPlace) {
+            case "center" -> (g.guiHeight() - h) / 2;
+            case "top" -> TOP;
+            default -> g.guiHeight() - (CameraDirector.active() && CameraDirector.hidesMinecraft() ? BOTTOM_CINEMA : BOTTOM) - h;
+        };
+        plate(g, mc.font, current, g.guiWidth() / 2, y - cfg.speechShift, maxW, BACK_ALPHA, alpha);
     }
 
     @SubscribeEvent

@@ -332,6 +332,9 @@ public final class EngineConfig {
         public int nameColor = -1;
         /** "▸ F8" by the speaker's name while the story waits for F8. */
         public boolean f8Hint = true;
+        /** Where the speech plate stands: bottom, center or top of the screen; and its shift up (+) or down, in pixels. */
+        public String speechPlace = "bottom";
+        public int speechShift = 0;
         /** The player's head in speech: size (1 — fills the frame) and shift (percent of the frame). */
         public float playerHeadScale = 1;
         public int playerHeadX = 0, playerHeadY = 0;

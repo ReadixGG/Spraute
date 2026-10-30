@@ -296,6 +296,14 @@ public class EngineTab extends EditorTab {
 
     /** How speech looks: name colours, the F8 hint, the player's head. */
     private void speechForm() {
+        form.header("Где показывать реплики");
+        form.dropdown("Положение", null, () -> List.of("bottom", "center", "top"), () -> cfg.chatLog.speechPlace == null ? "bottom" : cfg.chatLog.speechPlace,
+                v -> switch (v) {
+                    case "center" -> "По центру экрана";
+                    case "top" -> "Сверху";
+                    default -> "Снизу";
+                }, v -> cfg.chatLog.speechPlace = v);
+        form.number("Сдвиг вверх", () -> cfg.chatLog.speechShift, v -> cfg.chatLog.speechShift = v);
         form.header("Имена в речи");
         form.note("Цвет имени говорящего в окне речи и в истории сообщений");
         form.toggle("Один цвет для всех", "Персонажам без своего color — этот цвет. Выключено — обычный цвет Spraute",
