@@ -17,7 +17,9 @@ import org.sprautestudio.spraute_engine.editor.project.Workspace;
 import org.sprautestudio.spraute_engine.editor.tabs.BlocksTab;
 import org.sprautestudio.spraute_engine.editor.tabs.DocsTab;
 import org.sprautestudio.spraute_engine.editor.tabs.EditorTab;
+import org.sprautestudio.spraute_engine.editor.tabs.FromTextTab;
 import org.sprautestudio.spraute_engine.editor.tabs.ScriptTab;
+import org.sprautestudio.spraute_engine.editor.visual.DialogueImport;
 import org.sprautestudio.spraute_engine.editor.visual.VisualScript;
 import org.sprautestudio.spraute_engine.lang.Analyzer;
 import org.sprautestudio.spraute_engine.net.Packets;
@@ -668,6 +670,8 @@ public final class SprauteScreen extends UI {
             pm.separator();
             pm.item("Закомментировать", Icon.CODE, "Ctrl+/", () -> withEditor(e -> e.editor.toggleComment()));
             pm.item("Форматировать", Icon.LIST, "Ctrl+Shift+F", () -> withEditor(e -> e.editor.format()));
+            pm.item("Из текста…", Icon.EDIT, null, this::openFromText)
+                    .enabled(() -> activeTab() instanceof ScriptTab || activeTab() instanceof BlocksTab);
             pm.item("Вставить мою позицию", Icon.PIN, "Alt+P", () -> withEditor(e -> {
                 String pos = playerPosition();
                 if (pos != null) e.editor.insertAtCaret(pos);
@@ -964,6 +968,28 @@ public final class SprauteScreen extends UI {
         t.closable = true;
         t.dirty = tab::isDirty;
         selectTab(tab);
+    }
+
+    private void openFromText() {
+        EditorTab target = activeTab();
+        if (!(target instanceof ScriptTab || target instanceof BlocksTab)) return;
+        for (EditorTab tab : tabs) {
+            if (tab instanceof FromTextTab fromText) {
+                fromText.target(target);
+                selectTab(fromText);
+                return;
+            }
+        }
+        addTab(new FromTextTab(project, target, this::applyDialogue));
+    }
+
+    private void applyDialogue(EditorTab target, DialogueImport.Plan plan) {
+        if (!tabs.contains(target)) throw new IllegalStateException("Исходный скрипт закрыт. Откройте его снова.");
+        if (target instanceof ScriptTab text) text.editor.replaceAllText(plan.text());
+        else if (target instanceof BlocksTab blocks) blocks.blocks.appendDialogue(plan.blocks());
+        else throw new IllegalStateException("Откройте текстовый или блочный скрипт");
+        selectTab(target);
+        toastSuccess("Реплики добавлены в «" + target.title() + "»");
     }
 
     private void selectTab(EditorTab tab) {

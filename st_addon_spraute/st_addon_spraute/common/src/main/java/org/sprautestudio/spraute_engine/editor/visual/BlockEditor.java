@@ -108,6 +108,14 @@ public class BlockEditor extends Widget implements UI.CursorProvider {
         return script;
     }
 
+    public void appendDialogue(List<VisualScript.Block> blocks) {
+        VisualScript.Stack main = script.mainStack();
+        if (main == null) throw new IllegalStateException("Нет начального блока сюжета");
+        snapshot();
+        for (VisualScript.Block block : blocks) main.blocks.add(block.deepCopy());
+        changed();
+    }
+
     public BlockCodegen.Result generated() {
         if (generatedDirty || generated == null) {
             generated = BlockCodegen.generate(script);

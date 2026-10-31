@@ -21,6 +21,7 @@ import java.util.regex.Pattern;
  * signature help, hover docs, find/replace, minimap, bracket matching and line operations.
  */
 public class CodeEditor extends Widget implements UI.CursorProvider {
+    public String emptyHint = "Начните писать сюжет… (Ctrl+Space — подсказки)";
     public static final int LINE_H = 12;
     private static final int PAD_TOP = 4;
     private static final int MINIMAP_W = 64;
@@ -536,7 +537,7 @@ public class CodeEditor extends Widget implements UI.CursorProvider {
 
         if (minimapShown()) paintMinimap(c, colors, problems);
         if (doc.length() == 0 && !readOnly) {
-            c.text("Начните писать сюжет… (Ctrl+Space — подсказки)", textLeft(), y + PAD_TOP + 2, Theme.TEXT_MUTED);
+            c.text(emptyHint, textLeft(), y + PAD_TOP + 2, Theme.TEXT_MUTED);
         }
     }
 
