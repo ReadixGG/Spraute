@@ -12,7 +12,7 @@
 Границы держит сама сборка, а не договорённость. Код с Forge в `common` не скомпилируется, код с Minecraft в `core` тоже.
 Это касается и методов, которые Forge незаметно дописывает в классы игры: `Entity.getPersistentData()`, `KeyMapping.getKey()` и другие.
 
-Пакеты сквозные: `org.sprautestudio.st_addon_spraute.lang` лежит в `core`, а `...runtime` в `common`.
+Пакеты сквозные: `org.sprautestudio.spraute_engine.lang` лежит в `core`, а `...runtime` в `common`.
 Классы `core` и `common` компилируются прямо в модуле загрузчика и попадают в его jar. Задача `checkJar` проверяет, что они там есть.
 
 ## Команды
@@ -29,7 +29,7 @@
 
 Имя задачи указывайте вместе с модулем: просто `runServer` запустит оба сервера подряд.
 
-Jar: `build/libs/st_addon_spraute-<версия>.jar` для Forge и `build/libs/st_addon_spraute-fabric-<версия>.jar` для Fabric (ему нужен Fabric API).
+Jar: `build/libs/spraute_engine-<версия>.jar` для Forge и `build/libs/spraute_engine-fabric-<версия>.jar` для Fabric (ему нужен Fabric API).
 
 ## Куда класть новый код
 
@@ -77,7 +77,7 @@ private static void onAttack(Hooks.LivingAttack e) {
 1. Создать модуль рядом с `forge/` и `fabric/` и добавить его в `settings.gradle`. Исходники `core` и `common` подключаются так же, как в их `build.gradle`.
 2. Реализовать `Platform` и `ClientPlatform`.
 3. Вызывать `Hook.fire(...)` из событий загрузчика: всего 75 событий. Образцы: `ForgeEvents` (у загрузчика есть почти всё) и `FabricEvents` с миксинами (нет многого). Если у загрузчика нет приоритетов, есть `fire(event)`, он пройдёт их все по порядку.
-4. На старте: `Platform.install(...)`, на клиенте `ClientPlatform.install(...)`, затем `St_addon_spraute.init()`, и только потом подключение событий: слушатели регистрируются внутри `init()`.
+4. На старте: `Platform.install(...)`, на клиенте `ClientPlatform.install(...)`, затем `SprauteEngine.init()`, и только потом подключение событий: слушатели регистрируются внутри `init()`.
 
 Миксины `common` указывают официальные имена, а refmap каждого загрузчика переводит их в свои.
 

@@ -1,0 +1,11 @@
+{
+  "key.spraute_engine.open": "Открыть редактор Spraute Engine",
+  "key.categories.spraute_engine": "Spraute Engine",
+  "key.spraute_engine.cutscene_frame": "Катсцена: добавить кадр",
+  "entity.spraute_engine.orb": "Частица сюжета",
+  "entity.spraute_engine.camera": "Камера",
+  "key.spraute_engine.journal": "Журнал квестов",
+  "key.spraute_engine.chat_history": "История речи",
+  "entity.spraute_engine.model": "Персонаж",
+  "key.spraute_engine.advance": "Дальше (реплика, абзац)"
+}

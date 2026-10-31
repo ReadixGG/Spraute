@@ -8,9 +8,9 @@
   "license": "${mod_license}",
   "environment": "*",
   "entrypoints": {
-    "main": ["org.sprautestudio.st_addon_spraute.platform.fabric.FabricMod"],
-    "client": ["org.sprautestudio.st_addon_spraute.platform.fabric.FabricClientMod"],
-    "preLaunch": ["org.sprautestudio.st_addon_spraute.platform.fabric.MixinAudit"]
+    "main": ["org.sprautestudio.spraute_engine.platform.fabric.FabricMod"],
+    "client": ["org.sprautestudio.spraute_engine.platform.fabric.FabricClientMod"],
+    "preLaunch": ["org.sprautestudio.spraute_engine.platform.fabric.MixinAudit"]
   },
   "mixins": [
     "${mod_id}.mixins.json",

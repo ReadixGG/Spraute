@@ -1,0 +1,11 @@
+{
+  "key.spraute_engine.open": "Open Spraute Engine editor",
+  "key.categories.spraute_engine": "Spraute Engine",
+  "key.spraute_engine.cutscene_frame": "Cutscene: add frame",
+  "entity.spraute_engine.orb": "Story orb",
+  "entity.spraute_engine.camera": "Camera",
+  "key.spraute_engine.journal": "Quest journal",
+  "key.spraute_engine.chat_history": "Speech history",
+  "entity.spraute_engine.model": "Character",
+  "key.spraute_engine.advance": "Next (line, paragraph)"
+}

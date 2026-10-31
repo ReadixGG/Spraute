@@ -73,9 +73,9 @@ def checkJar = tasks.register('checkJar') {
     def jarFile = tasks.named('remapJar').flatMap { it.archiveFile }
     doLast {
         def tree = zipTree(jarFile)
-        ['org/sprautestudio/st_addon_spraute/lang/Analyzer.class',
-         'org/sprautestudio/st_addon_spraute/St_addon_spraute.class',
-         'org/sprautestudio/st_addon_spraute/platform/fabric/FabricMod.class',
+        ['org/sprautestudio/spraute_engine/lang/Analyzer.class',
+         'org/sprautestudio/spraute_engine/SprauteEngine.class',
+         'org/sprautestudio/spraute_engine/platform/fabric/FabricMod.class',
          'fabric.mod.json',
          "${mod_id}.refmap.json".toString(),
          "${mod_id}.mixins.json".toString()].each { name ->

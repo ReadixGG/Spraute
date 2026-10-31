@@ -1,0 +1,46 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "org.sprautestudio.spraute_engine.platform.fabric.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "spraute_engine.refmap.json",
+  "mixins": [
+    "AbstractHorseMixin",
+    "AbstractVillagerMixin",
+    "AnimalMixin",
+    "BlockItemMixin",
+    "BoneMealItemMixin",
+    "BowItemMixin",
+    "BucketItemMixin",
+    "EntityMixin",
+    "EntitySectionMixin",
+    "ExperienceOrbMixin",
+    "ExplosionMixin",
+    "FishingHookMixin",
+    "FurnaceResultSlotMixin",
+    "ItemEntityMixin",
+    "LevelMixin",
+    "LivingEntityMixin",
+    "PlayerAdvancementsMixin",
+    "PlayerMixin",
+    "ResultSlotMixin",
+    "ServerLevelMixin",
+    "ServerPlayerMixin",
+    "TamableAnimalMixin"
+  ],
+  "client": [
+    "client.AbstractSoundInstanceMixin",
+    "client.CameraAccessor",
+    "client.ClientLevelMixin",
+    "client.GameRendererMixin",
+    "client.GuiMixin",
+    "client.KeyboardHandlerMixin",
+    "client.LocalPlayerMixin",
+    "client.MinecraftMixin",
+    "client.MouseHandlerMixin",
+    "client.PlayerRendererMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
