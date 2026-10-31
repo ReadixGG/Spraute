@@ -427,11 +427,12 @@ final class McpContent {
                     return total == 0 ? "Ничего" : String.join("\n", out) + (total > lim ? "\n… ещё " + (total - lim) : "");
                 });
 
-        tool("convert_skin", "Делает из скина Minecraft (64×64 или 64×32) текстуру персонажа Spraute 64×64 с глазами, бровями и ртом, "
+        tool("convert_skin", "Делает из скина Minecraft (64×64 или 64×32) текстуру Spraute 64×64 или Super Rig 128×128 с глазами, бровями и ртом, "
                         + "которые движок анимирует. Источник — картинка проекта (image) или файл на диске (file). Результат — картинка «<имя> ST»; "
                         + "её можно дать типу сущности (texture \"image:<имя> ST\") или в сюжете: skin кто \"<имя> ST\".",
                 schema("project", "string", "Имя проекта", "+", "image", "string", "Картинка проекта (имя без .png)", "?", "file", "string", "Или путь к PNG на диске", "?",
                         "name", "string", "Имя результата (по умолчанию «<имя> ST»)", "?",
+                        "format", "string", "Формат результата: spraute (по умолчанию) или super_rig", "?",
                         "eyes", "integer", "Глаза на скине: 2 — 2×2, 1 — 2×1, 0 — найти самому", "?",
                         "offset", "integer", "Отступ глаз от низа лица в пикселях (-1 — найти)", "?",
                         "still", "integer", "Неподвижный глаз, остаётся на лице: 0 нет, 1 левый, 2 правый", "?",
@@ -450,15 +451,21 @@ final class McpContent {
                         }
                         if (!Files.exists(src)) throw new IllegalArgumentException("Нет файла " + src);
                         var o = new org.sprautestudio.spraute_engine.editor.assets.FaceSkin.Options();
+                        o.target = switch (str(a, "format", "spraute").toLowerCase(Locale.ROOT)) {
+                            case "spraute" -> org.sprautestudio.spraute_engine.editor.assets.FaceSkin.Target.SPRAUTE;
+                            case "super_rig", "superrig" -> org.sprautestudio.spraute_engine.editor.assets.FaceSkin.Target.SUPER_RIG;
+                            default -> throw new IllegalArgumentException("Формат должен быть spraute или super_rig");
+                        };
                         o.eyeH = (int) num(a, "eyes", 0);
                         o.offset = (int) num(a, "offset", -1);
                         o.still = (int) num(a, "still", 0);
                         o.brows = org.sprautestudio.spraute_engine.editor.assets.FaceSkin.Brows.valueOf(str(a, "brows", "THICK").toUpperCase(Locale.ROOT));
                         o.eraseFace = !bool(a, "keep_face", false);
                         var img = org.sprautestudio.spraute_engine.editor.assets.FaceSkin.read(src);
+                        if (img.getWidth() == 128 && !a.has("keep_face")) o.eraseFace = false;
                         int[] eyes = org.sprautestudio.spraute_engine.editor.assets.FaceSkin.findEyes(img, o);
                         Path out = org.sprautestudio.spraute_engine.editor.assets.FaceSkin.convertFile(src, pr.imagesDir(),
-                                Project.sanitize(str(a, "name", base + " лицо")), o);
+                                Project.sanitize(str(a, "name", base + (o.target == org.sprautestudio.spraute_engine.editor.assets.FaceSkin.Target.SUPER_RIG ? " Super Rig" : " лицо"))), o);
                         Project.ImageRef ref = new Project.ImageRef(out);
                         onClient(() -> {
                             org.sprautestudio.spraute_engine.editor.assets.ProjectImages.load(pr, ref);

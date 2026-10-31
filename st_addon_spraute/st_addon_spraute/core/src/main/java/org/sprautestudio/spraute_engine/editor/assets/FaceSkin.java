@@ -20,7 +20,17 @@ public final class FaceSkin {
 
     /** A picture that can be turned into a character texture. */
     public static boolean isSkin(BufferedImage img) {
-        return img.getWidth() == 64 && (img.getHeight() == 64 || img.getHeight() == 32);
+        return img.getWidth() == 64 && (img.getHeight() == 64 || img.getHeight() == 32)
+                || img.getWidth() == 128 && img.getHeight() == 128;
+    }
+
+    public enum Target {
+        SPRAUTE("Spraute 64×64"), SUPER_RIG("Super Rig 128×128");
+        public final String title;
+
+        Target(String title) {
+            this.title = title;
+        }
     }
 
     /** How the brows come out: thick 3×1 each, thin 2×1 each, arrows (2 up, 1 down-right), or none. */
@@ -39,12 +49,14 @@ public final class FaceSkin {
      * one stays painted on the face, 2 — the right one.
      */
     public static final class Options {
+        public Target target = Target.SPRAUTE;
         public int eyeH = 0, offset = -1, still = 0;
         public Brows brows = Brows.THICK;
         public boolean eraseFace = true;
 
         public Options copy() {
             Options o = new Options();
+            o.target = target;
             o.eyeH = eyeH;
             o.offset = offset;
             o.still = still;
@@ -101,6 +113,7 @@ public final class FaceSkin {
     }
 
     public static BufferedImage convert(BufferedImage src, Options o) {
+        if (o.target == Target.SUPER_RIG) return SuperRigSkin.convert(src, o);
         BufferedImage out = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
         int h = Math.min(64, src.getHeight());
         for (int y = 0; y < h; y++) for (int x = 0; x < 64; x++) out.setRGB(x, y, src.getRGB(x, y));
@@ -165,14 +178,14 @@ public final class FaceSkin {
     public static BufferedImage read(Path source) throws IOException {
         BufferedImage img = ImageIO.read(source.toFile());
         if (img == null) throw new IOException("Не картинка");
-        if (!isSkin(img)) throw new IOException("Нужен скин Minecraft 64×64 (или 64×32), а тут " + img.getWidth() + "×" + img.getHeight());
+        if (!isSkin(img)) throw new IOException("Нужен скин Minecraft 64×64, 64×32 или Super Rig 128×128, а тут " + img.getWidth() + "×" + img.getHeight());
         return img;
     }
 
     public static Path convertFile(Path source, Path targetDir, String name, Options o) throws IOException {
         BufferedImage img = ImageIO.read(source.toFile());
         if (img == null) throw new IOException("Не картинка");
-        if (!isSkin(img)) throw new IOException("Нужен скин Minecraft 64×64 (или 64×32), а тут " + img.getWidth() + "×" + img.getHeight());
+        if (!isSkin(img)) throw new IOException("Нужен скин Minecraft 64×64, 64×32 или Super Rig 128×128, а тут " + img.getWidth() + "×" + img.getHeight());
         Files.createDirectories(targetDir);
         Path out = targetDir.resolve(name + ".png");
         int n = 2;

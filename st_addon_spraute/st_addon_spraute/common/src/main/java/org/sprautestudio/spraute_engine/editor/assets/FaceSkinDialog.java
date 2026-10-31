@@ -35,12 +35,21 @@ public final class FaceSkinDialog {
             return;
         }
         FaceSkin.Options o = new FaceSkin.Options();
+        if (src.getWidth() == 128) {
+            o.target = FaceSkin.Target.SUPER_RIG;
+            o.eraseFace = false;
+        }
         BufferedImage[] result = {FaceSkin.convert(src, o)};
         Runnable redo = () -> result[0] = FaceSkin.convert(src, o);
 
-        Dialog d = new Dialog("Текстура Spraute из скина", Icon.USER).width(Math.min(460, UI.get() != null ? UI.get().vw - 30 : 460));
-        d.body.add(new Label("Глаза, брови и рот Spraute рисует сам и анимирует. Скажите, какие глаза на скине — "
+        Dialog d = new Dialog("Текстура персонажа из скина", Icon.USER).width(Math.min(580, UI.get() != null ? UI.get().vw - 30 : 580));
+        d.body.add(new Label("Глаза, брови и рот модель рисует и анимирует. Скажите, какие глаза на скине — "
                 + "или оставьте «сами найдутся».").color(Theme.TEXT_DIM));
+        d.body.add(new Label("Формат модели").color(Theme.TEXT_MUTED));
+        d.body.add(new Dropdown<>(() -> List.of(FaceSkin.Target.values()), () -> o.target, v -> v.title, v -> {
+            o.target = v;
+            redo.run();
+        }));
 
         d.body.add(new Label("Глаза на скине").color(Theme.TEXT_MUTED));
         d.body.add(new Dropdown<>(() -> List.of(0, 2, 1), () -> o.eyeH,
@@ -74,14 +83,22 @@ public final class FaceSkinDialog {
         Widget preview = new Widget() {
             @Override
             protected void paint(Canvas c, int mx, int my, float dt) {
-                int k = Math.max(4, Math.min(10, (w - 40) / 24));
-                int x0 = x + (w - (k * 24 + 40)) / 2, y0 = y + 12;
+                boolean rig = o.target == FaceSkin.Target.SUPER_RIG;
+                int count = rig ? 5 : 3;
+                int k = Math.max(4, Math.min(9, (w - (count - 1) * 12 - 20) / (count * 8)));
+                int x0 = x + (w - (k * 8 * count + (count - 1) * 12)) / 2, y0 = y + 12;
                 c.text("скин", x0, y, Theme.TEXT_MUTED);
-                c.text("лицо после", x0 + k * 8 + 20, y, Theme.TEXT_MUTED);
-                c.text("глаза, брови, рот", x0 + k * 16 + 40, y, Theme.TEXT_MUTED);
+                c.text("лицо", x0 + k * 8 + 12, y, Theme.TEXT_MUTED);
+                c.text(rig ? "брови/рот" : "глаза/брови", x0 + (k * 8 + 12) * 2, y, Theme.TEXT_MUTED);
                 block(c, src, 8, 8, x0, y0, k);
-                block(c, result[0], 8, 8, x0 + k * 8 + 20, y0, k);
-                block(c, result[0], 0, 0, x0 + k * 16 + 40, y0, k);
+                block(c, result[0], 8, 8, x0 + k * 8 + 12, y0, k);
+                block(c, result[0], 0, 0, x0 + (k * 8 + 12) * 2, y0, k);
+                if (rig) {
+                    c.text("зрачки", x0 + (k * 8 + 12) * 3, y, Theme.TEXT_MUTED);
+                    c.text("белки", x0 + (k * 8 + 12) * 4, y, Theme.TEXT_MUTED);
+                    block(c, result[0], 120, 0, x0 + (k * 8 + 12) * 3, y0, k);
+                    block(c, result[0], 116, 60, x0 + (k * 8 + 12) * 4, y0, k);
+                }
             }
 
             private void block(Canvas c, BufferedImage img, int sx, int sy, int px, int py, int k) {
@@ -101,11 +118,12 @@ public final class FaceSkinDialog {
         d.addButton("Создать", Button.Style.PRIMARY, () -> {
             d.close();
             try {
-                Path out = FaceSkin.convertFile(source, project.imagesDir(), Project.sanitize(name) + " лицо", o.copy());
+                Path out = FaceSkin.convertFile(source, project.imagesDir(), Project.sanitize(name)
+                        + (o.target == FaceSkin.Target.SUPER_RIG ? " Super Rig" : " лицо"), o.copy());
                 Project.ImageRef ref = new Project.ImageRef(out);
                 ProjectImages.load(project, ref);
                 UI ui = UI.get();
-                if (ui != null) ui.toastSuccess("Текстура Spraute «" + ref.name() + "» готова");
+                if (ui != null) ui.toastSuccess("Текстура " + o.target.title + " «" + ref.name() + "» готова");
                 done.accept(ref);
             } catch (IOException e) {
                 UI ui = UI.get();

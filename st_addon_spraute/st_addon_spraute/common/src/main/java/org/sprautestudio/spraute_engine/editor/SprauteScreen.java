@@ -1275,7 +1275,7 @@ public final class SprauteScreen extends UI {
     public static void pickFaceSkin(java.util.function.Consumer<String> done) {
         SprauteScreen s = instance;
         if (s == null || s.project == null) return;
-        s.pickFiles("Скин Minecraft (64×64)", new String[]{"*.png"}, "Скин PNG", paths -> {
+        s.pickFiles("Скин Minecraft или Super Rig", new String[]{"*.png"}, "Скин PNG", paths -> {
             for (java.nio.file.Path p : paths) {
                 String n = p.getFileName().toString();
                 org.sprautestudio.spraute_engine.editor.assets.FaceSkinDialog.open(s.project, p, n.endsWith(".png") ? n.substring(0, n.length() - 4) : n, r -> {
