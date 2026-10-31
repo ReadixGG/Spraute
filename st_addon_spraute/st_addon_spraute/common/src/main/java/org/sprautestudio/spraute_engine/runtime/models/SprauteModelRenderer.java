@@ -161,7 +161,7 @@ public class SprauteModelRenderer extends EntityRenderer<SprauteModelEntity> {
         SpVec3 head = inst.animRotation("head");
         if (head == null) return;
         float yaw = Mth.wrapDegrees(Mth.rotLerp(partial, e.yHeadRotO, e.yHeadRot) - Mth.rotLerp(partial, e.yBodyRotO, e.yBodyRot));
-        head.add(Mth.lerp(partial, e.xRotO, e.getXRot()), -Mth.clamp(yaw, -75, 75), 0);
+        head.add(Mth.lerp(partial, e.xRotO, e.getXRot()), Mth.clamp(yaw, -75, 75), 0);
     }
 
     /** Moves the pose to a bone: Bedrock pixels to blocks, its turn into the mirrored space the model is drawn in. */

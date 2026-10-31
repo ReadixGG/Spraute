@@ -41,7 +41,7 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
     /** Blinks every 2.5 to 5.5 seconds. */
     private static final int BLINK_MIN = 50, BLINK_MAX = 110;
     private static final float LOOK_SETTLED = 10, TURN_MIN = 2.5f;
-    private static final int TURN_HOLD = 8;
+    private static final int TURN_HOLD = 5;
     private int turningShown, turnFor;
     private boolean turnLeft;
     /** Keeps its chunk loaded, by the story's wish. */
@@ -275,7 +275,7 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
         if (turning != turningShown) {
             turningShown = turning;
             ConfiguredAnimation turn = turning != 0 ? turnAnimation(turning == 1) : null;
-            if (turn != null) startAnimation("turn", turn.loopMode(LoopMode.LOOP).transitionTime(0.12f));
+            if (turn != null) startAnimation("turn", turn.loopMode(LoopMode.LOOP).transitionTime(0.2f).speed(turn.speed() * 0.75f));
             else animations.stopAnimation("turn", 0.2f);
         }
     }
@@ -303,7 +303,7 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
                 // a target that is gone just changes nothing
             }
             if (at != null) {
-                float speed = lookInstant ? 360 : 30;
+                float speed = lookInstant ? 360 : 120;
                 getLookControl().setLookAt(at.x, at.y, at.z, speed, speed);
                 if (tickCount % 5 == 0) {
                     String pos = at.x + "," + at.y + "," + at.z;
