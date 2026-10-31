@@ -84,7 +84,7 @@ public final class AssetPicker {
 
     private static final class Body extends Widget {
         final ParamType kind;
-        final TextField search = new TextField().placeholder("Поиск").icon(Icon.SEARCH);
+        final TextField search = new TextField().placeholder("Поиск по названию или ID").icon(Icon.SEARCH);
         final ListView<Item> list;
         final ModelView view;
         final List<Item> all = new ArrayList<>();
@@ -164,8 +164,10 @@ public final class AssetPicker {
         void refresh() {
             String q = search.text();
             List<Item> out = new ArrayList<>();
-            for (Item it : all) if (AssetIndex.matches(q, it.id, it.title)) out.add(it);
+            Item selected = list.selectedItem();
+            for (Item it : all) if (AssetIndex.matches(q, it.id, it.title, it.detail)) out.add(it);
             list.setItems(out);
+            if (list.selectedItem() == null && !out.isEmpty()) list.select(selected != null && out.contains(selected) ? out.indexOf(selected) : 0);
         }
 
         /** The preview shows this character's model (a game entity or a project one). */

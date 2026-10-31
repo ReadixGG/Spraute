@@ -75,7 +75,7 @@ public class EntityTab extends EditorTab {
             if (!v.startsWith("st:")) def.texture = "model";
             else if (def.texture.equals("model")) def.texture = firstSkin(v);
             changed();
-        });
+        }).searchable();
         row("Модель", new Widget() {
             final Dropdown<String> dd = add(modelBox);
             final Button add = add(Button.icon(Icon.PLUS, "Добавить свою модель: файлы Blockbench (.geo.json, .png, .animation.json). "
@@ -428,7 +428,7 @@ public class EntityTab extends EditorTab {
             final Dropdown<String> dd = add(new Dropdown<>(() -> anims(get.get()), get, a -> a.isEmpty() ? "авто (по имени idle/walk/run)" : animTitle(a), v -> {
                 set.accept(v);
                 changed();
-            }));
+            }).searchable());
             final Button pick = add(Button.icon(Icon.SEARCH, "Анимация Spraute…", () -> AssetPicker.open(ParamType.ANIM, get.get(), v -> {
                 set.accept(v);
                 changed();

@@ -123,9 +123,9 @@ public final class AssetIndex {
     public static boolean matches(String query, String... fields) {
         if (query == null || query.isBlank()) return true;
         StringBuilder sb = new StringBuilder();
-        for (String f : fields) if (f != null) sb.append(f.toLowerCase(Locale.ROOT)).append(' ');
+        for (String f : fields) if (f != null) sb.append(f.toLowerCase(Locale.ROOT).replace('_', ' ').replace('-', ' ')).append(' ');
         String hay = sb.toString();
-        for (String word : query.toLowerCase(Locale.ROOT).trim().split("\\s+")) if (!hay.contains(word)) return false;
+        for (String word : query.toLowerCase(Locale.ROOT).trim().replace('_', ' ').replace('-', ' ').split("\\s+")) if (!hay.contains(word)) return false;
         return true;
     }
 

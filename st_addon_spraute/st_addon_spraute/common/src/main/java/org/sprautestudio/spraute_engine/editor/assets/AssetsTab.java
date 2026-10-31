@@ -39,7 +39,7 @@ public class AssetsTab extends EditorTab {
 
     private final Button modelsBtn, animsBtn, soundsBtn;
     // models column
-    private final TextField modelSearch = new TextField().placeholder("Поиск модели").icon(Icon.SEARCH);
+    private final TextField modelSearch = new TextField().placeholder("Модель: название или ID").icon(Icon.SEARCH);
     private boolean onlySpraute = true;
     private final Checkbox onlySt;
     private final ListView<AssetIndex.Model> modelList;
@@ -47,7 +47,7 @@ public class AssetsTab extends EditorTab {
     private final ModelView view = new ModelView();
     private final Button resetView, spin, stopAnims, copyModel, insertCharacter;
     // animations column
-    private final TextField animSearch = new TextField().placeholder("Поиск анимации: angry, walk, st3…").icon(Icon.SEARCH);
+    private final TextField animSearch = new TextField().placeholder("Анимация: имя, файл или ID").icon(Icon.SEARCH);
     private final ListView<Anims.Entry> animList;
     private String layer = "action";
     private boolean loop;
@@ -245,7 +245,7 @@ public class AssetsTab extends EditorTab {
     private void refreshAnims() {
         String q = animSearch.text();
         List<Anims.Entry> list = new ArrayList<>();
-        for (Anims.Entry a : AssetIndex.animations()) if (AssetIndex.matches(q, a.id())) list.add(a);
+        for (Anims.Entry a : AssetIndex.animations()) if (AssetIndex.matches(q, a.id(), a.key(), a.fileName(), a.folder())) list.add(a);
         animList.setItems(list);
     }
 

@@ -89,6 +89,9 @@ public final class Anims {
         }
         ResourceLocation rl = ResourceLocation.tryParse(s.contains(":") ? s : DEFAULT_NS + ":" + s);
         if (rl == null) return Optional.empty();
+        if (rl.getNamespace().equals(DEFAULT_NS) && rl.getPath().equals("entity/humanoid")
+                && ("turn_left".equals(key) || "turn_right".equals(key)))
+            rl = new ResourceLocation(DEFAULT_NS, "entity/common");
         SpAnimationParser.AnimationSet set = files().get(rl);
         if (set == null) return Optional.empty();
         if (key != null) {

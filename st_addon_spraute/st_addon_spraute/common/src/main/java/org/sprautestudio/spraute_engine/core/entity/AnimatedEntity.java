@@ -40,7 +40,7 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
     private static final float FAST_WALK = SPEED_1 * 1.6f, RUN = SPEED_1 * 2, STILL = 0.012f;
     /** Blinks every 2.5 to 5.5 seconds. */
     private static final int BLINK_MIN = 50, BLINK_MAX = 110;
-    private static final float LOOK_SETTLED = 10, TURN_MIN = 2.5f;
+    private static final float LOOK_SETTLED = 10, TURN_MIN = 2.5f, LOOK_DEGREES_PER_TICK = 10;
     private static final int TURN_HOLD = 5;
     private int turningShown, turnFor;
     private boolean turnLeft;
@@ -275,7 +275,7 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
         if (turning != turningShown) {
             turningShown = turning;
             ConfiguredAnimation turn = turning != 0 ? turnAnimation(turning == 1) : null;
-            if (turn != null) startAnimation("turn", turn.loopMode(LoopMode.LOOP).transitionTime(0.2f).speed(turn.speed() * 0.75f));
+            if (turn != null) startAnimation("turn", turn.loopMode(LoopMode.HOLD_ON_LAST_FRAME).transitionTime(0.2f).speed(turn.speed() * 0.75f));
             else animations.stopAnimation("turn", 0.2f);
         }
     }
@@ -303,8 +303,23 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
                 // a target that is gone just changes nothing
             }
             if (at != null) {
-                float speed = lookInstant ? 360 : 120;
-                getLookControl().setLookAt(at.x, at.y, at.z, speed, speed);
+                Vec3 d = at.subtract(getEyePosition());
+                float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+                float step = lookInstant ? 360 : LOOK_DEGREES_PER_TICK;
+                boolean walking = getWalkingSpeed() > STILL;
+                if (!bodyLocked && !walking) {
+                    float next = yBodyRot + net.minecraft.util.Mth.clamp(net.minecraft.util.Mth.wrapDegrees(yaw - yBodyRot), -step, step);
+                    setYRot(next);
+                    yBodyRot = next;
+                }
+                if (!headLocked) {
+                    float headTarget = walking || bodyLocked
+                            ? yBodyRot + net.minecraft.util.Mth.clamp(net.minecraft.util.Mth.wrapDegrees(yaw - yBodyRot), -75, 75)
+                            : yBodyRot;
+                    yHeadRot += net.minecraft.util.Mth.clamp(net.minecraft.util.Mth.wrapDegrees(headTarget - yHeadRot), -step, step);
+                    float pitch = (float) -Math.toDegrees(Math.atan2(d.y, d.horizontalDistance()));
+                    setXRot(getXRot() + net.minecraft.util.Mth.clamp(pitch - getXRot(), -step, step));
+                }
                 if (tickCount % 5 == 0) {
                     String pos = at.x + "," + at.y + "," + at.z;
                     if (!pos.equals(entityData.get(LOOK))) entityData.set(LOOK, pos);
