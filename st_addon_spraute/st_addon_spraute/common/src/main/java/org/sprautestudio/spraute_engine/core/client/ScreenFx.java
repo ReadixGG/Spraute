@@ -37,7 +37,8 @@ public final class ScreenFx {
 
     /** The screen is entirely covered: what stands above the HUD (money) keeps out of it. */
     public static boolean fullyCovered() {
-        return !kind.isEmpty() && !kind.equals("pulse_under") && amount(0) >= 1 && (argb >>> 24) == 0xFF;
+        return (tint >>> 24) == 0xFF
+                || !kind.isEmpty() && !kind.equals("pulse_under") && amount(0) >= 1 && (argb >>> 24) == 0xFF;
     }
 
     /** 0..1 how covered the screen is now. */
@@ -72,7 +73,9 @@ public final class ScreenFx {
 
     /** The variant under the chat: speech stays readable over it. */
     public static void underChat(ClientHooks.RenderHudPart e) {
-        if (e.id().equals(ClientHooks.HudParts.CHAT_PANEL) && kind.equals("pulse_under")) fill(e.getGuiGraphics(), e.getPartialTick());
+        if (!e.id().equals(ClientHooks.HudParts.CHAT_PANEL)) return;
+        if (fullyCovered()) e.setCanceled(true);
+        else if (kind.equals("pulse_under")) fill(e.getGuiGraphics(), e.getPartialTick());
     }
 
     public static void onRender(ClientHooks.RenderGui e) {

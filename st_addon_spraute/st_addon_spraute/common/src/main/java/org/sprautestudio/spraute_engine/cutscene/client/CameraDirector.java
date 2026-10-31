@@ -105,6 +105,9 @@ public final class CameraDirector {
     public static boolean hidesCustom() {
         return hudHide.equals("all") || hudHide.equals("custom");
     }
+    public static boolean fullyCovered() {
+        return Math.round(fade.value() * 255) == 255;
+    }
     private static float lockYaw, lockPitch;
     private static String caption = "";
     private static double captionAt;
@@ -836,10 +839,14 @@ public final class CameraDirector {
     /** With the HUD hidden only story overlays (speech, titles) stay. */
     public static void onOverlay(ClientHooks.RenderHudPart e) {
         boolean cinema = mode != Mode.NONE;
-        if (hudHide.equals("none") && !cinema) return;
+        if (hudHide.equals("none") && !cinema && !fullyCovered()) return;
         ResourceLocation id = e.id();
         if (id.getNamespace().equals("minecraft")) {
             String p = id.getPath();
+            if (p.equals("chat_panel") && fullyCovered()) {
+                e.setCanceled(true);
+                return;
+            }
             boolean crosshair = p.equals("crosshair");
             if (crosshair ? mode != Mode.FLY || hidesMinecraft()
                     : hidesMinecraft() && !p.equals("title_text") && !p.equals("subtitles") && !p.equals("chat_panel")) e.setCanceled(true);
