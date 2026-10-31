@@ -41,9 +41,11 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
     /** Blinks every 2.5 to 5.5 seconds. */
     private static final int BLINK_MIN = 50, BLINK_MAX = 110;
     private static final float LOOK_SETTLED = 10, TURN_MIN = 2.5f, LOOK_DEGREES_PER_TICK = 10;
-    private static final int TURN_HOLD = 5;
+    private static final int TURN_HOLD = 2;
     private int turningShown, turnFor;
     private boolean turnLeft;
+    private boolean clientBodyTurning;
+    private float clientBodyYaw, clientBodyYawO;
     /** Keeps its chunk loaded, by the story's wish. */
     private boolean holdsChunk;
     private long heldChunk = Long.MIN_VALUE;
@@ -261,6 +263,36 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
 
     private float gaitRate = 1, smoothSpeed;
 
+    public float renderedBodyYaw(float partial) {
+        return clientBodyTurning ? net.minecraft.util.Mth.rotLerp(partial, clientBodyYawO, clientBodyYaw)
+                : net.minecraft.util.Mth.rotLerp(partial, yBodyRotO, yBodyRot);
+    }
+
+    public float renderedHeadYaw(float partial) {
+        return clientBodyTurning ? renderedBodyYaw(partial)
+                : net.minecraft.util.Mth.rotLerp(partial, yHeadRotO, yHeadRot);
+    }
+
+    private void updateClientBodyYaw(Vec3 target, boolean idle) {
+        if (target == null || !idle) {
+            if (clientBodyTurning) {
+                clientBodyYawO = clientBodyYaw;
+                clientBodyYaw += net.minecraft.util.Mth.clamp(net.minecraft.util.Mth.wrapDegrees(yBodyRot - clientBodyYaw),
+                        -LOOK_DEGREES_PER_TICK, LOOK_DEGREES_PER_TICK);
+                if (Math.abs(net.minecraft.util.Mth.wrapDegrees(yBodyRot - clientBodyYaw)) < 1) clientBodyTurning = false;
+            }
+            return;
+        }
+        if (!clientBodyTurning) {
+            clientBodyYaw = yBodyRot;
+            clientBodyYawO = clientBodyYaw;
+            clientBodyTurning = true;
+        } else clientBodyYawO = clientBodyYaw;
+        float wanted = (float) Math.toDegrees(Math.atan2(getX() - target.x, target.z - getZ()));
+        clientBodyYaw += net.minecraft.util.Mth.clamp(net.minecraft.util.Mth.wrapDegrees(wanted - clientBodyYaw),
+                -LOOK_DEGREES_PER_TICK, LOOK_DEGREES_PER_TICK);
+    }
+
     private void pickMovement() {
         float v = smoothSpeed += (getWalkingSpeed() - smoothSpeed) * 0.4f;
         MovementActionType type = v < STILL ? MovementActionType.IDLE : v < FAST_WALK ? MovementActionType.WALKING
@@ -277,11 +309,14 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
         float wanted = pace > 0 ? net.minecraft.util.Mth.clamp(v / pace, 0.55f, 1.7f) : 1;
         gaitRate += (wanted - gaitRate) * 0.25f;
         animations.setRate("movement", gaitRate);
-        // Keep the step active while the body is still facing its look target, even between rotation packets.
-        float delta = net.minecraft.util.Mth.wrapDegrees(yBodyRot - yBodyRotO);
         Vec3 target = lookPoint();
+        updateClientBodyYaw(target, type == MovementActionType.IDLE);
+        // Keep the step active while the body is still facing its look target, even between rotation packets.
+        float delta = clientBodyTurning ? net.minecraft.util.Mth.wrapDegrees(clientBodyYaw - clientBodyYawO)
+                : net.minecraft.util.Mth.wrapDegrees(yBodyRot - yBodyRotO);
         float remaining = target == null ? 0 : net.minecraft.util.Mth.wrapDegrees(
-                (float) Math.toDegrees(Math.atan2(getX() - target.x, target.z - getZ())) - yBodyRot);
+                (float) Math.toDegrees(Math.atan2(getX() - target.x, target.z - getZ()))
+                        - (clientBodyTurning ? clientBodyYaw : yBodyRot));
         if (type == MovementActionType.IDLE && (Math.abs(remaining) > TURN_MIN || Math.abs(delta) > TURN_MIN)) {
             turnLeft = Math.abs(remaining) > TURN_MIN ? remaining < 0 : delta < 0;
             turnFor = TURN_HOLD;
@@ -290,7 +325,7 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
         if (turning != turningShown) {
             turningShown = turning;
             ConfiguredAnimation turn = turning != 0 ? turnAnimation(turning == 1) : null;
-            if (turn != null) startAnimation("turn", turn.loopMode(LoopMode.HOLD_ON_LAST_FRAME).transitionTime(0.2f).speed(turn.speed() * 0.75f));
+            if (turn != null) startAnimation("turn", turn.loopMode(LoopMode.LOOP).transitionTime(0.2f).speed(turn.speed() * 0.75f));
             else animations.stopAnimation("turn", 0.2f);
         }
     }

@@ -130,7 +130,7 @@ public class SprauteModelRenderer extends EntityRenderer<SprauteModelEntity> {
             float lift = l.def() != null ? l.def().modelY : 0, scale = l.scale();
             pose.pushPose();
             if (lift != 0) pose.translate(0, lift, 0);
-            pose.mulPose(Axis.YP.rotationDegrees(180 - Mth.rotLerp(partial, e.yBodyRotO, e.yBodyRot)));
+            pose.mulPose(Axis.YP.rotationDegrees(180 - e.renderedBodyYaw(partial)));
             if (e.deathTime > 0) {
                 float t = Math.min(1, Mth.sqrt((e.deathTime + partial - 1) / 20f * 1.6f));
                 pose.mulPose(Axis.ZP.rotationDegrees(t * 90));
@@ -160,7 +160,7 @@ public class SprauteModelRenderer extends EntityRenderer<SprauteModelEntity> {
     private static void turnHead(SprauteModelEntity e, SpModelInstance inst, float partial) {
         SpVec3 head = inst.animRotation("head");
         if (head == null) return;
-        float yaw = Mth.wrapDegrees(Mth.rotLerp(partial, e.yHeadRotO, e.yHeadRot) - Mth.rotLerp(partial, e.yBodyRotO, e.yBodyRot));
+        float yaw = Mth.wrapDegrees(e.renderedHeadYaw(partial) - e.renderedBodyYaw(partial));
         head.add(Mth.lerp(partial, e.xRotO, e.getXRot()), Mth.clamp(yaw, -75, 75), 0);
     }
 

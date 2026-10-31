@@ -80,9 +80,9 @@ public final class AnimationSystem {
     private boolean dirty;
 
     public AnimationSystem() {
-        for (String n : List.of("movement", "turn", "ambient")) layers.put(n, new Layer(n));
+        for (String n : List.of("movement", "ambient")) layers.put(n, new Layer(n));
         for (int i = 0; i <= 20; i++) layers.put("ANIMATION_" + i, new Layer("ANIMATION_" + i));
-        for (String n : List.of("action", "EYES", "EMOTION_COMBINE", "LOOK_LEFT", "LOOK_RIGHT", "emotion")) layers.put(n, new Layer(n));
+        for (String n : List.of("action", "turn", "EYES", "EMOTION_COMBINE", "LOOK_LEFT", "LOOK_RIGHT", "emotion")) layers.put(n, new Layer(n));
     }
 
     public Layer getLayer(String name) {
