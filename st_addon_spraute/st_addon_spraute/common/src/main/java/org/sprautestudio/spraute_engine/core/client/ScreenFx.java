@@ -78,8 +78,15 @@ public final class ScreenFx {
     public static void onRender(ClientHooks.RenderGui e) {
         if (Minecraft.getInstance().screen != null && kind.isEmpty() && tint == 0) return;
         GuiGraphics g = e.getGuiGraphics();
-        if ((tint >>> 24) != 0) g.fill(0, 0, g.guiWidth(), g.guiHeight(), tint);
-        if (!kind.equals("pulse_under")) fill(g, e.getPartialTick());
+        g.pose().pushPose();
+        try {
+            // World effects sit above the game, but below story speech.
+            g.pose().translate(0, 0, 300);
+            if ((tint >>> 24) != 0) g.fill(0, 0, g.guiWidth(), g.guiHeight(), tint);
+            if (!kind.equals("pulse_under")) fill(g, e.getPartialTick());
+        } finally {
+            g.pose().popPose();
+        }
     }
 
     public static void onLogout(ClientHooks.LoggingOut e) {
