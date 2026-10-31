@@ -49,6 +49,7 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
     /** Keeps its chunk loaded, by the story's wish. */
     private boolean holdsChunk;
     private long heldChunk = Long.MIN_VALUE;
+    private final org.sprautestudio.spraute_engine.runtime.NpcItemPickup itemPickup = new org.sprautestudio.spraute_engine.runtime.NpcItemPickup(this);
 
     private final AnimationSystem animations = new AnimationSystem();
     private final Map<MovementActionType, ConfiguredAnimation> overrides = new EnumMap<>(MovementActionType.class);
@@ -155,6 +156,10 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
     public void setHoldsChunk(boolean v) {
         holdsChunk = v;
         if (!v) releaseChunk();
+    }
+
+    public org.sprautestudio.spraute_engine.runtime.NpcItemPickup itemPickup() {
+        return itemPickup;
     }
 
     private void releaseChunk() {
@@ -344,6 +349,7 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
             ConfiguredAnimation blink = blinkAnimation();
             if (blink != null) startAnimation("EYES", blink.transitionTime(0).loopMode(LoopMode.ONCE));
         }
+        itemPickup.tick();
         if (animations.takeDirty()) entityData.set(ANIMS, animations.encode());
         if (lookTarget != null) {
             Vec3 at = null;
@@ -422,6 +428,9 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
         tag.putBoolean("SprauteBlinks", blinks);
         tag.putString("SprauteGaits", entityData.get(MOVES));
         tag.putBoolean("SprauteChunk", holdsChunk);
+        CompoundTag pickup = new CompoundTag();
+        itemPickup.save(pickup);
+        tag.put("SprauteItemPickup", pickup);
     }
 
     @Override
@@ -438,6 +447,8 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
         if (tag.contains("SprauteBlinks")) blinks = tag.getBoolean("SprauteBlinks");
         entityData.set(MOVES, tag.getString("SprauteGaits"));
         holdsChunk = tag.getBoolean("SprauteChunk");
+        if (tag.contains("SprauteItemPickup", net.minecraft.nbt.Tag.TAG_COMPOUND))
+            itemPickup.load(tag.getCompound("SprauteItemPickup"));
         lockedBody = yBodyRot;
         lockedHead = yHeadRot;
     }

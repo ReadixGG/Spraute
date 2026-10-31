@@ -177,6 +177,10 @@ public final class Specs {
                 "Меняет отображаемое имя персонажа.");
         cmd("hold", CAT_CHARACTER, "<who:char> <item:item>",
                 "Даёт персонажу предмет в руку.");
+        cmd("pickup", CAT_CHARACTER, "<who:char> [items <items:item...>] [count <count:int>] [off]",
+                "Персонаж подбирает лежащие рядом предметы. Без items — любые; items ограничивает список, "
+                        + "count — сколько штук суммарно подобрать после этой команды (без count — без лимита). "
+                        + "off останавливает подбор. Примеры: pickup alice; pickup alice items \"minecraft:diamond\" count 3; pickup alice off.");
         cmd("health", CAT_CHARACTER, "<who:char> <hp:number>",
                 "Максимальное здоровье персонажа.");
         cmd("free", CAT_CHARACTER, "<who:char>",

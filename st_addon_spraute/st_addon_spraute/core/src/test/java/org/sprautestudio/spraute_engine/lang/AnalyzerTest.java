@@ -55,4 +55,18 @@ class AnalyzerTest {
         Analyzer.Result fine = Analyzer.analyze(src);
         assertFalse(fine.hasErrors(), () -> errors(fine));
     }
+
+    @Test
+    void npcPickupCommandsReadWithFiltersAndQuantity() {
+        Analyzer.Result result = Analyzer.analyze("""
+                script 7010 "pickup"
+                character alice = "spraute:npc"
+                on key H {
+                  pickup alice
+                  pickup alice items "minecraft:diamond" "minecraft:emerald" count 3
+                  pickup alice off
+                }
+                """);
+        assertFalse(result.hasErrors(), () -> errors(result));
+    }
 }

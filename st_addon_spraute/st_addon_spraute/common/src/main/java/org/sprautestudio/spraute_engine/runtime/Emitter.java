@@ -794,6 +794,31 @@ final class Emitter {
                 if (slot != null) speechEntity(b, slot, key);
             }
             case "hold" -> b.thenSetHeldItem(character(c.arg("who")), itemStack(c.arg("item"), 1));
+            case "pickup" -> {
+                Character ch = character(c.arg("who"));
+                boolean off = c.arg("off") != null;
+                List<Expr> items = new ArrayList<>();
+                for (Arg a : c.args) if ("items".equals(a.param)) items.add(a.value);
+                Expr count = c.arg("count");
+                b.thenRun(guard(() -> {
+                    net.minecraft.world.entity.Entity e = (net.minecraft.world.entity.Entity) script.optional(ch).orElse(null);
+                    if (!(e instanceof AnimatedEntity npc) || !script.controls(ch)) return;
+                    if (off) {
+                        npc.itemPickup().stop();
+                        return;
+                    }
+                    List<String> filters = new ArrayList<>();
+                    for (Expr item : items) {
+                        String spec = text(item);
+                        if (ItemSpec.error(spec) != null || ItemSpec.item(spec) == net.minecraft.world.item.Items.AIR)
+                            throw new SprauteRuntimeException("pickup: предмет " + spec + " не найден или имеет неверный NBT");
+                        filters.add(spec);
+                    }
+                    int limit = count == null ? -1 : (int) number(count, -1);
+                    if (count != null && limit < 0) throw new SprauteRuntimeException("pickup: count должен быть неотрицательным");
+                    npc.itemPickup().configure(filters, limit);
+                }));
+            }
             case "health" -> b.setMaxHealth(character(c.arg("who")), (float) number(c.arg("hp"), 20));
             case "free" -> b.freeEntity(character(c.arg("who")));
             case "nod" -> b.nod(character(c.arg("who")), (int) number(c.arg("times"), 1));
