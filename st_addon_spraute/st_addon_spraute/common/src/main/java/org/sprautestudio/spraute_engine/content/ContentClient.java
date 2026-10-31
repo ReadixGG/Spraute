@@ -67,6 +67,14 @@ public final class ContentClient {
             if (then != null) then.run();
             return;
         }
+        Minecraft mc = Minecraft.getInstance();
+        var integrated = mc.getSingleplayerServer();
+        if (integrated != null) {
+            ProjectContent.copyLocal(integrated, project, dir, () -> {
+                if (then != null) mc.execute(then);
+            });
+            return;
+        }
         try {
             List<String> lines = ProjectContent.lines(ProjectContent.manifest(dir));
             if (then != null) {

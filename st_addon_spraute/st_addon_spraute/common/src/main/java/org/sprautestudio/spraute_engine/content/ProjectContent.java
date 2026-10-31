@@ -14,6 +14,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -26,6 +27,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.stream.Stream;
 
 /**
@@ -131,6 +134,46 @@ public final class ProjectContent {
 
     private static final Map<String, Upload> UPLOADS = new HashMap<>();
     private static final Map<UUID, Deque<Packets.ContentData>> OUTGOING = new HashMap<>();
+    private static final java.util.concurrent.ExecutorService LOCAL_COPIES = Executors.newSingleThreadExecutor(task -> {
+        Thread thread = new Thread(task, "Spraute local content sync");
+        thread.setDaemon(true);
+        return thread;
+    });
+
+    /** Integrated servers can copy the author's files directly instead of sending them through game packets. */
+    public static void copyLocal(MinecraftServer server, String project, Path source, Runnable done) {
+        Path target = server.getWorldPath(LevelResource.ROOT).resolve("spraute").resolve("content").resolve(Images.slug(project));
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                Files.createDirectories(target);
+                Map<String, Entry> have = manifest(target);
+                Map<String, Entry> offered = manifest(source);
+                boolean changed = false;
+                for (String old : have.keySet()) {
+                    if (offered.containsKey(old)) continue;
+                    Files.deleteIfExists(target.resolve(old));
+                    changed = true;
+                }
+                for (Entry entry : offered.values()) {
+                    Entry current = have.get(entry.path());
+                    if (current != null && current.hash().equals(entry.hash())) continue;
+                    Path destination = target.resolve(entry.path());
+                    Files.createDirectories(destination.getParent());
+                    Files.copy(source.resolve(entry.path()), destination, StandardCopyOption.REPLACE_EXISTING);
+                    changed = true;
+                }
+                removeEmpty(target);
+                return changed;
+            } catch (IOException e) {
+                throw new java.util.concurrent.CompletionException(e);
+            }
+        }, LOCAL_COPIES).whenComplete((changed, error) -> server.execute(() -> {
+            if (Platform.get().server() != server) return;
+            if (error != null) SprauteEngine.LOGGER.warn("Spraute: cannot copy project {} locally", project, error);
+            else if (changed) publish();
+            done.run();
+        }));
+    }
 
     /** The author offers the project as it is now: what differs is asked for, what is gone is removed. */
     public static void offer(ServerPlayer p, Packets.ContentOffer msg) {
