@@ -10,8 +10,9 @@ final class ClientModules {
         org.sprautestudio.spraute_engine.core.client.ScreenFx.registerHooks();
         org.sprautestudio.spraute_engine.core.client.SlotsClient.registerHooks();
         org.sprautestudio.spraute_engine.core.client.SpeechClient.Keys.registerHooks();
-        org.sprautestudio.spraute_engine.core.client.SpeechClient.registerHooks();
+        // Screen effects and cinematic fades must draw before speech; its 3D portrait writes GUI depth.
         org.sprautestudio.spraute_engine.cutscene.client.CameraDirector.registerHooks();
+        org.sprautestudio.spraute_engine.core.client.SpeechClient.registerHooks();
         org.sprautestudio.spraute_engine.editor.ClientEvents.ForgeBus.registerHooks();
         org.sprautestudio.spraute_engine.editor.ClientEvents.ModBus.registerHooks();
         org.sprautestudio.spraute_engine.editor.cutscene.CutsceneRecorder.registerHooks();

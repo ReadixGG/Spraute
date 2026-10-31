@@ -163,14 +163,7 @@ public final class SpeechClient {
             case "top" -> TOP;
             default -> g.guiHeight() - (CameraDirector.active() && CameraDirector.hidesMinecraft() ? BOTTOM_CINEMA : BOTTOM) - h;
         };
-        g.pose().pushPose();
-        try {
-            // Both the plate and its 3D portrait stay in front of fades and cinematic bars.
-            g.pose().translate(0, 0, 400);
-            plate(g, mc.font, current, g.guiWidth() / 2, y - cfg.speechShift, maxW, BACK_ALPHA, alpha);
-        } finally {
-            g.pose().popPose();
-        }
+        plate(g, mc.font, current, g.guiWidth() / 2, y - cfg.speechShift, maxW, BACK_ALPHA, alpha);
     }
 
     public static void onLogout(ClientHooks.LoggingOut e) {
