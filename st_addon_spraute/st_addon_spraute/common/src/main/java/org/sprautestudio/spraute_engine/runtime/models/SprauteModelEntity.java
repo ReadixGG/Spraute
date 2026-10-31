@@ -408,7 +408,7 @@ public class SprauteModelEntity extends AnimatedEntity {
 
     @Override
     protected ConfiguredAnimation turnAnimation(boolean left) {
-        var a = org.sprautestudio.spraute_engine.runtime.Anims.gesture(this, left ? "turn_left" : "turn_right");
+        var a = org.sprautestudio.spraute_engine.runtime.Anims.turn(this, left);
         return a != null ? a.configure() : null;
     }
 

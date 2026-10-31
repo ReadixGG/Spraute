@@ -110,6 +110,18 @@ public final class Anims {
         return resolve(DEFAULT_NS + ":entity/humanoid!" + name);
     }
 
+    /** Shared turn clips, with a project model's own clip taking priority. */
+    public static Animation turn(AnimatedEntity e, boolean left) {
+        String name = left ? "turn_left" : "turn_right";
+        if (e instanceof org.sprautestudio.spraute_engine.runtime.models.SprauteModelEntity me
+                && me.look() != null && me.look().model() != null) {
+            Optional<Animation> own = me.look().animation(name);
+            if (own.isPresent()) return own.get();
+        }
+        return resolve(DEFAULT_NS + ":entity/common!" + name)
+                .orElseGet(() -> humanoid(name).orElse(null));
+    }
+
     /** A gesture for this body: its own animation of that name, else the built-in one. */
     public static Animation gesture(AnimatedEntity e, String name) {
         if (e instanceof org.sprautestudio.spraute_engine.runtime.models.SprauteModelEntity me && me.look() != null) {
