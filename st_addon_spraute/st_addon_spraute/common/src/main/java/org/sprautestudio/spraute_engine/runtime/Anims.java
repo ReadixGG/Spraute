@@ -113,13 +113,22 @@ public final class Anims {
         return resolve(DEFAULT_NS + ":entity/humanoid!" + name);
     }
 
-    /** Shared turn clips, with a project model's own clip taking priority. */
+    /** Humanoid rigs use the shared step; other models can provide their own turn clip. */
     public static Animation turn(AnimatedEntity e, boolean left) {
         String name = left ? "turn_left" : "turn_right";
-        if (e instanceof org.sprautestudio.spraute_engine.runtime.models.SprauteModelEntity me
-                && me.look() != null && me.look().model() != null) {
-            Optional<Animation> own = me.look().animation(name);
-            if (own.isPresent()) return own.get();
+        if (e instanceof org.sprautestudio.spraute_engine.runtime.models.SprauteModelEntity me) {
+            var look = me.look();
+            if (look != null) {
+                var geometry = look.geometry();
+                if (geometry != null && geometry.getBone("LeftLeg") != null && geometry.getBone("RightLeg") != null) {
+                    Optional<Animation> shared = resolve(DEFAULT_NS + ":entity/common!" + name);
+                    if (shared.isPresent()) return shared.get();
+                }
+                if (look.model() != null) {
+                    Optional<Animation> own = look.animation(name);
+                    if (own.isPresent()) return own.get();
+                }
+            }
         }
         return resolve(DEFAULT_NS + ":entity/common!" + name)
                 .orElseGet(() -> humanoid(name).orElse(null));

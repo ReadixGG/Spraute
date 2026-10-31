@@ -37,7 +37,7 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
 
     /** Walking speed 1 in blocks a tick; a body shows a fast walk from 1.6 of it and a run from 2. */
     private static final float SPEED_1 = (float) (org.sprautestudio.spraute_engine.path.Walkers.WALK_BPS / 20);
-    private static final float FAST_WALK = SPEED_1 * 1.6f, RUN = SPEED_1 * 2, STILL = 0.012f;
+    private static final float FAST_WALK = SPEED_1 * 1.6f, RUN = SPEED_1 * 2, STILL = 0.03f;
     /** Blinks every 2.5 to 5.5 seconds. */
     private static final int BLINK_MIN = 50, BLINK_MAX = 110;
     private static final float LOOK_SETTLED = 10, TURN_MIN = 2.5f, LOOK_DEGREES_PER_TICK = 10;
@@ -106,6 +106,18 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
         }
         lookTarget = target;
         lookInstant = instant;
+        if (target != null && !level().isClientSide) {
+            try {
+                Vec3 at = target.get();
+                if (at != null) syncLookPoint(at);
+            } catch (RuntimeException ignored) {
+            }
+        }
+    }
+
+    private void syncLookPoint(Vec3 at) {
+        String pos = at.x + "," + at.y + "," + at.z;
+        if (!pos.equals(entityData.get(LOOK))) entityData.set(LOOK, pos);
     }
 
     /** Where the eyes are turned (client): null — nowhere in particular. */
@@ -265,10 +277,13 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
         float wanted = pace > 0 ? net.minecraft.util.Mth.clamp(v / pace, 0.55f, 1.7f) : 1;
         gaitRate += (wanted - gaitRate) * 0.25f;
         animations.setRate("movement", gaitRate);
-        // the feet step while the body turns on the spot; a short pause does not stop them
+        // Keep the step active while the body is still facing its look target, even between rotation packets.
         float delta = net.minecraft.util.Mth.wrapDegrees(yBodyRot - yBodyRotO);
-        if (type == MovementActionType.IDLE && Math.abs(delta) > TURN_MIN) {
-            turnLeft = delta < 0;
+        Vec3 target = lookPoint();
+        float remaining = target == null ? 0 : net.minecraft.util.Mth.wrapDegrees(
+                (float) Math.toDegrees(Math.atan2(getX() - target.x, target.z - getZ())) - yBodyRot);
+        if (type == MovementActionType.IDLE && (Math.abs(remaining) > TURN_MIN || Math.abs(delta) > TURN_MIN)) {
+            turnLeft = Math.abs(remaining) > TURN_MIN ? remaining < 0 : delta < 0;
             turnFor = TURN_HOLD;
         } else if (turnFor > 0) turnFor--;
         int turning = type != MovementActionType.IDLE || turnFor <= 0 ? 0 : turnLeft ? 1 : 2;
@@ -306,7 +321,7 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
                 Vec3 d = at.subtract(getEyePosition());
                 float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
                 float step = lookInstant ? 360 : LOOK_DEGREES_PER_TICK;
-                boolean walking = getWalkingSpeed() > STILL;
+                boolean walking = getNavigation().isInProgress() || org.sprautestudio.spraute_engine.path.Walkers.speedOf(this) >= 0;
                 if (!bodyLocked && !walking) {
                     float next = yBodyRot + net.minecraft.util.Mth.clamp(net.minecraft.util.Mth.wrapDegrees(yaw - yBodyRot), -step, step);
                     setYRot(next);
@@ -320,10 +335,7 @@ public abstract class AnimatedEntity extends PathfinderMob implements IAnimatedO
                     float pitch = (float) -Math.toDegrees(Math.atan2(d.y, d.horizontalDistance()));
                     setXRot(getXRot() + net.minecraft.util.Mth.clamp(pitch - getXRot(), -step, step));
                 }
-                if (tickCount % 5 == 0) {
-                    String pos = at.x + "," + at.y + "," + at.z;
-                    if (!pos.equals(entityData.get(LOOK))) entityData.set(LOOK, pos);
-                }
+                if (tickCount % 5 == 0) syncLookPoint(at);
             }
         }
         if (holdsChunk && level() instanceof net.minecraft.server.level.ServerLevel l && chunkPosition().toLong() != heldChunk) {
